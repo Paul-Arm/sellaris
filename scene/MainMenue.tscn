@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://rtvy8vqjfk5g"]
+
+[node name="Main Menue" type="Node2D" unique_id=497395205]
+
+[node name="CheckButton" type="CheckButton" parent="." unique_id=2106767075]
+offset_left = 701.0
+offset_top = 206.0
+offset_right = 745.0
+offset_bottom = 230.0
+text = "Test"
+
+[node name="TextEdit" type="TextEdit" parent="." unique_id=1730379884]
+offset_left = 359.0
+offset_top = 199.0
+offset_right = 466.0
+offset_bottom = 247.0
+placeholder_text = "seed"
+
+[node name="GraphEdit" type="GraphEdit" parent="." unique_id=135448807]
+offset_left = -7.0
+offset_top = -5.0
+offset_right = 1061.0
+offset_bottom = 364.0
+scroll_offset = Vector2(-40, -40)

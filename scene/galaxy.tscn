@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://cfqxyjhw6eadp"]
+[gd_scene load_steps=3 format=3 uid="uid://cfqxyjhw6eadp"]
 
 [ext_resource type="Script" path="res://scene/galaxy.gd" id="1_31tn0"]
+[ext_resource type="Script" path="res://scene/GalaxyCameraController.gd" id="2_h6rta"]
 
 [sub_resource type="Environment" id="Environment_j4v3k"]
 background_mode = 1
@@ -15,6 +16,7 @@ glow_intensity = 0.12
 script = ExtResource("1_31tn0")
 
 [node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("2_h6rta")
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
 current = true

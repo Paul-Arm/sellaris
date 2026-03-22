@@ -1,9 +1,5 @@
 extends Node3D
 
-const PAN_SPEED := 900.0
-const ZOOM_STEP := 0.9
-const MIN_ZOOM := 220.0
-const MAX_ZOOM := 2600.0
 const STAR_COLORS := [
 	Color(0.55, 0.75, 1.0),
 	Color(0.67, 0.82, 1.0),
@@ -40,12 +36,6 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			camera.size = max(MIN_ZOOM, camera.size * ZOOM_STEP)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			camera.size = min(MAX_ZOOM, camera.size / ZOOM_STEP)
-
 	if event.is_action_pressed("ui_cancel"):
 		get_tree().change_scene_to_file("res://scene/MainMenue.tscn")
 
@@ -54,28 +44,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_generate_galaxy()
 
 
-func _process(delta: float) -> void:
-	var move_input := Vector2.ZERO
-
-	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		move_input.x -= 1.0
-	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		move_input.x += 1.0
-	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		move_input.y -= 1.0
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		move_input.y += 1.0
-
-	if move_input != Vector2.ZERO:
-		move_input = move_input.normalized()
-		camera_rig.position.x += move_input.x * PAN_SPEED * delta
-		camera_rig.position.z += move_input.y * PAN_SPEED * delta
-
-
 func _generate_galaxy() -> void:
 	system_positions.clear()
-	camera_rig.position = Vector3.ZERO
-	camera.size = clamp(galaxy_radius * 0.65, MIN_ZOOM, MAX_ZOOM)
+	if camera_rig.has_method("reset_view"):
+		camera_rig.reset_view(galaxy_radius)
 
 	var rng := RandomNumberGenerator.new()
 	generated_seed = _resolve_seed()
@@ -253,7 +225,7 @@ func _find_nearest_neighbors(system_index: int, desired_count: int) -> Array[int
 
 func _update_info_label() -> void:
 	var displayed_seed := seed_text if not seed_text.is_empty() else str(generated_seed)
-	info_label.text = "Seed: %s\nSystems: %d\nPan: WASD / Arrows  Zoom: Mouse Wheel  Regenerate: R  Back: Esc" % [
+	info_label.text = "Seed: %s\nSystems: %d\nPan: WASD / Arrows / Edge / Middle Drag  Zoom: Mouse Wheel  Regenerate: R  Back: Esc" % [
 		displayed_seed,
 		system_positions.size(),
 	]

@@ -1,3 +1,47 @@
-[gd_scene format=3 uid="uid://cfqxyjhw6eadp"]
+[gd_scene load_steps=2 format=3 uid="uid://cfqxyjhw6eadp"]
+
+[ext_resource type="Script" path="res://scene/galaxy.gd" id="1_31tn0"]
+
+[sub_resource type="Environment" id="Environment_j4v3k"]
+background_mode = 1
+background_color = Color(0.00392157, 0.00784314, 0.0196078, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.615686, 0.678431, 0.819608, 1)
+ambient_light_energy = 0.45
+glow_enabled = true
+glow_intensity = 0.12
 
 [node name="Galaxy" type="Node3D" unique_id=2131958235]
+script = ExtResource("1_31tn0")
+
+[node name="CameraRig" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+current = true
+projection = 1
+size = 1700.0
+far = 12000.0
+position = Vector3(0, 1800, 900)
+rotation_degrees = Vector3(-63, 0, 0)
+
+[node name="SunLight" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-60, 35, 0)
+light_energy = 0.6
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_j4v3k")
+
+[node name="Stars" type="MultiMeshInstance3D" parent="."]
+
+[node name="Hyperlanes" type="MeshInstance3D" parent="."]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="InfoLabel" type="Label" parent="CanvasLayer"]
+offset_left = 18.0
+offset_top = 18.0
+offset_right = 520.0
+offset_bottom = 110.0
+theme_override_font_sizes/font_size = 16
+text = "Generating galaxy..."

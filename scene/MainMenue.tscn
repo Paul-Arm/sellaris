@@ -1,24 +1,89 @@
 [gd_scene format=3 uid="uid://rtvy8vqjfk5g"]
 
-[node name="Main Menue" type="Node2D" unique_id=497395205]
+[ext_resource type="Script" uid="uid://b4bftvvq1cph6" path="res://scene/MainMenue.gd" id="1_gxsvq"]
+[ext_resource type="Shader" uid="uid://dh1bjbqwyuit8" path="res://scene/MainMenueBG.gdshader" id="2_cc0tx"]
 
-[node name="CheckButton" type="CheckButton" parent="." unique_id=2106767075]
-offset_left = 701.0
-offset_top = 206.0
-offset_right = 745.0
-offset_bottom = 230.0
-text = "Test"
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_7co16"]
+shader = ExtResource("2_cc0tx")
+shader_parameter/background_color = Color(0.005, 0.008, 0.02, 1)
+shader_parameter/core_color = Color(0.42, 0.72, 1, 1)
+shader_parameter/arm_color_a = Color(0.32, 0.45, 0.95, 1)
+shader_parameter/arm_color_b = Color(0.88, 0.42, 0.78, 1)
+shader_parameter/dust_color = Color(0.03, 0.02, 0.06, 1)
+shader_parameter/star_color = Color(0.95, 0.98, 1, 1)
+shader_parameter/galaxy_scale = 1.6600000001487398
+shader_parameter/galaxy_tilt = 0.58
+shader_parameter/swirl = 3.28999992646192
+shader_parameter/arm_count = 3.0
+shader_parameter/nebula_strength = 1.71999996155456
+shader_parameter/star_density = 0.5499999877064
+shader_parameter/motion_speed = 0.0530000025175
 
-[node name="TextEdit" type="TextEdit" parent="." unique_id=1730379884]
-offset_left = 359.0
-offset_top = 199.0
-offset_right = 466.0
-offset_bottom = 247.0
-placeholder_text = "seed"
+[node name="Main Menue" type="Control" unique_id=497395205]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_gxsvq")
 
-[node name="GraphEdit" type="GraphEdit" parent="." unique_id=135448807]
-offset_left = -7.0
-offset_top = -5.0
-offset_right = 1061.0
-offset_bottom = 364.0
-scroll_offset = Vector2(-40, -40)
+[node name="Background" type="ColorRect" parent="." unique_id=479380350]
+material = SubResource("ShaderMaterial_7co16")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="." unique_id=2107780948]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -110.0
+offset_right = 220.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Panel" unique_id=1334287175]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer" unique_id=445233947]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=835063113]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Sellaris Galaxy Generator"
+horizontal_alignment = 1
+
+[node name="Description" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=189006529]
+layout_mode = 2
+text = "Create a procedural galaxy with 500 to 1500 star systems."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="SeedInput" type="LineEdit" parent="Panel/MarginContainer/VBoxContainer" unique_id=2078621924]
+layout_mode = 2
+placeholder_text = "Seed (optional)"
+clear_button_enabled = true
+
+[node name="GenerateButton" type="Button" parent="Panel/MarginContainer/VBoxContainer" unique_id=1304444680]
+layout_mode = 2
+text = "Generate Galaxy"
+
+[node name="Hint" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=1097349]
+layout_mode = 2
+text = "Leave the seed empty for a random galaxy."
+horizontal_alignment = 1

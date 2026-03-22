@@ -44,10 +44,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -110.0
-offset_right = 220.0
-offset_bottom = 110.0
+offset_left = -250.0
+offset_top = -170.0
+offset_right = 250.0
+offset_bottom = 170.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -70,7 +70,7 @@ horizontal_alignment = 1
 
 [node name="Description" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=189006529]
 layout_mode = 2
-text = "Create a procedural galaxy with 500 to 1500 star systems."
+text = "Create a procedural galaxy, tune its shape, and control hyperlane density."
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -79,11 +79,36 @@ layout_mode = 2
 placeholder_text = "Seed (optional)"
 clear_button_enabled = true
 
+[node name="SettingsGrid" type="GridContainer" parent="Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+columns = 2
+
+[node name="StarCountLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+layout_mode = 2
+text = "Amount of Stars"
+
+[node name="StarCountSpinBox" type="SpinBox" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+layout_mode = 2
+
+[node name="ShapeLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+layout_mode = 2
+text = "Shape"
+
+[node name="ShapeOptionButton" type="OptionButton" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+layout_mode = 2
+
+[node name="HyperlaneDensityLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+layout_mode = 2
+text = "Hyperlane Density"
+
+[node name="HyperlaneDensitySpinBox" type="SpinBox" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+layout_mode = 2
+
 [node name="GenerateButton" type="Button" parent="Panel/MarginContainer/VBoxContainer" unique_id=1304444680]
 layout_mode = 2
 text = "Generate Galaxy"
 
 [node name="Hint" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=1097349]
 layout_mode = 2
-text = "Leave the seed empty for a random galaxy."
+text = "Custom crafted systems can be added in the Galaxy scene via the Custom Systems export list."
 horizontal_alignment = 1

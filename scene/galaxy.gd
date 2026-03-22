@@ -1,19 +1,14 @@
 extends Node3D
 
-const STAR_COLORS := [
-	Color(0.55, 0.75, 1.0),
-	Color(0.67, 0.82, 1.0),
-	Color(0.93, 0.94, 1.0),
-	Color(1.0, 0.95, 0.82),
-	Color(1.0, 0.8, 0.62),
-]
+const GALAXY_GENERATOR_SCRIPT := preload("res://scene/GalaxyGenerator.gd")
 
-@export_range(500, 1500, 1) var min_system_count: int = 500
-@export_range(500, 1500, 1) var max_system_count: int = 1500
+@export var star_count: int = 900
 @export var galaxy_radius: float = 2600.0
 @export var min_system_distance: float = 34.0
 @export_range(1, 6, 1) var spiral_arms: int = 4
-@export_range(1, 5, 1) var hyperlanes_per_system: int = 2
+@export_enum("spiral", "ring", "elliptical", "clustered") var galaxy_shape: String = "spiral"
+@export_range(1, 8, 1) var hyperlane_density: int = 2
+@export var custom_systems: Array[Resource] = []
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -23,12 +18,28 @@ const STAR_COLORS := [
 
 var seed_text: String = ""
 var generated_seed: int = 0
-var system_count: int = 0
 var system_positions: Array[Vector3] = []
+var system_records: Array[Dictionary] = []
+var hyperlane_links: Array[Vector2i] = []
+var generation_settings: Dictionary = {}
+var generator: RefCounted = GALAXY_GENERATOR_SCRIPT.new()
+var systems_by_id: Dictionary = {}
 
 
 func set_seed_text(value: String) -> void:
 	seed_text = value
+
+
+func configure(settings: Dictionary) -> void:
+	generation_settings = settings.duplicate(true)
+	if generation_settings.has("seed_text"):
+		seed_text = str(generation_settings["seed_text"])
+	if generation_settings.has("star_count"):
+		star_count = int(generation_settings["star_count"])
+	if generation_settings.has("shape"):
+		galaxy_shape = str(generation_settings["shape"])
+	if generation_settings.has("hyperlane_density"):
+		hyperlane_density = int(generation_settings["hyperlane_density"])
 
 
 func _ready() -> void:
@@ -46,93 +57,46 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _generate_galaxy() -> void:
 	system_positions.clear()
+	system_records.clear()
+	hyperlane_links.clear()
+	systems_by_id.clear()
 	if camera_rig.has_method("reset_view"):
 		camera_rig.reset_view(galaxy_radius)
 
-	var rng := RandomNumberGenerator.new()
-	generated_seed = _resolve_seed()
-	rng.seed = generated_seed
-	system_count = rng.randi_range(min(min_system_count, max_system_count), max(min_system_count, max_system_count))
+	var resolved_settings := {
+		"seed_text": seed_text,
+		"star_count": star_count,
+		"galaxy_radius": galaxy_radius,
+		"min_system_distance": min_system_distance,
+		"spiral_arms": spiral_arms,
+		"shape": galaxy_shape,
+		"hyperlane_density": hyperlane_density,
+	}
+	for key in generation_settings.keys():
+		resolved_settings[key] = generation_settings[key]
 
-	system_positions = _build_system_positions(rng, system_count)
-	_render_stars(rng)
+	var layout: Dictionary = generator.build_layout(resolved_settings, custom_systems)
+	generated_seed = int(layout.get("seed", 0))
+	galaxy_shape = str(layout.get("shape", galaxy_shape))
+	hyperlane_density = int(layout.get("hyperlane_density", hyperlane_density))
+	system_records = layout.get("systems", [])
+	hyperlane_links = layout.get("links", [])
+
+	for system_record in system_records:
+		system_positions.append(system_record["position"])
+		systems_by_id[system_record["id"]] = system_record
+
+	_render_stars()
 	_render_hyperlanes()
 	_update_info_label()
 
 
-func _resolve_seed() -> int:
-	if seed_text.is_empty():
-		return int(Time.get_unix_time_from_system() * 1000000.0) + int(Time.get_ticks_usec())
+func get_system_details(system_id: String) -> Dictionary:
+	if not systems_by_id.has(system_id):
+		return {}
+	return generator.generate_system_details(generated_seed, systems_by_id[system_id], custom_systems)
 
-	return seed_text.hash()
-
-
-func _build_system_positions(rng: RandomNumberGenerator, target_count: int) -> Array[Vector3]:
-	var positions: Array[Vector3] = []
-	var cell_size := min_system_distance
-	var grid: Dictionary = {}
-	var max_attempts := target_count * 60
-	var attempt := 0
-
-	while positions.size() < target_count and attempt < max_attempts:
-		attempt += 1
-		var candidate := _sample_system_position(rng)
-		var cell := Vector2i(
-			int(floor(candidate.x / cell_size)),
-			int(floor(candidate.z / cell_size))
-		)
-
-		if _has_nearby_system(candidate, cell, grid):
-			continue
-
-		positions.append(candidate)
-		if not grid.has(cell):
-			grid[cell] = []
-		grid[cell].append(candidate)
-
-	if positions.size() < target_count:
-		push_warning("Galaxy generator reached the placement limit before hitting the requested system count.")
-
-	return positions
-
-
-func _sample_system_position(rng: RandomNumberGenerator) -> Vector3:
-	var radius_roll: float = pow(rng.randf(), 0.58)
-	var radius: float = radius_roll * galaxy_radius
-	var arm_index: int = rng.randi_range(0, maxi(spiral_arms - 1, 0))
-	var arm_count: float = maxf(float(spiral_arms), 1.0)
-	var arm_angle: float = float(arm_index) * TAU / arm_count
-	var swirl: float = (radius / galaxy_radius) * 2.6
-	var random_scatter: float = rng.randf_range(-0.28, 0.28)
-	var angle: float = arm_angle + swirl + random_scatter
-
-	if rng.randf() < 0.25:
-		angle = rng.randf_range(0.0, TAU)
-		radius *= rng.randf_range(0.15, 0.55)
-
-	var x := cos(angle) * radius * rng.randf_range(0.9, 1.1)
-	var z := sin(angle) * radius
-	var y := rng.randf_range(-18.0, 18.0)
-	return Vector3(x, y, z)
-
-
-func _has_nearby_system(candidate: Vector3, cell: Vector2i, grid: Dictionary) -> bool:
-	var min_distance_sq := min_system_distance * min_system_distance
-
-	for x_offset in range(-1, 2):
-		for y_offset in range(-1, 2):
-			var neighbor_cell := Vector2i(cell.x + x_offset, cell.y + y_offset)
-			if not grid.has(neighbor_cell):
-				continue
-
-			for existing: Vector3 in grid[neighbor_cell]:
-				if candidate.distance_squared_to(existing) < min_distance_sq:
-					return true
-
-	return false
-
-
-func _render_stars(rng: RandomNumberGenerator) -> void:
+func _render_stars() -> void:
 	var sphere := SphereMesh.new()
 	sphere.radius = 3.0
 	sphere.height = 6.0
@@ -151,13 +115,17 @@ func _render_stars(rng: RandomNumberGenerator) -> void:
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true
 	multimesh.mesh = sphere
-	multimesh.instance_count = system_positions.size()
+	multimesh.instance_count = system_records.size()
 
-	for i in range(system_positions.size()):
+	var rng := RandomNumberGenerator.new()
+	rng.seed = generated_seed
+
+	for i in range(system_records.size()):
+		var system_record: Dictionary = system_records[i]
 		var star_scale := rng.randf_range(0.55, 1.9)
-		var transform := Transform3D(Basis().scaled(Vector3.ONE * star_scale), system_positions[i])
+		var transform := Transform3D(Basis().scaled(Vector3.ONE * star_scale), system_record["position"])
 		multimesh.set_instance_transform(i, transform)
-		multimesh.set_instance_color(i, STAR_COLORS[rng.randi_range(0, STAR_COLORS.size() - 1)])
+		multimesh.set_instance_color(i, system_record["star_color"])
 
 	stars.multimesh = multimesh
 
@@ -171,61 +139,21 @@ func _render_hyperlanes() -> void:
 	lane_material.albedo_color = Color(0.32, 0.56, 0.95, 0.42)
 	lane_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 
-	var links: Dictionary = {}
-
-	for i in range(system_positions.size()):
-		var nearest := _find_nearest_neighbors(i, hyperlanes_per_system)
-		for neighbor_index in nearest:
-			var a: int = mini(i, neighbor_index)
-			var b: int = maxi(i, neighbor_index)
-			var key := "%s:%s" % [a, b]
-			if links.has(key):
-				continue
-
-			links[key] = true
-			surface_tool.set_color(Color(0.32, 0.56, 0.95, 0.42))
-			surface_tool.add_vertex(system_positions[a])
-			surface_tool.set_color(Color(0.32, 0.56, 0.95, 0.42))
-			surface_tool.add_vertex(system_positions[b])
+	for link in hyperlane_links:
+		surface_tool.set_color(Color(0.32, 0.56, 0.95, 0.42))
+		surface_tool.add_vertex(system_positions[link.x])
+		surface_tool.set_color(Color(0.32, 0.56, 0.95, 0.42))
+		surface_tool.add_vertex(system_positions[link.y])
 
 	hyperlanes.mesh = surface_tool.commit()
 	hyperlanes.material_override = lane_material
 
 
-func _find_nearest_neighbors(system_index: int, desired_count: int) -> Array[int]:
-	var origin := system_positions[system_index]
-	var nearest: Array[int] = []
-	var nearest_distances: Array[float] = []
-
-	for candidate_index in range(system_positions.size()):
-		if candidate_index == system_index:
-			continue
-
-		var distance_sq := origin.distance_squared_to(system_positions[candidate_index])
-		var insert_at := nearest_distances.size()
-
-		for i in range(nearest_distances.size()):
-			if distance_sq < nearest_distances[i]:
-				insert_at = i
-				break
-
-		if insert_at < desired_count:
-			nearest.insert(insert_at, candidate_index)
-			nearest_distances.insert(insert_at, distance_sq)
-
-			if nearest.size() > desired_count:
-				nearest.resize(desired_count)
-				nearest_distances.resize(desired_count)
-		elif nearest.size() < desired_count:
-			nearest.append(candidate_index)
-			nearest_distances.append(distance_sq)
-
-	return nearest
-
-
 func _update_info_label() -> void:
 	var displayed_seed := seed_text if not seed_text.is_empty() else str(generated_seed)
-	info_label.text = "Seed: %s\nSystems: %d\nPan: WASD / Arrows / Edge / Middle Drag  Zoom: Mouse Wheel  Regenerate: R  Back: Esc" % [
+	info_label.text = "Seed: %s\nSystems: %d  Shape: %s  Hyperlanes: %d\nPan: WASD / Arrows / Edge / Middle Drag  Zoom: Mouse Wheel  Regenerate: R  Back: Esc" % [
 		displayed_seed,
 		system_positions.size(),
+		galaxy_shape.capitalize(),
+		hyperlane_density,
 	]

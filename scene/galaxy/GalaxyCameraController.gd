@@ -19,6 +19,14 @@ var _is_right_dragging: bool = false
 var _camera_distance: float = 1400.0
 var _tilt_degrees: float = -34.0
 var _yaw_degrees: float = 0.0
+var _input_blocked: bool = false
+
+
+func set_input_blocked(blocked: bool) -> void:
+	_input_blocked = blocked
+	if blocked:
+		_is_middle_dragging = false
+		_is_right_dragging = false
 
 
 func reset_view(galaxy_radius: float) -> void:
@@ -30,6 +38,9 @@ func reset_view(galaxy_radius: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _input_blocked:
+		return
+
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_MIDDLE:
 			_is_middle_dragging = event.pressed
@@ -48,6 +59,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	if _input_blocked:
+		return
+
 	var move_input := _get_keyboard_input()
 	move_input += _get_edge_pan_input()
 
@@ -86,6 +100,8 @@ func _get_keyboard_input() -> Vector2:
 func _get_edge_pan_input() -> Vector2:
 	var viewport := get_viewport()
 	if viewport == null:
+		return Vector2.ZERO
+	if viewport.gui_get_hovered_control() != null:
 		return Vector2.ZERO
 
 	var visible_rect := viewport.get_visible_rect()

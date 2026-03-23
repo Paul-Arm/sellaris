@@ -1,7 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://cfqxyjhw6eadp"]
+[gd_scene format=3 uid="uid://cfqxyjhw6eadp"]
 
-[ext_resource type="Script" path="res://scene/galaxy/galaxy.gd" id="1_31tn0"]
-[ext_resource type="Script" path="res://scene/galaxy/GalaxyCameraController.gd" id="2_h6rta"]
+[ext_resource type="Script" uid="uid://de1u4tyihsr33" path="res://scene/galaxy/galaxy.gd" id="1_31tn0"]
+[ext_resource type="Script" uid="uid://e4krux16ghmk" path="res://scene/galaxy/GalaxyCameraController.gd" id="2_h6rta"]
 
 [sub_resource type="Environment" id="Environment_j4v3k"]
 background_mode = 1
@@ -9,44 +9,46 @@ background_color = Color(0.00392157, 0.00784314, 0.0196078, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.615686, 0.678431, 0.819608, 1)
 ambient_light_energy = 0.45
+tonemap_exposure = 0.92
 glow_enabled = true
 glow_intensity = 0.08
 glow_bloom = 0.04
-tonemap_exposure = 0.92
 
 [node name="Galaxy" type="Node3D" unique_id=2131958235]
 script = ExtResource("1_31tn0")
 
-[node name="CameraRig" type="Node3D" parent="."]
+[node name="CameraRig" type="Node3D" parent="." unique_id=403514379]
 script = ExtResource("2_h6rta")
 
-[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+[node name="Camera3D" type="Camera3D" parent="CameraRig" unique_id=394641214]
+transform = Transform3D(1, 0, 0, 0, 0.8290376, 0.5591929, 0, -0.5591929, 0.8290376, 0, 1100, 1400)
 current = true
-projection = 0
 fov = 42.0
 far = 12000.0
-position = Vector3(0, 1100, 1400)
-rotation_degrees = Vector3(-34, 0, 0)
 
-[node name="SunLight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-60, 35, 0)
+[node name="SunLight" type="DirectionalLight3D" parent="." unique_id=277782082]
+transform = Transform3D(0.81915206, -0.4967318, 0.2867882, 0, 0.49999997, 0.86602545, -0.57357645, -0.70940655, 0.409576, 0, 0, 0)
 light_energy = 1.1
 shadow_enabled = true
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1893918037]
 environment = SubResource("Environment_j4v3k")
 
-[node name="Stars" type="Node3D" parent="."]
+[node name="Stars" type="Node3D" parent="." unique_id=530927586]
 
-[node name="CoreStars" type="MultiMeshInstance3D" parent="Stars"]
+[node name="CoreStars" type="MultiMeshInstance3D" parent="Stars" unique_id=139479163]
 
-[node name="GlowStars" type="MultiMeshInstance3D" parent="Stars"]
+[node name="GlowStars" type="MultiMeshInstance3D" parent="Stars" unique_id=1803807061]
 
-[node name="Hyperlanes" type="MeshInstance3D" parent="."]
+[node name="OwnershipMarkers" type="MultiMeshInstance3D" parent="Stars" unique_id=1185641856]
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="OwnershipConnectors" type="MultiMeshInstance3D" parent="Stars" unique_id=321456781]
 
-[node name="InfoLabel" type="Label" parent="CanvasLayer"]
+[node name="Hyperlanes" type="MeshInstance3D" parent="." unique_id=1709715272]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=428941150]
+
+[node name="InfoLabel" type="Label" parent="CanvasLayer" unique_id=640211277]
 offset_left = 18.0
 offset_top = 18.0
 offset_right = 520.0
@@ -54,7 +56,7 @@ offset_bottom = 110.0
 theme_override_font_sizes/font_size = 16
 text = "Generating galaxy..."
 
-[node name="LoadingOverlay" type="Control" parent="CanvasLayer"]
+[node name="LoadingOverlay" type="Control" parent="CanvasLayer" unique_id=1121971454]
 visible = false
 layout_mode = 3
 anchors_preset = 15
@@ -64,16 +66,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Dimmer" type="ColorRect" parent="CanvasLayer/LoadingOverlay"]
+[node name="Dimmer" type="ColorRect" parent="CanvasLayer/LoadingOverlay" unique_id=137590567]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.0, 0.0, 0.0, 0.55)
+color = Color(0, 0, 0, 0.55)
 
-[node name="Panel" type="PanelContainer" parent="CanvasLayer/LoadingOverlay"]
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/LoadingOverlay" unique_id=398960601]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -87,29 +89,148 @@ offset_bottom = 70.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/LoadingOverlay/Panel"]
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/LoadingOverlay/Panel" unique_id=1374792106]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer" unique_id=1618213434]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="LoadingTitle" type="Label" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer"]
+[node name="LoadingTitle" type="Label" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer" unique_id=390655294]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Generating Galaxy"
 horizontal_alignment = 1
 
-[node name="LoadingStatus" type="Label" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer"]
+[node name="LoadingStatus" type="Label" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer" unique_id=1873630131]
 layout_mode = 2
 text = "Preparing systems..."
 horizontal_alignment = 1
 
-[node name="LoadingProgress" type="ProgressBar" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer"]
+[node name="LoadingProgress" type="ProgressBar" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer" unique_id=200317065]
 layout_mode = 2
-max_value = 100.0
-value = 0.0
+
+[node name="SystemPanel" type="PanelContainer" parent="CanvasLayer" unique_id=1239954555]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -346.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 238.0
+grow_horizontal = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SystemPanel" unique_id=1410794106]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/SystemPanel/MarginContainer" unique_id=504705542]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="EmpireStatusLabel" type="Label" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=869168876]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Active Empire: None selected"
+
+[node name="ChangeEmpireButton" type="Button" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=813997206]
+layout_mode = 2
+text = "Choose Empire"
+
+[node name="SelectedSystemTitle" type="Label" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=590778347]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "No system selected"
+
+[node name="SelectedSystemMeta" type="Label" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=1609262179]
+layout_mode = 2
+text = "Left-click a star system to inspect it."
+autowrap_mode = 3
+
+[node name="ClaimSystemButton" type="Button" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=1083528394]
+layout_mode = 2
+text = "Claim Selected System"
+
+[node name="ClearOwnerButton" type="Button" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=2062159137]
+layout_mode = 2
+text = "Clear Owner"
+
+[node name="EmpirePickerOverlay" type="Control" parent="CanvasLayer" unique_id=1173058469]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Dimmer" type="ColorRect" parent="CanvasLayer/EmpirePickerOverlay" unique_id=854717774]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.62)
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/EmpirePickerOverlay" unique_id=402831345]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -180.0
+offset_right = 240.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/EmpirePickerOverlay/Panel" unique_id=1376973126]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer" unique_id=1124064108]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer" unique_id=967503551]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Choose Empire"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer" unique_id=1307131154]
+layout_mode = 2
+text = "Pick the empire shell that this client should control. Ownership and controller data stay in galaxy state so the same structure can later drive multiplayer and AI."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="EmpirePickerList" type="ItemList" parent="CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer" unique_id=1826597335]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer" unique_id=937116401]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="SelectEmpireButton" type="Button" parent="CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/ButtonRow" unique_id=417825436]
+layout_mode = 2
+text = "Use Empire"
+
+[node name="CancelEmpirePickerButton" type="Button" parent="CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/ButtonRow" unique_id=1097491886]
+layout_mode = 2
+text = "Close"

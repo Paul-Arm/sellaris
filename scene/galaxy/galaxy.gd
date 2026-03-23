@@ -1,6 +1,6 @@
 extends Node3D
 
-const GALAXY_GENERATOR_SCRIPT := preload("res://scene/GalaxyGenerator.gd")
+const GALAXY_GENERATOR_SCRIPT := preload("res://scene/galaxy/GalaxyGenerator.gd")
 
 @export var star_count: int = 900
 @export var galaxy_radius: float = 2600.0
@@ -48,7 +48,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		get_tree().change_scene_to_file("res://scene/MainMenue.tscn")
+		get_tree().change_scene_to_file("res://scene/MainMenue/MainMenue.tscn")
 
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_R:

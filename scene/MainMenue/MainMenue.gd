@@ -1,7 +1,7 @@
 extends Control
 
-const GALAXY_SCENE := preload("res://scene/galaxy.tscn")
-const GALAXY_GENERATOR_SCRIPT := preload("res://scene/GalaxyGenerator.gd")
+const GALAXY_SCENE := preload("res://scene/galaxy/galaxy.tscn")
+const GALAXY_GENERATOR_SCRIPT := preload("res://scene/galaxy/GalaxyGenerator.gd")
 
 @onready var seed_input: LineEdit = $Panel/MarginContainer/VBoxContainer/SeedInput
 @onready var star_count_spin_box: SpinBox = $Panel/MarginContainer/VBoxContainer/SettingsGrid/StarCountSpinBox

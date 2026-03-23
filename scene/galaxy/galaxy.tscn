@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://cfqxyjhw6eadp"]
 
-[ext_resource type="Script" path="res://scene/galaxy.gd" id="1_31tn0"]
-[ext_resource type="Script" path="res://scene/GalaxyCameraController.gd" id="2_h6rta"]
+[ext_resource type="Script" path="res://scene/galaxy/galaxy.gd" id="1_31tn0"]
+[ext_resource type="Script" path="res://scene/galaxy/GalaxyCameraController.gd" id="2_h6rta"]
 
 [sub_resource type="Environment" id="Environment_j4v3k"]
 background_mode = 1

@@ -1,5 +1,4 @@
 extends Resource
-class_name CustomStarSystem
 
 @export var system_id: String = ""
 @export var system_name: String = ""

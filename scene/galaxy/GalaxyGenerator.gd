@@ -41,6 +41,11 @@ const STAR_CLASS_BY_COLOR := {
 	STAR_COLOR_YELLOW: "G",
 	STAR_COLOR_BLUE: "B",
 }
+const MIN_HYPERLANES_PER_SYSTEM := 2
+const MAX_HYPERLANES_PER_SYSTEM := 5
+const EXTRA_HYPERLANE_CANDIDATES := 6
+const HYPERLANE_DISTANCE_FACTOR_BASE := 2.35
+const HYPERLANE_DISTANCE_FACTOR_PER_DENSITY := 0.22
 
 
 func get_shape_options() -> PackedStringArray:
@@ -61,9 +66,8 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 
 	var systems: Array[Dictionary] = []
 	var grid: Dictionary = {}
-	var backbone_links: Array[Vector2i] = []
 	var cell_size: float = min_system_distance
-	var custom_count: int = _append_custom_systems(systems, custom_systems, grid, cell_size, backbone_links)
+	var custom_count: int = _append_custom_systems(systems, custom_systems, grid, cell_size)
 	var procedural_target: int = maxi(0, target_system_count - custom_count)
 	var max_attempts: int = maxi(2000, procedural_target * 70)
 	var attempt: int = 0
@@ -86,16 +90,16 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 		record["star_profile"] = _build_star_profile(galaxy_seed, record)
 		systems.append(record)
 		_add_to_grid(position, grid, cell_size)
-		_append_backbone_link_for_new_system(systems.size() - 1, systems, backbone_links)
 
 	if systems.size() < target_system_count:
 		push_warning("Galaxy generator reached the placement limit before hitting the requested system count.")
 
-	var links: Array[Vector2i] = _build_hyperlanes(systems, hyperlane_density, backbone_links)
+	var hyperlane_graph := build_hyperlane_graph(systems, hyperlane_density)
 	return {
 		"seed": galaxy_seed,
 		"systems": systems,
-		"links": links,
+		"links": hyperlane_graph["links"],
+		"hyperlane_graph": hyperlane_graph,
 		"shape": shape,
 		"hyperlane_density": hyperlane_density,
 	}
@@ -166,7 +170,7 @@ func _combine_seed(galaxy_seed: int, system_id: String) -> int:
 	return galaxy_seed + system_id.hash() * 31
 
 
-func _append_custom_systems(systems: Array[Dictionary], custom_systems: Array[Resource], grid: Dictionary, cell_size: float, backbone_links: Array[Vector2i]) -> int:
+func _append_custom_systems(systems: Array[Dictionary], custom_systems: Array[Resource], grid: Dictionary, cell_size: float) -> int:
 	var added_count: int = 0
 
 	for i in range(custom_systems.size()):
@@ -184,7 +188,6 @@ func _append_custom_systems(systems: Array[Dictionary], custom_systems: Array[Re
 		record["star_profile"] = _build_custom_star_profile(custom_system)
 		systems.append(record)
 		_add_to_grid(custom_system.position, grid, cell_size)
-		_append_backbone_link_for_new_system(systems.size() - 1, systems, backbone_links)
 		added_count += 1
 
 	return added_count
@@ -282,59 +285,213 @@ func _add_to_grid(position: Vector3, grid: Dictionary, cell_size: float) -> void
 	grid[cell] = existing_positions
 
 
-func _build_hyperlanes(systems: Array[Dictionary], density: int, backbone_links: Array[Vector2i]) -> Array[Vector2i]:
+func build_hyperlane_graph(systems: Array[Dictionary], density: int) -> Dictionary:
+	var links: Array[Vector2i] = _build_hyperlanes(systems, density)
+	return {
+		"links": links,
+		"adjacency": build_hyperlane_adjacency(systems.size(), links),
+		"min_links_per_system": mini(MIN_HYPERLANES_PER_SYSTEM, maxi(systems.size() - 1, 0)),
+		"max_links_per_system": mini(MAX_HYPERLANES_PER_SYSTEM, maxi(systems.size() - 1, 0)),
+		"target_links_per_system": mini(clampi(density + 1, MIN_HYPERLANES_PER_SYSTEM, MAX_HYPERLANES_PER_SYSTEM), maxi(systems.size() - 1, 0)),
+	}
+
+
+func build_hyperlane_adjacency(system_count: int, links: Array[Vector2i]) -> Dictionary:
+	var adjacency: Dictionary = {}
+	for system_index in range(system_count):
+		adjacency[system_index] = []
+
+	for link in links:
+		var a_neighbors: Array = adjacency.get(link.x, [])
+		a_neighbors.append(link.y)
+		adjacency[link.x] = a_neighbors
+
+		var b_neighbors: Array = adjacency.get(link.y, [])
+		b_neighbors.append(link.x)
+		adjacency[link.y] = b_neighbors
+
+	return adjacency
+
+
+func _build_hyperlanes(systems: Array[Dictionary], density: int) -> Array[Vector2i]:
 	var links: Array[Vector2i] = []
 	var dedupe: Dictionary = {}
 	if systems.size() <= 1:
 		return links
 
-	for backbone_link in backbone_links:
-		_add_hyperlane_link(backbone_link.x, backbone_link.y, links, dedupe)
+	var target_links := mini(clampi(density + 1, MIN_HYPERLANES_PER_SYSTEM, MAX_HYPERLANES_PER_SYSTEM), systems.size() - 1)
+	var min_links := mini(MIN_HYPERLANES_PER_SYSTEM, systems.size() - 1)
+	var max_links := mini(MAX_HYPERLANES_PER_SYSTEM, systems.size() - 1)
+	var candidate_count := mini(max_links + EXTRA_HYPERLANE_CANDIDATES, systems.size() - 1)
+	var neighbor_cache: Array = []
+	var nearest_distance_sq: Array[float] = []
+	var candidate_edges: Array = []
 
-	for i in range(systems.size()):
-		var nearest: Array[int] = _find_nearest_neighbors(i, systems, density)
-		for neighbor_index in nearest:
-			_add_hyperlane_link(i, neighbor_index, links, dedupe)
+	for system_index in range(systems.size()):
+		var nearest: Array[int] = _find_nearest_neighbors(system_index, systems, candidate_count)
+		neighbor_cache.append(nearest)
+		if nearest.is_empty():
+			nearest_distance_sq.append(INF)
+		else:
+			var nearest_position: Vector3 = systems[nearest[0]]["position"]
+			nearest_distance_sq.append(systems[system_index]["position"].distance_squared_to(nearest_position))
+
+	var edge_dedupe: Dictionary = {}
+	for system_index in range(systems.size()):
+		var cached_neighbors: Array = neighbor_cache[system_index]
+		for neighbor_index_variant in cached_neighbors:
+			var neighbor_index: int = int(neighbor_index_variant)
+			var a: int = mini(system_index, neighbor_index)
+			var b: int = maxi(system_index, neighbor_index)
+			var edge_key: String = "%s:%s" % [a, b]
+			if edge_dedupe.has(edge_key):
+				continue
+
+			var distance_sq: float = systems[a]["position"].distance_squared_to(systems[b]["position"])
+			if not _is_hyperlane_distance_allowed(a, b, distance_sq, nearest_distance_sq, density):
+				continue
+
+			edge_dedupe[edge_key] = true
+			candidate_edges.append({
+				"a": a,
+				"b": b,
+				"distance_sq": distance_sq,
+			})
+
+	candidate_edges.sort_custom(_sort_hyperlane_edges_by_distance)
+	var parent: Array[int] = []
+	var rank: Array[int] = []
+	var degrees: Array[int] = []
+	parent.resize(systems.size())
+	rank.resize(systems.size())
+	degrees.resize(systems.size())
+	for system_index in range(systems.size()):
+		parent[system_index] = system_index
+		rank[system_index] = 0
+		degrees[system_index] = 0
+
+	# Backbone: shortest nearby edges first, so the graph stays connected without weird long jumps.
+	for edge_variant in candidate_edges:
+		var edge: Dictionary = edge_variant
+		var a_index: int = edge["a"]
+		var b_index: int = edge["b"]
+		if _uf_find(parent, a_index) == _uf_find(parent, b_index):
+			continue
+
+		_add_hyperlane_link(a_index, b_index, links, dedupe)
+		degrees[a_index] += 1
+		degrees[b_index] += 1
+		_uf_union(parent, rank, a_index, b_index)
+
+	if links.size() < systems.size() - 1:
+		_connect_remaining_components(systems, links, dedupe, parent, rank, degrees)
+
+	# Fill sparse systems first so most systems land in the 2-5 link range.
+	for edge_variant in candidate_edges:
+		var edge: Dictionary = edge_variant
+		var a_index: int = edge["a"]
+		var b_index: int = edge["b"]
+		if degrees[a_index] >= max_links or degrees[b_index] >= max_links:
+			continue
+		if degrees[a_index] >= min_links and degrees[b_index] >= min_links:
+			continue
+		if _add_hyperlane_link(a_index, b_index, links, dedupe):
+			degrees[a_index] += 1
+			degrees[b_index] += 1
+
+	# Then add a few more local links for richer travel choices, still respecting the distance cap.
+	for edge_variant in candidate_edges:
+		var edge: Dictionary = edge_variant
+		var a_index: int = edge["a"]
+		var b_index: int = edge["b"]
+		if degrees[a_index] >= max_links or degrees[b_index] >= max_links:
+			continue
+		if degrees[a_index] >= target_links and degrees[b_index] >= target_links:
+			continue
+		if _add_hyperlane_link(a_index, b_index, links, dedupe):
+			degrees[a_index] += 1
+			degrees[b_index] += 1
 
 	return links
 
 
-func _append_backbone_link_for_new_system(system_index: int, systems: Array[Dictionary], backbone_links: Array[Vector2i]) -> void:
-	if system_index <= 0:
-		return
-
-	var nearest_index := _find_nearest_existing_system_index(system_index, systems)
-	if nearest_index >= 0:
-		backbone_links.append(Vector2i(system_index, nearest_index))
-
-
-func _add_hyperlane_link(a_index: int, b_index: int, links: Array[Vector2i], dedupe: Dictionary) -> void:
+func _add_hyperlane_link(a_index: int, b_index: int, links: Array[Vector2i], dedupe: Dictionary) -> bool:
 	if a_index == b_index:
-		return
+		return false
 
 	var a: int = mini(a_index, b_index)
 	var b: int = maxi(a_index, b_index)
 	var key: String = "%s:%s" % [a, b]
 	if dedupe.has(key):
-		return
+		return false
 
 	dedupe[key] = true
 	links.append(Vector2i(a, b))
+	return true
 
 
-func _find_nearest_existing_system_index(system_index: int, systems: Array[Dictionary]) -> int:
-	var origin: Vector3 = systems[system_index]["position"]
-	var best_index := -1
-	var best_distance_sq := INF
+func _sort_hyperlane_edges_by_distance(a: Dictionary, b: Dictionary) -> bool:
+	return float(a["distance_sq"]) < float(b["distance_sq"])
 
-	for candidate_index in range(system_index):
-		var candidate_position: Vector3 = systems[candidate_index]["position"]
-		var distance_sq := origin.distance_squared_to(candidate_position)
-		if distance_sq < best_distance_sq:
-			best_distance_sq = distance_sq
-			best_index = candidate_index
 
-	return best_index
+func _uf_find(parent: Array[int], index: int) -> int:
+	if parent[index] != index:
+		parent[index] = _uf_find(parent, parent[index])
+	return parent[index]
+
+
+func _uf_union(parent: Array[int], rank: Array[int], a_index: int, b_index: int) -> void:
+	var root_a := _uf_find(parent, a_index)
+	var root_b := _uf_find(parent, b_index)
+	if root_a == root_b:
+		return
+
+	if rank[root_a] < rank[root_b]:
+		parent[root_a] = root_b
+	elif rank[root_a] > rank[root_b]:
+		parent[root_b] = root_a
+	else:
+		parent[root_b] = root_a
+		rank[root_a] += 1
+
+
+func _is_hyperlane_distance_allowed(a_index: int, b_index: int, distance_sq: float, nearest_distance_sq: Array[float], density: int) -> bool:
+	var distance_factor := HYPERLANE_DISTANCE_FACTOR_BASE + float(density - 1) * HYPERLANE_DISTANCE_FACTOR_PER_DENSITY
+	var a_reference := nearest_distance_sq[a_index]
+	var b_reference := nearest_distance_sq[b_index]
+
+	if is_inf(a_reference) or is_inf(b_reference):
+		return true
+
+	var max_allowed_sq := maxf(a_reference, b_reference) * distance_factor * distance_factor
+	return distance_sq <= max_allowed_sq
+
+
+func _connect_remaining_components(systems: Array[Dictionary], links: Array[Vector2i], dedupe: Dictionary, parent: Array[int], rank: Array[int], degrees: Array[int]) -> void:
+	while links.size() < systems.size() - 1:
+		var best_a := -1
+		var best_b := -1
+		var best_distance_sq := INF
+
+		for a_index in range(systems.size()):
+			var a_root := _uf_find(parent, a_index)
+			for b_index in range(a_index + 1, systems.size()):
+				if a_root == _uf_find(parent, b_index):
+					continue
+
+				var distance_sq: float = systems[a_index]["position"].distance_squared_to(systems[b_index]["position"])
+				if distance_sq < best_distance_sq:
+					best_distance_sq = distance_sq
+					best_a = a_index
+					best_b = b_index
+
+		if best_a == -1:
+			break
+
+		if _add_hyperlane_link(best_a, best_b, links, dedupe):
+			degrees[best_a] += 1
+			degrees[best_b] += 1
+			_uf_union(parent, rank, best_a, best_b)
 
 
 func _find_nearest_neighbors(system_index: int, systems: Array[Dictionary], desired_count: int) -> Array[int]:

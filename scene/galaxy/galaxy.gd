@@ -31,9 +31,11 @@ var generated_seed: int = 0
 var system_positions: Array[Vector3] = []
 var system_records: Array[Dictionary] = []
 var hyperlane_links: Array[Vector2i] = []
+var hyperlane_graph: Dictionary = {}
 var generation_settings: Dictionary = {}
 var generator: RefCounted = GALAXY_GENERATOR_SCRIPT.new()
 var systems_by_id: Dictionary = {}
+var system_indices_by_id: Dictionary = {}
 var _is_generating: bool = false
 
 
@@ -80,7 +82,9 @@ func _generate_galaxy_async() -> void:
 	system_positions.clear()
 	system_records.clear()
 	hyperlane_links.clear()
+	hyperlane_graph.clear()
 	systems_by_id.clear()
+	system_indices_by_id.clear()
 	if camera_rig.has_method("reset_view"):
 		camera_rig.reset_view(galaxy_radius)
 
@@ -108,13 +112,16 @@ func _generate_galaxy_async() -> void:
 	hyperlane_density = int(layout.get("hyperlane_density", hyperlane_density))
 	system_records = layout.get("systems", [])
 	hyperlane_links = layout.get("links", [])
+	hyperlane_graph = layout.get("hyperlane_graph", {})
 
 	_set_loading_state(true, "Preparing scene data...", 0.68)
 	await get_tree().process_frame
 
-	for system_record in system_records:
+	for system_index in range(system_records.size()):
+		var system_record: Dictionary = system_records[system_index]
 		system_positions.append(system_record["position"])
 		systems_by_id[system_record["id"]] = system_record
+		system_indices_by_id[system_record["id"]] = system_index
 
 	_set_loading_state(true, "Rendering stars...", 0.82)
 	await get_tree().process_frame
@@ -199,12 +206,12 @@ func _render_stars() -> void:
 
 	for i in range(star_instances.size()):
 		var instance: Dictionary = star_instances[i]
-		var scale: float = float(instance["scale"])
+		var star_scale: float = float(instance["scale"])
 		var color: Color = instance["color"]
 		var special_type: String = str(instance["special_type"])
-		var position: Vector3 = instance["position"]
-		var core_scale := scale * 1.05
-		var glow_scale := scale * 2.0
+		var star_position: Vector3 = instance["position"]
+		var core_scale := star_scale * 1.05
+		var glow_scale := star_scale * 2.0
 
 		if special_type == BLACK_HOLE_TYPE:
 			core_scale *= 0.72
@@ -217,11 +224,11 @@ func _render_stars() -> void:
 			core_scale *= 1.18
 			glow_scale *= 1.15
 
-		core_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * core_scale), position))
+		core_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * core_scale), star_position))
 		core_multimesh.set_instance_color(i, color)
 
 		var glow_color := _get_glow_color(color, special_type)
-		glow_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * glow_scale), position))
+		glow_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * glow_scale), star_position))
 		glow_multimesh.set_instance_color(i, glow_color)
 
 	core_stars.multimesh = core_multimesh
@@ -258,15 +265,15 @@ func _update_info_label() -> void:
 	]
 
 
-func _get_star_offset(star_index: int, star_count: int, orbit_radius: float) -> Vector3:
-	if star_count <= 1:
+func _get_star_offset(star_index: int, system_star_count: int, orbit_radius: float) -> Vector3:
+	if system_star_count <= 1:
 		return Vector3.ZERO
 
-	if star_count == 2:
+	if system_star_count == 2:
 		var direction := -1.0 if star_index == 0 else 1.0
 		return Vector3(direction * orbit_radius, 0.0, 0.0)
 
-	var angle := float(star_index) * TAU / float(star_count)
+	var angle := float(star_index) * TAU / float(system_star_count)
 	return Vector3(cos(angle) * orbit_radius, 0.0, sin(angle) * orbit_radius)
 
 
@@ -294,8 +301,8 @@ func _get_glow_color(base_color: Color, special_type: String) -> Color:
 	return glow_color
 
 
-func _set_loading_state(is_visible: bool, status_text: String = "", progress_ratio: float = 0.0) -> void:
-	loading_overlay.visible = is_visible
+func _set_loading_state(visible_state: bool, status_text: String = "", progress_ratio: float = 0.0) -> void:
+	loading_overlay.visible = visible_state
 	if not status_text.is_empty():
 		loading_status.text = status_text
 	loading_progress.value = clampf(progress_ratio, 0.0, 1.0) * 100.0

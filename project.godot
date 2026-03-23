@@ -15,6 +15,10 @@ run/main_scene="res://scene/MainMenue/MainMenue.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[display]
+
+window/size/mode=2
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
@@ -22,3 +26,5 @@ config/icon="res://icon.svg"
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+anti_aliasing/quality/msaa_2d=2
+anti_aliasing/quality/msaa_3d=2

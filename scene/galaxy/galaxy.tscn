@@ -10,7 +10,9 @@ ambient_light_source = 2
 ambient_light_color = Color(0.615686, 0.678431, 0.819608, 1)
 ambient_light_energy = 0.45
 glow_enabled = true
-glow_intensity = 0.12
+glow_intensity = 0.08
+glow_bloom = 0.04
+tonemap_exposure = 0.92
 
 [node name="Galaxy" type="Node3D" unique_id=2131958235]
 script = ExtResource("1_31tn0")
@@ -20,21 +22,25 @@ script = ExtResource("2_h6rta")
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
 current = true
-projection = 1
-size = 1700.0
+projection = 0
+fov = 42.0
 far = 12000.0
-position = Vector3(0, 1800, 900)
-rotation_degrees = Vector3(-63, 0, 0)
+position = Vector3(0, 1100, 1400)
+rotation_degrees = Vector3(-34, 0, 0)
 
 [node name="SunLight" type="DirectionalLight3D" parent="."]
 rotation_degrees = Vector3(-60, 35, 0)
-light_energy = 0.6
+light_energy = 1.1
 shadow_enabled = true
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_j4v3k")
 
-[node name="Stars" type="MultiMeshInstance3D" parent="."]
+[node name="Stars" type="Node3D" parent="."]
+
+[node name="CoreStars" type="MultiMeshInstance3D" parent="Stars"]
+
+[node name="GlowStars" type="MultiMeshInstance3D" parent="Stars"]
 
 [node name="Hyperlanes" type="MeshInstance3D" parent="."]
 
@@ -47,3 +53,63 @@ offset_right = 520.0
 offset_bottom = 110.0
 theme_override_font_sizes/font_size = 16
 text = "Generating galaxy..."
+
+[node name="LoadingOverlay" type="Control" parent="CanvasLayer"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Dimmer" type="ColorRect" parent="CanvasLayer/LoadingOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0, 0.0, 0.0, 0.55)
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer/LoadingOverlay"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -70.0
+offset_right = 220.0
+offset_bottom = 70.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/LoadingOverlay/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="LoadingTitle" type="Label" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Generating Galaxy"
+horizontal_alignment = 1
+
+[node name="LoadingStatus" type="Label" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Preparing systems..."
+horizontal_alignment = 1
+
+[node name="LoadingProgress" type="ProgressBar" parent="CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+max_value = 100.0
+value = 0.0

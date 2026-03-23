@@ -49,7 +49,7 @@ func _setup_controls() -> void:
 		shape_option_button.add_item(shape_name.capitalize())
 
 	star_count_spin_box.min_value = 500
-	star_count_spin_box.max_value = 1500
+	star_count_spin_box.max_value = 3000
 	star_count_spin_box.step = 50
 	star_count_spin_box.value = 900
 

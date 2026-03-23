@@ -5,20 +5,21 @@ const GALAXY_STATE_SCRIPT := preload("res://scene/galaxy/GalaxyState.gd")
 const EMPIRE_FACTORY_SCRIPT := preload("res://scene/galaxy/EmpireFactory.gd")
 const STAR_CORE_SHADER := preload("res://scene/galaxy/StarCore.gdshader")
 const STAR_GLOW_SHADER := preload("res://scene/galaxy/StarGlow.gdshader")
-const OWNERSHIP_AURA_SHADER := preload("res://scene/galaxy/OwnershipAura.gdshader")
 const BLACK_HOLE_TYPE := "Black hole"
 const NEUTRON_TYPE := "Neutron star"
 const O_CLASS_TYPE := "O class star"
 const DEFAULT_EMPIRE_COUNT := 6
 const SYSTEM_PICK_RADIUS := 26.0
-const OWNERSHIP_BLOB_RADIUS_FACTOR := 0.82
-const OWNERSHIP_CONNECTOR_RADIUS_FACTOR := 0.48
-const OWNERSHIP_CONNECTION_DISTANCE_FACTOR := 5.5
-const OWNERSHIP_MAX_NEIGHBORS := 3
+const OWNERSHIP_BLOB_RADIUS_FACTOR := 1.9
+const OWNERSHIP_EXCLUSION_RADIUS_FACTOR := 1.12
+const OWNERSHIP_CONNECTOR_RADIUS_FACTOR := 0.72
+const OWNERSHIP_CONNECTION_DISTANCE_FACTOR := 5.75
+const OWNERSHIP_BORDER_WIDTH_FACTOR := 0.38
+const OWNERSHIP_CIRCLE_SEGMENTS := 28
 
 @export var star_count: int = 900
-@export var galaxy_radius: float = 2600.0
-@export var min_system_distance: float = 34.0
+@export var galaxy_radius: float = 3000.0
+@export var min_system_distance: float = 44.0
 @export_range(1, 6, 1) var spiral_arms: int = 4
 @export_enum("spiral", "ring", "elliptical", "clustered") var galaxy_shape: String = "spiral"
 @export_range(1, 8, 1) var hyperlane_density: int = 2
@@ -29,8 +30,8 @@ const OWNERSHIP_MAX_NEIGHBORS := 3
 @onready var stars: Node3D = $Stars
 @onready var core_stars: MultiMeshInstance3D = $Stars/CoreStars
 @onready var glow_stars: MultiMeshInstance3D = $Stars/GlowStars
-@onready var ownership_markers: MultiMeshInstance3D = $Stars/OwnershipMarkers
-@onready var ownership_connectors: MultiMeshInstance3D = $Stars/OwnershipConnectors
+@onready var ownership_markers: MeshInstance3D = $Stars/OwnershipMarkers
+@onready var ownership_connectors: MeshInstance3D = $Stars/OwnershipConnectors
 @onready var hyperlanes: MeshInstance3D = $Hyperlanes
 @onready var info_label: Label = $CanvasLayer/InfoLabel
 @onready var loading_overlay: Control = $CanvasLayer/LoadingOverlay
@@ -149,8 +150,8 @@ func _generate_galaxy_async() -> void:
 	galaxy_state.reset()
 	core_stars.multimesh = null
 	glow_stars.multimesh = null
-	ownership_markers.multimesh = null
-	ownership_connectors.multimesh = null
+	ownership_markers.mesh = null
+	ownership_connectors.mesh = null
 	hyperlanes.mesh = null
 	if camera_rig.has_method("reset_view"):
 		camera_rig.reset_view(galaxy_radius)
@@ -418,7 +419,6 @@ func _render_hyperlanes() -> void:
 
 
 func _render_ownership_markers() -> void:
-	var owned_systems: Array[Dictionary] = []
 	var empire_owned_systems: Dictionary = {}
 	for system_record in system_records:
 		var owner_empire_id: String = str(system_record.get("owner_empire_id", ""))
@@ -429,174 +429,323 @@ func _render_ownership_markers() -> void:
 			"position": system_record["position"],
 			"color": empires_by_id[owner_empire_id].get("color", Color.WHITE),
 		}
-		owned_systems.append(aura_record)
 		var owned_by_empire: Array = empire_owned_systems.get(owner_empire_id, [])
 		owned_by_empire.append(aura_record)
 		empire_owned_systems[owner_empire_id] = owned_by_empire
 
-	if owned_systems.is_empty():
-		ownership_markers.multimesh = null
-		ownership_connectors.multimesh = null
+	if empire_owned_systems.is_empty():
+		ownership_markers.mesh = null
+		ownership_connectors.mesh = null
 		ownership_markers.material_override = null
 		ownership_connectors.material_override = null
 		return
 
-	_render_ownership_blobs(owned_systems)
+	var fill_tool := SurfaceTool.new()
+	fill_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	var aura_connectors: Array[Dictionary] = []
+	var border_tool := SurfaceTool.new()
+	border_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+
 	for owner_empire_id_variant in empire_owned_systems.keys():
 		var owner_empire_id: String = str(owner_empire_id_variant)
 		var systems_for_empire: Array = empire_owned_systems.get(owner_empire_id, [])
-		aura_connectors.append_array(_build_owned_system_connector_data(systems_for_empire))
+		var region_color: Color = empires_by_id[owner_empire_id].get("color", Color.WHITE)
+		var clustered_regions: Array[Dictionary] = _build_empire_blob_regions(owner_empire_id, systems_for_empire)
 
-	_render_ownership_connectors(aura_connectors)
+		for region_data_variant in clustered_regions:
+			var region_data: Dictionary = region_data_variant
+			var region_polygon: PackedVector2Array = region_data["polygon"]
+			var region_height: float = float(region_data["height"])
+			if region_polygon.size() < 3:
+				continue
+			_append_region_fill(fill_tool, region_polygon, region_height + 1.2, region_color)
+			_append_region_border(border_tool, region_polygon, region_height + 2.4, region_color)
+
+	ownership_markers.mesh = fill_tool.commit()
+	ownership_connectors.mesh = border_tool.commit()
+	ownership_markers.material_override = _build_ownership_fill_material()
+	ownership_connectors.material_override = _build_ownership_border_material()
 
 
-func _render_ownership_blobs(owned_systems: Array[Dictionary]) -> void:
+func _build_empire_blob_regions(owner_empire_id: String, systems_for_empire: Array) -> Array[Dictionary]:
+	var clustered_regions: Array[Dictionary] = []
 	var blob_radius: float = _get_ownership_blob_radius()
-	var blob_mesh := SphereMesh.new()
-	blob_mesh.radius = 1.0
-	blob_mesh.height = 2.0
-	blob_mesh.radial_segments = 18
-	blob_mesh.rings = 12
+	var clusters: Array = _build_owned_system_clusters(systems_for_empire)
 
-	var blob_multimesh := MultiMesh.new()
-	blob_multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	blob_multimesh.use_colors = true
-	blob_multimesh.mesh = blob_mesh
-	blob_multimesh.instance_count = owned_systems.size()
+	for cluster_variant in clusters:
+		var cluster_systems: Array = cluster_variant
+		var primitive_regions: Array[PackedVector2Array] = []
+		for system_variant in cluster_systems:
+			var system_record: Dictionary = system_variant
+			var system_position: Vector3 = system_record["position"]
+			primitive_regions.append(_build_circle_polygon(Vector2(system_position.x, system_position.z), blob_radius, OWNERSHIP_CIRCLE_SEGMENTS))
 
-	for system_index in range(owned_systems.size()):
-		var system_marker: Dictionary = owned_systems[system_index]
-		var marker_position: Vector3 = system_marker["position"]
-		var marker_color: Color = system_marker["color"]
-		marker_color.a = 0.48
-		blob_multimesh.set_instance_transform(
-			system_index,
-			Transform3D(Basis().scaled(Vector3.ONE * blob_radius), marker_position)
-		)
-		blob_multimesh.set_instance_color(system_index, marker_color)
+		for connector_variant in _build_cluster_connector_polygons(cluster_systems):
+			var connector_polygon: PackedVector2Array = connector_variant
+			if connector_polygon.size() >= 3:
+				primitive_regions.append(connector_polygon)
 
-	ownership_markers.multimesh = blob_multimesh
-	ownership_markers.material_override = _build_ownership_aura_material(0.1, 0.28, 1.15)
+		var merged_polygons: Array[PackedVector2Array] = _merge_overlapping_polygons(primitive_regions)
+		merged_polygons = _subtract_non_owned_systems(owner_empire_id, merged_polygons)
 
-
-func _render_ownership_connectors(aura_connectors: Array[Dictionary]) -> void:
-	if aura_connectors.is_empty():
-		ownership_connectors.multimesh = null
-		ownership_connectors.material_override = null
-		return
-
-	var connector_mesh := CylinderMesh.new()
-	connector_mesh.top_radius = 1.0
-	connector_mesh.bottom_radius = 1.0
-	connector_mesh.height = 2.0
-	connector_mesh.radial_segments = 14
-	connector_mesh.rings = 1
-
-	var connector_multimesh := MultiMesh.new()
-	connector_multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	connector_multimesh.use_colors = true
-	connector_multimesh.mesh = connector_mesh
-	connector_multimesh.instance_count = aura_connectors.size()
-
-	for connector_index in range(aura_connectors.size()):
-		var connector_data: Dictionary = aura_connectors[connector_index]
-		var start_position: Vector3 = connector_data["start"]
-		var end_position: Vector3 = connector_data["end"]
-		var connector_color: Color = connector_data["color"]
-		connector_color.a = 0.32
-		connector_multimesh.set_instance_transform(
-			connector_index,
-			_build_connection_transform(start_position, end_position, _get_ownership_connector_radius())
-		)
-		connector_multimesh.set_instance_color(connector_index, connector_color)
-
-	ownership_connectors.multimesh = connector_multimesh
-	ownership_connectors.material_override = _build_ownership_aura_material(0.08, 0.22, 0.92)
-
-
-func _build_owned_system_connector_data(systems_for_empire: Array) -> Array[Dictionary]:
-	var connector_candidates: Array[Dictionary] = []
-	if systems_for_empire.size() <= 1:
-		return connector_candidates
-
-	var max_distance_sq: float = _get_ownership_connection_distance()
-	max_distance_sq *= max_distance_sq
-	var dedupe: Dictionary = {}
-
-	for system_index in range(systems_for_empire.size()):
-		var origin: Dictionary = systems_for_empire[system_index]
-		var origin_position: Vector3 = origin["position"]
-		var nearest_neighbors: Array[Dictionary] = []
-
-		for candidate_index in range(systems_for_empire.size()):
-			if candidate_index == system_index:
+		for merged_polygon in merged_polygons:
+			if merged_polygon.size() < 3:
 				continue
-
-			var candidate: Dictionary = systems_for_empire[candidate_index]
-			var distance_sq: float = origin_position.distance_squared_to(candidate["position"])
-			if distance_sq > max_distance_sq:
-				continue
-
-			var insert_at: int = nearest_neighbors.size()
-			for neighbor_index in range(nearest_neighbors.size()):
-				if distance_sq < float(nearest_neighbors[neighbor_index]["distance_sq"]):
-					insert_at = neighbor_index
-					break
-
-			if insert_at < OWNERSHIP_MAX_NEIGHBORS:
-				nearest_neighbors.insert(insert_at, {
-					"target_index": candidate_index,
-					"distance_sq": distance_sq,
-				})
-				if nearest_neighbors.size() > OWNERSHIP_MAX_NEIGHBORS:
-					nearest_neighbors.resize(OWNERSHIP_MAX_NEIGHBORS)
-			elif nearest_neighbors.size() < OWNERSHIP_MAX_NEIGHBORS:
-				nearest_neighbors.append({
-					"target_index": candidate_index,
-					"distance_sq": distance_sq,
-				})
-
-		for neighbor_data_variant in nearest_neighbors:
-			var neighbor_data: Dictionary = neighbor_data_variant
-			var target_index: int = int(neighbor_data["target_index"])
-			var edge_a: int = mini(system_index, target_index)
-			var edge_b: int = maxi(system_index, target_index)
-			var edge_key: String = "%s:%s" % [edge_a, edge_b]
-			if dedupe.has(edge_key):
-				continue
-
-			dedupe[edge_key] = true
-			var target: Dictionary = systems_for_empire[target_index]
-			connector_candidates.append({
-				"start": origin["position"],
-				"end": target["position"],
-				"color": origin["color"],
+			clustered_regions.append({
+				"polygon": merged_polygon,
+				"height": _get_region_height(cluster_systems),
 			})
 
-	return connector_candidates
+	return clustered_regions
 
 
-func _build_connection_transform(start_position: Vector3, end_position: Vector3, connector_radius: float) -> Transform3D:
-	var direction: Vector3 = end_position - start_position
-	var length: float = direction.length()
-	if length <= 0.001:
-		return Transform3D(Basis().scaled(Vector3.ONE * connector_radius), start_position)
+func _build_circle_polygon(center: Vector2, radius: float, segment_count: int) -> PackedVector2Array:
+	var polygon := PackedVector2Array()
+	for point_index in range(segment_count):
+		var angle: float = float(point_index) * TAU / float(segment_count)
+		polygon.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	return polygon
 
-	var y_axis: Vector3 = direction / length
-	var reference_axis: Vector3 = Vector3.UP
-	if absf(y_axis.dot(reference_axis)) > 0.98:
-		reference_axis = Vector3.FORWARD
 
-	var x_axis: Vector3 = y_axis.cross(reference_axis).normalized()
-	var z_axis: Vector3 = x_axis.cross(y_axis).normalized()
-	var basis: Basis = Basis(
-		x_axis * connector_radius,
-		y_axis * (length * 0.5),
-		z_axis * connector_radius
-	)
-	return Transform3D(basis, (start_position + end_position) * 0.5)
+func _build_owned_system_clusters(systems_for_empire: Array) -> Array:
+	var clusters: Array = []
+	var visited: Dictionary = {}
+	var max_distance_sq: float = _get_ownership_connection_distance()
+	max_distance_sq *= max_distance_sq
+
+	for system_index in range(systems_for_empire.size()):
+		if visited.has(system_index):
+			continue
+
+		var cluster: Array = []
+		var queue: Array[int] = [system_index]
+		visited[system_index] = true
+
+		while not queue.is_empty():
+			var current_index: int = int(queue.pop_front())
+			var current_system: Dictionary = systems_for_empire[current_index]
+			cluster.append(current_system)
+			var current_position: Vector3 = current_system["position"]
+
+			for candidate_index in range(systems_for_empire.size()):
+				if visited.has(candidate_index):
+					continue
+				var candidate_system: Dictionary = systems_for_empire[candidate_index]
+				var candidate_position: Vector3 = candidate_system["position"]
+				if current_position.distance_squared_to(candidate_position) > max_distance_sq:
+					continue
+				visited[candidate_index] = true
+				queue.append(candidate_index)
+
+		clusters.append(cluster)
+
+	return clusters
+
+
+func _build_cluster_connector_polygons(cluster_systems: Array) -> Array[PackedVector2Array]:
+	var connector_polygons: Array[PackedVector2Array] = []
+	if cluster_systems.size() <= 1:
+		return connector_polygons
+
+	var dedupe: Dictionary = {}
+	var max_distance_sq: float = _get_ownership_connection_distance()
+	max_distance_sq *= max_distance_sq
+	var connector_radius: float = _get_ownership_connector_radius()
+
+	for system_index in range(cluster_systems.size()):
+		var origin: Dictionary = cluster_systems[system_index]
+		var origin_position: Vector3 = origin["position"]
+		var nearest_index: int = -1
+		var nearest_distance_sq: float = INF
+
+		for candidate_index in range(cluster_systems.size()):
+			if candidate_index == system_index:
+				continue
+			var candidate: Dictionary = cluster_systems[candidate_index]
+			var distance_sq: float = origin_position.distance_squared_to(candidate["position"])
+			if distance_sq > max_distance_sq or distance_sq >= nearest_distance_sq:
+				continue
+			nearest_index = candidate_index
+			nearest_distance_sq = distance_sq
+
+		if nearest_index == -1:
+			continue
+
+		var edge_a: int = mini(system_index, nearest_index)
+		var edge_b: int = maxi(system_index, nearest_index)
+		var edge_key: String = "%s:%s" % [edge_a, edge_b]
+		if dedupe.has(edge_key):
+			continue
+
+		dedupe[edge_key] = true
+		var target: Dictionary = cluster_systems[nearest_index]
+		connector_polygons.append(_build_capsule_polygon(
+			Vector2(origin_position.x, origin_position.z),
+			Vector2(target["position"].x, target["position"].z),
+			connector_radius
+		))
+
+	return connector_polygons
+
+
+func _build_capsule_polygon(start_point: Vector2, end_point: Vector2, radius: float) -> PackedVector2Array:
+	var direction: Vector2 = end_point - start_point
+	if direction.length_squared() <= 0.001:
+		return _build_circle_polygon(start_point, radius, OWNERSHIP_CIRCLE_SEGMENTS)
+
+	var polygon := PackedVector2Array()
+	var axis: Vector2 = direction.normalized()
+	var normal := Vector2(-axis.y, axis.x)
+	var start_angle: float = normal.angle()
+	var end_angle: float = start_angle + PI
+	var arc_steps: int = maxi(6, OWNERSHIP_CIRCLE_SEGMENTS / 2)
+
+	for step in range(arc_steps + 1):
+		var t: float = float(step) / float(arc_steps)
+		var angle: float = start_angle + PI * t
+		polygon.append(start_point + Vector2(cos(angle), sin(angle)) * radius)
+
+	for step in range(arc_steps + 1):
+		var t: float = float(step) / float(arc_steps)
+		var angle: float = end_angle + PI * t
+		polygon.append(end_point + Vector2(cos(angle), sin(angle)) * radius)
+
+	return polygon
+
+
+func _merge_overlapping_polygons(polygons: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
+	var merged_regions: Array[PackedVector2Array] = polygons.duplicate()
+	var did_merge: bool = true
+
+	while did_merge:
+		did_merge = false
+		for first_index in range(merged_regions.size()):
+			for second_index in range(first_index + 1, merged_regions.size()):
+				var merge_result: Array = Geometry2D.merge_polygons(merged_regions[first_index], merged_regions[second_index])
+				if merge_result.size() != 1:
+					continue
+
+				var merged_polygon: PackedVector2Array = merge_result[0]
+				if merged_polygon.size() >= 2 and merged_polygon[0].is_equal_approx(merged_polygon[merged_polygon.size() - 1]):
+					merged_polygon.remove_at(merged_polygon.size() - 1)
+				merged_regions.remove_at(second_index)
+				merged_regions.remove_at(first_index)
+				merged_regions.append(merged_polygon)
+				did_merge = true
+				break
+			if did_merge:
+				break
+
+	return merged_regions
+
+
+func _subtract_non_owned_systems(owner_empire_id: String, polygons: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
+	var exclusion_records: Array[Dictionary] = []
+	var exclusion_radius: float = _get_ownership_exclusion_radius()
+
+	for system_record in system_records:
+		var system_owner_id: String = str(system_record.get("owner_empire_id", ""))
+		if system_owner_id == owner_empire_id:
+			continue
+		var system_position: Vector3 = system_record["position"]
+		exclusion_records.append({
+			"center": Vector2(system_position.x, system_position.z),
+			"polygon": _build_circle_polygon(Vector2(system_position.x, system_position.z), exclusion_radius, 16),
+		})
+
+	var result_polygons: Array[PackedVector2Array] = polygons.duplicate()
+	for exclusion_record_variant in exclusion_records:
+		var exclusion_record: Dictionary = exclusion_record_variant
+		var exclusion_center: Vector2 = exclusion_record["center"]
+		var exclusion_polygon: PackedVector2Array = exclusion_record["polygon"]
+		var next_result: Array[PackedVector2Array] = []
+		for region_polygon in result_polygons:
+			if not _is_point_near_polygon_bounds(exclusion_center, region_polygon, exclusion_radius * 1.5):
+				next_result.append(region_polygon)
+				continue
+
+			var overlap_regions: Array = Geometry2D.intersect_polygons(region_polygon, exclusion_polygon)
+			if overlap_regions.is_empty():
+				next_result.append(region_polygon)
+				continue
+
+			var clipped_regions: Array = Geometry2D.clip_polygons(region_polygon, exclusion_polygon)
+			for clipped_region_variant in clipped_regions:
+				var clipped_region: PackedVector2Array = clipped_region_variant
+				if clipped_region.size() >= 3:
+					if clipped_region[0].is_equal_approx(clipped_region[clipped_region.size() - 1]):
+						clipped_region.remove_at(clipped_region.size() - 1)
+					next_result.append(clipped_region)
+		result_polygons = next_result
+
+	return result_polygons
+
+
+func _is_point_near_polygon_bounds(point: Vector2, polygon: PackedVector2Array, margin: float) -> bool:
+	if polygon.is_empty():
+		return false
+
+	var min_x: float = polygon[0].x
+	var max_x: float = polygon[0].x
+	var min_y: float = polygon[0].y
+	var max_y: float = polygon[0].y
+
+	for polygon_point in polygon:
+		min_x = minf(min_x, polygon_point.x)
+		max_x = maxf(max_x, polygon_point.x)
+		min_y = minf(min_y, polygon_point.y)
+		max_y = maxf(max_y, polygon_point.y)
+
+	return point.x >= min_x - margin and point.x <= max_x + margin and point.y >= min_y - margin and point.y <= max_y + margin
+
+
+func _append_region_fill(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
+	var fill_color := region_color
+	fill_color.a = 0.18
+	var triangulated_indices: PackedInt32Array = Geometry2D.triangulate_polygon(region_polygon)
+
+	for triangle_index in range(0, triangulated_indices.size(), 3):
+		for point_offset in range(3):
+			var polygon_index: int = triangulated_indices[triangle_index + point_offset]
+			var region_point: Vector2 = region_polygon[polygon_index]
+			surface_tool.set_color(fill_color)
+			surface_tool.add_vertex(Vector3(region_point.x, region_height, region_point.y))
+
+
+func _append_region_border(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
+	var half_width: float = _get_ownership_border_half_width()
+	var outer_results: Array = Geometry2D.offset_polygon(region_polygon, half_width)
+	if outer_results.is_empty():
+		return
+	var outer_polygon: PackedVector2Array = outer_results[0]
+	var inner_results: Array = Geometry2D.offset_polygon(region_polygon, -half_width * 0.82)
+	var inner_polygon: PackedVector2Array = region_polygon
+	if not inner_results.is_empty():
+		inner_polygon = inner_results[0]
+
+	var border_color := region_color
+	border_color.a = 0.92
+	var segment_count: int = mini(outer_polygon.size(), inner_polygon.size())
+	if segment_count < 3:
+		return
+
+	for point_index in range(segment_count):
+		var next_index: int = (point_index + 1) % segment_count
+		var outer_current: Vector2 = outer_polygon[point_index]
+		var outer_next: Vector2 = outer_polygon[next_index]
+		var inner_current: Vector2 = inner_polygon[point_index]
+		var inner_next: Vector2 = inner_polygon[next_index]
+		_append_triangle(surface_tool, outer_current, outer_next, inner_next, region_height, border_color)
+		_append_triangle(surface_tool, outer_current, inner_next, inner_current, region_height, border_color)
+
+
+func _append_triangle(surface_tool: SurfaceTool, a: Vector2, b: Vector2, c: Vector2, height: float, color: Color) -> void:
+	surface_tool.set_color(color)
+	surface_tool.add_vertex(Vector3(a.x, height, a.y))
+	surface_tool.set_color(color)
+	surface_tool.add_vertex(Vector3(b.x, height, b.y))
+	surface_tool.set_color(color)
+	surface_tool.add_vertex(Vector3(c.x, height, c.y))
 
 
 func _update_info_label() -> void:
@@ -759,25 +908,61 @@ func _build_glow_material() -> ShaderMaterial:
 	return material
 
 
-func _build_ownership_aura_material(center_alpha: float, edge_alpha: float, emission_strength: float) -> ShaderMaterial:
-	var material := ShaderMaterial.new()
-	material.shader = OWNERSHIP_AURA_SHADER
-	material.set_shader_parameter("center_alpha", center_alpha)
-	material.set_shader_parameter("edge_alpha", edge_alpha)
-	material.set_shader_parameter("emission_strength", emission_strength)
+func _build_ownership_fill_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = Color.WHITE
+	material.emission_enabled = true
+	material.emission = Color.WHITE
+	material.emission_energy_multiplier = 0.55
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return material
+
+
+func _build_ownership_border_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = Color.WHITE
+	material.emission_enabled = true
+	material.emission = Color.WHITE
+	material.emission_energy_multiplier = 1.65
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
 
 
 func _get_ownership_blob_radius() -> float:
-	return maxf(min_system_distance * OWNERSHIP_BLOB_RADIUS_FACTOR, 22.0)
+	return maxf(min_system_distance * OWNERSHIP_BLOB_RADIUS_FACTOR, 42.0)
+
+
+func _get_ownership_exclusion_radius() -> float:
+	return maxf(min_system_distance * OWNERSHIP_EXCLUSION_RADIUS_FACTOR, 28.0)
 
 
 func _get_ownership_connector_radius() -> float:
-	return maxf(min_system_distance * OWNERSHIP_CONNECTOR_RADIUS_FACTOR, 12.0)
+	return maxf(min_system_distance * OWNERSHIP_CONNECTOR_RADIUS_FACTOR, 18.0)
 
 
 func _get_ownership_connection_distance() -> float:
 	return maxf(min_system_distance * OWNERSHIP_CONNECTION_DISTANCE_FACTOR, 180.0)
+
+
+func _get_ownership_border_half_width() -> float:
+	return maxf(min_system_distance * OWNERSHIP_BORDER_WIDTH_FACTOR, 9.0)
+
+
+func _get_region_height(systems_for_empire: Array) -> float:
+	if systems_for_empire.is_empty():
+		return 0.0
+
+	var total_height: float = 0.0
+	for system_variant in systems_for_empire:
+		var system_record: Dictionary = system_variant
+		total_height += float(system_record["position"].y)
+	return total_height / float(systems_for_empire.size())
 
 
 func _get_star_offset(star_index: int, system_star_count: int, orbit_radius: float) -> Vector3:

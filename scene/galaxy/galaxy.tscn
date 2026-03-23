@@ -40,9 +40,9 @@ environment = SubResource("Environment_j4v3k")
 
 [node name="GlowStars" type="MultiMeshInstance3D" parent="Stars" unique_id=1803807061]
 
-[node name="OwnershipMarkers" type="MultiMeshInstance3D" parent="Stars" unique_id=1185641856]
+[node name="OwnershipMarkers" type="MeshInstance3D" parent="Stars" unique_id=1185641856]
 
-[node name="OwnershipConnectors" type="MultiMeshInstance3D" parent="Stars" unique_id=321456781]
+[node name="OwnershipConnectors" type="MeshInstance3D" parent="Stars" unique_id=321456781]
 
 [node name="Hyperlanes" type="MeshInstance3D" parent="." unique_id=1709715272]
 

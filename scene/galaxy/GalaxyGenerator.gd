@@ -58,8 +58,8 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 	rng.seed = galaxy_seed
 
 	var target_system_count: int = maxi(1, int(config.get("star_count", 900)))
-	var galaxy_radius: float = float(config.get("galaxy_radius", 2600.0))
-	var min_system_distance: float = float(config.get("min_system_distance", 34.0))
+	var galaxy_radius: float = float(config.get("galaxy_radius", 3000.0))
+	var min_system_distance: float = float(config.get("min_system_distance", 44.0))
 	var shape: String = str(config.get("shape", SHAPE_SPIRAL)).to_lower()
 	var spiral_arms: int = maxi(1, int(config.get("spiral_arms", 4)))
 	var hyperlane_density: int = clampi(int(config.get("hyperlane_density", 2)), 1, 8)

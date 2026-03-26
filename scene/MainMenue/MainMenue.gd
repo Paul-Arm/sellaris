@@ -13,6 +13,7 @@ var generator: RefCounted = GALAXY_GENERATOR_SCRIPT.new()
 
 
 func _ready() -> void:
+	MusicManager.play_menu_loops()
 	generate_button.pressed.connect(_on_generate_pressed)
 	seed_input.text_submitted.connect(_on_seed_submitted)
 	_setup_controls()

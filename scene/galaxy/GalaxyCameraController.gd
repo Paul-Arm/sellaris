@@ -1,10 +1,9 @@
 extends Node3D
 
-const MIN_DISTANCE := 420.0
-const MAX_DISTANCE := 6200.0
-const MIN_TILT_DEGREES := -72.0
-const MAX_TILT_DEGREES := -20.0
-
+@export var min_distance: float = 420.0
+@export var max_distance: float = 6200.0
+@export var min_tilt_degrees: float = -72.0
+@export var max_tilt_degrees: float = -20.0
 @export var pan_speed: float = 900.0
 @export var zoom_step: float = 0.9
 @export var edge_pan_margin: float = 28.0
@@ -30,10 +29,14 @@ func set_input_blocked(blocked: bool) -> void:
 
 
 func reset_view(galaxy_radius: float) -> void:
-	position = Vector3.ZERO
-	_camera_distance = clamp(galaxy_radius * 0.7, MIN_DISTANCE, MAX_DISTANCE)
-	_tilt_degrees = -34.0
-	_yaw_degrees = 0.0
+	configure_view(Vector3.ZERO, galaxy_radius * 0.7)
+
+
+func configure_view(focus_position: Vector3, distance: float, tilt_degrees: float = -34.0, yaw_degrees: float = 0.0) -> void:
+	position = focus_position
+	_camera_distance = clamp(distance, min_distance, max_distance)
+	_tilt_degrees = clamp(tilt_degrees, min_tilt_degrees, max_tilt_degrees)
+	_yaw_degrees = yaw_degrees
 	_apply_camera_transform()
 
 
@@ -47,10 +50,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			_is_right_dragging = event.pressed
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_camera_distance = max(MIN_DISTANCE, _camera_distance * zoom_step)
+			_camera_distance = max(min_distance, _camera_distance * zoom_step)
 			_apply_camera_transform()
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_camera_distance = min(MAX_DISTANCE, _camera_distance / zoom_step)
+			_camera_distance = min(max_distance, _camera_distance / zoom_step)
 			_apply_camera_transform()
 	elif event is InputEventMouseMotion and _is_middle_dragging:
 		_pan_from_mouse_drag(event.relative)
@@ -127,7 +130,7 @@ func _get_edge_pan_input() -> Vector2:
 
 func _orbit_camera(relative: Vector2) -> void:
 	_yaw_degrees -= relative.x * orbit_sensitivity
-	_tilt_degrees = clamp(_tilt_degrees - relative.y * orbit_sensitivity * 0.65, MIN_TILT_DEGREES, MAX_TILT_DEGREES)
+	_tilt_degrees = clamp(_tilt_degrees - relative.y * orbit_sensitivity * 0.65, min_tilt_degrees, max_tilt_degrees)
 	_apply_camera_transform()
 
 

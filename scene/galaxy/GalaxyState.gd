@@ -19,6 +19,18 @@ const DEFAULT_STAR_PROFILE := {
 		"star_class": "G",
 	}],
 }
+const DEFAULT_SYSTEM_SUMMARY := {
+	"star_count": 1,
+	"star_class": "G",
+	"special_type": "none",
+	"planet_count": 0,
+	"asteroid_belt_count": 0,
+	"structure_count": 0,
+	"ruin_count": 0,
+	"colonizable_worlds": 0,
+	"habitable_worlds": 0,
+	"anomaly_risk": 0.0,
+}
 
 var generated_seed: int = 0
 var system_records: Array[Dictionary] = []
@@ -27,6 +39,7 @@ var hyperlane_links: Array[Vector2i] = []
 var hyperlane_graph: Dictionary = {}
 var systems_by_id: Dictionary = {}
 var system_indices_by_id: Dictionary = {}
+var system_detail_overrides_by_id: Dictionary = {}
 var ownership_by_system_id: Dictionary = {}
 var empires: Array[Dictionary] = []
 var empires_by_id: Dictionary = {}
@@ -41,6 +54,7 @@ func reset() -> void:
 	hyperlane_graph.clear()
 	systems_by_id.clear()
 	system_indices_by_id.clear()
+	system_detail_overrides_by_id.clear()
 	ownership_by_system_id.clear()
 	empires.clear()
 	empires_by_id.clear()
@@ -54,6 +68,8 @@ func load_from_layout(layout: Dictionary) -> void:
 	for system_variant in layout.get("systems", []):
 		var system_record: Dictionary = _normalize_system_record(system_variant.duplicate(true))
 		system_records.append(system_record)
+
+	system_detail_overrides_by_id = layout.get("system_detail_overrides", {}).duplicate(true)
 
 	for link_variant in layout.get("links", []):
 		var link: Vector2i = link_variant
@@ -79,6 +95,16 @@ func set_empires(empire_records: Array[Dictionary]) -> void:
 
 func get_system(system_id: String) -> Dictionary:
 	return systems_by_id.get(system_id, {})
+
+
+func get_system_summary(system_id: String) -> Dictionary:
+	if not systems_by_id.has(system_id):
+		return DEFAULT_SYSTEM_SUMMARY.duplicate(true)
+	return systems_by_id[system_id].get("system_summary", DEFAULT_SYSTEM_SUMMARY).duplicate(true)
+
+
+func get_system_detail_override(system_id: String) -> Dictionary:
+	return system_detail_overrides_by_id.get(system_id, {}).duplicate(true)
 
 
 func get_empire(empire_id: String) -> Dictionary:
@@ -147,6 +173,41 @@ func set_system_owner(system_id: String, empire_id: String) -> bool:
 
 func clear_system_owner(system_id: String) -> bool:
 	return set_system_owner(system_id, "")
+
+
+func set_system_detail_override(system_id: String, detail_override: Dictionary) -> bool:
+	if not system_indices_by_id.has(system_id):
+		return false
+
+	if detail_override.is_empty():
+		system_detail_overrides_by_id.erase(system_id)
+	else:
+		system_detail_overrides_by_id[system_id] = detail_override.duplicate(true)
+	return true
+
+
+func clear_system_detail_override(system_id: String) -> bool:
+	if not system_detail_overrides_by_id.has(system_id):
+		return false
+	system_detail_overrides_by_id.erase(system_id)
+	return true
+
+
+func update_system_record(system_id: String, updated_fields: Dictionary) -> bool:
+	if not system_indices_by_id.has(system_id):
+		return false
+
+	var system_index: int = int(system_indices_by_id[system_id])
+	var system_record: Dictionary = system_records[system_index]
+	for field_key_variant in updated_fields.keys():
+		var field_key: String = str(field_key_variant)
+		var field_value: Variant = updated_fields[field_key_variant]
+		system_record[field_key] = field_value
+
+	system_records[system_index] = _normalize_system_record(system_record)
+	_rebuild_system_indexes()
+	_rebuild_ownership_index()
+	return true
 
 
 func set_local_player_empire(empire_id: String) -> bool:
@@ -236,6 +297,7 @@ func build_snapshot() -> Dictionary:
 		"system_positions": system_positions.duplicate(),
 		"links": hyperlane_links.duplicate(),
 		"hyperlane_graph": hyperlane_graph.duplicate(true),
+		"system_detail_overrides": system_detail_overrides_by_id.duplicate(true),
 		"empires": empires.duplicate(true),
 		"ownership_by_system_id": ownership_by_system_id.duplicate(true),
 	}
@@ -256,6 +318,8 @@ func _normalize_system_record(system_record: Dictionary) -> Dictionary:
 		system_record["owner_empire_id"] = ""
 	if not system_record.has("star_profile"):
 		system_record["star_profile"] = DEFAULT_STAR_PROFILE.duplicate(true)
+	if not system_record.has("system_summary"):
+		system_record["system_summary"] = DEFAULT_SYSTEM_SUMMARY.duplicate(true)
 	return system_record
 
 

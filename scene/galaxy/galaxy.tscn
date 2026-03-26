@@ -2,7 +2,10 @@
 
 [ext_resource type="Script" uid="uid://de1u4tyihsr33" path="res://scene/galaxy/galaxy.gd" id="1_31tn0"]
 [ext_resource type="Script" uid="uid://e4krux16ghmk" path="res://scene/galaxy/GalaxyCameraController.gd" id="2_h6rta"]
-[ext_resource type="PackedScene" path="res://scene/galaxy/BottomCategoryBar.tscn" id="3_8vx58"]
+[ext_resource type="PackedScene" uid="uid://bn2a3h2rtvrag" path="res://scene/galaxy/BottomCategoryBar.tscn" id="3_8vx58"]
+[ext_resource type="PackedScene" path="res://scene/StarSystem/StarSystemPreview.tscn" id="4_d35nq"]
+[ext_resource type="PackedScene" path="res://scene/StarSystem/SystemView.tscn" id="5_d8u2w"]
+[ext_resource type="PackedScene" path="res://scene/UI/GalaxyHud.tscn" id="6_hud"]
 
 [sub_resource type="Environment" id="Environment_j4v3k"]
 background_mode = 1
@@ -58,8 +61,7 @@ offset_bottom = 110.0
 theme_override_font_sizes/font_size = 16
 text = "Generating galaxy..."
 
-[node name="BottomCategoryBar" parent="CanvasLayer" instance=ExtResource("3_8vx58")]
-layout_mode = 1
+[node name="BottomCategoryBar" parent="CanvasLayer" unique_id=1236226271 instance=ExtResource("3_8vx58")]
 
 [node name="LoadingOverlay" type="Control" parent="CanvasLayer" unique_id=1121971454]
 visible = false
@@ -120,13 +122,14 @@ horizontal_alignment = 1
 layout_mode = 2
 
 [node name="SystemPanel" type="PanelContainer" parent="CanvasLayer" unique_id=1239954555]
+visible = false
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -333.0
 offset_top = 138.0
 offset_right = -7.0
-offset_bottom = 388.0
+offset_bottom = 620.0
 grow_horizontal = 0
 
 [node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SystemPanel" unique_id=1410794106]
@@ -148,6 +151,12 @@ text = "Active Empire: None selected"
 [node name="ChangeEmpireButton" type="Button" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=813997206]
 layout_mode = 2
 text = "Choose Empire"
+
+[node name="SystemPreviewImage" type="TextureRect" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=1107136461]
+custom_minimum_size = Vector2(0, 230)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
 
 [node name="SelectedSystemTitle" type="Label" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer" unique_id=590778347]
 layout_mode = 2
@@ -240,23 +249,14 @@ text = "Use Empire"
 layout_mode = 2
 text = "Close"
 
-[node name="TopPanel" type="Panel" parent="CanvasLayer" unique_id=194658418]
-anchors_preset = 10
-anchor_right = 1.0
-offset_bottom = 25.0
-grow_horizontal = 2
+[node name="SystemView" parent="CanvasLayer" unique_id=1979650294 instance=ExtResource("5_d8u2w")]
 
-[node name="EnergyLabel" type="Label" parent="CanvasLayer/TopPanel" unique_id=1370566036]
-layout_mode = 0
-offset_left = 20.0
-offset_right = 77.0
-offset_bottom = 23.0
-text = "Energy "
+[node name="SystemPreviewSnapshotViewport" type="SubViewport" parent="CanvasLayer" unique_id=1422597184]
+own_world_3d = true
+handle_input_locally = false
+size = Vector2i(448, 320)
+render_target_update_mode = 0
 
-[node name="EnergyValue" type="Label" parent="CanvasLayer/TopPanel" unique_id=1701030407]
-layout_mode = 0
-offset_left = 80.0
-offset_top = 1.0
-offset_right = 137.0
-offset_bottom = 24.0
-text = "200K"
+[node name="StarSystemPreview" parent="CanvasLayer/SystemPreviewSnapshotViewport" unique_id=1098755858 instance=ExtResource("4_d35nq")]
+
+[node name="GalaxyHud" parent="CanvasLayer" instance=ExtResource("6_hud")]

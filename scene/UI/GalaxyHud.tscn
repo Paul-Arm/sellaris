@@ -1,0 +1,209 @@
+[gd_scene format=3 uid="uid://cbjt32qqq0ch1"]
+
+[ext_resource type="Script" uid="uid://cej0bd57w2bl" path="res://scene/UI/GalaxyHud.gd" id="1_hud"]
+
+[node name="GalaxyHud" type="Control" unique_id=17868497]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_hud")
+
+[node name="SettingsOverlay" type="Control" parent="." unique_id=798861110]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Dimmer" type="ColorRect" parent="SettingsOverlay" unique_id=216137521]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.58)
+
+[node name="Panel" type="PanelContainer" parent="SettingsOverlay" unique_id=385147826]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -110.0
+offset_right = 220.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="SettingsOverlay/Panel" unique_id=1893939244]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBoxContainer" type="VBoxContainer" parent="SettingsOverlay/Panel/MarginContainer" unique_id=843037540]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=2107085585]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Settings"
+horizontal_alignment = 1
+
+[node name="MusicVolumeLabel" type="Label" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=52883055]
+layout_mode = 2
+text = "Music Volume"
+
+[node name="MusicVolumeSlider" type="HSlider" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=2144647391]
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+value = 0.7
+
+[node name="CloseSettingsButton" type="Button" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=837109372]
+layout_mode = 2
+text = "Resume"
+
+[node name="TopPanel" type="Panel" parent="." unique_id=1206852677]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.006
+anchor_bottom = 0.004
+offset_top = -1.0
+offset_right = -6.9121094
+offset_bottom = 44.408
+grow_horizontal = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="TopPanel" unique_id=152730802]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 6
+
+[node name="TopBarRow" type="HBoxContainer" parent="TopPanel/MarginContainer" unique_id=135071263]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="ResourceBox" type="PanelContainer" parent="TopPanel/MarginContainer/TopBarRow" unique_id=1062972107]
+custom_minimum_size = Vector2(170, 0)
+layout_mode = 2
+size_flags_horizontal = 2
+size_flags_vertical = 4
+
+[node name="ResourceMargin" type="MarginContainer" parent="TopPanel/MarginContainer/TopBarRow/ResourceBox" unique_id=1794096271]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 4
+
+[node name="ResourceRow" type="HBoxContainer" parent="TopPanel/MarginContainer/TopBarRow/ResourceBox/ResourceMargin" unique_id=745589521]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EnergyLabel" type="Label" parent="TopPanel/MarginContainer/TopBarRow/ResourceBox/ResourceMargin/ResourceRow" unique_id=802967526]
+layout_mode = 2
+text = "Energy: 200K"
+
+[node name="MatterLabel" type="Label" parent="TopPanel/MarginContainer/TopBarRow/ResourceBox/ResourceMargin/ResourceRow" unique_id=564849416]
+layout_mode = 2
+text = "Matter: 100K"
+
+[node name="MusicBox" type="PanelContainer" parent="TopPanel/MarginContainer/TopBarRow" unique_id=1110299152]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+
+[node name="MusicMargin" type="MarginContainer" parent="TopPanel/MarginContainer/TopBarRow/MusicBox" unique_id=1863065482]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 4
+
+[node name="MusicRow" type="HBoxContainer" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin" unique_id=599727003]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="MusicTrackLabel" type="Label" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=2019522173]
+visible = false
+custom_minimum_size = Vector2(130, 0)
+layout_mode = 2
+text = "Music: Idle"
+clip_text = true
+
+[node name="PreviousTrackButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=1698734931]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+text = "<<"
+
+[node name="PauseTrackButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=394556538]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+text = "Pause"
+
+[node name="NextTrackButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=856732429]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+text = ">>"
+
+[node name="MusicVolumeSlider" type="HSlider" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=1888722682]
+custom_minimum_size = Vector2(70, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 1.0
+step = 0.01
+value = 0.7
+
+[node name="SimBox" type="PanelContainer" parent="TopPanel/MarginContainer/TopBarRow" unique_id=1664567702]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+
+[node name="SimMargin" type="MarginContainer" parent="TopPanel/MarginContainer/TopBarRow/SimBox" unique_id=246356341]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 4
+
+[node name="SimRow" type="HBoxContainer" parent="TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin" unique_id=898126175]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SimDateLabel" type="Label" parent="TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin/SimRow" unique_id=1520153648]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "2025-01-01  x1"
+clip_text = true
+
+[node name="SimPauseButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin/SimRow" unique_id=951619025]
+custom_minimum_size = Vector2(58, 0)
+layout_mode = 2
+text = "Pause"
+
+[node name="SimSpeedButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin/SimRow" unique_id=382959518]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+text = ">>"

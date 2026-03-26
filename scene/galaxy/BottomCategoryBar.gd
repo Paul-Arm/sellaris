@@ -66,8 +66,6 @@ func _ready() -> void:
 		_select_category(clampi(tab_view.current_tab, 0, _categories.size() - 1), false)
 	_set_expanded(false, false)
 	_refresh_responsive_layout()
-	dock_panel.mouse_entered.connect(_on_dock_mouse_entered)
-	dock_panel.mouse_exited.connect(_on_dock_mouse_exited)
 	tab_view.tab_changed.connect(_on_tab_view_tab_changed)
 	call_deferred("_refresh_bubble_positions")
 
@@ -138,7 +136,11 @@ func consume_hotkey_event(event: InputEvent) -> bool:
 		if hotkey == KEY_NONE:
 			continue
 		if key_event.keycode == hotkey or key_event.physical_keycode == hotkey:
-			_select_category(index)
+			if index == _selected_category_index and _expanded:
+				_set_expanded(false)
+			else:
+				_select_category(index)
+				_set_expanded(true)
 			return true
 
 	return false
@@ -251,7 +253,7 @@ func _build_bubbles() -> void:
 		center.add_child(label)
 
 		bubble.set_meta("label_path", bubble.get_path_to(label))
-		bubble_layer.add_child(bubble)
+		_tab_bar.add_child(bubble)
 		_bubble_nodes.append(bubble)
 
 	_refresh_bubble_theme()
@@ -520,10 +522,8 @@ func _refresh_bubble_positions() -> void:
 		var rect: Rect2 = _tab_bar.get_tab_rect(index)
 		var bubble_size: Vector2 = bubble.custom_minimum_size
 		bubble.size = bubble_size
-		var x_position: float = (
-			_tab_bar.position.x + rect.position.x + rect.size.x * 0.5 - bubble_size.x * 0.5
-		)
-		var y_position: float = _tab_bar.position.y + rect.position.y - bubble_size.y * 0.72
+		var x_position: float = rect.position.x + rect.size.x * 0.5 - bubble_size.x * 0.5
+		var y_position: float = rect.position.y - bubble_size.y * 0.72
 		bubble.position = Vector2(round(x_position), round(y_position))
 
 
@@ -605,17 +605,8 @@ func _format_hotkey(hotkey: Key) -> String:
 	return OS.get_keycode_string(hotkey)
 
 
-func _on_dock_mouse_entered() -> void:
-	if not _interaction_enabled:
-		return
-	_set_expanded(true)
-
-
-func _on_dock_mouse_exited() -> void:
-	_set_expanded(false)
-
-
 func _on_tab_view_tab_changed(tab: int) -> void:
 	if _suppress_tab_signal:
 		return
 	_select_category(tab, true)
+	_set_expanded(true)

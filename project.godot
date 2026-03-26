@@ -15,6 +15,11 @@ run/main_scene="res://scene/MainMenue/MainMenue.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+MusicManager="*res://autoload/MusicManager.gd"
+SimClock="*uid://3e6kd3sqfbrk"
+
 [display]
 
 window/size/mode=2

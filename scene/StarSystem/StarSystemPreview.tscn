@@ -1,0 +1,51 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scene/StarSystem/StarSystemPreview.gd" id="1_y11p6"]
+[ext_resource type="Script" uid="uid://e4krux16ghmk" path="res://scene/galaxy/GalaxyCameraController.gd" id="2_wkso3"]
+
+[sub_resource type="Environment" id="Environment_xrj4o"]
+background_mode = 1
+background_color = Color(0.0196078, 0.027451, 0.0588235, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.682353, 0.74902, 0.878431, 1)
+ambient_light_energy = 0.65
+tonemap_exposure = 0.95
+glow_enabled = true
+glow_intensity = 0.14
+glow_bloom = 0.08
+
+[node name="StarSystemPreview" type="Node3D"]
+script = ExtResource("1_y11p6")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_xrj4o")
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("2_wkso3")
+min_distance = 34.0
+max_distance = 460.0
+pan_speed = 180.0
+zoom_step = 0.88
+edge_pan_margin = 24.0
+edge_pan_speed_multiplier = 1.0
+drag_pan_sensitivity = 0.45
+orbit_sensitivity = 0.35
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+current = true
+fov = 34.0
+near = 0.1
+far = 1200.0
+
+[node name="SunLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, -0.496732, 0.286788, 0, 0.5, 0.866025, -0.573576, -0.709407, 0.409576, 0, 0, 0)
+light_energy = 1.2
+
+[node name="Pivot" type="Node3D" parent="."]
+rotation = Vector3(-0.28, 0, 0)
+
+[node name="OrbitLines" type="Node3D" parent="Pivot"]
+
+[node name="Bodies" type="Node3D" parent="Pivot"]
+
+[node name="Effects" type="Node3D" parent="Pivot"]

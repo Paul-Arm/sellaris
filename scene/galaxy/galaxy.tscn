@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://de1u4tyihsr33" path="res://scene/galaxy/galaxy.gd" id="1_31tn0"]
 [ext_resource type="Script" uid="uid://e4krux16ghmk" path="res://scene/galaxy/GalaxyCameraController.gd" id="2_h6rta"]
+[ext_resource type="PackedScene" path="res://scene/galaxy/BottomCategoryBar.tscn" id="3_8vx58"]
 
 [sub_resource type="Environment" id="Environment_j4v3k"]
 background_mode = 1
@@ -49,12 +50,16 @@ environment = SubResource("Environment_j4v3k")
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=428941150]
 
 [node name="InfoLabel" type="Label" parent="CanvasLayer" unique_id=640211277]
+visible = false
 offset_left = 18.0
 offset_top = 18.0
 offset_right = 520.0
 offset_bottom = 110.0
 theme_override_font_sizes/font_size = 16
 text = "Generating galaxy..."
+
+[node name="BottomCategoryBar" parent="CanvasLayer" instance=ExtResource("3_8vx58")]
+layout_mode = 1
 
 [node name="LoadingOverlay" type="Control" parent="CanvasLayer" unique_id=1121971454]
 visible = false
@@ -118,10 +123,10 @@ layout_mode = 2
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -346.0
-offset_top = 20.0
-offset_right = -20.0
-offset_bottom = 238.0
+offset_left = -333.0
+offset_top = 138.0
+offset_right = -7.0
+offset_bottom = 388.0
 grow_horizontal = 0
 
 [node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SystemPanel" unique_id=1410794106]
@@ -234,3 +239,24 @@ text = "Use Empire"
 [node name="CancelEmpirePickerButton" type="Button" parent="CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/ButtonRow" unique_id=1097491886]
 layout_mode = 2
 text = "Close"
+
+[node name="TopPanel" type="Panel" parent="CanvasLayer" unique_id=194658418]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 25.0
+grow_horizontal = 2
+
+[node name="EnergyLabel" type="Label" parent="CanvasLayer/TopPanel" unique_id=1370566036]
+layout_mode = 0
+offset_left = 20.0
+offset_right = 77.0
+offset_bottom = 23.0
+text = "Energy "
+
+[node name="EnergyValue" type="Label" parent="CanvasLayer/TopPanel" unique_id=1701030407]
+layout_mode = 0
+offset_left = 80.0
+offset_top = 1.0
+offset_right = 137.0
+offset_bottom = 24.0
+text = "200K"

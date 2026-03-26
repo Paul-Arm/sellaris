@@ -1,0 +1,317 @@
+[gd_scene format=3 uid="uid://bn2a3h2rtvrag"]
+
+[ext_resource type="Script" path="res://scene/galaxy/BottomCategoryBar.gd" id="1_r5g2r"]
+
+[node name="BottomCategoryBar" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_r5g2r")
+
+[node name="BottomAnchor" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 18
+mouse_filter = 2
+
+[node name="BottomAlign" type="VBoxContainer" parent="BottomAnchor"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+alignment = 2
+mouse_filter = 2
+
+[node name="CenterRow" type="CenterContainer" parent="BottomAnchor/BottomAlign"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="DockPanel" type="PanelContainer" parent="BottomAnchor/BottomAlign/CenterRow"]
+custom_minimum_size = Vector2(840, 62)
+layout_mode = 2
+mouse_filter = 0
+
+[node name="DockMargin" type="MarginContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="OverlayRoot" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="TabView" type="TabContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+current_tab = 0
+tabs_position = 1
+
+[node name="Planets" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="PageContent" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PageMargin" type="MarginContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+mouse_filter = 2
+
+[node name="PageVBox" type="VBoxContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+mouse_filter = 2
+
+[node name="AccentLine" type="ColorRect" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+color = Color(0.427451, 0.34902, 0.478431, 1)
+
+[node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 1)
+theme_override_font_sizes/font_size = 19
+text = "Planet Operations"
+
+[node name="PageDescription" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.94)
+theme_override_font_sizes/font_size = 13
+text = "Use this page for colonies, districts, buildings, orbital bodies, and any planet-specific controls you want to build out later."
+autowrap_mode = 3
+
+[node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
+theme_override_font_sizes/font_size = 12
+text = "Select a system to surface its worlds here."
+autowrap_mode = 3
+
+[node name="Starbases" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="PageContent" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PageMargin" type="MarginContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+mouse_filter = 2
+
+[node name="PageVBox" type="VBoxContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+mouse_filter = 2
+
+[node name="AccentLine" type="ColorRect" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+color = Color(0.709804, 0.396078, 0.462745, 1)
+
+[node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 1)
+theme_override_font_sizes/font_size = 19
+text = "Starbase Command"
+
+[node name="PageDescription" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.94)
+theme_override_font_sizes/font_size = 13
+text = "Use this page for station modules, defensive structures, shipyards, anchorages, and local infrastructure controls."
+autowrap_mode = 3
+
+[node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
+theme_override_font_sizes/font_size = 12
+text = "Use this page for choke points, shipyards, and anchorages."
+autowrap_mode = 3
+
+[node name="Passive Fleets" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="PageContent" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PageMargin" type="MarginContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+mouse_filter = 2
+
+[node name="PageVBox" type="VBoxContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+mouse_filter = 2
+
+[node name="AccentLine" type="ColorRect" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+color = Color(0.898039, 0.419608, 0.435294, 1)
+
+[node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 1)
+theme_override_font_sizes/font_size = 19
+text = "Passive Fleet Control"
+
+[node name="PageDescription" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.94)
+theme_override_font_sizes/font_size = 13
+text = "Reserve this page for science ships, constructors, civilian transports, and any support-fleet commands."
+autowrap_mode = 3
+
+[node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
+theme_override_font_sizes/font_size = 12
+text = "Civilian and support task groups can stay organized here."
+autowrap_mode = 3
+
+[node name="Military Fleets" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="PageContent" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PageMargin" type="MarginContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+mouse_filter = 2
+
+[node name="PageVBox" type="VBoxContainer" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+mouse_filter = 2
+
+[node name="AccentLine" type="ColorRect" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+color = Color(0.917647, 0.67451, 0.545098, 1)
+
+[node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 1)
+theme_override_font_sizes/font_size = 19
+text = "Military Fleet Control"
+
+[node name="PageDescription" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.94)
+theme_override_font_sizes/font_size = 13
+text = "Build this page out with battle groups, admirals, reinforcement flows, rally points, and combat actions."
+autowrap_mode = 3
+
+[node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
+theme_override_font_sizes/font_size = 12
+text = "Combat fleets, rally anchors, and offensive staging can cluster here."
+autowrap_mode = 3
+
+[node name="BubbleLayer" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+z_index = 2

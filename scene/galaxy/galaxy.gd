@@ -37,6 +37,7 @@ const OWNERSHIP_CIRCLE_SEGMENTS := 28
 @onready var loading_overlay: Control = $CanvasLayer/LoadingOverlay
 @onready var loading_status: Label = $CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer/LoadingStatus
 @onready var loading_progress: ProgressBar = $CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer/LoadingProgress
+@onready var bottom_category_bar: BottomCategoryBar = $CanvasLayer/BottomCategoryBar
 @onready var system_panel: PanelContainer = $CanvasLayer/SystemPanel
 @onready var empire_status_label: Label = $CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/EmpireStatusLabel
 @onready var change_empire_button: Button = $CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/ChangeEmpireButton
@@ -93,6 +94,7 @@ func _ready() -> void:
 	cancel_empire_picker_button.pressed.connect(_on_cancel_empire_picker_pressed)
 	empire_picker_list.item_selected.connect(_on_empire_picker_item_selected)
 	empire_picker_list.item_activated.connect(_on_empire_picker_item_activated)
+	bottom_category_bar.category_selected.connect(_on_bottom_category_selected)
 	_update_system_panel()
 	call_deferred("_generate_galaxy_async")
 
@@ -117,6 +119,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 
 	if empire_picker_overlay.visible:
+		return
+
+	if bottom_category_bar.consume_hotkey_event(event):
+		get_viewport().set_input_as_handled()
 		return
 
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -788,6 +794,16 @@ func _update_system_panel() -> void:
 
 	empire_status_label.text = "Active Empire: %s" % active_empire_name
 
+	var selected_system_name := "No system selected"
+	var selected_owner_name := "Unclaimed"
+	if not selected_system_id.is_empty() and systems_by_id.has(selected_system_id):
+		selected_system_name = str(systems_by_id[selected_system_id].get("name", selected_system_id))
+		var selected_owner_empire_id: String = galaxy_state.get_system_owner_id(selected_system_id)
+		if empires_by_id.has(selected_owner_empire_id):
+			selected_owner_name = str(empires_by_id[selected_owner_empire_id].get("name", selected_owner_name))
+
+	_update_bottom_category_bar_context(active_empire_name, selected_system_name, selected_owner_name)
+
 	if selected_system_id.is_empty() or not systems_by_id.has(selected_system_id):
 		selected_system_title.text = "No system selected"
 		selected_system_meta.text = "Left-click a star system to inspect it. Ownership is stored in galaxy state so it can be reused later for multiplayer, AI, and navigation."
@@ -863,6 +879,11 @@ func _set_loading_state(visible_state: bool, status_text: String = "", progress_
 func _refresh_camera_input_block() -> void:
 	if camera_rig.has_method("set_input_blocked"):
 		camera_rig.set_input_blocked(_is_generating or loading_overlay.visible or empire_picker_overlay.visible)
+	bottom_category_bar.set_interaction_enabled(not (_is_generating or loading_overlay.visible or empire_picker_overlay.visible))
+
+
+func _update_bottom_category_bar_context(active_empire_name: String, selected_system_name: String, selected_owner_name: String) -> void:
+	bottom_category_bar.set_context(active_empire_name, selected_system_name, selected_owner_name)
 
 
 func _pick_system_at_screen_position(screen_position: Vector2) -> String:
@@ -1045,3 +1066,8 @@ func _on_cancel_empire_picker_pressed() -> void:
 	if _empire_picker_requires_selection:
 		return
 	_set_empire_picker_visible(false, false)
+
+
+func _on_bottom_category_selected(_category: Dictionary, _index: int) -> void:
+	# The bar handles its own visual state today; this hook keeps future category panels easy to add.
+	pass

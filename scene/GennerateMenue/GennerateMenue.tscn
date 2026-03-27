@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://rtvy8vqjfk5g"]
 
-[ext_resource type="Script" uid="uid://b4bftvvq1cph6" path="res://scene/MainMenue/MainMenue.gd" id="1_gxsvq"]
-[ext_resource type="Shader" uid="uid://dh1bjbqwyuit8" path="res://scene/MainMenue/MainMenueBG.gdshader" id="2_cc0tx"]
+[ext_resource type="Script" uid="uid://b4bftvvq1cph6" path="res://scene/GennerateMenue/GennerateMenue.gd" id="1_076h8"]
+[ext_resource type="Shader" uid="uid://dh1bjbqwyuit8" path="res://scene/GennerateMenue/GennerateMenueBG.gdshader" id="2_j7onr"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_7co16"]
-shader = ExtResource("2_cc0tx")
+shader = ExtResource("2_j7onr")
 shader_parameter/background_color = Color(0.005, 0.008, 0.02, 1)
 shader_parameter/core_color = Color(0.42, 0.72, 1, 1)
 shader_parameter/arm_color_a = Color(0.32, 0.45, 0.95, 1)
@@ -19,14 +19,14 @@ shader_parameter/nebula_strength = 1.71999996155456
 shader_parameter/star_density = 0.5499999877064
 shader_parameter/motion_speed = 0.0530000025175
 
-[node name="Main Menue" type="Control" unique_id=497395205]
+[node name="GennerateMenue" type="Control" unique_id=497395205]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("1_gxsvq")
+script = ExtResource("1_076h8")
 
 [node name="Background" type="ColorRect" parent="." unique_id=479380350]
 material = SubResource("ShaderMaterial_7co16")
@@ -79,29 +79,29 @@ layout_mode = 2
 placeholder_text = "Seed (optional)"
 clear_button_enabled = true
 
-[node name="SettingsGrid" type="GridContainer" parent="Panel/MarginContainer/VBoxContainer"]
+[node name="SettingsGrid" type="GridContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=1223618562]
 layout_mode = 2
 columns = 2
 
-[node name="StarCountLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+[node name="StarCountLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=1520262905]
 layout_mode = 2
 text = "Amount of Stars"
 
-[node name="StarCountSpinBox" type="SpinBox" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+[node name="StarCountSpinBox" type="SpinBox" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=1310460525]
 layout_mode = 2
 
-[node name="ShapeLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+[node name="ShapeLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=1046797921]
 layout_mode = 2
 text = "Shape"
 
-[node name="ShapeOptionButton" type="OptionButton" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+[node name="ShapeOptionButton" type="OptionButton" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=986556860]
 layout_mode = 2
 
-[node name="HyperlaneDensityLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+[node name="HyperlaneDensityLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=907000363]
 layout_mode = 2
 text = "Hyperlane Density"
 
-[node name="HyperlaneDensitySpinBox" type="SpinBox" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid"]
+[node name="HyperlaneDensitySpinBox" type="SpinBox" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=1644872429]
 layout_mode = 2
 
 [node name="GenerateButton" type="Button" parent="Panel/MarginContainer/VBoxContainer" unique_id=1304444680]

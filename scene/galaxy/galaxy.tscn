@@ -4,8 +4,8 @@
 [ext_resource type="Script" uid="uid://e4krux16ghmk" path="res://scene/galaxy/GalaxyCameraController.gd" id="2_h6rta"]
 [ext_resource type="PackedScene" uid="uid://bn2a3h2rtvrag" path="res://scene/galaxy/BottomCategoryBar.tscn" id="3_8vx58"]
 [ext_resource type="PackedScene" path="res://scene/StarSystem/StarSystemPreview.tscn" id="4_d35nq"]
-[ext_resource type="PackedScene" path="res://scene/StarSystem/SystemView.tscn" id="5_d8u2w"]
-[ext_resource type="PackedScene" path="res://scene/UI/GalaxyHud.tscn" id="6_hud"]
+[ext_resource type="PackedScene" uid="uid://kq26o04nrlk5" path="res://scene/StarSystem/SystemView.tscn" id="5_d8u2w"]
+[ext_resource type="PackedScene" uid="uid://cbjt32qqq0ch1" path="res://scene/UI/GalaxyHud.tscn" id="6_hud"]
 
 [sub_resource type="Environment" id="Environment_j4v3k"]
 background_mode = 1
@@ -259,4 +259,4 @@ render_target_update_mode = 0
 
 [node name="StarSystemPreview" parent="CanvasLayer/SystemPreviewSnapshotViewport" unique_id=1098755858 instance=ExtResource("4_d35nq")]
 
-[node name="GalaxyHud" parent="CanvasLayer" instance=ExtResource("6_hud")]
+[node name="GalaxyHud" parent="CanvasLayer" unique_id=1884079329 instance=ExtResource("6_hud")]

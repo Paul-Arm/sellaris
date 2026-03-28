@@ -3,19 +3,13 @@ extends Node3D
 const GALAXY_GENERATOR_SCRIPT: Script = preload("res://scene/galaxy/GalaxyGenerator.gd")
 const GALAXY_STATE_SCRIPT: Script = preload("res://scene/galaxy/GalaxyState.gd")
 const EMPIRE_FACTORY_SCRIPT: Script = preload("res://scene/galaxy/EmpireFactory.gd")
+const GALAXY_MAP_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyMapRenderer.gd")
+const GALAXY_SCENE_UI_CONTROLLER_SCRIPT: Script = preload("res://scene/galaxy/GalaxySceneUiController.gd")
+const GALAXY_HUD_MUSIC_CONTROLLER_SCRIPT: Script = preload("res://scene/UI/GalaxyHudMusicController.gd")
 const STAR_CORE_SHADER := preload("res://scene/galaxy/StarCore.gdshader")
 const STAR_GLOW_SHADER := preload("res://scene/galaxy/StarGlow.gdshader")
-const BLACK_HOLE_TYPE := "Black hole"
-const NEUTRON_TYPE := "Neutron star"
-const O_CLASS_TYPE := "O class star"
 const DEFAULT_EMPIRE_COUNT := 6
 const SYSTEM_PICK_RADIUS := 26.0
-const OWNERSHIP_BLOB_RADIUS_FACTOR := 1.9
-const OWNERSHIP_EXCLUSION_RADIUS_FACTOR := 1.12
-const OWNERSHIP_CONNECTOR_RADIUS_FACTOR := 0.72
-const OWNERSHIP_CONNECTION_DISTANCE_FACTOR := 5.75
-const OWNERSHIP_BORDER_WIDTH_FACTOR := 0.38
-const OWNERSHIP_CIRCLE_SEGMENTS := 28
 
 @export var star_count: int = 900
 @export var galaxy_radius: float = 3000.0
@@ -82,6 +76,9 @@ var _sim_speed_display_steps := [0.5, 1.0, 2.0, 4.0]
 var _sim_speed_actual_steps := [0.25, 0.5, 1.0, 2.0]
 var _sim_speed_index: int = 0
 var _sim_paused: bool = false
+var _map_renderer = GALAXY_MAP_RENDERER_SCRIPT.new()
+var _scene_ui_controller = GALAXY_SCENE_UI_CONTROLLER_SCRIPT.new()
+var _music_ui_controller = GALAXY_HUD_MUSIC_CONTROLLER_SCRIPT.new()
 
 
 func set_seed_text(value: String) -> void:
@@ -101,17 +98,11 @@ func configure(settings: Dictionary) -> void:
 
 
 func _ready() -> void:
-	MusicManager.play_game_tracks()
 	change_empire_button.pressed.connect(_on_change_empire_pressed)
 	claim_system_button.pressed.connect(_on_claim_selected_system_pressed)
 	clear_owner_button.pressed.connect(_on_clear_owner_pressed)
 	select_empire_button.pressed.connect(_on_select_empire_pressed)
 	cancel_empire_picker_button.pressed.connect(_on_cancel_empire_picker_pressed)
-	galaxy_hud.previous_track_requested.connect(_on_previous_track_pressed)
-	galaxy_hud.pause_track_requested.connect(_on_pause_track_pressed)
-	galaxy_hud.next_track_requested.connect(_on_next_track_pressed)
-	galaxy_hud.music_hover_changed.connect(_on_music_hover_changed)
-	galaxy_hud.music_volume_changed.connect(_on_music_volume_changed)
 	galaxy_hud.close_settings_requested.connect(_on_close_settings_pressed)
 	galaxy_hud.sim_pause_requested.connect(_on_sim_pause_pressed)
 	galaxy_hud.sim_speed_requested.connect(_on_sim_speed_pressed)
@@ -119,14 +110,24 @@ func _ready() -> void:
 	empire_picker_list.item_activated.connect(_on_empire_picker_item_activated)
 	bottom_category_bar.category_selected.connect(_on_bottom_category_selected)
 	system_view.close_requested.connect(_close_system_view)
-	MusicManager.playback_changed.connect(_on_music_playback_changed)
 	SimClock.day_tick.connect(_on_sim_day_tick)
 	SimClock.month_tick.connect(_on_sim_month_tick)
 	SimClock.year_tick.connect(_on_sim_year_tick)
-	_sync_music_ui()
+	_map_renderer.bind(self, STAR_CORE_SHADER, STAR_GLOW_SHADER)
+	_scene_ui_controller.bind(self)
+	_music_ui_controller.bind(galaxy_hud)
 	_sync_sim_clock_ui()
 	_update_system_panel()
 	call_deferred("_generate_galaxy_async")
+
+
+func _exit_tree() -> void:
+	if _map_renderer != null:
+		_map_renderer.unbind()
+	if _scene_ui_controller != null:
+		_scene_ui_controller.unbind()
+	if _music_ui_controller != null:
+		_music_ui_controller.unbind()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -268,6 +269,10 @@ func _generate_galaxy_async() -> void:
 	galaxy_shape = str(layout.get("shape", galaxy_shape))
 	hyperlane_density = int(layout.get("hyperlane_density", hyperlane_density))
 	_sync_cached_state()
+	if camera_rig.has_method("set_galaxy_radius"):
+		camera_rig.set_galaxy_radius(galaxy_radius)
+	if camera_rig.has_method("reset_view"):
+		camera_rig.reset_view(galaxy_radius)
 
 	_set_loading_state(true, "Preparing empire shells...", 0.6)
 	await get_tree().process_frame
@@ -466,8 +471,30 @@ func _apply_system_detail_state(
 
 
 func _initialize_empires() -> void:
-	var default_empires: Array[Dictionary] = empire_factory.build_default_empires(generated_seed, system_records.size(), DEFAULT_EMPIRE_COUNT)
-	galaxy_state.set_empires(default_empires)
+	var preset_empires: Array[Dictionary] = EmpirePresetManager.build_galaxy_empire_records()
+	var desired_empire_count := maxi(DEFAULT_EMPIRE_COUNT, preset_empires.size())
+	var generated_empires: Array[Dictionary] = empire_factory.build_default_empires(
+		generated_seed,
+		system_records.size(),
+		desired_empire_count
+	)
+	var merged_empires: Array[Dictionary] = []
+
+	for preset_index in range(preset_empires.size()):
+		var preset_record: Dictionary = preset_empires[preset_index].duplicate(true)
+		preset_record["player_slot"] = preset_index
+		merged_empires.append(preset_record)
+
+	for generated_index in range(generated_empires.size()):
+		if merged_empires.size() >= desired_empire_count:
+			break
+
+		var generated_record: Dictionary = generated_empires[generated_index].duplicate(true)
+		generated_record["id"] = "generated_empire_%02d" % generated_index
+		generated_record["player_slot"] = merged_empires.size()
+		merged_empires.append(generated_record)
+
+	galaxy_state.set_empires(merged_empires)
 	_sync_cached_state()
 	_populate_empire_picker()
 
@@ -485,705 +512,79 @@ func _sync_cached_state() -> void:
 
 
 func _render_stars() -> void:
-	var core_mesh := SphereMesh.new()
-	core_mesh.radius = 4.5
-	core_mesh.height = 9.0
-	core_mesh.radial_segments = 18
-	core_mesh.rings = 12
-
-	var core_material := ShaderMaterial.new()
-	core_material.shader = STAR_CORE_SHADER
-	core_material.set_shader_parameter("emission_strength", 1.2)
-	core_material.set_shader_parameter("rim_strength", 0.18)
-	core_material.set_shader_parameter("rim_power", 2.6)
-	core_material.set_shader_parameter("saturation_boost", 1.45)
-	core_mesh.material = core_material
-
-	var glow_mesh := SphereMesh.new()
-	glow_mesh.radius = 11.0
-	glow_mesh.height = 22.0
-	glow_mesh.radial_segments = 18
-	glow_mesh.rings = 12
-
-	var star_instances: Array[Dictionary] = []
-	for system_record in system_records:
-		var star_profile: Dictionary = system_record.get("star_profile", {})
-		var profile_stars: Array = star_profile.get("stars", [])
-		if profile_stars.is_empty():
-			profile_stars = [{
-				"index": 0,
-				"color": Color(1.0, 0.93, 0.46, 1.0),
-				"scale": 1.0,
-				"special_type": "none",
-			}]
-
-		var orbit_radius := 12.0
-		if profile_stars.size() == 2:
-			orbit_radius = 9.5
-		elif profile_stars.size() >= 3:
-			orbit_radius = 13.0
-
-		for star_data_variant in profile_stars:
-			var star_data: Dictionary = star_data_variant
-			var offset := _get_star_offset(int(star_data.get("index", 0)), profile_stars.size(), orbit_radius)
-			star_instances.append({
-				"position": system_record["position"] + offset,
-				"color": star_data.get("color", star_profile.get("display_color", Color.WHITE)),
-				"scale": float(star_data.get("scale", 1.0)),
-				"special_type": str(star_data.get("special_type", "none")),
-				"is_pinned": str(system_record.get("id", "")) == pinned_system_id,
-			})
-
-	var core_multimesh := MultiMesh.new()
-	core_multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	core_multimesh.use_colors = true
-	core_multimesh.mesh = core_mesh
-	core_multimesh.instance_count = star_instances.size()
-
-	var glow_multimesh := MultiMesh.new()
-	glow_multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	glow_multimesh.use_colors = true
-	glow_multimesh.mesh = glow_mesh
-	glow_multimesh.instance_count = star_instances.size()
-
-	for i in range(star_instances.size()):
-		var instance: Dictionary = star_instances[i]
-		var star_scale: float = float(instance["scale"])
-		var color: Color = instance["color"]
-		var special_type: String = str(instance["special_type"])
-		var is_pinned: bool = bool(instance.get("is_pinned", false))
-		var star_position: Vector3 = instance["position"]
-		var core_scale := star_scale * 1.05
-		var glow_scale := star_scale * 2.0
-
-		if special_type == BLACK_HOLE_TYPE:
-			core_scale *= 0.72
-			glow_scale *= 1.25
-			color = color.darkened(0.55)
-		elif special_type == NEUTRON_TYPE:
-			core_scale *= 0.68
-			glow_scale *= 0.95
-		elif special_type == O_CLASS_TYPE:
-			core_scale *= 1.18
-			glow_scale *= 1.15
-
-		if is_pinned:
-			core_scale *= 1.18
-			glow_scale *= 1.55
-			color = color.lightened(0.18)
-
-		core_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * core_scale), star_position))
-		core_multimesh.set_instance_color(i, color)
-
-		var glow_color := _get_glow_color(color, special_type)
-		if is_pinned:
-			glow_color = glow_color.lerp(Color(1.0, 0.95, 0.62, 0.82), 0.62)
-			glow_color.a = maxf(glow_color.a, 0.78)
-		glow_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * glow_scale), star_position))
-		glow_multimesh.set_instance_color(i, glow_color)
-
-	core_stars.multimesh = core_multimesh
-	glow_stars.multimesh = glow_multimesh
-	glow_stars.material_override = _build_glow_material()
+	_map_renderer.render_stars()
 
 
 func _render_hyperlanes() -> void:
-	var surface_tool := SurfaceTool.new()
-	surface_tool.begin(Mesh.PRIMITIVE_LINES)
-
-	var lane_material := StandardMaterial3D.new()
-	lane_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	lane_material.albedo_color = Color(0.32, 0.56, 0.95, 0.42)
-	lane_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-
-	for link in hyperlane_links:
-		surface_tool.set_color(Color(0.32, 0.56, 0.95, 0.42))
-		surface_tool.add_vertex(system_positions[link.x])
-		surface_tool.set_color(Color(0.32, 0.56, 0.95, 0.42))
-		surface_tool.add_vertex(system_positions[link.y])
-
-	hyperlanes.mesh = surface_tool.commit()
-	hyperlanes.material_override = lane_material
+	_map_renderer.render_hyperlanes()
 
 
 func _render_ownership_markers() -> void:
-	var empire_owned_systems: Dictionary = {}
-	for system_record in system_records:
-		var owner_empire_id: String = str(system_record.get("owner_empire_id", ""))
-		if owner_empire_id.is_empty() or not empires_by_id.has(owner_empire_id):
-			continue
-		var aura_record: Dictionary = {
-			"system_id": str(system_record.get("id", "")),
-			"position": system_record["position"],
-			"color": empires_by_id[owner_empire_id].get("color", Color.WHITE),
-		}
-		var owned_by_empire: Array = empire_owned_systems.get(owner_empire_id, [])
-		owned_by_empire.append(aura_record)
-		empire_owned_systems[owner_empire_id] = owned_by_empire
-
-	if empire_owned_systems.is_empty():
-		ownership_markers.mesh = null
-		ownership_connectors.mesh = null
-		ownership_markers.material_override = null
-		ownership_connectors.material_override = null
-		return
-
-	var fill_tool := SurfaceTool.new()
-	fill_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	var border_tool := SurfaceTool.new()
-	border_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	for owner_empire_id_variant in empire_owned_systems.keys():
-		var owner_empire_id: String = str(owner_empire_id_variant)
-		var systems_for_empire: Array = empire_owned_systems.get(owner_empire_id, [])
-		var region_color: Color = empires_by_id[owner_empire_id].get("color", Color.WHITE)
-		var clustered_regions: Array[Dictionary] = _build_empire_blob_regions(owner_empire_id, systems_for_empire)
-
-		for region_data_variant in clustered_regions:
-			var region_data: Dictionary = region_data_variant
-			var region_polygon: PackedVector2Array = region_data["polygon"]
-			var region_height: float = float(region_data["height"])
-			if region_polygon.size() < 3:
-				continue
-			_append_region_fill(fill_tool, region_polygon, region_height + 1.2, region_color)
-			_append_region_border(border_tool, region_polygon, region_height + 2.4, region_color)
-
-	ownership_markers.mesh = fill_tool.commit()
-	ownership_connectors.mesh = border_tool.commit()
-	ownership_markers.material_override = _build_ownership_fill_material()
-	ownership_connectors.material_override = _build_ownership_border_material()
-
-
-func _build_empire_blob_regions(owner_empire_id: String, systems_for_empire: Array) -> Array[Dictionary]:
-	var clustered_regions: Array[Dictionary] = []
-	var blob_radius: float = _get_ownership_blob_radius()
-	var clusters: Array = _build_owned_system_clusters(systems_for_empire)
-
-	for cluster_variant in clusters:
-		var cluster_systems: Array = cluster_variant
-		var primitive_regions: Array[PackedVector2Array] = []
-		for system_variant in cluster_systems:
-			var system_record: Dictionary = system_variant
-			var system_position: Vector3 = system_record["position"]
-			primitive_regions.append(_build_circle_polygon(Vector2(system_position.x, system_position.z), blob_radius, OWNERSHIP_CIRCLE_SEGMENTS))
-
-		for connector_variant in _build_cluster_connector_polygons(cluster_systems):
-			var connector_polygon: PackedVector2Array = connector_variant
-			if connector_polygon.size() >= 3:
-				primitive_regions.append(connector_polygon)
-
-		var merged_polygons: Array[PackedVector2Array] = _merge_overlapping_polygons(primitive_regions)
-		merged_polygons = _subtract_non_owned_systems(owner_empire_id, merged_polygons)
-
-		for merged_polygon in merged_polygons:
-			if merged_polygon.size() < 3:
-				continue
-			clustered_regions.append({
-				"polygon": merged_polygon,
-				"height": _get_region_height(cluster_systems),
-			})
-
-	return clustered_regions
-
-
-func _build_circle_polygon(center: Vector2, radius: float, segment_count: int) -> PackedVector2Array:
-	var polygon := PackedVector2Array()
-	for point_index in range(segment_count):
-		var angle: float = float(point_index) * TAU / float(segment_count)
-		polygon.append(center + Vector2(cos(angle), sin(angle)) * radius)
-	return polygon
-
-
-func _build_owned_system_clusters(systems_for_empire: Array) -> Array:
-	var clusters: Array = []
-	var visited: Dictionary = {}
-	var max_distance_sq: float = _get_ownership_connection_distance()
-	max_distance_sq *= max_distance_sq
-
-	for system_index in range(systems_for_empire.size()):
-		if visited.has(system_index):
-			continue
-
-		var cluster: Array = []
-		var queue: Array[int] = [system_index]
-		visited[system_index] = true
-
-		while not queue.is_empty():
-			var current_index: int = int(queue.pop_front())
-			var current_system: Dictionary = systems_for_empire[current_index]
-			cluster.append(current_system)
-			var current_position: Vector3 = current_system["position"]
-
-			for candidate_index in range(systems_for_empire.size()):
-				if visited.has(candidate_index):
-					continue
-				var candidate_system: Dictionary = systems_for_empire[candidate_index]
-				var candidate_position: Vector3 = candidate_system["position"]
-				if current_position.distance_squared_to(candidate_position) > max_distance_sq:
-					continue
-				visited[candidate_index] = true
-				queue.append(candidate_index)
-
-		clusters.append(cluster)
-
-	return clusters
-
-
-func _build_cluster_connector_polygons(cluster_systems: Array) -> Array[PackedVector2Array]:
-	var connector_polygons: Array[PackedVector2Array] = []
-	if cluster_systems.size() <= 1:
-		return connector_polygons
-
-	var dedupe: Dictionary = {}
-	var max_distance_sq: float = _get_ownership_connection_distance()
-	max_distance_sq *= max_distance_sq
-	var connector_radius: float = _get_ownership_connector_radius()
-
-	for system_index in range(cluster_systems.size()):
-		var origin: Dictionary = cluster_systems[system_index]
-		var origin_position: Vector3 = origin["position"]
-		var nearest_index: int = -1
-		var nearest_distance_sq: float = INF
-
-		for candidate_index in range(cluster_systems.size()):
-			if candidate_index == system_index:
-				continue
-			var candidate: Dictionary = cluster_systems[candidate_index]
-			var distance_sq: float = origin_position.distance_squared_to(candidate["position"])
-			if distance_sq > max_distance_sq or distance_sq >= nearest_distance_sq:
-				continue
-			nearest_index = candidate_index
-			nearest_distance_sq = distance_sq
-
-		if nearest_index == -1:
-			continue
-
-		var edge_a: int = mini(system_index, nearest_index)
-		var edge_b: int = maxi(system_index, nearest_index)
-		var edge_key: String = "%s:%s" % [edge_a, edge_b]
-		if dedupe.has(edge_key):
-			continue
-
-		dedupe[edge_key] = true
-		var target: Dictionary = cluster_systems[nearest_index]
-		connector_polygons.append(_build_capsule_polygon(
-			Vector2(origin_position.x, origin_position.z),
-			Vector2(target["position"].x, target["position"].z),
-			connector_radius
-		))
-
-	return connector_polygons
-
-
-func _build_capsule_polygon(start_point: Vector2, end_point: Vector2, radius: float) -> PackedVector2Array:
-	var direction: Vector2 = end_point - start_point
-	if direction.length_squared() <= 0.001:
-		return _build_circle_polygon(start_point, radius, OWNERSHIP_CIRCLE_SEGMENTS)
-
-	var polygon := PackedVector2Array()
-	var axis: Vector2 = direction.normalized()
-	var normal := Vector2(-axis.y, axis.x)
-	var start_angle: float = normal.angle()
-	var end_angle: float = start_angle + PI
-	var arc_steps: int = maxi(6, OWNERSHIP_CIRCLE_SEGMENTS / 2)
-
-	for step in range(arc_steps + 1):
-		var t: float = float(step) / float(arc_steps)
-		var angle: float = start_angle + PI * t
-		polygon.append(start_point + Vector2(cos(angle), sin(angle)) * radius)
-
-	for step in range(arc_steps + 1):
-		var t: float = float(step) / float(arc_steps)
-		var angle: float = end_angle + PI * t
-		polygon.append(end_point + Vector2(cos(angle), sin(angle)) * radius)
-
-	return polygon
-
-
-func _merge_overlapping_polygons(polygons: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
-	var merged_regions: Array[PackedVector2Array] = polygons.duplicate()
-	var did_merge: bool = true
-
-	while did_merge:
-		did_merge = false
-		for first_index in range(merged_regions.size()):
-			for second_index in range(first_index + 1, merged_regions.size()):
-				var merge_result: Array = Geometry2D.merge_polygons(merged_regions[first_index], merged_regions[second_index])
-				if merge_result.size() != 1:
-					continue
-
-				var merged_polygon: PackedVector2Array = merge_result[0]
-				if merged_polygon.size() >= 2 and merged_polygon[0].is_equal_approx(merged_polygon[merged_polygon.size() - 1]):
-					merged_polygon.remove_at(merged_polygon.size() - 1)
-				merged_regions.remove_at(second_index)
-				merged_regions.remove_at(first_index)
-				merged_regions.append(merged_polygon)
-				did_merge = true
-				break
-			if did_merge:
-				break
-
-	return merged_regions
-
-
-func _subtract_non_owned_systems(owner_empire_id: String, polygons: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
-	var exclusion_records: Array[Dictionary] = []
-	var exclusion_radius: float = _get_ownership_exclusion_radius()
-
-	for system_record in system_records:
-		var system_owner_id: String = str(system_record.get("owner_empire_id", ""))
-		if system_owner_id == owner_empire_id:
-			continue
-		var system_position: Vector3 = system_record["position"]
-		exclusion_records.append({
-			"center": Vector2(system_position.x, system_position.z),
-			"polygon": _build_circle_polygon(Vector2(system_position.x, system_position.z), exclusion_radius, 16),
-		})
-
-	var result_polygons: Array[PackedVector2Array] = polygons.duplicate()
-	for exclusion_record_variant in exclusion_records:
-		var exclusion_record: Dictionary = exclusion_record_variant
-		var exclusion_center: Vector2 = exclusion_record["center"]
-		var exclusion_polygon: PackedVector2Array = exclusion_record["polygon"]
-		var next_result: Array[PackedVector2Array] = []
-		for region_polygon in result_polygons:
-			if not _is_point_near_polygon_bounds(exclusion_center, region_polygon, exclusion_radius * 1.5):
-				next_result.append(region_polygon)
-				continue
-
-			var overlap_regions: Array = Geometry2D.intersect_polygons(region_polygon, exclusion_polygon)
-			if overlap_regions.is_empty():
-				next_result.append(region_polygon)
-				continue
-
-			var clipped_regions: Array = Geometry2D.clip_polygons(region_polygon, exclusion_polygon)
-			for clipped_region_variant in clipped_regions:
-				var clipped_region: PackedVector2Array = clipped_region_variant
-				if clipped_region.size() >= 3:
-					if clipped_region[0].is_equal_approx(clipped_region[clipped_region.size() - 1]):
-						clipped_region.remove_at(clipped_region.size() - 1)
-					next_result.append(clipped_region)
-		result_polygons = next_result
-
-	return result_polygons
-
-
-func _is_point_near_polygon_bounds(point: Vector2, polygon: PackedVector2Array, margin: float) -> bool:
-	if polygon.is_empty():
-		return false
-
-	var min_x: float = polygon[0].x
-	var max_x: float = polygon[0].x
-	var min_y: float = polygon[0].y
-	var max_y: float = polygon[0].y
-
-	for polygon_point in polygon:
-		min_x = minf(min_x, polygon_point.x)
-		max_x = maxf(max_x, polygon_point.x)
-		min_y = minf(min_y, polygon_point.y)
-		max_y = maxf(max_y, polygon_point.y)
-
-	return point.x >= min_x - margin and point.x <= max_x + margin and point.y >= min_y - margin and point.y <= max_y + margin
-
-
-func _append_region_fill(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
-	var fill_color := region_color
-	fill_color.a = 0.18
-	var triangulated_indices: PackedInt32Array = Geometry2D.triangulate_polygon(region_polygon)
-
-	for triangle_index in range(0, triangulated_indices.size(), 3):
-		for point_offset in range(3):
-			var polygon_index: int = triangulated_indices[triangle_index + point_offset]
-			var region_point: Vector2 = region_polygon[polygon_index]
-			surface_tool.set_color(fill_color)
-			surface_tool.add_vertex(Vector3(region_point.x, region_height, region_point.y))
-
-
-func _append_region_border(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
-	var half_width: float = _get_ownership_border_half_width()
-	var outer_results: Array = Geometry2D.offset_polygon(region_polygon, half_width)
-	if outer_results.is_empty():
-		return
-	var outer_polygon: PackedVector2Array = outer_results[0]
-	var inner_results: Array = Geometry2D.offset_polygon(region_polygon, -half_width * 0.82)
-	var inner_polygon: PackedVector2Array = region_polygon
-	if not inner_results.is_empty():
-		inner_polygon = inner_results[0]
-
-	var border_color := region_color
-	border_color.a = 0.92
-	var segment_count: int = mini(outer_polygon.size(), inner_polygon.size())
-	if segment_count < 3:
-		return
-
-	for point_index in range(segment_count):
-		var next_index: int = (point_index + 1) % segment_count
-		var outer_current: Vector2 = outer_polygon[point_index]
-		var outer_next: Vector2 = outer_polygon[next_index]
-		var inner_current: Vector2 = inner_polygon[point_index]
-		var inner_next: Vector2 = inner_polygon[next_index]
-		_append_triangle(surface_tool, outer_current, outer_next, inner_next, region_height, border_color)
-		_append_triangle(surface_tool, outer_current, inner_next, inner_current, region_height, border_color)
-
-
-func _append_triangle(surface_tool: SurfaceTool, a: Vector2, b: Vector2, c: Vector2, height: float, color: Color) -> void:
-	surface_tool.set_color(color)
-	surface_tool.add_vertex(Vector3(a.x, height, a.y))
-	surface_tool.set_color(color)
-	surface_tool.add_vertex(Vector3(b.x, height, b.y))
-	surface_tool.set_color(color)
-	surface_tool.add_vertex(Vector3(c.x, height, c.y))
+	_map_renderer.render_ownership_markers()
 
 
 func _update_info_label() -> void:
-	var displayed_seed := seed_text if not seed_text.is_empty() else str(generated_seed)
-	var active_empire_name := "None"
-	if empires_by_id.has(active_empire_id):
-		active_empire_name = str(empires_by_id[active_empire_id].get("name", active_empire_name))
-
-	var inspected_system_id: String = _get_inspected_system_id()
-	var selected_summary := "Selected: None"
-	if not inspected_system_id.is_empty() and systems_by_id.has(inspected_system_id):
-		var selected_owner: Dictionary = galaxy_state.get_system_owner(inspected_system_id)
-		var selected_owner_name := "Unclaimed"
-		if not selected_owner.is_empty():
-			selected_owner_name = str(selected_owner.get("name", selected_owner_name))
-		selected_summary = "Selected: %s (%s)" % [systems_by_id[inspected_system_id].get("name", inspected_system_id), selected_owner_name]
-
-	info_label.text = "Seed: %s\nSystems: %d  Shape: %s  Hyperlanes: %d  Empires: %d\nActive Empire: %s  %s\nPan: WASD / Arrows / Edge / Middle Drag  Orbit: Right Drag  Zoom: Mouse Wheel  Pick Empire: E  Regenerate: R  System View: Left Click  Back: Esc closes overlays and returns to galaxy" % [
-		displayed_seed,
-		system_positions.size(),
-		galaxy_shape.capitalize(),
-		hyperlane_density,
-		empire_records.size(),
-		active_empire_name,
-		selected_summary,
-	]
+	_scene_ui_controller.update_info_label()
 
 
 func _update_system_panel() -> void:
-	var inspected_system_id: String = _get_inspected_system_id()
-	selected_system_id = inspected_system_id
-	var active_empire_name := "None selected"
-	change_empire_button.text = "Choose Empire"
-	claim_system_button.text = "Claim Selected System"
-	claim_system_button.modulate = Color.WHITE
-
-	if empires_by_id.has(active_empire_id):
-		var active_empire: Dictionary = empires_by_id[active_empire_id]
-		active_empire_name = str(active_empire.get("name", active_empire_name))
-		change_empire_button.text = "Change Empire"
-		claim_system_button.text = "Claim for %s" % active_empire_name
-		claim_system_button.modulate = active_empire.get("color", Color.WHITE)
-
-	empire_status_label.text = "Active Empire: %s" % active_empire_name
-
-	var selected_system_name := "No system selected"
-	var selected_owner_name := "Unclaimed"
-	if not inspected_system_id.is_empty() and systems_by_id.has(inspected_system_id):
-		selected_system_name = str(systems_by_id[inspected_system_id].get("name", inspected_system_id))
-		var selected_owner_empire_id: String = galaxy_state.get_system_owner_id(inspected_system_id)
-		if empires_by_id.has(selected_owner_empire_id):
-			selected_owner_name = str(empires_by_id[selected_owner_empire_id].get("name", selected_owner_name))
-
-	_update_bottom_category_bar_context(active_empire_name, selected_system_name, selected_owner_name)
-
-	if inspected_system_id.is_empty() or not systems_by_id.has(inspected_system_id):
-		system_panel.visible = false
-		selected_system_title.text = "No system selected"
-		selected_system_meta.text = "Left-click a star system to inspect it. The galaxy map keeps compact summary data for every system, while richer stars, planets, belts, ruins, and structures are resolved on demand for the selected system."
-		system_preview_image.texture = null
-		claim_system_button.disabled = active_empire_id.is_empty()
-		clear_owner_button.disabled = true
-		return
-
-	system_panel.visible = true
-
-	var system_record: Dictionary = systems_by_id[inspected_system_id]
-	var owner_empire_id: String = galaxy_state.get_system_owner_id(inspected_system_id)
-	var owner_name := "Unclaimed"
-	if empires_by_id.has(owner_empire_id):
-		owner_name = str(empires_by_id[owner_empire_id].get("name", owner_name))
-
-	var system_details: Dictionary = get_system_details(inspected_system_id)
-	var summary: Dictionary = system_details.get("system_summary", system_record.get("system_summary", {}))
-	var star_profile: Dictionary = system_details.get("star_profile", system_record.get("star_profile", {}))
-	var neighbor_count: int = galaxy_state.get_neighbor_system_ids(inspected_system_id).size()
-	var star_count_label: int = int(summary.get("star_count", star_profile.get("star_count", 1)))
-	var star_class: String = str(star_profile.get("star_class", "G"))
-	var special_type: String = str(star_profile.get("special_type", "none"))
-	var special_label := ""
-	if special_type != "none":
-		special_label = "  Special: %s" % special_type
-
-	selected_system_title.text = str(system_record.get("name", inspected_system_id))
-	selected_system_meta.text = "Owner: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%" % [
-		owner_name,
-		star_class,
-		star_count_label,
-		special_label,
-		neighbor_count,
-		int(summary.get("planet_count", 0)),
-		int(summary.get("asteroid_belt_count", 0)),
-		int(summary.get("structure_count", 0)),
-		int(summary.get("ruin_count", 0)),
-		int(summary.get("habitable_worlds", 0)),
-		int(summary.get("colonizable_worlds", 0)),
-		int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
-	]
-	_update_system_panel_preview(inspected_system_id, system_details)
-	if system_view.is_open() and system_view.get_current_system_id() == inspected_system_id:
-		system_view.show_system(system_details, neighbor_count)
-	claim_system_button.disabled = active_empire_id.is_empty() or owner_empire_id == active_empire_id
-	clear_owner_button.disabled = owner_empire_id.is_empty()
+	_scene_ui_controller.update_system_panel()
 
 
 func _get_inspected_system_id() -> String:
-	if not pinned_system_id.is_empty():
-		return pinned_system_id
-	return hovered_system_id
+	return _scene_ui_controller.get_inspected_system_id()
 
 
 func _invalidate_system_panel_snapshot(system_id: String = "") -> void:
-	if system_id.is_empty():
-		_system_panel_snapshot_cache.clear()
-		_system_panel_snapshot_token += 1
-		return
-	_system_panel_snapshot_cache.erase(system_id)
-	_system_panel_snapshot_token += 1
+	_scene_ui_controller.invalidate_system_panel_snapshot(system_id)
 
 
 func _update_system_panel_preview(system_id: String, system_details: Dictionary) -> void:
-	if _system_panel_snapshot_cache.has(system_id):
-		system_preview_image.texture = _system_panel_snapshot_cache[system_id]
-		return
-
-	system_preview_image.texture = null
-	_system_panel_snapshot_token += 1
-	call_deferred("_capture_system_panel_snapshot", system_id, system_details, _system_panel_snapshot_token)
+	_scene_ui_controller.update_system_panel_preview(system_id, system_details)
 
 
 func _capture_system_panel_snapshot(system_id: String, system_details: Dictionary, request_token: int) -> void:
-	if request_token != _system_panel_snapshot_token:
-		return
-
-	system_snapshot_preview.set_system_details(system_details)
-	system_snapshot_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
-	await get_tree().process_frame
-
-	if request_token != _system_panel_snapshot_token:
-		return
-
-	var snapshot_image: Image = system_snapshot_viewport.get_texture().get_image()
-	if snapshot_image == null or snapshot_image.is_empty():
-		return
-
-	var snapshot_texture := ImageTexture.create_from_image(snapshot_image)
-	_system_panel_snapshot_cache[system_id] = snapshot_texture
-	system_snapshot_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	system_snapshot_preview.clear_preview()
-
-	if _get_inspected_system_id() == system_id:
-		system_preview_image.texture = snapshot_texture
+	await _scene_ui_controller._capture_system_panel_snapshot(system_id, system_details, request_token)
 
 
 func _populate_empire_picker() -> void:
-	empire_picker_list.clear()
-
-	for empire_index in range(empire_records.size()):
-		var empire_record: Dictionary = empire_records[empire_index]
-		var empire_id: String = str(empire_record.get("id", ""))
-		var controller_kind: String = str(empire_record.get("controller_kind", "unassigned"))
-		var item_text := "%s  [%s]" % [empire_record.get("name", empire_id), _format_controller_kind(controller_kind)]
-		empire_picker_list.add_item(item_text)
-		var item_index := empire_picker_list.get_item_count() - 1
-		empire_picker_list.set_item_metadata(item_index, empire_id)
-		empire_picker_list.set_item_custom_fg_color(item_index, empire_record.get("color", Color.WHITE))
-
-		if empire_id == active_empire_id:
-			empire_picker_list.select(item_index)
-
-	select_empire_button.disabled = _get_selected_empire_id_from_picker().is_empty()
-	cancel_empire_picker_button.visible = not _empire_picker_requires_selection
-	cancel_empire_picker_button.disabled = _empire_picker_requires_selection
+	_scene_ui_controller.populate_empire_picker()
 
 
 func _open_empire_picker(requires_selection: bool) -> void:
-	_empire_picker_requires_selection = requires_selection
-	_populate_empire_picker()
-	_set_empire_picker_visible(true, requires_selection)
+	_scene_ui_controller.open_empire_picker(requires_selection)
 
 
 func _set_empire_picker_visible(visible_state: bool, requires_selection: bool = false) -> void:
-	_empire_picker_requires_selection = requires_selection
-	empire_picker_overlay.visible = visible_state
-	cancel_empire_picker_button.visible = visible_state and not requires_selection
-	cancel_empire_picker_button.disabled = requires_selection
-	_refresh_camera_input_block()
+	_scene_ui_controller.set_empire_picker_visible(visible_state, requires_selection)
 
 
 func _set_settings_overlay_visible(visible_state: bool) -> void:
-	galaxy_hud.set_settings_visible(visible_state)
-	_refresh_camera_input_block()
+	_scene_ui_controller.set_settings_overlay_visible(visible_state)
 
 
 func _set_loading_state(visible_state: bool, status_text: String = "", progress_ratio: float = 0.0) -> void:
-	loading_overlay.visible = visible_state
-	if not status_text.is_empty():
-		loading_status.text = status_text
-	loading_progress.value = clampf(progress_ratio, 0.0, 1.0) * 100.0
-	_refresh_camera_input_block()
+	_scene_ui_controller.set_loading_state(visible_state, status_text, progress_ratio)
 
 
 func _refresh_camera_input_block() -> void:
-	if camera_rig.has_method("set_input_blocked"):
-		camera_rig.set_input_blocked(_is_generating or loading_overlay.visible or empire_picker_overlay.visible or galaxy_hud.is_settings_visible() or system_view.is_open())
-	bottom_category_bar.set_interaction_enabled(not (_is_generating or loading_overlay.visible or empire_picker_overlay.visible or galaxy_hud.is_settings_visible() or system_view.is_open()))
+	_scene_ui_controller.refresh_camera_input_block()
 
 
 func _set_galaxy_presentation_visible(visible_state: bool) -> void:
-	var nodes := {
-		"stars": stars,
-		"hyperlanes": hyperlanes,
-		"system_panel": system_panel,
-		"bottom_category_bar": bottom_category_bar,
-		"info_label": info_label,
-		"galaxy_hud": galaxy_hud,
-	}
-
-	if not visible_state:
-		_galaxy_presentation_visibility.clear()
-		for node_key in nodes.keys():
-			var node = nodes[node_key]
-			_galaxy_presentation_visibility[node_key] = node.visible
-			node.visible = false
-		return
-
-	for node_key in nodes.keys():
-		var node = nodes[node_key]
-		node.visible = bool(_galaxy_presentation_visibility.get(node_key, true))
+	_scene_ui_controller.set_galaxy_presentation_visible(visible_state)
 
 
 func _open_system_view(system_id: String) -> void:
-	if system_id.is_empty() or not systems_by_id.has(system_id):
-		return
-	selected_system_id = system_id
-	var system_details: Dictionary = get_system_details(system_id)
-	var neighbor_count: int = galaxy_state.get_neighbor_system_ids(system_id).size()
-	_set_galaxy_presentation_visible(false)
-	system_view.show_system(system_details, neighbor_count)
-	_refresh_camera_input_block()
+	_scene_ui_controller.open_system_view(system_id)
 
 
 func _close_system_view() -> void:
-	system_view.hide_view()
-	_set_galaxy_presentation_visible(true)
-	_refresh_camera_input_block()
+	_scene_ui_controller.close_system_view()
 
 
 func _update_bottom_category_bar_context(active_empire_name: String, selected_system_name: String, selected_owner_name: String) -> void:
-	bottom_category_bar.set_context(active_empire_name, selected_system_name, selected_owner_name)
+	_scene_ui_controller.update_bottom_category_bar_context(active_empire_name, selected_system_name, selected_owner_name)
 
 
 func _pick_system_at_screen_position(screen_position: Vector2) -> String:
@@ -1218,116 +619,12 @@ func _is_pointer_over_gui() -> bool:
 	return get_viewport().gui_get_hovered_control() != null
 
 
-func _build_glow_material() -> ShaderMaterial:
-	var material := ShaderMaterial.new()
-	material.shader = STAR_GLOW_SHADER
-	material.set_shader_parameter("fresnel_power", 2.4)
-	material.set_shader_parameter("glow_strength", 1.5)
-	material.set_shader_parameter("pulse_strength", 0.06)
-	material.set_shader_parameter("pulse_speed", 0.95)
-	material.set_shader_parameter("center_fill", 0.22)
-	return material
-
-
-func _build_ownership_fill_material() -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
-	material.vertex_color_use_as_albedo = true
-	material.albedo_color = Color.WHITE
-	material.emission_enabled = true
-	material.emission = Color.WHITE
-	material.emission_energy_multiplier = 0.55
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return material
-
-
-func _build_ownership_border_material() -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
-	material.vertex_color_use_as_albedo = true
-	material.albedo_color = Color.WHITE
-	material.emission_enabled = true
-	material.emission = Color.WHITE
-	material.emission_energy_multiplier = 1.65
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return material
-
-
-func _get_ownership_blob_radius() -> float:
-	return maxf(min_system_distance * OWNERSHIP_BLOB_RADIUS_FACTOR, 42.0)
-
-
-func _get_ownership_exclusion_radius() -> float:
-	return maxf(min_system_distance * OWNERSHIP_EXCLUSION_RADIUS_FACTOR, 28.0)
-
-
-func _get_ownership_connector_radius() -> float:
-	return maxf(min_system_distance * OWNERSHIP_CONNECTOR_RADIUS_FACTOR, 18.0)
-
-
-func _get_ownership_connection_distance() -> float:
-	return maxf(min_system_distance * OWNERSHIP_CONNECTION_DISTANCE_FACTOR, 180.0)
-
-
-func _get_ownership_border_half_width() -> float:
-	return maxf(min_system_distance * OWNERSHIP_BORDER_WIDTH_FACTOR, 9.0)
-
-
-func _get_region_height(systems_for_empire: Array) -> float:
-	if systems_for_empire.is_empty():
-		return 0.0
-
-	var total_height: float = 0.0
-	for system_variant in systems_for_empire:
-		var system_record: Dictionary = system_variant
-		total_height += float(system_record["position"].y)
-	return total_height / float(systems_for_empire.size())
-
-
-func _get_star_offset(star_index: int, system_star_count: int, orbit_radius: float) -> Vector3:
-	if system_star_count <= 1:
-		return Vector3.ZERO
-
-	if system_star_count == 2:
-		var direction := -1.0 if star_index == 0 else 1.0
-		return Vector3(direction * orbit_radius, 0.0, 0.0)
-
-	var angle := float(star_index) * TAU / float(system_star_count)
-	return Vector3(cos(angle) * orbit_radius, 0.0, sin(angle) * orbit_radius)
-
-
-func _get_glow_color(base_color: Color, special_type: String) -> Color:
-	if special_type == BLACK_HOLE_TYPE:
-		return Color(0.28, 0.46, 1.0, 0.46)
-	if special_type == NEUTRON_TYPE:
-		return Color(0.72, 0.9, 1.0, 0.52)
-	if special_type == O_CLASS_TYPE:
-		return Color(0.7, 0.88, 1.0, 0.6)
-
-	var glow_color := base_color
-	glow_color.a = 0.34
-	return glow_color
-
-
 func _get_selected_empire_id_from_picker() -> String:
-	var selected_items := empire_picker_list.get_selected_items()
-	if selected_items.size() == 0:
-		return ""
-	return str(empire_picker_list.get_item_metadata(int(selected_items[0])))
+	return _scene_ui_controller.get_selected_empire_id_from_picker()
 
 
 func _format_controller_kind(controller_kind: String) -> String:
-	match controller_kind:
-		"local_player":
-			return "Local Player"
-		"remote_player":
-			return "Remote Player"
-		"ai":
-			return "AI"
-		_:
-			return "Open"
+	return _scene_ui_controller.format_controller_kind(controller_kind)
 
 
 func _on_change_empire_pressed() -> void:
@@ -1368,18 +665,6 @@ func _on_cancel_empire_picker_pressed() -> void:
 	_set_empire_picker_visible(false, false)
 
 
-func _sync_music_ui() -> void:
-	var track_name: String = MusicManager.get_current_track_name()
-	if track_name.is_empty():
-		track_name = "No Track"
-	var volume_ratio: float = MusicManager.get_volume_ratio()
-	galaxy_hud.set_music_ui(track_name, MusicManager.is_paused(), volume_ratio)
-
-
-func _set_music_track_visibility(visible_state: bool) -> void:
-	galaxy_hud.set_music_track_visibility(visible_state)
-
-
 func _sync_sim_clock_ui() -> void:
 	var current_speed: float = SimClock.sim_speed
 	_sim_paused = current_speed <= 0.0
@@ -1407,31 +692,6 @@ func _format_speed_factor(speed_value: float) -> String:
 	if is_equal_approx(speed_value, round(speed_value)):
 		return str(int(round(speed_value)))
 	return str(snappedf(speed_value, 0.1))
-
-
-func _on_music_playback_changed(_track_name: String, _paused: bool, _volume_ratio: float, _mode: String) -> void:
-	_sync_music_ui()
-
-
-func _on_music_hover_changed(hovered: bool) -> void:
-	_set_music_track_visibility(hovered)
-
-
-func _on_previous_track_pressed() -> void:
-	MusicManager.previous_track()
-
-
-func _on_pause_track_pressed() -> void:
-	MusicManager.toggle_pause()
-
-
-func _on_next_track_pressed() -> void:
-	MusicManager.next_track()
-
-
-func _on_music_volume_changed(value: float) -> void:
-	MusicManager.set_volume_ratio(value)
-	_sync_music_ui()
 
 
 func _on_close_settings_pressed() -> void:

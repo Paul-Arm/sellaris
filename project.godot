@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Sellaris"
-run/main_scene="res://scene/GennerateMenue/GennerateMenue.tscn"
+run/main_scene="res://scene/MainMenue/MainUI.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -19,6 +19,8 @@ config/icon="res://icon.svg"
 
 MusicManager="*res://autoload/MusicManager.gd"
 SimClock="*uid://3e6kd3sqfbrk"
+EmpireManager="*uid://d1q7tp3dnalep"
+EmpirePresetManager="*res://autoload/EmpirePresetManager.gd"
 
 [display]
 

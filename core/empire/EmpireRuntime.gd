@@ -30,7 +30,5 @@ func _init(_id: int, _name: String, _color: Color,  _played_by: String, _origin_
 	capital_world_id = _capital_world_id
 
 
-
-
 	
 	

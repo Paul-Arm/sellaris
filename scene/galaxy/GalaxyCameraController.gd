@@ -10,6 +10,7 @@ extends Node3D
 @export var edge_pan_speed_multiplier: float = 1.15
 @export var drag_pan_sensitivity: float = 1.0
 @export var orbit_sensitivity: float = 0.35
+@export_range(0.0, 0.95, 0.05) var max_outside_screen_ratio: float = 0.8
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -19,29 +20,40 @@ var _camera_distance: float = 1400.0
 var _tilt_degrees: float = -34.0
 var _yaw_degrees: float = 0.0
 var _input_blocked: bool = false
+var _window_focused: bool = true
+var _galaxy_radius: float = 3000.0
+
+
+func _ready() -> void:
+	_window_focused = DisplayServer.window_is_focused()
 
 
 func set_input_blocked(blocked: bool) -> void:
 	_input_blocked = blocked
 	if blocked:
-		_is_middle_dragging = false
-		_is_right_dragging = false
+		_stop_camera_gestures()
+
+
+func set_galaxy_radius(radius: float) -> void:
+	_galaxy_radius = maxf(radius, 0.0)
+	_enforce_camera_limits()
 
 
 func reset_view(galaxy_radius: float) -> void:
-	configure_view(Vector3.ZERO, galaxy_radius * 0.7)
+	_galaxy_radius = maxf(galaxy_radius, 0.0)
+	configure_view(Vector3.ZERO, _galaxy_radius * 0.7)
 
 
 func configure_view(focus_position: Vector3, distance: float, tilt_degrees: float = -34.0, yaw_degrees: float = 0.0) -> void:
 	position = focus_position
-	_camera_distance = clamp(distance, min_distance, max_distance)
+	_camera_distance = clampf(distance, min_distance, max_distance)
 	_tilt_degrees = clamp(tilt_degrees, min_tilt_degrees, max_tilt_degrees)
 	_yaw_degrees = yaw_degrees
-	_apply_camera_transform()
+	_enforce_camera_limits()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _input_blocked:
+	if not _can_process_camera_input():
 		return
 
 	if event is InputEventMouseButton:
@@ -50,11 +62,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			_is_right_dragging = event.pressed
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_camera_distance = max(min_distance, _camera_distance * zoom_step)
-			_apply_camera_transform()
+			_camera_distance = clampf(_camera_distance * zoom_step, min_distance, max_distance)
+			_enforce_camera_limits()
 		elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_camera_distance = min(max_distance, _camera_distance / zoom_step)
-			_apply_camera_transform()
+			_camera_distance = clampf(_camera_distance / zoom_step, min_distance, max_distance)
+			_enforce_camera_limits()
 	elif event is InputEventMouseMotion and _is_middle_dragging:
 		_pan_from_mouse_drag(event.relative)
 	elif event is InputEventMouseMotion and _is_right_dragging:
@@ -62,7 +74,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
-	if _input_blocked:
+	if not _can_process_camera_input():
 		return
 
 	var move_input := _get_keyboard_input()
@@ -113,6 +125,9 @@ func _get_edge_pan_input() -> Vector2:
 		return Vector2.ZERO
 
 	var mouse_position := viewport.get_mouse_position()
+	if not visible_rect.has_point(mouse_position):
+		return Vector2.ZERO
+
 	var move_input := Vector2.ZERO
 
 	if mouse_position.x <= edge_pan_margin:
@@ -131,7 +146,7 @@ func _get_edge_pan_input() -> Vector2:
 func _orbit_camera(relative: Vector2) -> void:
 	_yaw_degrees -= relative.x * orbit_sensitivity
 	_tilt_degrees = clamp(_tilt_degrees - relative.y * orbit_sensitivity * 0.65, min_tilt_degrees, max_tilt_degrees)
-	_apply_camera_transform()
+	_enforce_camera_limits()
 
 
 func _apply_camera_transform() -> void:
@@ -152,3 +167,101 @@ func _translate_on_galaxy_plane(right_amount: float, forward_amount: float) -> v
 
 	position += right_dir * right_amount
 	position += forward_dir * forward_amount
+	_clamp_focus_position()
+
+
+func _can_process_camera_input() -> bool:
+	_refresh_window_focus_state()
+	return not _input_blocked and _window_focused
+
+
+func _refresh_window_focus_state() -> void:
+	var is_focused := DisplayServer.window_is_focused()
+	if is_focused == _window_focused:
+		return
+
+	_window_focused = is_focused
+	if not _window_focused:
+		_stop_camera_gestures()
+
+
+func _stop_camera_gestures() -> void:
+	_is_middle_dragging = false
+	_is_right_dragging = false
+
+
+func _enforce_camera_limits() -> void:
+	_camera_distance = clampf(_camera_distance, min_distance, max_distance)
+	_apply_camera_transform()
+	_clamp_focus_position()
+
+
+func _clamp_focus_position() -> void:
+	var planar_position := Vector3(position.x, 0.0, position.z)
+	if _galaxy_radius <= 0.0 or planar_position.length_squared() <= 0.0001:
+		position = Vector3(planar_position.x, 0.0, planar_position.z)
+		return
+
+	var visible_plane_points := _get_visible_plane_points()
+	if visible_plane_points.is_empty():
+		position = Vector3(planar_position.x, 0.0, planar_position.z)
+		return
+
+	var outward_direction := planar_position.normalized()
+	var inward_extent := 0.0
+	var outward_extent := 0.0
+
+	for plane_point in visible_plane_points:
+		var projection := (plane_point - planar_position).dot(outward_direction)
+		if projection < 0.0:
+			inward_extent = maxf(inward_extent, -projection)
+		else:
+			outward_extent = maxf(outward_extent, projection)
+
+	var visible_span := inward_extent + outward_extent
+	if visible_span <= 0.0:
+		position = Vector3(planar_position.x, 0.0, planar_position.z)
+		return
+
+	var required_inside_span := visible_span * (1.0 - max_outside_screen_ratio)
+	var max_center_distance := maxf(0.0, _galaxy_radius + inward_extent - required_inside_span)
+	if planar_position.length() > max_center_distance:
+		planar_position = planar_position.normalized() * max_center_distance
+
+	position = Vector3(planar_position.x, 0.0, planar_position.z)
+
+
+func _get_visible_plane_points() -> Array[Vector3]:
+	var viewport := get_viewport()
+	if viewport == null:
+		return []
+
+	var visible_rect := viewport.get_visible_rect()
+	var viewport_size := visible_rect.size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return []
+
+	var sample_margin_ratio := (1.0 - max_outside_screen_ratio) * 0.5
+	var margin_x := viewport_size.x * sample_margin_ratio
+	var margin_y := viewport_size.y * sample_margin_ratio
+	var sample_points: Array[Vector2] = [
+		Vector2(margin_x, margin_y),
+		Vector2(viewport_size.x - margin_x, margin_y),
+		Vector2(viewport_size.x - margin_x, viewport_size.y - margin_y),
+		Vector2(margin_x, viewport_size.y - margin_y),
+	]
+	var plane_points: Array[Vector3] = []
+
+	for screen_point in sample_points:
+		var ray_origin := camera.project_ray_origin(screen_point)
+		var ray_direction := camera.project_ray_normal(screen_point)
+		if is_zero_approx(ray_direction.y):
+			return []
+
+		var distance_to_plane := -ray_origin.y / ray_direction.y
+		if distance_to_plane <= 0.0:
+			return []
+
+		plane_points.append(ray_origin + ray_direction * distance_to_plane)
+
+	return plane_points

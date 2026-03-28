@@ -2,12 +2,14 @@ extends Control
 
 const GALAXY_SCENE := preload("res://scene/galaxy/galaxy.tscn")
 const GALAXY_GENERATOR_SCRIPT := preload("res://scene/galaxy/GalaxyGenerator.gd")
+const MAIN_MENU_SCENE_PATH := "res://scene/MainMenue/MainUI.tscn"
 
-@onready var seed_input: LineEdit = $Panel/MarginContainer/VBoxContainer/SeedInput
-@onready var star_count_spin_box: SpinBox = $Panel/MarginContainer/VBoxContainer/SettingsGrid/StarCountSpinBox
-@onready var shape_option_button: OptionButton = $Panel/MarginContainer/VBoxContainer/SettingsGrid/ShapeOptionButton
-@onready var hyperlane_density_spin_box: SpinBox = $Panel/MarginContainer/VBoxContainer/SettingsGrid/HyperlaneDensitySpinBox
-@onready var generate_button: Button = $Panel/MarginContainer/VBoxContainer/GenerateButton
+@onready var seed_input: LineEdit = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid/SeedInput
+@onready var star_count_spin_box: SpinBox = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid/StarCountSpinBox
+@onready var shape_option_button: OptionButton = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid/ShapeOptionButton
+@onready var hyperlane_density_spin_box: SpinBox = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid/HyperlaneDensitySpinBox
+@onready var generate_button: Button = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/GenerateButton
+@onready var back_button: Button = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/BackButton
 
 var generator: RefCounted = GALAXY_GENERATOR_SCRIPT.new()
 
@@ -15,8 +17,17 @@ var generator: RefCounted = GALAXY_GENERATOR_SCRIPT.new()
 func _ready() -> void:
 	MusicManager.play_menu_loops()
 	generate_button.pressed.connect(_on_generate_pressed)
+	back_button.pressed.connect(_on_back_pressed)
 	seed_input.text_submitted.connect(_on_seed_submitted)
 	_setup_controls()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_on_back_pressed()
+		var viewport := get_viewport()
+		if viewport != null:
+			viewport.set_input_as_handled()
 
 
 func _on_seed_submitted(_submitted_text: String) -> void:
@@ -41,6 +52,10 @@ func _on_generate_pressed() -> void:
 
 	if current_scene != null:
 		current_scene.queue_free()
+
+
+func _on_back_pressed() -> void:
+	get_tree().change_scene_to_file(MAIN_MENU_SCENE_PATH)
 
 
 func _setup_controls() -> void:

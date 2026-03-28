@@ -1,23 +1,23 @@
 [gd_scene format=3 uid="uid://x46k8i1hb5wh"]
 
 [ext_resource type="Script" path="res://scene/MainMenue/MainUI.gd" id="1_main"]
-[ext_resource type="Shader" uid="uid://dh1bjbqwyuit8" path="res://scene/GennerateMenue/GennerateMenueBG.gdshader" id="2_bg"]
+[ext_resource type="Shader" uid="uid://dh1bjbqwyuit8" path="res://scene/GennerateMenue/GennerateMenueBG.gdshader" id="2_j7onr"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_main_bg"]
-shader = ExtResource("2_bg")
-shader_parameter/background_color = Color(0.01, 0.015, 0.03, 1)
-shader_parameter/core_color = Color(0.33, 0.73, 1, 1)
-shader_parameter/arm_color_a = Color(0.14, 0.62, 0.95, 1)
-shader_parameter/arm_color_b = Color(0.94, 0.59, 0.36, 1)
-shader_parameter/dust_color = Color(0.03, 0.035, 0.08, 1)
-shader_parameter/star_color = Color(0.96, 0.98, 1, 1)
-shader_parameter/galaxy_scale = 1.52
-shader_parameter/galaxy_tilt = 0.51
-shader_parameter/swirl = 3.18
-shader_parameter/arm_count = 4.0
-shader_parameter/nebula_strength = 1.48
-shader_parameter/star_density = 0.47
-shader_parameter/motion_speed = 0.042
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_7co16"]
+shader = ExtResource("2_j7onr")
+shader_parameter/background_color = Color(0.005, 0.008, 0.02, 1)
+shader_parameter/core_color = Color(0.42, 0.72, 1, 1)
+shader_parameter/arm_color_a = Color(0.32, 0.45, 0.95, 1)
+shader_parameter/arm_color_b = Color(0.88, 0.42, 0.78, 1)
+shader_parameter/dust_color = Color(0.03, 0.02, 0.06, 1)
+shader_parameter/star_color = Color(0.95, 0.98, 1, 1)
+shader_parameter/galaxy_scale = 1.6600000001487398
+shader_parameter/galaxy_tilt = 0.58
+shader_parameter/swirl = 3.28999992646192
+shader_parameter/arm_count = 3.0
+shader_parameter/nebula_strength = 1.71999996155456
+shader_parameter/star_density = 0.5499999877064
+shader_parameter/motion_speed = 0.0530000025175
 
 [node name="Control" type="Control" unique_id=2125288446]
 layout_mode = 3
@@ -28,8 +28,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="Background" type="ColorRect" parent="." unique_id=144669110]
-material = SubResource("ShaderMaterial_main_bg")
+[node name="Background" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_7co16")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -37,315 +37,23 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Overlay" type="ColorRect" parent="." unique_id=215851296]
+[node name="Overlay" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.01, 0.015, 0.03, 0.34)
+color = Color(0.01, 0.015, 0.03, 0.24)
 
-[node name="MarginContainer" type="MarginContainer" parent="." unique_id=296511171]
+[node name="UiRoot" type="MarginContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 34
-theme_override_constants/margin_top = 28
-theme_override_constants/margin_right = 34
-theme_override_constants/margin_bottom = 28
-
-[node name="ContentRow" type="HBoxContainer" parent="MarginContainer" unique_id=1805670398]
-layout_mode = 2
-theme_override_constants/separation = 24
-
-[node name="NavigationPanel" type="PanelContainer" parent="MarginContainer/ContentRow" unique_id=778611292]
-custom_minimum_size = Vector2(340, 0)
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/ContentRow/NavigationPanel" unique_id=789917474]
-layout_mode = 2
-theme_override_constants/margin_left = 22
-theme_override_constants/margin_top = 22
-theme_override_constants/margin_right = 22
-theme_override_constants/margin_bottom = 22
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer" unique_id=1418294448]
-layout_mode = 2
-theme_override_constants/separation = 14
-
-[node name="Title" type="Label" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer" unique_id=1914865730]
-layout_mode = 2
-theme_override_font_sizes/font_size = 34
-text = "Sellaris"
-
-[node name="Subtitle" type="Label" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer" unique_id=1297320741]
-layout_mode = 2
-text = "Forge custom empire presets here, then launch the galaxy generator with your saved civilizations ready to pick."
-autowrap_mode = 2
-
-[node name="MenuButtonRow" type="HBoxContainer" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer" unique_id=1406788137]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="OpenGalaxySetupButton" type="Button" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer/MenuButtonRow" unique_id=1043881899]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Galaxy Setup"
-
-[node name="QuitButton" type="Button" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer/MenuButtonRow" unique_id=518116424]
-custom_minimum_size = Vector2(0, 40)
-layout_mode = 2
-text = "Quit"
-
-[node name="PresetCountLabel" type="Label" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer" unique_id=1981796224]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Saved Empires: 0"
-
-[node name="PresetList" type="ItemList" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer" unique_id=1702043678]
-custom_minimum_size = Vector2(0, 420)
-layout_mode = 2
-size_flags_vertical = 3
-select_mode = 0
-
-[node name="PresetActionRow" type="HBoxContainer" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer" unique_id=730625806]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="NewPresetButton" type="Button" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer/PresetActionRow" unique_id=903622619]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "New Preset"
-
-[node name="DeletePresetButton" type="Button" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer/PresetActionRow" unique_id=2011705500]
-layout_mode = 2
-size_flags_horizontal = 3
-disabled = true
-text = "Delete"
-
-[node name="StatusLabel" type="Label" parent="MarginContainer/ContentRow/NavigationPanel/MarginContainer/VBoxContainer" unique_id=529249864]
-custom_minimum_size = Vector2(0, 58)
-layout_mode = 2
-text = "Create a new empire preset or select one to edit."
-autowrap_mode = 2
-
-[node name="DesignerPanel" type="PanelContainer" parent="MarginContainer/ContentRow" unique_id=844384311]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/ContentRow/DesignerPanel" unique_id=1691169414]
-layout_mode = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 22
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 22
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer" unique_id=1542419337]
-layout_mode = 2
-theme_override_constants/separation = 16
-
-[node name="DesignerTitle" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer" unique_id=837273072]
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Empire Designer"
-
-[node name="DesignerSubtitle" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer" unique_id=83235032]
-layout_mode = 2
-text = "Every field in the preset data model is editable here. IDs can stay blank until those game systems are implemented."
-autowrap_mode = 2
-
-[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer" unique_id=1088450572]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="FormVBox" type="VBoxContainer" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer" unique_id=1954211752]
-custom_minimum_size = Vector2(0, 720)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 14
-
-[node name="FieldsGrid" type="GridContainer" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox" unique_id=177012120]
-layout_mode = 2
-columns = 2
-
-[node name="PresetNameLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=631420322]
-layout_mode = 2
-text = "Preset Name"
-
-[node name="PresetNameEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1317575666]
-layout_mode = 2
-placeholder_text = "internal preset label"
-clear_button_enabled = true
-
-[node name="EmpireNameLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=2031210904]
-layout_mode = 2
-text = "Empire Name"
-
-[node name="EmpireNameEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=108995085]
-layout_mode = 2
-placeholder_text = "what players see in-game"
-clear_button_enabled = true
-
-[node name="SpeciesTypeIdLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=461268627]
-layout_mode = 2
-text = "Species Type Id"
-
-[node name="SpeciesTypeIdEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1304727581]
-layout_mode = 2
-placeholder_text = "mammalian, reptilian..."
-clear_button_enabled = true
-
-[node name="SpeciesVisualsIdLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1259602980]
-layout_mode = 2
-text = "Species Visuals Id"
-
-[node name="SpeciesVisualsIdEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1516279132]
-layout_mode = 2
-placeholder_text = "portrait or visual set id"
-clear_button_enabled = true
-
-[node name="SpeciesNameLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=840210121]
-layout_mode = 2
-text = "Species Name"
-
-[node name="SpeciesNameEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=420861243]
-layout_mode = 2
-placeholder_text = "founder species"
-clear_button_enabled = true
-
-[node name="SpeciesPluralNameLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=433619339]
-layout_mode = 2
-text = "Species Plural"
-
-[node name="SpeciesPluralNameEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1711668590]
-layout_mode = 2
-placeholder_text = "species plural"
-clear_button_enabled = true
-
-[node name="SpeciesAdjectiveLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=2136081215]
-layout_mode = 2
-text = "Species Adjective"
-
-[node name="SpeciesAdjectiveEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=997522275]
-layout_mode = 2
-placeholder_text = "adjective form"
-clear_button_enabled = true
-
-[node name="NameSetIdLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=295065441]
-layout_mode = 2
-text = "Name Set Id"
-
-[node name="NameSetIdEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1971916351]
-layout_mode = 2
-placeholder_text = "ship and leader names"
-clear_button_enabled = true
-
-[node name="GovernmentTypeIdLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=749375715]
-layout_mode = 2
-text = "Government Type Id"
-
-[node name="GovernmentTypeIdEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1445798818]
-layout_mode = 2
-placeholder_text = "government archetype"
-clear_button_enabled = true
-
-[node name="AuthorityTypeIdLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=183406307]
-layout_mode = 2
-text = "Authority Type Id"
-
-[node name="AuthorityTypeIdEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=850474434]
-layout_mode = 2
-placeholder_text = "authority id"
-clear_button_enabled = true
-
-[node name="CivicIdsLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1541975285]
-layout_mode = 2
-text = "Civic Ids"
-
-[node name="CivicIdsEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=947528274]
-layout_mode = 2
-placeholder_text = "comma, separated, civics"
-clear_button_enabled = true
-
-[node name="FlagPathLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=552743576]
-layout_mode = 2
-text = "Flag Path"
-
-[node name="FlagPathEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=657717821]
-layout_mode = 2
-placeholder_text = "res://path/to/flag.png"
-clear_button_enabled = true
-
-[node name="OriginIdLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=144736883]
-layout_mode = 2
-text = "Origin Id"
-
-[node name="OriginIdEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=729263420]
-layout_mode = 2
-placeholder_text = "origin id"
-clear_button_enabled = true
-
-[node name="StartingSystemTypeLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=444580342]
-layout_mode = 2
-text = "Starting System Type"
-
-[node name="StartingSystemTypeEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1098379951]
-layout_mode = 2
-placeholder_text = "start system id"
-clear_button_enabled = true
-
-[node name="StartingPlanetTypeLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=689336258]
-layout_mode = 2
-text = "Starting Planet Type"
-
-[node name="StartingPlanetTypeEdit" type="LineEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1382886927]
-layout_mode = 2
-placeholder_text = "continental, arctic..."
-clear_button_enabled = true
-
-[node name="ShipSetIdLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1203806776]
-layout_mode = 2
-text = "Ship Set Id"
-
-[node name="ShipSetSpinBox" type="SpinBox" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=670332522]
-layout_mode = 2
-
-[node name="ColorLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=1802471131]
-layout_mode = 2
-text = "Empire Color"
-
-[node name="ColorPickerButton" type="ColorPickerButton" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox/FieldsGrid" unique_id=851734618]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 36)
-color = Color(0.36, 0.72, 1, 1)
-
-[node name="BiographyLabel" type="Label" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox" unique_id=2026328804]
-layout_mode = 2
-text = "Biography"
-
-[node name="BiographyEdit" type="TextEdit" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ScrollContainer/FormVBox" unique_id=213163281]
-custom_minimum_size = Vector2(0, 180)
-layout_mode = 2
-
-[node name="ActionRow" type="HBoxContainer" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer" unique_id=601505731]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="SavePresetButton" type="Button" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ActionRow" unique_id=263482157]
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Save Preset"
-
-[node name="ClearFormButton" type="Button" parent="MarginContainer/ContentRow/DesignerPanel/MarginContainer/VBoxContainer/ActionRow" unique_id=1913308663]
-custom_minimum_size = Vector2(0, 42)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Clear Form"
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24

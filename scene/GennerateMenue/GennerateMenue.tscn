@@ -37,78 +37,196 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Panel" type="PanelContainer" parent="." unique_id=2107780948]
+[node name="Overlay" type="ColorRect" parent="." unique_id=2047840572]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -250.0
-offset_top = -170.0
-offset_right = 250.0
-offset_bottom = 170.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+color = Color(0.01, 0.015, 0.03, 0.24)
 
-[node name="MarginContainer" type="MarginContainer" parent="Panel" unique_id=1334287175]
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1316399108]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="RootVBox" type="VBoxContainer" parent="MarginContainer" unique_id=1085093835]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="HeaderPanel" type="PanelContainer" parent="MarginContainer/RootVBox" unique_id=588778651]
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/RootVBox/HeaderPanel" unique_id=1351585908]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 18
+
+[node name="HeaderVBox" type="VBoxContainer" parent="MarginContainer/RootVBox/HeaderPanel/MarginContainer" unique_id=1172368770]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="MarginContainer/RootVBox/HeaderPanel/MarginContainer/HeaderVBox" unique_id=835063113]
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "Sellaris Galaxy Generator"
+
+[node name="Description" type="Label" parent="MarginContainer/RootVBox/HeaderPanel/MarginContainer/HeaderVBox" unique_id=189006529]
+layout_mode = 2
+text = "Tune your next galaxy from a dedicated control deck, then drop straight into the simulation."
+autowrap_mode = 2
+
+[node name="MainShell" type="PanelContainer" parent="MarginContainer/RootVBox" unique_id=197875676]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/RootVBox/MainShell" unique_id=1479674036]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="ShellRow" type="HBoxContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer" unique_id=1696138244]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 18
+
+[node name="Sidebar" type="VBoxContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow" unique_id=722122064]
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BackButton" type="Button" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar" unique_id=2072552877]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Back to Main Menu"
+
+[node name="GenerateButton" type="Button" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar" unique_id=1304444680]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = "Generate Galaxy"
+
+[node name="SidebarHintPanel" type="PanelContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar" unique_id=333566666]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/SidebarHintPanel" unique_id=649112331]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="SidebarVBox" type="VBoxContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/SidebarHintPanel/MarginContainer" unique_id=1548126852]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SidebarTitle" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/SidebarHintPanel/MarginContainer/SidebarVBox" unique_id=1402316368]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Launch Notes"
+
+[node name="SidebarText" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/SidebarHintPanel/MarginContainer/SidebarVBox" unique_id=377546954]
+layout_mode = 2
+size_flags_vertical = 3
+text = "Pick a seed for repeatable maps, scale the star count to match session size, and adjust hyperlane density to change how tightly the galaxy breathes."
+autowrap_mode = 2
+
+[node name="ContentPanel" type="PanelContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow" unique_id=198765012]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel" unique_id=763580234]
 layout_mode = 2
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer" unique_id=445233947]
+[node name="ContentVBox" type="VBoxContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer" unique_id=499643576]
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/separation = 16
 
-[node name="Title" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=835063113]
+[node name="ConfigTitle" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox" unique_id=1546821004]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-text = "Sellaris Galaxy Generator"
-horizontal_alignment = 1
+text = "Configuration"
 
-[node name="Description" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=189006529]
+[node name="ConfigDescription" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox" unique_id=1687329141]
 layout_mode = 2
-text = "Create a procedural galaxy, tune its shape, and control hyperlane density."
-horizontal_alignment = 1
+text = "These settings feed directly into the procedural layout pass, so this panel is the last stop before the stars are placed."
 autowrap_mode = 2
 
-[node name="SeedInput" type="LineEdit" parent="Panel/MarginContainer/VBoxContainer" unique_id=2078621924]
-layout_mode = 2
-placeholder_text = "Seed (optional)"
-clear_button_enabled = true
-
-[node name="SettingsGrid" type="GridContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=1223618562]
+[node name="SettingsGrid" type="GridContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox" unique_id=1223618562]
 layout_mode = 2
 columns = 2
 
-[node name="StarCountLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=1520262905]
+[node name="SeedLabel" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=1314756025]
+layout_mode = 2
+text = "Seed"
+
+[node name="SeedInput" type="LineEdit" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=2078621924]
+layout_mode = 2
+placeholder_text = "optional reproducible seed"
+clear_button_enabled = true
+
+[node name="StarCountLabel" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=1520262905]
 layout_mode = 2
 text = "Amount of Stars"
 
-[node name="StarCountSpinBox" type="SpinBox" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=1310460525]
+[node name="StarCountSpinBox" type="SpinBox" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=1310460525]
 layout_mode = 2
 
-[node name="ShapeLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=1046797921]
+[node name="ShapeLabel" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=1046797921]
 layout_mode = 2
 text = "Shape"
 
-[node name="ShapeOptionButton" type="OptionButton" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=986556860]
+[node name="ShapeOptionButton" type="OptionButton" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=986556860]
 layout_mode = 2
 
-[node name="HyperlaneDensityLabel" type="Label" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=907000363]
+[node name="HyperlaneDensityLabel" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=907000363]
 layout_mode = 2
 text = "Hyperlane Density"
 
-[node name="HyperlaneDensitySpinBox" type="SpinBox" parent="Panel/MarginContainer/VBoxContainer/SettingsGrid" unique_id=1644872429]
+[node name="HyperlaneDensitySpinBox" type="SpinBox" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=1644872429]
 layout_mode = 2
 
-[node name="GenerateButton" type="Button" parent="Panel/MarginContainer/VBoxContainer" unique_id=1304444680]
+[node name="InfoPanel" type="PanelContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox" unique_id=205635041]
+custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
-text = "Generate Galaxy"
+size_flags_vertical = 3
 
-[node name="Hint" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=1097349]
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/InfoPanel" unique_id=1355902691]
 layout_mode = 2
-text = "Custom crafted systems can be added in the Galaxy scene via the Custom Systems export list."
-horizontal_alignment = 1
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="InfoVBox" type="VBoxContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/InfoPanel/MarginContainer" unique_id=1737168830]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="InfoTitle" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/InfoPanel/MarginContainer/InfoVBox" unique_id=539993215]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Generation Notes"
+
+[node name="Hint" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/InfoPanel/MarginContainer/InfoVBox" unique_id=1097349]
+layout_mode = 2
+size_flags_vertical = 3
+text = "Custom crafted systems can still be added in the Galaxy scene via the Custom Systems export list, and the generated empire picker will include your saved presets."
+autowrap_mode = 2

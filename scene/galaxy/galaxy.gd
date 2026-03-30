@@ -13,10 +13,12 @@ const SYSTEM_PICK_RADIUS := 26.0
 
 @export var star_count: int = 900
 @export var galaxy_radius: float = 3000.0
-@export var min_system_distance: float = 44.0
+@export var min_system_distance: float = 48.0
 @export_range(1, 6, 1) var spiral_arms: int = 4
 @export_enum("spiral", "ring", "elliptical", "clustered") var galaxy_shape: String = "spiral"
 @export_range(1, 8, 1) var hyperlane_density: int = 2
+@export var ownership_bright_rim_enabled: bool = true
+@export_range(0.0, 0.35, 0.01) var ownership_core_opacity: float = 0.0
 @export var custom_systems: Array[Resource] = []
 
 @onready var camera_rig: Node3D = $CameraRig
@@ -91,6 +93,8 @@ func configure(settings: Dictionary) -> void:
 		seed_text = str(generation_settings["seed_text"])
 	if generation_settings.has("star_count"):
 		star_count = int(generation_settings["star_count"])
+	if generation_settings.has("min_system_distance"):
+		min_system_distance = float(generation_settings["min_system_distance"])
 	if generation_settings.has("shape"):
 		galaxy_shape = str(generation_settings["shape"])
 	if generation_settings.has("hyperlane_density"):
@@ -106,6 +110,8 @@ func _ready() -> void:
 	galaxy_hud.close_settings_requested.connect(_on_close_settings_pressed)
 	galaxy_hud.sim_pause_requested.connect(_on_sim_pause_pressed)
 	galaxy_hud.sim_speed_requested.connect(_on_sim_speed_pressed)
+	galaxy_hud.territory_bright_rim_toggled.connect(_on_territory_bright_rim_toggled)
+	galaxy_hud.territory_core_opacity_changed.connect(_on_territory_core_opacity_changed)
 	empire_picker_list.item_selected.connect(_on_empire_picker_item_selected)
 	empire_picker_list.item_activated.connect(_on_empire_picker_item_activated)
 	bottom_category_bar.category_selected.connect(_on_bottom_category_selected)
@@ -113,10 +119,13 @@ func _ready() -> void:
 	SimClock.day_tick.connect(_on_sim_day_tick)
 	SimClock.month_tick.connect(_on_sim_month_tick)
 	SimClock.year_tick.connect(_on_sim_year_tick)
+	ownership_bright_rim_enabled = SettingsManager.get_territory_bright_rim()
+	ownership_core_opacity = SettingsManager.get_territory_core_opacity()
 	_map_renderer.bind(self, STAR_CORE_SHADER, STAR_GLOW_SHADER)
 	_scene_ui_controller.bind(self)
 	_music_ui_controller.bind(galaxy_hud)
 	_sync_sim_clock_ui()
+	_sync_territory_settings_ui()
 	_update_system_panel()
 	call_deferred("_generate_galaxy_async")
 
@@ -523,6 +532,11 @@ func _render_ownership_markers() -> void:
 	_map_renderer.render_ownership_markers()
 
 
+func _sync_territory_settings_ui() -> void:
+	if galaxy_hud != null:
+		galaxy_hud.set_territory_ui(ownership_bright_rim_enabled, ownership_core_opacity)
+
+
 func _update_info_label() -> void:
 	_scene_ui_controller.update_info_label()
 
@@ -696,6 +710,20 @@ func _format_speed_factor(speed_value: float) -> String:
 
 func _on_close_settings_pressed() -> void:
 	_set_settings_overlay_visible(false)
+
+
+func _on_territory_bright_rim_toggled(enabled: bool) -> void:
+	ownership_bright_rim_enabled = enabled
+	SettingsManager.set_territory_bright_rim(enabled)
+	_sync_territory_settings_ui()
+	_render_ownership_markers()
+
+
+func _on_territory_core_opacity_changed(value: float) -> void:
+	ownership_core_opacity = value
+	SettingsManager.set_territory_core_opacity(value)
+	_sync_territory_settings_ui()
+	_render_ownership_markers()
 
 
 func _on_sim_pause_pressed() -> void:

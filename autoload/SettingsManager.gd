@@ -5,11 +5,15 @@ const DEFAULT_MUSIC_VOLUME := 0.7
 const DEFAULT_WINDOW_MODE := DisplayServer.WINDOW_MODE_MAXIMIZED
 const DEFAULT_RESOLUTION := Vector2i(1920, 1080)
 const DEFAULT_MSAA := Viewport.MSAA_2X
+const DEFAULT_TERRITORY_BRIGHT_RIM := true
+const DEFAULT_TERRITORY_CORE_OPACITY := 0.0
 
 var _music_volume: float = DEFAULT_MUSIC_VOLUME
 var _window_mode: int = DEFAULT_WINDOW_MODE
 var _resolution: Vector2i = DEFAULT_RESOLUTION
 var _msaa: int = DEFAULT_MSAA
+var _territory_bright_rim: bool = DEFAULT_TERRITORY_BRIGHT_RIM
+var _territory_core_opacity: float = DEFAULT_TERRITORY_CORE_OPACITY
 
 
 func _ready() -> void:
@@ -26,6 +30,12 @@ func load_settings() -> void:
 	_window_mode = _normalize_window_mode(config.get_value("display", "window_mode", DEFAULT_WINDOW_MODE))
 	_resolution = _normalize_resolution(config.get_value("display", "resolution", DEFAULT_RESOLUTION))
 	_msaa = _normalize_msaa(config.get_value("display", "msaa", DEFAULT_MSAA))
+	_territory_bright_rim = bool(config.get_value("galaxy", "territory_bright_rim", DEFAULT_TERRITORY_BRIGHT_RIM))
+	_territory_core_opacity = clampf(
+		float(config.get_value("galaxy", "territory_core_opacity", DEFAULT_TERRITORY_CORE_OPACITY)),
+		0.0,
+		0.35
+	)
 
 	_apply_audio_settings()
 	_apply_display_settings()
@@ -40,6 +50,8 @@ func save_settings() -> Error:
 	config.set_value("display", "window_mode", _window_mode)
 	config.set_value("display", "resolution", _resolution)
 	config.set_value("display", "msaa", _msaa)
+	config.set_value("galaxy", "territory_bright_rim", _territory_bright_rim)
+	config.set_value("galaxy", "territory_core_opacity", _territory_core_opacity)
 	return config.save(SETTINGS_PATH)
 
 
@@ -80,6 +92,24 @@ func get_msaa() -> int:
 func set_msaa(value: int) -> void:
 	_msaa = _normalize_msaa(value)
 	_apply_display_settings()
+	save_settings()
+
+
+func get_territory_bright_rim() -> bool:
+	return _territory_bright_rim
+
+
+func set_territory_bright_rim(value: bool) -> void:
+	_territory_bright_rim = value
+	save_settings()
+
+
+func get_territory_core_opacity() -> float:
+	return _territory_core_opacity
+
+
+func set_territory_core_opacity(value: float) -> void:
+	_territory_core_opacity = clampf(value, 0.0, 0.35)
 	save_settings()
 
 

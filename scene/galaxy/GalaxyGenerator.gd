@@ -56,16 +56,31 @@ const PLANET_COLOR_PALETTE := [
 const ASTEROID_BELT_COLOR := Color(0.6, 0.58, 0.54, 1.0)
 const STRUCTURE_COLOR := Color(0.42, 0.8, 1.0, 1.0)
 const RUIN_COLOR := Color(0.72, 0.73, 0.78, 1.0)
-const MIN_HYPERLANES_PER_SYSTEM := 2
+const MIN_HYPERLANES_PER_SYSTEM := 1
 const MAX_HYPERLANES_PER_SYSTEM := 5
-const EXTRA_HYPERLANE_CANDIDATES := 6
-const HYPERLANE_DISTANCE_FACTOR_BASE := 2.35
-const HYPERLANE_DISTANCE_FACTOR_PER_DENSITY := 0.22
+const POISSON_CANDIDATE_ATTEMPTS := 30
+const POISSON_SEED_POINT_ATTEMPTS := 128
+const SPIRAL_SWIRL_FACTOR := 2.7
+const SPIRAL_CORE_RADIUS_FACTOR := 0.12
+const SPIRAL_ARM_WIDTH_FACTOR := 0.058
+const RING_INNER_RADIUS_FACTOR := 0.42
+const RING_OUTER_RADIUS_FACTOR := 0.95
+const ELLIPTICAL_RADIUS_X_FACTOR := 1.08
+const ELLIPTICAL_RADIUS_Z_FACTOR := 0.72
+const CLUSTER_COUNT := 5
+const CLUSTER_CENTER_MIN_RADIUS_FACTOR := 0.2
+const CLUSTER_CENTER_MAX_RADIUS_FACTOR := 0.72
+const CLUSTER_RADIUS_MIN_FACTOR := 0.14
+const CLUSTER_RADIUS_MAX_FACTOR := 0.22
 const HYPERLANE_SYSTEM_CLEARANCE_FACTOR := 0.52
 const HYPERLANE_SYSTEM_CLEARANCE_MIN := 18.0
 const SYSTEM_SPREAD_DISTANCE_FACTOR := 1.18
 const SYSTEM_SPREAD_RADIUS_FACTOR := 1.1
 const HYPERLANE_INTERSECTION_EPSILON := 0.001
+
+var _hyperlane_map_points: Array[Vector2] = []
+var _hyperlane_system_query_grid: Dictionary = {}
+var _hyperlane_system_query_cell_size: float = 0.0
 
 
 func get_shape_options() -> PackedStringArray:
@@ -79,25 +94,28 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 
 	var target_system_count: int = maxi(1, int(config.get("star_count", 900)))
 	var galaxy_radius: float = float(config.get("galaxy_radius", 3000.0)) * SYSTEM_SPREAD_RADIUS_FACTOR
-	var min_system_distance: float = float(config.get("min_system_distance", 44.0)) * SYSTEM_SPREAD_DISTANCE_FACTOR
+	var min_system_distance: float = float(config.get("min_system_distance", 48.0)) * SYSTEM_SPREAD_DISTANCE_FACTOR
 	var shape: String = str(config.get("shape", SHAPE_SPIRAL)).to_lower()
 	var spiral_arms: int = maxi(1, int(config.get("spiral_arms", 4)))
 	var hyperlane_density: int = clampi(int(config.get("hyperlane_density", 2)), 1, 8)
 
 	var systems: Array[Dictionary] = []
 	var grid: Dictionary = {}
-	var cell_size: float = min_system_distance
+	var cell_size: float = maxf(min_system_distance / sqrt(2.0), 1.0)
 	var custom_count: int = _append_custom_systems(systems, custom_systems, grid, cell_size, min_system_distance)
 	var procedural_target: int = maxi(0, target_system_count - custom_count)
-	var max_attempts: int = maxi(2000, procedural_target * 70)
-	var attempt: int = 0
+	var shape_context: Dictionary = _build_shape_context(rng, shape, galaxy_radius, spiral_arms, min_system_distance)
+	var procedural_positions: Array[Vector3] = _generate_procedural_positions(
+		rng,
+		shape_context,
+		procedural_target,
+		systems,
+		grid,
+		cell_size,
+		min_system_distance
+	)
 
-	while systems.size() < target_system_count and attempt < max_attempts:
-		attempt += 1
-		var position: Vector3 = _sample_position(rng, shape, galaxy_radius, spiral_arms)
-		if _has_nearby_system(position, grid, cell_size, min_system_distance):
-			continue
-
+	for position in procedural_positions:
 		var index: int = systems.size()
 		var system_id: String = "sys_%04d" % index
 		var record := {
@@ -110,12 +128,16 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 		record["star_profile"] = _build_star_profile(galaxy_seed, record)
 		record["system_summary"] = build_system_summary(galaxy_seed, record, custom_systems)
 		systems.append(record)
-		_add_to_grid(position, grid, cell_size)
 
 	if systems.size() < target_system_count:
-		push_warning("Galaxy generator reached the placement limit before hitting the requested system count.")
+		push_warning(
+			"Galaxy generator reached the Poisson placement limit before hitting the requested system count (%d/%d)." % [
+				systems.size(),
+				target_system_count,
+			]
+		)
 
-	var hyperlane_graph := build_hyperlane_graph(systems, hyperlane_density, min_system_distance)
+	var hyperlane_graph := build_hyperlane_graph(systems, hyperlane_density, min_system_distance, galaxy_seed)
 	return {
 		"seed": galaxy_seed,
 		"systems": systems,
@@ -392,62 +414,293 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 	}
 
 
-func _sample_position(rng: RandomNumberGenerator, shape: String, galaxy_radius: float, spiral_arms: int) -> Vector3:
+func _build_shape_context(
+	rng: RandomNumberGenerator,
+	shape: String,
+	galaxy_radius: float,
+	spiral_arms: int,
+	min_system_distance: float
+) -> Dictionary:
+	var context := {
+		"shape": shape,
+		"galaxy_radius": galaxy_radius,
+		"spiral_arms": spiral_arms,
+		"spiral_swirl": SPIRAL_SWIRL_FACTOR,
+		"spiral_core_radius": maxf(min_system_distance * 3.25, galaxy_radius * SPIRAL_CORE_RADIUS_FACTOR),
+		"spiral_arm_half_width": maxf(min_system_distance * 2.6, galaxy_radius * SPIRAL_ARM_WIDTH_FACTOR),
+		"ring_inner_radius": galaxy_radius * RING_INNER_RADIUS_FACTOR,
+		"ring_outer_radius": galaxy_radius * RING_OUTER_RADIUS_FACTOR,
+		"elliptical_radius_x": galaxy_radius * ELLIPTICAL_RADIUS_X_FACTOR,
+		"elliptical_radius_z": galaxy_radius * ELLIPTICAL_RADIUS_Z_FACTOR,
+		"cluster_centers": [],
+		"cluster_radii": [],
+	}
+
+	if shape == SHAPE_CLUSTERED:
+		var cluster_centers: Array[Vector2] = []
+		var cluster_radii: Array[float] = []
+		var base_angle: float = rng.randf_range(0.0, TAU)
+		for cluster_index in range(CLUSTER_COUNT):
+			var angle := base_angle + float(cluster_index) * TAU / float(CLUSTER_COUNT) + rng.randf_range(-0.18, 0.18)
+			var center_radius := galaxy_radius * rng.randf_range(
+				CLUSTER_CENTER_MIN_RADIUS_FACTOR,
+				CLUSTER_CENTER_MAX_RADIUS_FACTOR
+			)
+			cluster_centers.append(Vector2(cos(angle), sin(angle)) * center_radius)
+			cluster_radii.append(
+				maxf(
+					min_system_distance * 4.5,
+					galaxy_radius * rng.randf_range(CLUSTER_RADIUS_MIN_FACTOR, CLUSTER_RADIUS_MAX_FACTOR)
+				)
+			)
+		context["cluster_centers"] = cluster_centers
+		context["cluster_radii"] = cluster_radii
+
+	return context
+
+
+func _generate_procedural_positions(
+	rng: RandomNumberGenerator,
+	shape_context: Dictionary,
+	desired_count: int,
+	existing_systems: Array[Dictionary],
+	grid: Dictionary,
+	cell_size: float,
+	min_system_distance: float
+) -> Array[Vector3]:
+	var positions: Array[Vector3] = []
+	if desired_count <= 0:
+		return positions
+
+	var active_points: Array[Vector2] = []
+	for system_record_variant in existing_systems:
+		var system_record: Dictionary = system_record_variant
+		var map_point := _to_map_point(system_record["position"])
+		if _is_map_point_in_shape(map_point, shape_context):
+			active_points.append(map_point)
+
+	# Bridson sampling with random restarts lets disconnected shapes like clusters fill cleanly.
+	while positions.size() < desired_count:
+		if active_points.is_empty():
+			var seed_result: Dictionary = _find_poisson_seed_point(
+				rng,
+				shape_context,
+				grid,
+				cell_size,
+				min_system_distance
+			)
+			if not bool(seed_result.get("success", false)):
+				break
+
+			var seed_point: Vector2 = seed_result.get("point", Vector2.ZERO)
+			active_points.append(seed_point)
+			var seed_position := _build_position_from_map_point(rng, seed_point, shape_context)
+			positions.append(seed_position)
+			_add_to_grid(seed_position, grid, cell_size)
+			continue
+
+		var active_index: int = rng.randi_range(0, active_points.size() - 1)
+		var origin: Vector2 = active_points[active_index]
+		var accepted_candidate := false
+
+		for _candidate_attempt in range(POISSON_CANDIDATE_ATTEMPTS):
+			var candidate := _sample_poisson_candidate(rng, origin, min_system_distance)
+			if not _is_map_point_in_shape(candidate, shape_context):
+				continue
+			if _has_nearby_system(Vector3(candidate.x, 0.0, candidate.y), grid, cell_size, min_system_distance):
+				continue
+
+			active_points.append(candidate)
+			var candidate_position := _build_position_from_map_point(rng, candidate, shape_context)
+			positions.append(candidate_position)
+			_add_to_grid(candidate_position, grid, cell_size)
+			accepted_candidate = true
+			if positions.size() >= desired_count:
+				break
+
+		if not accepted_candidate:
+			active_points.remove_at(active_index)
+
+	return positions
+
+
+func _find_poisson_seed_point(
+	rng: RandomNumberGenerator,
+	shape_context: Dictionary,
+	grid: Dictionary,
+	cell_size: float,
+	min_system_distance: float
+) -> Dictionary:
+	for _attempt in range(POISSON_SEED_POINT_ATTEMPTS):
+		var point := _sample_shape_map_point(rng, shape_context)
+		if not _is_map_point_in_shape(point, shape_context):
+			continue
+		if _has_nearby_system(Vector3(point.x, 0.0, point.y), grid, cell_size, min_system_distance):
+			continue
+		return {
+			"success": true,
+			"point": point,
+		}
+
+	return {
+		"success": false,
+		"point": Vector2.ZERO,
+	}
+
+
+func _sample_poisson_candidate(rng: RandomNumberGenerator, origin: Vector2, min_system_distance: float) -> Vector2:
+	var angle: float = rng.randf_range(0.0, TAU)
+	var radius: float = min_system_distance * sqrt(rng.randf_range(1.0, 4.0))
+	return origin + Vector2(cos(angle), sin(angle)) * radius
+
+
+func _sample_shape_map_point(rng: RandomNumberGenerator, shape_context: Dictionary) -> Vector2:
+	var shape: String = str(shape_context.get("shape", SHAPE_SPIRAL))
 	match shape:
 		SHAPE_RING:
-			return _sample_ring_position(rng, galaxy_radius)
+			return _sample_ring_map_point(rng, shape_context)
 		SHAPE_ELLIPTICAL:
-			return _sample_elliptical_position(rng, galaxy_radius)
+			return _sample_elliptical_map_point(rng, shape_context)
 		SHAPE_CLUSTERED:
-			return _sample_clustered_position(rng, galaxy_radius)
+			return _sample_clustered_map_point(rng, shape_context)
 		_:
-			return _sample_spiral_position(rng, galaxy_radius, spiral_arms)
+			return _sample_spiral_map_point(rng, shape_context)
 
 
-func _sample_spiral_position(rng: RandomNumberGenerator, galaxy_radius: float, spiral_arms: int) -> Vector3:
+func _sample_spiral_map_point(rng: RandomNumberGenerator, shape_context: Dictionary) -> Vector2:
+	var galaxy_radius: float = float(shape_context.get("galaxy_radius", 0.0))
+	var spiral_arms: int = maxi(1, int(shape_context.get("spiral_arms", 4)))
 	var radius_roll: float = pow(rng.randf(), 0.58)
 	var radius: float = radius_roll * galaxy_radius
-	var arm_index: int = rng.randi_range(0, maxi(spiral_arms - 1, 0))
-	var arm_count: float = maxf(float(spiral_arms), 1.0)
-	var arm_angle: float = float(arm_index) * TAU / arm_count
-	var swirl: float = (radius / galaxy_radius) * 2.6
-	var random_scatter: float = rng.randf_range(-0.28, 0.28)
-	var angle: float = arm_angle + swirl + random_scatter
+	var arm_index: int = rng.randi_range(0, spiral_arms - 1)
+	var arm_angle: float = float(arm_index) * TAU / float(spiral_arms)
+	var swirl: float = float(shape_context.get("spiral_swirl", SPIRAL_SWIRL_FACTOR)) * (radius / maxf(galaxy_radius, 1.0))
+	var arm_half_width: float = float(shape_context.get("spiral_arm_half_width", 0.0))
+	var angle_jitter := 0.0
+	if radius > 1.0:
+		angle_jitter = rng.randf_range(-arm_half_width, arm_half_width) / radius
 
-	if rng.randf() < 0.25:
+	var angle: float = arm_angle + swirl + angle_jitter
+	if rng.randf() < 0.18:
 		angle = rng.randf_range(0.0, TAU)
-		radius *= rng.randf_range(0.15, 0.55)
+		radius *= rng.randf_range(0.08, 0.26)
 
-	var x: float = cos(angle) * radius * rng.randf_range(0.9, 1.1)
-	var z: float = sin(angle) * radius
-	var y: float = rng.randf_range(-18.0, 18.0)
-	return Vector3(x, y, z)
+	return Vector2(cos(angle), sin(angle)) * radius
 
 
-func _sample_ring_position(rng: RandomNumberGenerator, galaxy_radius: float) -> Vector3:
+func _sample_ring_map_point(rng: RandomNumberGenerator, shape_context: Dictionary) -> Vector2:
+	var inner_radius: float = float(shape_context.get("ring_inner_radius", 0.0))
+	var outer_radius: float = float(shape_context.get("ring_outer_radius", inner_radius))
 	var angle: float = rng.randf_range(0.0, TAU)
-	var radius: float = rng.randf_range(galaxy_radius * 0.45, galaxy_radius * 0.95)
-	var thickness: float = rng.randf_range(-galaxy_radius * 0.08, galaxy_radius * 0.08)
-	var final_radius: float = radius + thickness
-	return Vector3(cos(angle) * final_radius, rng.randf_range(-12.0, 12.0), sin(angle) * final_radius)
+	var radius: float = sqrt(rng.randf_range(inner_radius * inner_radius, outer_radius * outer_radius))
+	return Vector2(cos(angle), sin(angle)) * radius
 
 
-func _sample_elliptical_position(rng: RandomNumberGenerator, galaxy_radius: float) -> Vector3:
+func _sample_elliptical_map_point(rng: RandomNumberGenerator, shape_context: Dictionary) -> Vector2:
 	var angle: float = rng.randf_range(0.0, TAU)
-	var radius: float = sqrt(rng.randf()) * galaxy_radius
-	var x: float = cos(angle) * radius * 1.1
-	var z: float = sin(angle) * radius * 0.7
-	return Vector3(x, rng.randf_range(-24.0, 24.0), z)
+	var radius: float = sqrt(rng.randf())
+	return Vector2(
+		cos(angle) * radius * float(shape_context.get("elliptical_radius_x", 0.0)),
+		sin(angle) * radius * float(shape_context.get("elliptical_radius_z", 0.0))
+	)
 
 
-func _sample_clustered_position(rng: RandomNumberGenerator, galaxy_radius: float) -> Vector3:
-	var cluster_angle: float = rng.randi_range(0, 4) * TAU / 5.0 + rng.randf_range(-0.25, 0.25)
-	var cluster_radius: float = galaxy_radius * rng.randf_range(0.18, 0.75)
-	var cluster_center := Vector2(cos(cluster_angle), sin(cluster_angle)) * cluster_radius
-	var local_angle: float = rng.randf_range(0.0, TAU)
-	var local_radius: float = sqrt(rng.randf()) * galaxy_radius * 0.17
-	var offset := Vector2(cos(local_angle), sin(local_angle)) * local_radius
-	return Vector3(cluster_center.x + offset.x, rng.randf_range(-16.0, 16.0), cluster_center.y + offset.y)
+func _sample_clustered_map_point(rng: RandomNumberGenerator, shape_context: Dictionary) -> Vector2:
+	var cluster_centers: Array = shape_context.get("cluster_centers", [])
+	var cluster_radii: Array = shape_context.get("cluster_radii", [])
+	if cluster_centers.is_empty():
+		return Vector2.ZERO
+
+	var cluster_index: int = rng.randi_range(0, cluster_centers.size() - 1)
+	var cluster_center: Vector2 = cluster_centers[cluster_index]
+	var cluster_radius: float = float(cluster_radii[min(cluster_index, cluster_radii.size() - 1)])
+	var angle: float = rng.randf_range(0.0, TAU)
+	var radius: float = sqrt(rng.randf()) * cluster_radius
+	return cluster_center + Vector2(cos(angle), sin(angle)) * radius
+
+
+func _is_map_point_in_shape(point: Vector2, shape_context: Dictionary) -> bool:
+	var shape: String = str(shape_context.get("shape", SHAPE_SPIRAL))
+	match shape:
+		SHAPE_RING:
+			return _is_ring_map_point(point, shape_context)
+		SHAPE_ELLIPTICAL:
+			return _is_elliptical_map_point(point, shape_context)
+		SHAPE_CLUSTERED:
+			return _is_clustered_map_point(point, shape_context)
+		_:
+			return _is_spiral_map_point(point, shape_context)
+
+
+func _is_spiral_map_point(point: Vector2, shape_context: Dictionary) -> bool:
+	var galaxy_radius: float = float(shape_context.get("galaxy_radius", 0.0))
+	var radius: float = point.length()
+	if radius > galaxy_radius:
+		return false
+
+	var core_radius: float = float(shape_context.get("spiral_core_radius", 0.0))
+	if radius <= core_radius:
+		return true
+
+	var spiral_arms: int = maxi(1, int(shape_context.get("spiral_arms", 4)))
+	var adjusted_angle: float = wrapf(
+		point.angle() - float(shape_context.get("spiral_swirl", SPIRAL_SWIRL_FACTOR)) * (radius / maxf(galaxy_radius, 1.0)),
+		0.0,
+		TAU
+	)
+	var arm_step: float = TAU / float(spiral_arms)
+	var nearest_delta: float = PI
+	for arm_index in range(spiral_arms):
+		var arm_angle: float = float(arm_index) * arm_step
+		var delta := absf(wrapf(adjusted_angle - arm_angle + PI, 0.0, TAU) - PI)
+		nearest_delta = minf(nearest_delta, delta)
+
+	var arm_half_width: float = float(shape_context.get("spiral_arm_half_width", 0.0)) + radius * 0.035
+	return nearest_delta * radius <= arm_half_width
+
+
+func _is_ring_map_point(point: Vector2, shape_context: Dictionary) -> bool:
+	var radius: float = point.length()
+	return (
+		radius >= float(shape_context.get("ring_inner_radius", 0.0))
+		and radius <= float(shape_context.get("ring_outer_radius", 0.0))
+	)
+
+
+func _is_elliptical_map_point(point: Vector2, shape_context: Dictionary) -> bool:
+	var radius_x: float = maxf(float(shape_context.get("elliptical_radius_x", 0.0)), 1.0)
+	var radius_z: float = maxf(float(shape_context.get("elliptical_radius_z", 0.0)), 1.0)
+	return (point.x * point.x) / (radius_x * radius_x) + (point.y * point.y) / (radius_z * radius_z) <= 1.0
+
+
+func _is_clustered_map_point(point: Vector2, shape_context: Dictionary) -> bool:
+	var cluster_centers: Array = shape_context.get("cluster_centers", [])
+	var cluster_radii: Array = shape_context.get("cluster_radii", [])
+	for cluster_index in range(cluster_centers.size()):
+		var cluster_center: Vector2 = cluster_centers[cluster_index]
+		var cluster_radius: float = float(cluster_radii[min(cluster_index, cluster_radii.size() - 1)])
+		if point.distance_squared_to(cluster_center) <= cluster_radius * cluster_radius:
+			return true
+	return false
+
+
+func _build_position_from_map_point(
+	rng: RandomNumberGenerator,
+	map_point: Vector2,
+	shape_context: Dictionary
+) -> Vector3:
+	var shape: String = str(shape_context.get("shape", SHAPE_SPIRAL))
+	var y: float = 0.0
+	match shape:
+		SHAPE_RING:
+			y = rng.randf_range(-12.0, 12.0)
+		SHAPE_ELLIPTICAL:
+			y = rng.randf_range(-24.0, 24.0)
+		SHAPE_CLUSTERED:
+			y = rng.randf_range(-16.0, 16.0)
+		_:
+			y = rng.randf_range(-18.0, 18.0)
+	return Vector3(map_point.x, y, map_point.y)
 
 
 func _has_nearby_system(candidate: Vector3, grid: Dictionary, cell_size: float, min_system_distance: float) -> bool:
@@ -457,9 +710,10 @@ func _has_nearby_system(candidate: Vector3, grid: Dictionary, cell_size: float, 
 	)
 	var candidate_map_point := _to_map_point(candidate)
 	var min_distance_sq: float = min_system_distance * min_system_distance
+	var search_radius: int = maxi(1, int(ceil(min_system_distance / maxf(cell_size, 0.001))))
 
-	for x_offset in range(-1, 2):
-		for y_offset in range(-1, 2):
+	for x_offset in range(-search_radius, search_radius + 1):
+		for y_offset in range(-search_radius, search_radius + 1):
 			var neighbor_cell := Vector2i(cell.x + x_offset, cell.y + y_offset)
 			if not grid.has(neighbor_cell):
 				continue
@@ -485,14 +739,23 @@ func _add_to_grid(position: Vector3, grid: Dictionary, cell_size: float) -> void
 	grid[cell] = existing_positions
 
 
-func build_hyperlane_graph(systems: Array[Dictionary], density: int, min_system_distance: float = 0.0) -> Dictionary:
-	var links: Array[Vector2i] = _build_hyperlanes(systems, density, min_system_distance)
+func build_hyperlane_graph(
+	systems: Array[Dictionary],
+	density: int,
+	min_system_distance: float = 0.0,
+	graph_seed: int = 0
+) -> Dictionary:
+	var links: Array[Vector2i] = _build_hyperlanes(systems, density, min_system_distance, graph_seed)
+	var target_links_per_system: int = mini(
+		clampi(int(round(_get_target_average_hyperlane_degree(density))), MIN_HYPERLANES_PER_SYSTEM, MAX_HYPERLANES_PER_SYSTEM),
+		maxi(systems.size() - 1, 0)
+	)
 	return {
 		"links": links,
 		"adjacency": build_hyperlane_adjacency(systems.size(), links),
 		"min_links_per_system": mini(MIN_HYPERLANES_PER_SYSTEM, maxi(systems.size() - 1, 0)),
 		"max_links_per_system": mini(MAX_HYPERLANES_PER_SYSTEM, maxi(systems.size() - 1, 0)),
-		"target_links_per_system": mini(clampi(density + 1, MIN_HYPERLANES_PER_SYSTEM, MAX_HYPERLANES_PER_SYSTEM), maxi(systems.size() - 1, 0)),
+		"target_links_per_system": target_links_per_system,
 	}
 
 
@@ -513,36 +776,23 @@ func build_hyperlane_adjacency(system_count: int, links: Array[Vector2i]) -> Dic
 	return adjacency
 
 
-func _build_hyperlanes(systems: Array[Dictionary], density: int, min_system_distance: float) -> Array[Vector2i]:
+func _build_hyperlanes(
+	systems: Array[Dictionary],
+	density: int,
+	min_system_distance: float,
+	graph_seed: int
+) -> Array[Vector2i]:
 	var links: Array[Vector2i] = []
 	var dedupe: Dictionary = {}
 	if systems.size() <= 1:
 		return links
 
-	var system_clearance_radius := _get_hyperlane_system_clearance_radius(min_system_distance)
-	var target_links := mini(clampi(density + 1, MIN_HYPERLANES_PER_SYSTEM, MAX_HYPERLANES_PER_SYSTEM), systems.size() - 1)
-	var min_links := mini(MIN_HYPERLANES_PER_SYSTEM, systems.size() - 1)
-	var max_links := mini(MAX_HYPERLANES_PER_SYSTEM, systems.size() - 1)
-	var candidate_count := mini(max_links + EXTRA_HYPERLANE_CANDIDATES, systems.size() - 1)
-	var nearest_distance_sq: Array[float] = []
+	_prepare_hyperlane_query_cache(systems, maxf(min_system_distance / sqrt(2.0), 1.0))
+	var edge_records: Array = _build_delaunay_edge_records(systems)
+	if edge_records.is_empty():
+		edge_records = _build_fallback_hyperlane_edge_records(systems)
+	edge_records.sort_custom(_sort_hyperlane_edges_by_distance)
 
-	for system_index in range(systems.size()):
-		var nearest: Array[int] = _find_nearest_neighbors(system_index, systems, candidate_count)
-		if nearest.is_empty():
-			nearest_distance_sq.append(INF)
-		else:
-			var nearest_position: Vector3 = systems[nearest[0]]["position"]
-			nearest_distance_sq.append(_to_map_point(systems[system_index]["position"]).distance_squared_to(_to_map_point(nearest_position)))
-
-	var candidate_edges: Array = _build_planar_candidate_edges(
-		systems,
-		candidate_count,
-		nearest_distance_sq,
-		density,
-		system_clearance_radius
-	)
-
-	candidate_edges.sort_custom(_sort_hyperlane_edges_by_distance)
 	var parent: Array[int] = []
 	var rank: Array[int] = []
 	var degrees: Array[int] = []
@@ -554,89 +804,64 @@ func _build_hyperlanes(systems: Array[Dictionary], density: int, min_system_dist
 		rank[system_index] = 0
 		degrees[system_index] = 0
 
-	# Backbone: shortest nearby edges first, so the graph stays connected without weird long jumps.
-	for edge_variant in candidate_edges:
+	# Kruskal over Delaunay edges gives us a connected, non-crossing backbone.
+	for edge_variant in edge_records:
 		var edge: Dictionary = edge_variant
-		var a_index: int = edge["a"]
-		var b_index: int = edge["b"]
+		var a_index: int = int(edge.get("a", -1))
+		var b_index: int = int(edge.get("b", -1))
+		if a_index == -1 or b_index == -1:
+			continue
 		if _uf_find(parent, a_index) == _uf_find(parent, b_index):
 			continue
-
-		if _add_hyperlane_link(a_index, b_index, systems, system_clearance_radius, links, dedupe):
+		if _add_hyperlane_link(a_index, b_index, systems, 0.0, links, dedupe):
 			degrees[a_index] += 1
 			degrees[b_index] += 1
 			_uf_union(parent, rank, a_index, b_index)
 
 	if links.size() < systems.size() - 1:
-		_connect_remaining_components(
-			systems,
-			candidate_edges,
-			system_clearance_radius,
-			links,
-			dedupe,
-			parent,
-			rank,
-			degrees
-		)
+		_bridge_hyperlane_components(systems, links, dedupe, parent, rank, degrees)
 
-	# Fill sparse systems first so most systems land in the 2-5 link range.
-	for edge_variant in candidate_edges:
+	var unused_edges: Array = []
+	for edge_variant in edge_records:
 		var edge: Dictionary = edge_variant
-		var a_index: int = edge["a"]
-		var b_index: int = edge["b"]
-		if degrees[a_index] >= max_links or degrees[b_index] >= max_links:
+		var edge_key: String = _make_hyperlane_edge_key(int(edge.get("a", -1)), int(edge.get("b", -1)))
+		if dedupe.has(edge_key):
 			continue
-		if degrees[a_index] >= min_links and degrees[b_index] >= min_links:
+		unused_edges.append(edge)
+
+	var target_edge_count: int = _get_target_hyperlane_edge_count(systems.size(), density)
+	var extra_edge_skip_chance: float = _get_extra_hyperlane_skip_chance(density)
+	var extra_rng := RandomNumberGenerator.new()
+	var extra_seed: int = graph_seed if graph_seed != 0 else int(systems.size()) * 131071 + density * 8191
+	extra_rng.seed = extra_seed
+
+	for edge_variant in unused_edges:
+		if links.size() >= target_edge_count:
+			break
+
+		var edge: Dictionary = edge_variant
+		var a_index: int = int(edge.get("a", -1))
+		var b_index: int = int(edge.get("b", -1))
+		if a_index == -1 or b_index == -1:
 			continue
-		if _add_hyperlane_link(a_index, b_index, systems, system_clearance_radius, links, dedupe):
+		if degrees[a_index] >= MAX_HYPERLANES_PER_SYSTEM or degrees[b_index] >= MAX_HYPERLANES_PER_SYSTEM:
+			continue
+		if extra_rng.randf() < extra_edge_skip_chance:
+			continue
+		if _add_hyperlane_link(a_index, b_index, systems, 0.0, links, dedupe):
 			degrees[a_index] += 1
 			degrees[b_index] += 1
 
-	# Then add a few more local links for richer travel choices, still respecting the distance cap.
-	for edge_variant in candidate_edges:
-		var edge: Dictionary = edge_variant
-		var a_index: int = edge["a"]
-		var b_index: int = edge["b"]
-		if degrees[a_index] >= max_links or degrees[b_index] >= max_links:
-			continue
-		if degrees[a_index] >= target_links and degrees[b_index] >= target_links:
-			continue
-		if _add_hyperlane_link(a_index, b_index, systems, system_clearance_radius, links, dedupe):
-			degrees[a_index] += 1
-			degrees[b_index] += 1
-
+	_clear_hyperlane_query_cache()
 	return links
 
 
-func _build_planar_candidate_edges(
-	systems: Array[Dictionary],
-	candidate_count: int,
-	nearest_distance_sq: Array[float],
-	density: int,
-	system_clearance_radius: float
-) -> Array:
-	var candidate_edges: Array = []
-	var edge_dedupe: Dictionary = {}
-
+func _build_delaunay_edge_records(systems: Array[Dictionary]) -> Array:
+	var edge_records: Array = []
+	var dedupe: Dictionary = {}
 	for edge in _build_delaunay_edges(systems):
-		if not _hyperlane_has_system_clearance(edge.x, edge.y, systems, system_clearance_radius):
-			continue
-		_append_candidate_edge(candidate_edges, edge_dedupe, edge.x, edge.y, _get_map_distance_sq(systems, edge.x, edge.y))
-
-	for system_index in range(systems.size()):
-		var nearest: Array[int] = _find_nearest_neighbors(system_index, systems, candidate_count)
-		for neighbor_index_variant in nearest:
-			var neighbor_index: int = int(neighbor_index_variant)
-			var a: int = mini(system_index, neighbor_index)
-			var b: int = maxi(system_index, neighbor_index)
-			var distance_sq := _get_map_distance_sq(systems, a, b)
-			if not _is_hyperlane_distance_allowed(a, b, distance_sq, nearest_distance_sq, density):
-				continue
-			if not _hyperlane_has_system_clearance(a, b, systems, system_clearance_radius):
-				continue
-			_append_candidate_edge(candidate_edges, edge_dedupe, a, b, distance_sq)
-
-	return candidate_edges
+		_append_candidate_edge(edge_records, dedupe, edge.x, edge.y, _get_map_distance_sq(systems, edge.x, edge.y))
+	return edge_records
 
 
 func _build_delaunay_edges(systems: Array[Dictionary]) -> Array[Vector2i]:
@@ -648,9 +873,13 @@ func _build_delaunay_edges(systems: Array[Dictionary]) -> Array[Vector2i]:
 		return delaunay_edges
 
 	var points := PackedVector2Array()
-	for system_record_variant in systems:
-		var system_record: Dictionary = system_record_variant
-		points.append(_to_map_point(system_record["position"]))
+	if not _hyperlane_map_points.is_empty() and _hyperlane_map_points.size() == systems.size():
+		for map_point in _hyperlane_map_points:
+			points.append(map_point)
+	else:
+		for system_record_variant in systems:
+			var system_record: Dictionary = system_record_variant
+			points.append(_to_map_point(system_record["position"]))
 
 	var triangle_indices: PackedInt32Array = Geometry2D.triangulate_delaunay(points)
 	if triangle_indices.is_empty():
@@ -684,7 +913,7 @@ func _append_candidate_edge(candidate_edges: Array, dedupe: Dictionary, a_index:
 		return
 	var a: int = mini(a_index, b_index)
 	var b: int = maxi(a_index, b_index)
-	var key: String = "%s:%s" % [a, b]
+	var key: String = _make_hyperlane_edge_key(a, b)
 	if dedupe.has(key):
 		return
 	dedupe[key] = true
@@ -746,117 +975,89 @@ func _uf_union(parent: Array[int], rank: Array[int], a_index: int, b_index: int)
 		rank[root_a] += 1
 
 
-func _is_hyperlane_distance_allowed(a_index: int, b_index: int, distance_sq: float, nearest_distance_sq: Array[float], density: int) -> bool:
-	var distance_factor := HYPERLANE_DISTANCE_FACTOR_BASE + float(density - 1) * HYPERLANE_DISTANCE_FACTOR_PER_DENSITY
-	var a_reference := nearest_distance_sq[a_index]
-	var b_reference := nearest_distance_sq[b_index]
-
-	if is_inf(a_reference) or is_inf(b_reference):
-		return true
-
-	var max_allowed_sq := maxf(a_reference, b_reference) * distance_factor * distance_factor
-	return distance_sq <= max_allowed_sq
-
-
-func _connect_remaining_components(
+func _bridge_hyperlane_components(
 	systems: Array[Dictionary],
-	candidate_edges: Array,
-	system_clearance_radius: float,
 	links: Array[Vector2i],
 	dedupe: Dictionary,
 	parent: Array[int],
 	rank: Array[int],
 	degrees: Array[int]
 ) -> void:
-	while links.size() < systems.size() - 1:
-		var best_a := -1
-		var best_b := -1
-		var best_distance_sq := INF
+	var fallback_edges: Array = _build_fallback_hyperlane_edge_records(systems)
+	fallback_edges.sort_custom(_sort_hyperlane_edges_by_distance)
 
-		for edge_variant in candidate_edges:
-			var edge: Dictionary = edge_variant
-			var a_index: int = int(edge.get("a", -1))
-			var b_index: int = int(edge.get("b", -1))
-			if a_index == -1 or b_index == -1:
-				continue
-			if _uf_find(parent, a_index) == _uf_find(parent, b_index):
-				continue
-			if _hyperlane_crosses_existing(a_index, b_index, systems, links):
-				continue
-			if not _hyperlane_has_system_clearance(a_index, b_index, systems, system_clearance_radius):
-				continue
+	for edge_variant in fallback_edges:
+		if links.size() >= systems.size() - 1:
+			return
 
-			var distance_sq: float = float(edge.get("distance_sq", INF))
-			if distance_sq < best_distance_sq:
-				best_distance_sq = distance_sq
-				best_a = a_index
-				best_b = b_index
-
-		if best_a == -1:
-			for a_index in range(systems.size()):
-				var a_root := _uf_find(parent, a_index)
-				for b_index in range(a_index + 1, systems.size()):
-					if a_root == _uf_find(parent, b_index):
-						continue
-					if _hyperlane_crosses_existing(a_index, b_index, systems, links):
-						continue
-					if not _hyperlane_has_system_clearance(a_index, b_index, systems, system_clearance_radius):
-						continue
-
-					var distance_sq: float = _get_map_distance_sq(systems, a_index, b_index)
-					if distance_sq < best_distance_sq:
-						best_distance_sq = distance_sq
-						best_a = a_index
-						best_b = b_index
-
-		if best_a == -1:
-			break
-
-		if _add_hyperlane_link(best_a, best_b, systems, system_clearance_radius, links, dedupe):
-			degrees[best_a] += 1
-			degrees[best_b] += 1
-			_uf_union(parent, rank, best_a, best_b)
-
-
-func _find_nearest_neighbors(system_index: int, systems: Array[Dictionary], desired_count: int) -> Array[int]:
-	var origin: Vector2 = _to_map_point(systems[system_index]["position"])
-	var nearest: Array[int] = []
-	var nearest_distances: Array[float] = []
-
-	for candidate_index in range(systems.size()):
-		if candidate_index == system_index:
+		var edge: Dictionary = edge_variant
+		var a_index: int = int(edge.get("a", -1))
+		var b_index: int = int(edge.get("b", -1))
+		if a_index == -1 or b_index == -1:
 			continue
+		if _uf_find(parent, a_index) == _uf_find(parent, b_index):
+			continue
+		if _add_hyperlane_link(a_index, b_index, systems, 0.0, links, dedupe):
+			degrees[a_index] += 1
+			degrees[b_index] += 1
+			_uf_union(parent, rank, a_index, b_index)
 
-		var distance_sq: float = origin.distance_squared_to(_to_map_point(systems[candidate_index]["position"]))
-		var insert_at: int = nearest_distances.size()
 
-		for i in range(nearest_distances.size()):
-			if distance_sq < nearest_distances[i]:
-				insert_at = i
-				break
+func _build_fallback_hyperlane_edge_records(systems: Array[Dictionary]) -> Array:
+	var fallback_points: Array = []
+	for system_index in range(systems.size()):
+		fallback_points.append({
+			"index": system_index,
+			"point": _get_cached_map_point(system_index, systems[system_index]["position"]),
+		})
+	fallback_points.sort_custom(_sort_fallback_hyperlane_points)
 
-		if insert_at < desired_count:
-			nearest.insert(insert_at, candidate_index)
-			nearest_distances.insert(insert_at, distance_sq)
-			if nearest.size() > desired_count:
-				nearest.resize(desired_count)
-				nearest_distances.resize(desired_count)
-		elif nearest.size() < desired_count:
-			nearest.append(candidate_index)
-			nearest_distances.append(distance_sq)
+	var fallback_edges: Array = []
+	var dedupe: Dictionary = {}
+	for point_index in range(fallback_points.size() - 1):
+		var a_index: int = int(fallback_points[point_index].get("index", -1))
+		var b_index: int = int(fallback_points[point_index + 1].get("index", -1))
+		if a_index == -1 or b_index == -1:
+			continue
+		_append_candidate_edge(fallback_edges, dedupe, a_index, b_index, _get_map_distance_sq(systems, a_index, b_index))
+	return fallback_edges
 
-	return nearest
+
+func _sort_fallback_hyperlane_points(a: Dictionary, b: Dictionary) -> bool:
+	var a_point: Vector2 = a.get("point", Vector2.ZERO)
+	var b_point: Vector2 = b.get("point", Vector2.ZERO)
+	if not is_equal_approx(a_point.x, b_point.x):
+		return a_point.x < b_point.x
+	return a_point.y < b_point.y
+
+
+func _get_target_average_hyperlane_degree(density: int) -> float:
+	var density_ratio: float = clampf(float(density - 1) / 7.0, 0.0, 1.0)
+	return lerpf(2.1, 3.7, density_ratio)
+
+
+func _get_target_hyperlane_edge_count(system_count: int, density: int) -> int:
+	if system_count <= 1:
+		return 0
+	var max_planar_edges: int = 1 if system_count == 2 else 3 * system_count - 6
+	var target_edges := int(round(float(system_count) * _get_target_average_hyperlane_degree(density) * 0.5))
+	return clampi(target_edges, system_count - 1, max_planar_edges)
+
+
+func _get_extra_hyperlane_skip_chance(density: int) -> float:
+	var density_ratio: float = clampf(float(density - 1) / 7.0, 0.0, 1.0)
+	return lerpf(0.45, 0.12, density_ratio)
 
 
 func _hyperlane_crosses_existing(a_index: int, b_index: int, systems: Array[Dictionary], links: Array[Vector2i]) -> bool:
-	var start_point := _to_map_point(systems[a_index]["position"])
-	var end_point := _to_map_point(systems[b_index]["position"])
+	var start_point := _get_cached_map_point(a_index, systems[a_index]["position"])
+	var end_point := _get_cached_map_point(b_index, systems[b_index]["position"])
 
 	for existing_link in links:
 		if existing_link.x == a_index or existing_link.x == b_index or existing_link.y == a_index or existing_link.y == b_index:
 			continue
-		var existing_start := _to_map_point(systems[existing_link.x]["position"])
-		var existing_end := _to_map_point(systems[existing_link.y]["position"])
+		var existing_start := _get_cached_map_point(existing_link.x, systems[existing_link.x]["position"])
+		var existing_end := _get_cached_map_point(existing_link.y, systems[existing_link.y]["position"])
 		if _segments_intersect_2d(start_point, end_point, existing_start, existing_end):
 			return true
 
@@ -872,16 +1073,40 @@ func _hyperlane_has_system_clearance(
 	if clearance_radius <= 0.0:
 		return true
 
-	var segment_start := _to_map_point(systems[a_index]["position"])
-	var segment_end := _to_map_point(systems[b_index]["position"])
+	var segment_start := _get_cached_map_point(a_index, systems[a_index]["position"])
+	var segment_end := _get_cached_map_point(b_index, systems[b_index]["position"])
 	var clearance_sq := clearance_radius * clearance_radius
+	var min_x := minf(segment_start.x, segment_end.x) - clearance_radius
+	var max_x := maxf(segment_start.x, segment_end.x) + clearance_radius
+	var min_y := minf(segment_start.y, segment_end.y) - clearance_radius
+	var max_y := maxf(segment_start.y, segment_end.y) + clearance_radius
 
-	for system_index in range(systems.size()):
-		if system_index == a_index or system_index == b_index:
-			continue
-		var system_point := _to_map_point(systems[system_index]["position"])
-		if _distance_sq_to_segment(system_point, segment_start, segment_end) < clearance_sq:
-			return false
+	if _hyperlane_system_query_grid.is_empty() or _hyperlane_system_query_cell_size <= 0.0:
+		for system_index in range(systems.size()):
+			if system_index == a_index or system_index == b_index:
+				continue
+			var system_point := _get_cached_map_point(system_index, systems[system_index]["position"])
+			if _distance_sq_to_segment(system_point, segment_start, segment_end) < clearance_sq:
+				return false
+		return true
+
+	var min_cell := _get_hyperlane_query_cell(Vector2(min_x, min_y))
+	var max_cell := _get_hyperlane_query_cell(Vector2(max_x, max_y))
+	for x_index in range(min_cell.x, max_cell.x + 1):
+		for y_index in range(min_cell.y, max_cell.y + 1):
+			var cell := Vector2i(x_index, y_index)
+			if not _hyperlane_system_query_grid.has(cell):
+				continue
+			var candidate_indices: Array = _hyperlane_system_query_grid[cell]
+			for candidate_index_variant in candidate_indices:
+				var system_index: int = int(candidate_index_variant)
+				if system_index == a_index or system_index == b_index:
+					continue
+				var system_point := _hyperlane_map_points[system_index]
+				if system_point.x < min_x or system_point.x > max_x or system_point.y < min_y or system_point.y > max_y:
+					continue
+				if _distance_sq_to_segment(system_point, segment_start, segment_end) < clearance_sq:
+					return false
 
 	return true
 
@@ -934,11 +1159,50 @@ func _point_on_segment(point: Vector2, segment_start: Vector2, segment_end: Vect
 
 
 func _get_map_distance_sq(systems: Array[Dictionary], a_index: int, b_index: int) -> float:
-	return _to_map_point(systems[a_index]["position"]).distance_squared_to(_to_map_point(systems[b_index]["position"]))
+	return _get_cached_map_point(a_index, systems[a_index]["position"]).distance_squared_to(_get_cached_map_point(b_index, systems[b_index]["position"]))
 
 
 func _get_hyperlane_system_clearance_radius(min_system_distance: float) -> float:
 	return maxf(min_system_distance * HYPERLANE_SYSTEM_CLEARANCE_FACTOR, HYPERLANE_SYSTEM_CLEARANCE_MIN)
+
+
+func _make_hyperlane_edge_key(a_index: int, b_index: int) -> String:
+	return "%s:%s" % [mini(a_index, b_index), maxi(a_index, b_index)]
+
+
+func _prepare_hyperlane_query_cache(systems: Array[Dictionary], cell_size: float) -> void:
+	_hyperlane_map_points.clear()
+	_hyperlane_map_points.resize(systems.size())
+	_hyperlane_system_query_grid.clear()
+	_hyperlane_system_query_cell_size = maxf(cell_size, 1.0)
+
+	for system_index in range(systems.size()):
+		var position: Vector3 = systems[system_index]["position"]
+		var map_point := _to_map_point(position)
+		_hyperlane_map_points[system_index] = map_point
+		var cell := _get_hyperlane_query_cell(map_point)
+		var cell_entries: Array = _hyperlane_system_query_grid.get(cell, [])
+		cell_entries.append(system_index)
+		_hyperlane_system_query_grid[cell] = cell_entries
+
+
+func _clear_hyperlane_query_cache() -> void:
+	_hyperlane_map_points.clear()
+	_hyperlane_system_query_grid.clear()
+	_hyperlane_system_query_cell_size = 0.0
+
+
+func _get_cached_map_point(system_index: int, fallback_position: Vector3) -> Vector2:
+	if system_index >= 0 and system_index < _hyperlane_map_points.size():
+		return _hyperlane_map_points[system_index]
+	return _to_map_point(fallback_position)
+
+
+func _get_hyperlane_query_cell(point: Vector2) -> Vector2i:
+	return Vector2i(
+		int(floor(point.x / _hyperlane_system_query_cell_size)),
+		int(floor(point.y / _hyperlane_system_query_cell_size))
+	)
 
 
 func _to_map_point(position: Vector3) -> Vector2:

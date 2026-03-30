@@ -648,6 +648,13 @@ func _distance_sq_to_segment(point: Vector2, segment_start: Vector2, segment_end
 
 
 func _append_region_fill(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
+	if _is_bright_rim_enabled():
+		var fill_color := region_color.darkened(0.42)
+		fill_color.a = clampf(_get_ownership_core_opacity(), 0.0, 0.18)
+		if fill_color.a > 0.001:
+			_append_triangulated_polygon(surface_tool, region_polygon, region_height, fill_color)
+		return
+
 	var haze_color := region_color
 	haze_color.a = 0.08
 	_append_region_band(
@@ -666,6 +673,22 @@ func _append_region_fill(surface_tool: SurfaceTool, region_polygon: PackedVector
 
 func _append_region_border(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
 	var half_width: float = _get_ownership_border_half_width()
+	if _is_bright_rim_enabled():
+		var far_glow := region_color.darkened(0.1)
+		far_glow.a = 0.12
+		var halo_glow := region_color.lightened(0.06)
+		halo_glow.a = 0.26
+		var seam_glow := region_color.lightened(0.3)
+		seam_glow.a = 0.68
+		var edge_color := region_color.lightened(0.5)
+		edge_color.a = 0.94
+
+		_append_region_band(surface_tool, region_polygon, half_width * 3.1, half_width * 1.9, region_height + 0.08, far_glow)
+		_append_region_band(surface_tool, region_polygon, half_width * 1.9, half_width * 0.95, region_height + 0.3, halo_glow)
+		_append_region_band(surface_tool, region_polygon, half_width * 0.95, half_width * 0.2, region_height + 0.55, seam_glow)
+		_append_region_band(surface_tool, region_polygon, half_width * 0.22, 0.0, region_height + 0.8, edge_color)
+		return
+
 	var shadow_color := Color(0.02, 0.03, 0.05, 0.48)
 	var halo_color := region_color.darkened(0.08)
 	halo_color.a = 0.22
@@ -849,12 +872,13 @@ func _build_hyperlane_material() -> StandardMaterial3D:
 func _build_ownership_fill_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
 	material.albedo_color = Color.WHITE
-	material.emission_enabled = true
-	material.emission = Color.WHITE
-	material.emission_energy_multiplier = 0.38
+	material.emission_enabled = not _is_bright_rim_enabled()
+	if material.emission_enabled:
+		material.emission = Color.WHITE
+		material.emission_energy_multiplier = 0.38
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
 
@@ -862,14 +886,24 @@ func _build_ownership_fill_material() -> StandardMaterial3D:
 func _build_ownership_border_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
 	material.albedo_color = Color.WHITE
 	material.emission_enabled = true
 	material.emission = Color.WHITE
-	material.emission_energy_multiplier = 1.95
+	material.emission_energy_multiplier = 2.35 if _is_bright_rim_enabled() else 1.95
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
+
+
+func _is_bright_rim_enabled() -> bool:
+	return _host != null and bool(_host.ownership_bright_rim_enabled)
+
+
+func _get_ownership_core_opacity() -> float:
+	if _host == null:
+		return 0.0
+	return float(_host.ownership_core_opacity)
 
 
 func _get_ownership_blob_radius() -> float:

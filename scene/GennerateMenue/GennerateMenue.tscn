@@ -190,6 +190,13 @@ text = "Amount of Stars"
 [node name="StarCountSpinBox" type="SpinBox" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=1310460525]
 layout_mode = 2
 
+[node name="MinRadiusLabel" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=119263508]
+layout_mode = 2
+text = "Min Radius"
+
+[node name="MinRadiusSpinBox" type="SpinBox" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=171998212]
+layout_mode = 2
+
 [node name="ShapeLabel" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=1046797921]
 layout_mode = 2
 text = "Shape"

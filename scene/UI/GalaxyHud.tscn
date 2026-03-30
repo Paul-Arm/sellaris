@@ -39,9 +39,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -220.0
-offset_top = -110.0
+offset_top = -165.0
 offset_right = 220.0
-offset_bottom = 110.0
+offset_bottom = 165.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -71,6 +71,21 @@ layout_mode = 2
 max_value = 1.0
 step = 0.01
 value = 0.7
+
+[node name="TerritoryBrightRimCheckBox" type="CheckBox" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=193871122]
+layout_mode = 2
+button_pressed = true
+text = "Bright Territory Rim"
+
+[node name="TerritoryCoreOpacityLabel" type="Label" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=127160962]
+layout_mode = 2
+text = "Territory Core Opacity"
+
+[node name="TerritoryCoreOpacitySlider" type="HSlider" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=120046119]
+layout_mode = 2
+max_value = 0.35
+step = 0.01
+value = 0.0
 
 [node name="CloseSettingsButton" type="Button" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=837109372]
 layout_mode = 2

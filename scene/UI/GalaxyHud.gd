@@ -8,9 +8,13 @@ signal music_volume_changed(value: float)
 signal close_settings_requested
 signal sim_pause_requested
 signal sim_speed_requested
+signal territory_bright_rim_toggled(enabled: bool)
+signal territory_core_opacity_changed(value: float)
 
 @onready var settings_overlay: Control = $SettingsOverlay
 @onready var settings_music_volume_slider: HSlider = $SettingsOverlay/Panel/MarginContainer/VBoxContainer/MusicVolumeSlider
+@onready var territory_bright_rim_check_box: CheckBox = $SettingsOverlay/Panel/MarginContainer/VBoxContainer/TerritoryBrightRimCheckBox
+@onready var territory_core_opacity_slider: HSlider = $SettingsOverlay/Panel/MarginContainer/VBoxContainer/TerritoryCoreOpacitySlider
 @onready var close_settings_button: Button = $SettingsOverlay/Panel/MarginContainer/VBoxContainer/CloseSettingsButton
 @onready var music_box: Control = $TopPanel/MarginContainer/TopBarRow/MusicBox
 @onready var music_track_label: Label = $TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow/MusicTrackLabel
@@ -33,6 +37,8 @@ func _ready() -> void:
 	music_box.mouse_exited.connect(func() -> void: music_hover_changed.emit(false))
 	top_music_volume_slider.value_changed.connect(_on_music_volume_slider_changed)
 	settings_music_volume_slider.value_changed.connect(_on_music_volume_slider_changed)
+	territory_bright_rim_check_box.toggled.connect(_on_territory_bright_rim_toggled)
+	territory_core_opacity_slider.value_changed.connect(_on_territory_core_opacity_slider_changed)
 	close_settings_button.pressed.connect(func() -> void: close_settings_requested.emit())
 	sim_pause_button.pressed.connect(func() -> void: sim_pause_requested.emit())
 	sim_speed_button.pressed.connect(func() -> void: sim_speed_requested.emit())
@@ -55,6 +61,13 @@ func set_music_ui(track_name: String, paused: bool, volume_ratio: float) -> void
 	_is_syncing = false
 
 
+func set_territory_ui(bright_rim_enabled: bool, core_opacity: float) -> void:
+	_is_syncing = true
+	territory_bright_rim_check_box.button_pressed = bright_rim_enabled
+	territory_core_opacity_slider.value = core_opacity
+	_is_syncing = false
+
+
 func set_music_track_visibility(visible_state: bool) -> void:
 	music_track_label.visible = visible_state
 
@@ -68,3 +81,15 @@ func _on_music_volume_slider_changed(value: float) -> void:
 	if _is_syncing:
 		return
 	music_volume_changed.emit(value)
+
+
+func _on_territory_bright_rim_toggled(enabled: bool) -> void:
+	if _is_syncing:
+		return
+	territory_bright_rim_toggled.emit(enabled)
+
+
+func _on_territory_core_opacity_slider_changed(value: float) -> void:
+	if _is_syncing:
+		return
+	territory_core_opacity_changed.emit(value)

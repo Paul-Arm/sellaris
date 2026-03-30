@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://x46k8i1hb5wh"]
 
-[ext_resource type="Script" path="res://scene/MainMenue/MainUI.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://1rc0gvhh33uc" path="res://scene/MainMenue/MainUI.gd" id="1_main"]
 [ext_resource type="Shader" uid="uid://dh1bjbqwyuit8" path="res://scene/GennerateMenue/GennerateMenueBG.gdshader" id="2_j7onr"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_7co16"]
@@ -19,7 +19,7 @@ shader_parameter/nebula_strength = 1.71999996155456
 shader_parameter/star_density = 0.5499999877064
 shader_parameter/motion_speed = 0.0530000025175
 
-[node name="Control" type="Control" unique_id=2125288446]
+[node name="MainMenue" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -57,3 +57,866 @@ theme_override_constants/margin_left = 28
 theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 28
 theme_override_constants/margin_bottom = 24
+
+[node name="RootVBox" type="VBoxContainer" parent="UiRoot"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 18
+
+[node name="HeaderPanel" type="PanelContainer" parent="UiRoot/RootVBox"]
+custom_minimum_size = Vector2(0, 104)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/HeaderPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 18
+
+[node name="HeaderVBox" type="VBoxContainer" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HeaderTitle" type="Label" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer/HeaderVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "Sellaris Command Nexus"
+
+[node name="HeaderSubtitle" type="Label" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer/HeaderVBox"]
+layout_mode = 2
+text = "This is the real startup menu scene. Singleplayer opens the galaxy generator UI, while presets, settings, and multiplayer stay here as dedicated pages."
+autowrap_mode = 2
+
+[node name="MainShell" type="PanelContainer" parent="UiRoot/RootVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="ShellRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 18
+
+[node name="NavColumn" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LandingButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Landing Page"
+
+[node name="SingleplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Singleplayer"
+
+[node name="PresetsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Empire Presets"
+
+[node name="SettingsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Settings"
+
+[node name="MultiplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Multiplayer"
+
+[node name="NavSpacer" type="Control" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="QuitButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Quit Game"
+
+[node name="ContentTabs" type="TabContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+tabs_visible = false
+
+[node name="LandingPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="LandingVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="HeroPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox"]
+custom_minimum_size = Vector2(0, 240)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="HeroVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="HeroTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Shape the next galactic era."
+
+[node name="HeroText" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox"]
+layout_mode = 2
+text = "The main menu now lives in this authored scene. Singleplayer jumps into the galaxy generator scene, while empire presets, settings, and multiplayer stay inside this screen."
+autowrap_mode = 2
+
+[node name="LandingActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="StartSingleplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox/LandingActionRow"]
+custom_minimum_size = Vector2(190, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Start Singleplayer"
+
+[node name="OpenEmpirePresetsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox/LandingActionRow"]
+custom_minimum_size = Vector2(190, 46)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Open Empire Presets"
+
+[node name="LandingInfoRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="SettingsCard" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="SettingsCardVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SettingsCardTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Settings"
+
+[node name="SettingsCardBody" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "Music controls are already live here, and this page is ready for graphics, controls, and accessibility later."
+autowrap_mode = 2
+
+[node name="SettingsCardButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Open Settings"
+
+[node name="MultiplayerCard" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="MultiplayerCardVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MultiplayerCardTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Multiplayer"
+
+[node name="MultiplayerCardBody" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "The multiplayer destination exists now so the future lobby flow has a real home in the menu."
+autowrap_mode = 2
+
+[node name="MultiplayerCardButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Open Multiplayer"
+
+[node name="PresetsPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="ContentRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="PresetBrowser" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="BrowserVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BrowserTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Empire Presets"
+
+[node name="PresetCountLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+layout_mode = 2
+text = "Saved Empires: 0"
+
+[node name="PresetList" type="ItemList" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+custom_minimum_size = Vector2(0, 420)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BrowserActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="NewPresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox/BrowserActionRow"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "New Preset"
+
+[node name="DeletePresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox/BrowserActionRow"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+disabled = true
+text = "Delete"
+
+[node name="StatusLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+custom_minimum_size = Vector2(0, 62)
+layout_mode = 2
+text = "Create a new empire preset or select one to edit."
+autowrap_mode = 2
+
+[node name="PresetEditor" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="EditorVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="EditorTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Empire Designer"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="FormVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer"]
+custom_minimum_size = Vector2(0, 720)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="SettingsGrid" type="GridContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 4
+
+[node name="PresetNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Preset Name"
+
+[node name="PresetNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="EmpireNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Empire Name"
+
+[node name="EmpireNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="SelectedSpeciesLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Species"
+
+[node name="SpeciesPickerRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SelectedSpeciesInfo" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="SelectedSpeciesNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow/SelectedSpeciesInfo"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "No Species Selected"
+
+[node name="SelectedSpeciesCategoryLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow/SelectedSpeciesInfo"]
+layout_mode = 2
+text = "Choose a species from the discovered gallery."
+autowrap_mode = 2
+
+[node name="SelectSpeciesButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow"]
+custom_minimum_size = Vector2(150, 40)
+layout_mode = 2
+text = "Select Species"
+
+[node name="SpeciesArchetypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+visible = false
+layout_mode = 2
+text = "Species Archetype"
+
+[node name="SpeciesArchetypeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+visible = false
+layout_mode = 2
+
+[node name="SpeciesTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+visible = false
+layout_mode = 2
+text = "Species Type"
+
+[node name="SpeciesTypeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+visible = false
+layout_mode = 2
+
+[node name="SpeciesVisualsIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+visible = false
+layout_mode = 2
+text = "Species Visuals Id"
+
+[node name="SpeciesVisualsIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+visible = false
+layout_mode = 2
+placeholder_text = "Auto-discovered from the species folder"
+
+[node name="SpeciesNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Species Name"
+
+[node name="SpeciesNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="SpeciesPluralLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Species Plural"
+
+[node name="SpeciesPluralEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="SpeciesAdjectiveLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Species Adjective"
+
+[node name="SpeciesAdjectiveEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="NameSetIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Name Set Id"
+
+[node name="NameSetIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="GovernmentTypeIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Government Type Id"
+
+[node name="GovernmentTypeIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="AuthorityTypeIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Authority Type Id"
+
+[node name="AuthorityTypeIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="CivicIdsLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Civic Ids"
+
+[node name="CivicIdsEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="FlagPathLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Flag Path"
+
+[node name="FlagPathEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="OriginIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Origin Id"
+
+[node name="OriginIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="StartingSystemTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Starting System Type"
+
+[node name="StartingSystemTypeEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="StartingPlanetTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Starting Planet Type"
+
+[node name="StartingPlanetTypeEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+
+[node name="ShipSetIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Ship Set Id"
+
+[node name="ShipSetSpinBox" type="SpinBox" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+min_value = 0.0
+max_value = 999.0
+step = 1.0
+
+[node name="EmpireColorLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+layout_mode = 2
+text = "Empire Color"
+
+[node name="ColorPickerButton" type="ColorPickerButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+
+[node name="MenuPortraitLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+visible = false
+layout_mode = 2
+text = "Menu Portrait"
+
+[node name="MenuPortraitPathEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+visible = false
+layout_mode = 2
+placeholder_text = "Auto-discovered from menu_portrait.* or menu/"
+
+[node name="BiographyLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+layout_mode = 2
+text = "Biography"
+
+[node name="BiographyEdit" type="TextEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PortraitPreviewLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+layout_mode = 2
+text = "Selected Species Portrait"
+
+[node name="PortraitPreview" type="TextureRect" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+custom_minimum_size = Vector2(0, 260)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LeaderPortraitPreviewLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+layout_mode = 2
+text = "Leader Portrait Gallery"
+
+[node name="LeaderPortraitPreviewFlow" type="HFlowContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="LeaderPortraitsLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+visible = false
+layout_mode = 2
+text = "Leader Portrait Pool"
+
+[node name="LeaderPortraitsEdit" type="TextEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+visible = false
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+placeholder_text = "Auto-discovered from the leaders/ folder."
+
+[node name="EditorActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SavePresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/EditorActionRow"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Save Preset"
+
+[node name="ClearFormButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/EditorActionRow"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Clear Form"
+
+[node name="SettingsPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="SettingsVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="SettingsTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Settings"
+
+[node name="SettingsDescription" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+layout_mode = 2
+text = "Menu audio is live here now. This page lives directly in the main menu scene instead of appearing as a popup."
+autowrap_mode = 2
+
+[node name="DisplayPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="DisplayVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="DisplayTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Display"
+
+[node name="DisplayGrid" type="GridContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox"]
+layout_mode = 2
+columns = 2
+
+[node name="WindowModeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+layout_mode = 2
+text = "Window Mode"
+
+[node name="WindowModeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+layout_mode = 2
+
+[node name="ResolutionLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+layout_mode = 2
+text = "Resolution"
+
+[node name="ResolutionOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+layout_mode = 2
+
+[node name="AntiAliasingLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+layout_mode = 2
+text = "Anti-Aliasing"
+
+[node name="AntiAliasingOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+layout_mode = 2
+
+[node name="SettingsStatusLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox"]
+layout_mode = 2
+text = "Display settings are applied immediately and saved to user://settings.cfg."
+autowrap_mode = 2
+
+[node name="SettingsTrackLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+layout_mode = 2
+text = "Current Track:"
+
+[node name="SettingsVolumeSlider" type="HSlider" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+
+[node name="SettingsVolumeValueLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+layout_mode = 2
+text = "Volume: 100%"
+
+[node name="SettingsButtonRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SettingsPreviousButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Previous"
+
+[node name="SettingsPauseButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Pause"
+
+[node name="SettingsNextButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Next"
+
+[node name="SettingsHintLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+size_flags_vertical = 3
+text = "Resolution is remembered for windowed mode, and audio plus display preferences persist automatically between runs."
+autowrap_mode = 2
+
+[node name="MultiplayerPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="MultiplayerVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="MultiplayerTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Multiplayer"
+
+[node name="MultiplayerDescription" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox"]
+layout_mode = 2
+text = "This page is reserved for future hosting, joining, lobbies, and empire slot assignment."
+autowrap_mode = 2
+
+[node name="MultiplayerStatusPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox"]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="MultiplayerStatusVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MultiplayerStatusTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer/MultiplayerStatusVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Not Yet Implemented"
+
+[node name="MultiplayerStatusText" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer/MultiplayerStatusVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "The important part now is that multiplayer has its own real page in the main menu scene instead of being a popup afterthought."
+autowrap_mode = 2
+
+[node name="SpeciesGalleryOverlay" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="SpeciesGalleryDimmer" type="ColorRect" parent="SpeciesGalleryOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.72)
+
+[node name="SpeciesGalleryCenter" type="CenterContainer" parent="SpeciesGalleryOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SpeciesGalleryDialog" type="PanelContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter"]
+custom_minimum_size = Vector2(1120, 720)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="SpeciesGalleryVBox" type="VBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SpeciesGalleryHeaderRow" type="HBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SpeciesGalleryTitleBox" type="VBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="SpeciesGalleryTitle" type="Label" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow/SpeciesGalleryTitleBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Select Species"
+
+[node name="SpeciesGalleryDescription" type="Label" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow/SpeciesGalleryTitleBox"]
+layout_mode = 2
+text = "Species are discovered automatically from res://core/empire/species. Open a category tab and click the portrait you want."
+autowrap_mode = 2
+
+[node name="SpeciesGalleryCloseButton" type="Button" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow"]
+custom_minimum_size = Vector2(120, 40)
+layout_mode = 2
+text = "Close"
+
+[node name="SpeciesGalleryTabs" type="TabContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="DeleteOverlay" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="DeleteDimmer" type="ColorRect" parent="DeleteOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.62)
+
+[node name="DeleteCenter" type="CenterContainer" parent="DeleteOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DeleteDialog" type="PanelContainer" parent="DeleteOverlay/DeleteCenter"]
+custom_minimum_size = Vector2(440, 180)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="DeleteVBox" type="VBoxContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="DeleteTitle" type="Label" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 24
+text = "Confirm Delete"
+
+[node name="DeleteConfirmLabel" type="Label" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+horizontal_alignment = 1
+text = "Delete this preset permanently from disk?"
+autowrap_mode = 2
+
+[node name="DeleteButtonRow" type="HBoxContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DeleteCancelButton" type="Button" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox/DeleteButtonRow"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cancel"
+
+[node name="DeleteConfirmButton" type="Button" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox/DeleteButtonRow"]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Delete Preset"

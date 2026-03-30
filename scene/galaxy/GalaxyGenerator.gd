@@ -61,8 +61,11 @@ const MAX_HYPERLANES_PER_SYSTEM := 5
 const EXTRA_HYPERLANE_CANDIDATES := 6
 const HYPERLANE_DISTANCE_FACTOR_BASE := 2.35
 const HYPERLANE_DISTANCE_FACTOR_PER_DENSITY := 0.22
+const HYPERLANE_SYSTEM_CLEARANCE_FACTOR := 0.52
+const HYPERLANE_SYSTEM_CLEARANCE_MIN := 18.0
 const SYSTEM_SPREAD_DISTANCE_FACTOR := 1.18
 const SYSTEM_SPREAD_RADIUS_FACTOR := 1.1
+const HYPERLANE_INTERSECTION_EPSILON := 0.001
 
 
 func get_shape_options() -> PackedStringArray:
@@ -84,7 +87,7 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 	var systems: Array[Dictionary] = []
 	var grid: Dictionary = {}
 	var cell_size: float = min_system_distance
-	var custom_count: int = _append_custom_systems(systems, custom_systems, grid, cell_size)
+	var custom_count: int = _append_custom_systems(systems, custom_systems, grid, cell_size, min_system_distance)
 	var procedural_target: int = maxi(0, target_system_count - custom_count)
 	var max_attempts: int = maxi(2000, procedural_target * 70)
 	var attempt: int = 0
@@ -112,7 +115,7 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 	if systems.size() < target_system_count:
 		push_warning("Galaxy generator reached the placement limit before hitting the requested system count.")
 
-	var hyperlane_graph := build_hyperlane_graph(systems, hyperlane_density)
+	var hyperlane_graph := build_hyperlane_graph(systems, hyperlane_density, min_system_distance)
 	return {
 		"seed": galaxy_seed,
 		"systems": systems,
@@ -183,12 +186,23 @@ func _combine_seed(galaxy_seed: int, system_id: String) -> int:
 	return galaxy_seed + system_id.hash() * 31
 
 
-func _append_custom_systems(systems: Array[Dictionary], custom_systems: Array[Resource], grid: Dictionary, cell_size: float) -> int:
+func _append_custom_systems(
+	systems: Array[Dictionary],
+	custom_systems: Array[Resource],
+	grid: Dictionary,
+	cell_size: float,
+	min_system_distance: float
+) -> int:
 	var added_count: int = 0
 
 	for i in range(custom_systems.size()):
 		var custom_system: Resource = custom_systems[i]
 		if custom_system == null:
+			continue
+		if _has_nearby_system(custom_system.position, grid, cell_size, min_system_distance):
+			push_warning(
+				"Custom system '%s' is too close to another system and was skipped to preserve galaxy spacing." % custom_system.get_resolved_name(i)
+			)
 			continue
 
 		var record := {
@@ -441,6 +455,7 @@ func _has_nearby_system(candidate: Vector3, grid: Dictionary, cell_size: float, 
 		int(floor(candidate.x / cell_size)),
 		int(floor(candidate.z / cell_size))
 	)
+	var candidate_map_point := _to_map_point(candidate)
 	var min_distance_sq: float = min_system_distance * min_system_distance
 
 	for x_offset in range(-1, 2):
@@ -452,7 +467,7 @@ func _has_nearby_system(candidate: Vector3, grid: Dictionary, cell_size: float, 
 			var existing_positions: Array = grid[neighbor_cell]
 			for existing_variant in existing_positions:
 				var existing: Vector3 = existing_variant
-				if candidate.distance_squared_to(existing) < min_distance_sq:
+				if candidate_map_point.distance_squared_to(_to_map_point(existing)) < min_distance_sq:
 					return true
 
 	return false
@@ -470,8 +485,8 @@ func _add_to_grid(position: Vector3, grid: Dictionary, cell_size: float) -> void
 	grid[cell] = existing_positions
 
 
-func build_hyperlane_graph(systems: Array[Dictionary], density: int) -> Dictionary:
-	var links: Array[Vector2i] = _build_hyperlanes(systems, density)
+func build_hyperlane_graph(systems: Array[Dictionary], density: int, min_system_distance: float = 0.0) -> Dictionary:
+	var links: Array[Vector2i] = _build_hyperlanes(systems, density, min_system_distance)
 	return {
 		"links": links,
 		"adjacency": build_hyperlane_adjacency(systems.size(), links),
@@ -498,50 +513,34 @@ func build_hyperlane_adjacency(system_count: int, links: Array[Vector2i]) -> Dic
 	return adjacency
 
 
-func _build_hyperlanes(systems: Array[Dictionary], density: int) -> Array[Vector2i]:
+func _build_hyperlanes(systems: Array[Dictionary], density: int, min_system_distance: float) -> Array[Vector2i]:
 	var links: Array[Vector2i] = []
 	var dedupe: Dictionary = {}
 	if systems.size() <= 1:
 		return links
 
+	var system_clearance_radius := _get_hyperlane_system_clearance_radius(min_system_distance)
 	var target_links := mini(clampi(density + 1, MIN_HYPERLANES_PER_SYSTEM, MAX_HYPERLANES_PER_SYSTEM), systems.size() - 1)
 	var min_links := mini(MIN_HYPERLANES_PER_SYSTEM, systems.size() - 1)
 	var max_links := mini(MAX_HYPERLANES_PER_SYSTEM, systems.size() - 1)
 	var candidate_count := mini(max_links + EXTRA_HYPERLANE_CANDIDATES, systems.size() - 1)
-	var neighbor_cache: Array = []
 	var nearest_distance_sq: Array[float] = []
-	var candidate_edges: Array = []
 
 	for system_index in range(systems.size()):
 		var nearest: Array[int] = _find_nearest_neighbors(system_index, systems, candidate_count)
-		neighbor_cache.append(nearest)
 		if nearest.is_empty():
 			nearest_distance_sq.append(INF)
 		else:
 			var nearest_position: Vector3 = systems[nearest[0]]["position"]
-			nearest_distance_sq.append(systems[system_index]["position"].distance_squared_to(nearest_position))
+			nearest_distance_sq.append(_to_map_point(systems[system_index]["position"]).distance_squared_to(_to_map_point(nearest_position)))
 
-	var edge_dedupe: Dictionary = {}
-	for system_index in range(systems.size()):
-		var cached_neighbors: Array = neighbor_cache[system_index]
-		for neighbor_index_variant in cached_neighbors:
-			var neighbor_index: int = int(neighbor_index_variant)
-			var a: int = mini(system_index, neighbor_index)
-			var b: int = maxi(system_index, neighbor_index)
-			var edge_key: String = "%s:%s" % [a, b]
-			if edge_dedupe.has(edge_key):
-				continue
-
-			var distance_sq: float = systems[a]["position"].distance_squared_to(systems[b]["position"])
-			if not _is_hyperlane_distance_allowed(a, b, distance_sq, nearest_distance_sq, density):
-				continue
-
-			edge_dedupe[edge_key] = true
-			candidate_edges.append({
-				"a": a,
-				"b": b,
-				"distance_sq": distance_sq,
-			})
+	var candidate_edges: Array = _build_planar_candidate_edges(
+		systems,
+		candidate_count,
+		nearest_distance_sq,
+		density,
+		system_clearance_radius
+	)
 
 	candidate_edges.sort_custom(_sort_hyperlane_edges_by_distance)
 	var parent: Array[int] = []
@@ -563,13 +562,22 @@ func _build_hyperlanes(systems: Array[Dictionary], density: int) -> Array[Vector
 		if _uf_find(parent, a_index) == _uf_find(parent, b_index):
 			continue
 
-		_add_hyperlane_link(a_index, b_index, links, dedupe)
-		degrees[a_index] += 1
-		degrees[b_index] += 1
-		_uf_union(parent, rank, a_index, b_index)
+		if _add_hyperlane_link(a_index, b_index, systems, system_clearance_radius, links, dedupe):
+			degrees[a_index] += 1
+			degrees[b_index] += 1
+			_uf_union(parent, rank, a_index, b_index)
 
 	if links.size() < systems.size() - 1:
-		_connect_remaining_components(systems, links, dedupe, parent, rank, degrees)
+		_connect_remaining_components(
+			systems,
+			candidate_edges,
+			system_clearance_radius,
+			links,
+			dedupe,
+			parent,
+			rank,
+			degrees
+		)
 
 	# Fill sparse systems first so most systems land in the 2-5 link range.
 	for edge_variant in candidate_edges:
@@ -580,7 +588,7 @@ func _build_hyperlanes(systems: Array[Dictionary], density: int) -> Array[Vector
 			continue
 		if degrees[a_index] >= min_links and degrees[b_index] >= min_links:
 			continue
-		if _add_hyperlane_link(a_index, b_index, links, dedupe):
+		if _add_hyperlane_link(a_index, b_index, systems, system_clearance_radius, links, dedupe):
 			degrees[a_index] += 1
 			degrees[b_index] += 1
 
@@ -593,14 +601,108 @@ func _build_hyperlanes(systems: Array[Dictionary], density: int) -> Array[Vector
 			continue
 		if degrees[a_index] >= target_links and degrees[b_index] >= target_links:
 			continue
-		if _add_hyperlane_link(a_index, b_index, links, dedupe):
+		if _add_hyperlane_link(a_index, b_index, systems, system_clearance_radius, links, dedupe):
 			degrees[a_index] += 1
 			degrees[b_index] += 1
 
 	return links
 
 
-func _add_hyperlane_link(a_index: int, b_index: int, links: Array[Vector2i], dedupe: Dictionary) -> bool:
+func _build_planar_candidate_edges(
+	systems: Array[Dictionary],
+	candidate_count: int,
+	nearest_distance_sq: Array[float],
+	density: int,
+	system_clearance_radius: float
+) -> Array:
+	var candidate_edges: Array = []
+	var edge_dedupe: Dictionary = {}
+
+	for edge in _build_delaunay_edges(systems):
+		if not _hyperlane_has_system_clearance(edge.x, edge.y, systems, system_clearance_radius):
+			continue
+		_append_candidate_edge(candidate_edges, edge_dedupe, edge.x, edge.y, _get_map_distance_sq(systems, edge.x, edge.y))
+
+	for system_index in range(systems.size()):
+		var nearest: Array[int] = _find_nearest_neighbors(system_index, systems, candidate_count)
+		for neighbor_index_variant in nearest:
+			var neighbor_index: int = int(neighbor_index_variant)
+			var a: int = mini(system_index, neighbor_index)
+			var b: int = maxi(system_index, neighbor_index)
+			var distance_sq := _get_map_distance_sq(systems, a, b)
+			if not _is_hyperlane_distance_allowed(a, b, distance_sq, nearest_distance_sq, density):
+				continue
+			if not _hyperlane_has_system_clearance(a, b, systems, system_clearance_radius):
+				continue
+			_append_candidate_edge(candidate_edges, edge_dedupe, a, b, distance_sq)
+
+	return candidate_edges
+
+
+func _build_delaunay_edges(systems: Array[Dictionary]) -> Array[Vector2i]:
+	var delaunay_edges: Array[Vector2i] = []
+	if systems.size() <= 1:
+		return delaunay_edges
+	if systems.size() == 2:
+		delaunay_edges.append(Vector2i(0, 1))
+		return delaunay_edges
+
+	var points := PackedVector2Array()
+	for system_record_variant in systems:
+		var system_record: Dictionary = system_record_variant
+		points.append(_to_map_point(system_record["position"]))
+
+	var triangle_indices: PackedInt32Array = Geometry2D.triangulate_delaunay(points)
+	if triangle_indices.is_empty():
+		return delaunay_edges
+
+	var dedupe: Dictionary = {}
+	for triangle_index in range(0, triangle_indices.size(), 3):
+		if triangle_index + 2 >= triangle_indices.size():
+			break
+		_append_delaunay_edge(delaunay_edges, dedupe, triangle_indices[triangle_index], triangle_indices[triangle_index + 1])
+		_append_delaunay_edge(delaunay_edges, dedupe, triangle_indices[triangle_index + 1], triangle_indices[triangle_index + 2])
+		_append_delaunay_edge(delaunay_edges, dedupe, triangle_indices[triangle_index + 2], triangle_indices[triangle_index])
+
+	return delaunay_edges
+
+
+func _append_delaunay_edge(edges: Array[Vector2i], dedupe: Dictionary, a_index: int, b_index: int) -> void:
+	if a_index == b_index:
+		return
+	var a: int = mini(a_index, b_index)
+	var b: int = maxi(a_index, b_index)
+	var key: String = "%s:%s" % [a, b]
+	if dedupe.has(key):
+		return
+	dedupe[key] = true
+	edges.append(Vector2i(a, b))
+
+
+func _append_candidate_edge(candidate_edges: Array, dedupe: Dictionary, a_index: int, b_index: int, distance_sq: float) -> void:
+	if a_index == b_index:
+		return
+	var a: int = mini(a_index, b_index)
+	var b: int = maxi(a_index, b_index)
+	var key: String = "%s:%s" % [a, b]
+	if dedupe.has(key):
+		return
+	dedupe[key] = true
+	candidate_edges.append({
+		"a": a,
+		"b": b,
+		"distance_sq": distance_sq,
+	})
+
+
+func _add_hyperlane_link(
+	a_index: int,
+	b_index: int,
+	systems: Array[Dictionary],
+	system_clearance_radius: float,
+	links: Array[Vector2i],
+	dedupe: Dictionary
+) -> bool:
 	if a_index == b_index:
 		return false
 
@@ -608,6 +710,10 @@ func _add_hyperlane_link(a_index: int, b_index: int, links: Array[Vector2i], ded
 	var b: int = maxi(a_index, b_index)
 	var key: String = "%s:%s" % [a, b]
 	if dedupe.has(key):
+		return false
+	if _hyperlane_crosses_existing(a, b, systems, links):
+		return false
+	if not _hyperlane_has_system_clearance(a, b, systems, system_clearance_radius):
 		return false
 
 	dedupe[key] = true
@@ -652,35 +758,68 @@ func _is_hyperlane_distance_allowed(a_index: int, b_index: int, distance_sq: flo
 	return distance_sq <= max_allowed_sq
 
 
-func _connect_remaining_components(systems: Array[Dictionary], links: Array[Vector2i], dedupe: Dictionary, parent: Array[int], rank: Array[int], degrees: Array[int]) -> void:
+func _connect_remaining_components(
+	systems: Array[Dictionary],
+	candidate_edges: Array,
+	system_clearance_radius: float,
+	links: Array[Vector2i],
+	dedupe: Dictionary,
+	parent: Array[int],
+	rank: Array[int],
+	degrees: Array[int]
+) -> void:
 	while links.size() < systems.size() - 1:
 		var best_a := -1
 		var best_b := -1
 		var best_distance_sq := INF
 
-		for a_index in range(systems.size()):
-			var a_root := _uf_find(parent, a_index)
-			for b_index in range(a_index + 1, systems.size()):
-				if a_root == _uf_find(parent, b_index):
-					continue
+		for edge_variant in candidate_edges:
+			var edge: Dictionary = edge_variant
+			var a_index: int = int(edge.get("a", -1))
+			var b_index: int = int(edge.get("b", -1))
+			if a_index == -1 or b_index == -1:
+				continue
+			if _uf_find(parent, a_index) == _uf_find(parent, b_index):
+				continue
+			if _hyperlane_crosses_existing(a_index, b_index, systems, links):
+				continue
+			if not _hyperlane_has_system_clearance(a_index, b_index, systems, system_clearance_radius):
+				continue
 
-				var distance_sq: float = systems[a_index]["position"].distance_squared_to(systems[b_index]["position"])
-				if distance_sq < best_distance_sq:
-					best_distance_sq = distance_sq
-					best_a = a_index
-					best_b = b_index
+			var distance_sq: float = float(edge.get("distance_sq", INF))
+			if distance_sq < best_distance_sq:
+				best_distance_sq = distance_sq
+				best_a = a_index
+				best_b = b_index
+
+		if best_a == -1:
+			for a_index in range(systems.size()):
+				var a_root := _uf_find(parent, a_index)
+				for b_index in range(a_index + 1, systems.size()):
+					if a_root == _uf_find(parent, b_index):
+						continue
+					if _hyperlane_crosses_existing(a_index, b_index, systems, links):
+						continue
+					if not _hyperlane_has_system_clearance(a_index, b_index, systems, system_clearance_radius):
+						continue
+
+					var distance_sq: float = _get_map_distance_sq(systems, a_index, b_index)
+					if distance_sq < best_distance_sq:
+						best_distance_sq = distance_sq
+						best_a = a_index
+						best_b = b_index
 
 		if best_a == -1:
 			break
 
-		if _add_hyperlane_link(best_a, best_b, links, dedupe):
+		if _add_hyperlane_link(best_a, best_b, systems, system_clearance_radius, links, dedupe):
 			degrees[best_a] += 1
 			degrees[best_b] += 1
 			_uf_union(parent, rank, best_a, best_b)
 
 
 func _find_nearest_neighbors(system_index: int, systems: Array[Dictionary], desired_count: int) -> Array[int]:
-	var origin: Vector3 = systems[system_index]["position"]
+	var origin: Vector2 = _to_map_point(systems[system_index]["position"])
 	var nearest: Array[int] = []
 	var nearest_distances: Array[float] = []
 
@@ -688,7 +827,7 @@ func _find_nearest_neighbors(system_index: int, systems: Array[Dictionary], desi
 		if candidate_index == system_index:
 			continue
 
-		var distance_sq: float = origin.distance_squared_to(systems[candidate_index]["position"])
+		var distance_sq: float = origin.distance_squared_to(_to_map_point(systems[candidate_index]["position"]))
 		var insert_at: int = nearest_distances.size()
 
 		for i in range(nearest_distances.size()):
@@ -707,6 +846,103 @@ func _find_nearest_neighbors(system_index: int, systems: Array[Dictionary], desi
 			nearest_distances.append(distance_sq)
 
 	return nearest
+
+
+func _hyperlane_crosses_existing(a_index: int, b_index: int, systems: Array[Dictionary], links: Array[Vector2i]) -> bool:
+	var start_point := _to_map_point(systems[a_index]["position"])
+	var end_point := _to_map_point(systems[b_index]["position"])
+
+	for existing_link in links:
+		if existing_link.x == a_index or existing_link.x == b_index or existing_link.y == a_index or existing_link.y == b_index:
+			continue
+		var existing_start := _to_map_point(systems[existing_link.x]["position"])
+		var existing_end := _to_map_point(systems[existing_link.y]["position"])
+		if _segments_intersect_2d(start_point, end_point, existing_start, existing_end):
+			return true
+
+	return false
+
+
+func _hyperlane_has_system_clearance(
+	a_index: int,
+	b_index: int,
+	systems: Array[Dictionary],
+	clearance_radius: float
+) -> bool:
+	if clearance_radius <= 0.0:
+		return true
+
+	var segment_start := _to_map_point(systems[a_index]["position"])
+	var segment_end := _to_map_point(systems[b_index]["position"])
+	var clearance_sq := clearance_radius * clearance_radius
+
+	for system_index in range(systems.size()):
+		if system_index == a_index or system_index == b_index:
+			continue
+		var system_point := _to_map_point(systems[system_index]["position"])
+		if _distance_sq_to_segment(system_point, segment_start, segment_end) < clearance_sq:
+			return false
+
+	return true
+
+
+func _distance_sq_to_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:
+	var segment := segment_end - segment_start
+	var segment_length_sq := segment.length_squared()
+	if segment_length_sq <= 0.001:
+		return point.distance_squared_to(segment_start)
+
+	var t := clampf((point - segment_start).dot(segment) / segment_length_sq, 0.0, 1.0)
+	var closest_point := segment_start + segment * t
+	return point.distance_squared_to(closest_point)
+
+
+func _segments_intersect_2d(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> bool:
+	var orientation_abc := _segment_orientation(a, b, c)
+	var orientation_abd := _segment_orientation(a, b, d)
+	var orientation_cda := _segment_orientation(c, d, a)
+	var orientation_cdb := _segment_orientation(c, d, b)
+
+	if orientation_abc * orientation_abd < 0.0 and orientation_cda * orientation_cdb < 0.0:
+		return true
+	if is_zero_approx(orientation_abc) and _point_on_segment(c, a, b):
+		return true
+	if is_zero_approx(orientation_abd) and _point_on_segment(d, a, b):
+		return true
+	if is_zero_approx(orientation_cda) and _point_on_segment(a, c, d):
+		return true
+	if is_zero_approx(orientation_cdb) and _point_on_segment(b, c, d):
+		return true
+
+	return false
+
+
+func _segment_orientation(a: Vector2, b: Vector2, c: Vector2) -> float:
+	var value: float = (b - a).cross(c - a)
+	if absf(value) <= HYPERLANE_INTERSECTION_EPSILON:
+		return 0.0
+	return value
+
+
+func _point_on_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> bool:
+	return (
+		point.x >= minf(segment_start.x, segment_end.x) - HYPERLANE_INTERSECTION_EPSILON
+		and point.x <= maxf(segment_start.x, segment_end.x) + HYPERLANE_INTERSECTION_EPSILON
+		and point.y >= minf(segment_start.y, segment_end.y) - HYPERLANE_INTERSECTION_EPSILON
+		and point.y <= maxf(segment_start.y, segment_end.y) + HYPERLANE_INTERSECTION_EPSILON
+	)
+
+
+func _get_map_distance_sq(systems: Array[Dictionary], a_index: int, b_index: int) -> float:
+	return _to_map_point(systems[a_index]["position"]).distance_squared_to(_to_map_point(systems[b_index]["position"]))
+
+
+func _get_hyperlane_system_clearance_radius(min_system_distance: float) -> float:
+	return maxf(min_system_distance * HYPERLANE_SYSTEM_CLEARANCE_FACTOR, HYPERLANE_SYSTEM_CLEARANCE_MIN)
+
+
+func _to_map_point(position: Vector3) -> Vector2:
+	return Vector2(position.x, position.z)
 
 
 func _build_star_profile(galaxy_seed: int, system_record: Dictionary) -> Dictionary:

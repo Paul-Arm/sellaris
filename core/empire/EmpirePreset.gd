@@ -7,6 +7,7 @@ var preset_name: String = ""
 var empire_name: String = ""
 
 # species
+var species_archetype_id: StringName = &"organic"
 var species_type_id: StringName = &""
 var species_visuals_id: StringName = &""
 
@@ -26,6 +27,8 @@ var flag_path: String = ""
 var biography: String = ""
 var color: Color = DEFAULT_COLOR
 var ship_set_id: int = 0
+var menu_portrait_path: String = ""
+var leader_portrait_paths: Array[String] = []
 
 # origin
 var origin_id: StringName = &""
@@ -41,6 +44,8 @@ func ensure_defaults() -> void:
 	species_adjective = species_adjective.strip_edges()
 	flag_path = flag_path.strip_edges()
 	biography = biography.strip_edges()
+	menu_portrait_path = menu_portrait_path.strip_edges()
+	leader_portrait_paths = _normalize_string_array(leader_portrait_paths)
 
 	if preset_name.is_empty():
 		preset_name = empire_name
@@ -56,6 +61,16 @@ func ensure_defaults() -> void:
 		species_plural_name = "%ss" % species_name
 	if species_adjective.is_empty():
 		species_adjective = species_name
+	if str(species_archetype_id).strip_edges().is_empty():
+		species_archetype_id = &"organic"
+	if str(species_type_id).strip_edges().is_empty():
+		species_type_id = &"machine" if species_archetype_id == &"machine" else &"humanoid"
+	if str(species_visuals_id).strip_edges().is_empty():
+		species_visuals_id = StringName("%s/%s" % [str(species_archetype_id), str(species_type_id)])
+	if menu_portrait_path.is_empty() and not leader_portrait_paths.is_empty():
+		menu_portrait_path = leader_portrait_paths[0]
+	if leader_portrait_paths.is_empty() and not menu_portrait_path.is_empty():
+		leader_portrait_paths.append(menu_portrait_path)
 
 
 func to_dict() -> Dictionary:
@@ -63,6 +78,7 @@ func to_dict() -> Dictionary:
 	return {
 		"preset_name": preset_name,
 		"empire_name": empire_name,
+		"species_archetype_id": str(species_archetype_id),
 		"species_type_id": str(species_type_id),
 		"species_visuals_id": str(species_visuals_id),
 		"species_name": species_name,
@@ -76,6 +92,8 @@ func to_dict() -> Dictionary:
 		"biography": biography,
 		"color": _color_to_dict(color),
 		"ship_set_id": ship_set_id,
+		"menu_portrait_path": menu_portrait_path,
+		"leader_portrait_paths": leader_portrait_paths.duplicate(),
 		"origin_id": str(origin_id),
 		"starting_system_type": str(starting_system_type),
 		"starting_planet_type": str(starting_planet_type),
@@ -87,6 +105,7 @@ static func from_dict(data: Dictionary) -> EmpirePreset:
 
 	preset.preset_name = str(data.get("preset_name", ""))
 	preset.empire_name = str(data.get("empire_name", ""))
+	preset.species_archetype_id = StringName(str(data.get("species_archetype_id", "organic")))
 	preset.species_type_id = StringName(str(data.get("species_type_id", "")))
 	preset.species_visuals_id = StringName(str(data.get("species_visuals_id", "")))
 	preset.species_name = str(data.get("species_name", ""))
@@ -100,6 +119,8 @@ static func from_dict(data: Dictionary) -> EmpirePreset:
 	preset.biography = str(data.get("biography", ""))
 	preset.color = _parse_color(data.get("color", {}))
 	preset.ship_set_id = int(data.get("ship_set_id", 0))
+	preset.menu_portrait_path = str(data.get("menu_portrait_path", ""))
+	preset.leader_portrait_paths = _parse_string_array(data.get("leader_portrait_paths", []))
 	preset.origin_id = StringName(str(data.get("origin_id", "")))
 	preset.starting_system_type = StringName(str(data.get("starting_system_type", "")))
 	preset.starting_planet_type = StringName(str(data.get("starting_planet_type", "")))
@@ -136,6 +157,19 @@ static func _parse_string_name_array(values: Variant) -> Array[StringName]:
 	return result
 
 
+static func _parse_string_array(values: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if values is not Array:
+		return result
+
+	for value in values:
+		var text := str(value).strip_edges()
+		if text.is_empty():
+			continue
+		result.append(text)
+	return result
+
+
 static func _color_to_dict(value: Color) -> Dictionary:
 	return {
 		"r": value.r,
@@ -150,6 +184,18 @@ func _stringify_string_name_array(values: Array[StringName]) -> Array[String]:
 	for value in values:
 		var text := str(value).strip_edges()
 		if text.is_empty():
+			continue
+		result.append(text)
+	return result
+
+
+func _normalize_string_array(values: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	for value in values:
+		var text := value.strip_edges()
+		if text.is_empty():
+			continue
+		if result.has(text):
 			continue
 		result.append(text)
 	return result

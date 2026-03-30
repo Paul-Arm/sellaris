@@ -80,5 +80,5 @@ func _on_next_track_pressed() -> void:
 
 
 func _on_music_volume_changed(value: float) -> void:
-	MusicManager.set_volume_ratio(value)
+	SettingsManager.set_music_volume(value)
 	_sync_music_ui()

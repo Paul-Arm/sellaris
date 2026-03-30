@@ -31,8 +31,10 @@ const DEFAULT_SYSTEM_SUMMARY := {
 	"habitable_worlds": 0,
 	"anomaly_risk": 0.0,
 }
+const HYPERLANE_INTERSECTION_EPSILON := 0.001
 
 var generated_seed: int = 0
+var min_system_distance: float = 0.0
 var system_records: Array[Dictionary] = []
 var system_positions: Array[Vector3] = []
 var hyperlane_links: Array[Vector2i] = []
@@ -48,6 +50,7 @@ var empire_ids: PackedStringArray = PackedStringArray()
 
 func reset() -> void:
 	generated_seed = 0
+	min_system_distance = 0.0
 	system_records.clear()
 	system_positions.clear()
 	hyperlane_links.clear()
@@ -64,6 +67,7 @@ func reset() -> void:
 func load_from_layout(layout: Dictionary) -> void:
 	reset()
 	generated_seed = int(layout.get("seed", 0))
+	min_system_distance = float(layout.get("min_system_distance", 0.0))
 
 	for system_variant in layout.get("systems", []):
 		var system_record: Dictionary = _normalize_system_record(system_variant.duplicate(true))
@@ -260,6 +264,10 @@ func add_hyperlane(system_a_id: String, system_b_id: String) -> bool:
 	for existing_link in hyperlane_links:
 		if existing_link == normalized_link:
 			return false
+	if _hyperlane_crosses_existing(normalized_link.x, normalized_link.y):
+		return false
+	if not _hyperlane_has_system_clearance(normalized_link.x, normalized_link.y):
+		return false
 
 	hyperlane_links.append(normalized_link)
 	_rebuild_hyperlane_graph()
@@ -293,6 +301,7 @@ func remove_hyperlane(system_a_id: String, system_b_id: String) -> bool:
 func build_snapshot() -> Dictionary:
 	return {
 		"seed": generated_seed,
+		"min_system_distance": min_system_distance,
 		"systems": system_records.duplicate(true),
 		"system_positions": system_positions.duplicate(),
 		"links": hyperlane_links.duplicate(),
@@ -344,6 +353,99 @@ func _normalize_empire_record(empire_record: Dictionary, empire_index: int) -> D
 		empire_record["home_system_id"] = ""
 	empire_record["owned_system_ids"] = PackedStringArray()
 	return empire_record
+
+
+func _hyperlane_crosses_existing(a_index: int, b_index: int) -> bool:
+	if a_index < 0 or b_index < 0 or a_index >= system_positions.size() or b_index >= system_positions.size():
+		return false
+
+	var start_point := _to_map_point(system_positions[a_index])
+	var end_point := _to_map_point(system_positions[b_index])
+
+	for existing_link in hyperlane_links:
+		if existing_link.x == a_index or existing_link.x == b_index or existing_link.y == a_index or existing_link.y == b_index:
+			continue
+		var existing_start := _to_map_point(system_positions[existing_link.x])
+		var existing_end := _to_map_point(system_positions[existing_link.y])
+		if _segments_intersect_2d(start_point, end_point, existing_start, existing_end):
+			return true
+
+	return false
+
+
+func _hyperlane_has_system_clearance(a_index: int, b_index: int) -> bool:
+	var clearance_radius := _get_hyperlane_system_clearance_radius()
+	if clearance_radius <= 0.0:
+		return true
+
+	var segment_start := _to_map_point(system_positions[a_index])
+	var segment_end := _to_map_point(system_positions[b_index])
+	var clearance_sq := clearance_radius * clearance_radius
+
+	for system_index in range(system_positions.size()):
+		if system_index == a_index or system_index == b_index:
+			continue
+		if _distance_sq_to_segment(_to_map_point(system_positions[system_index]), segment_start, segment_end) < clearance_sq:
+			return false
+
+	return true
+
+
+func _segments_intersect_2d(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> bool:
+	var orientation_abc := _segment_orientation(a, b, c)
+	var orientation_abd := _segment_orientation(a, b, d)
+	var orientation_cda := _segment_orientation(c, d, a)
+	var orientation_cdb := _segment_orientation(c, d, b)
+
+	if orientation_abc * orientation_abd < 0.0 and orientation_cda * orientation_cdb < 0.0:
+		return true
+	if is_zero_approx(orientation_abc) and _point_on_segment(c, a, b):
+		return true
+	if is_zero_approx(orientation_abd) and _point_on_segment(d, a, b):
+		return true
+	if is_zero_approx(orientation_cda) and _point_on_segment(a, c, d):
+		return true
+	if is_zero_approx(orientation_cdb) and _point_on_segment(b, c, d):
+		return true
+
+	return false
+
+
+func _segment_orientation(a: Vector2, b: Vector2, c: Vector2) -> float:
+	var value: float = (b - a).cross(c - a)
+	if absf(value) <= HYPERLANE_INTERSECTION_EPSILON:
+		return 0.0
+	return value
+
+
+func _point_on_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> bool:
+	return (
+		point.x >= minf(segment_start.x, segment_end.x) - HYPERLANE_INTERSECTION_EPSILON
+		and point.x <= maxf(segment_start.x, segment_end.x) + HYPERLANE_INTERSECTION_EPSILON
+		and point.y >= minf(segment_start.y, segment_end.y) - HYPERLANE_INTERSECTION_EPSILON
+		and point.y <= maxf(segment_start.y, segment_end.y) + HYPERLANE_INTERSECTION_EPSILON
+	)
+
+
+func _distance_sq_to_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:
+	var segment := segment_end - segment_start
+	var segment_length_sq := segment.length_squared()
+	if segment_length_sq <= 0.001:
+		return point.distance_squared_to(segment_start)
+
+	var t := clampf((point - segment_start).dot(segment) / segment_length_sq, 0.0, 1.0)
+	var closest_point := segment_start + segment * t
+	return point.distance_squared_to(closest_point)
+
+
+func _get_hyperlane_system_clearance_radius() -> float:
+	if min_system_distance <= 0.0:
+		return 0.0
+	return maxf(min_system_distance * 0.52, 18.0)
+
+
+func _to_map_point(position: Vector3) -> Vector2:
+	return Vector2(position.x, position.z)
 
 
 func _rebuild_system_indexes() -> void:

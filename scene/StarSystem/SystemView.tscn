@@ -3,6 +3,10 @@
 [ext_resource type="Script" uid="uid://c8g7l07mw5i1x" path="res://scene/StarSystem/SystemView.gd" id="1_r4xd4"]
 [ext_resource type="PackedScene" path="res://scene/StarSystem/StarSystemPreview.tscn" id="2_h2fs4"]
 [ext_resource type="PackedScene" uid="uid://cbjt32qqq0ch1" path="res://scene/UI/GalaxyHud.tscn" id="3_hud"]
+[ext_resource type="Shader" path="res://scene/StarSystem/SystemViewPastel.gdshader" id="4_pastel"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pastel"]
+shader = ExtResource("4_pastel")
 
 [node name="SystemView" type="Control" unique_id=624298150]
 layout_mode = 3
@@ -31,6 +35,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 stretch = true
+material = SubResource("ShaderMaterial_pastel")
 
 [node name="PreviewViewport" type="SubViewport" parent="PreviewViewportContainer" unique_id=1883033310]
 own_world_3d = true

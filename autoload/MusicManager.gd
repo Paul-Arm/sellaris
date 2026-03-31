@@ -13,6 +13,7 @@ var _current_track_name: String = ""
 var _current_game_index: int = -1
 var _volume_ratio: float = 0.7
 var _menu_rng := RandomNumberGenerator.new()
+var _stream_cache: Dictionary = {}
 
 
 func _ready() -> void:
@@ -99,12 +100,13 @@ func get_mode() -> String:
 
 func _on_player_finished() -> void:
 	if _mode == "menu":
-		_play_random_menu_track()
+		call_deferred("_play_random_menu_track")
 		return
 	if _game_tracks.is_empty():
 		return
-	_current_game_index = (_current_game_index + 1) % _game_tracks.size()
-	_play_game_track(_current_game_index)
+	var next_index: int = (_current_game_index + 1) % _game_tracks.size()
+	_current_game_index = next_index
+	call_deferred("_play_game_track", next_index)
 
 
 func _play_random_menu_track() -> void:
@@ -126,6 +128,11 @@ func _play_track_entry(track_entry: Dictionary) -> void:
 	var stream: AudioStream = _load_audio_stream(str(track_entry.get("path", "")))
 	if stream == null:
 		return
+	_player.stop()
+	# Releasing the previous stream reference before swapping helps avoid piling up
+	# transient runtime-loaded audio objects during long sessions on Windows.
+	if _player.stream != stream:
+		_player.stream = null
 	_player.stream = stream
 	_player.stream_paused = false
 	_player.play()
@@ -138,12 +145,29 @@ func _emit_playback_changed() -> void:
 
 
 func _load_audio_stream(resource_path: String) -> AudioStream:
-	var absolute_path: String = ProjectSettings.globalize_path(resource_path)
-	if resource_path.to_lower().ends_with(".ogg"):
-		return AudioStreamOggVorbis.load_from_file(absolute_path)
-	if resource_path.to_lower().ends_with(".mp3"):
-		return AudioStreamMP3.load_from_file(absolute_path)
-	return null
+	var normalized_path := resource_path.strip_edges()
+	if normalized_path.is_empty():
+		return null
+
+	if _stream_cache.has(normalized_path):
+		return _stream_cache[normalized_path] as AudioStream
+
+	var stream: AudioStream = null
+	if normalized_path.begins_with("res://"):
+		if not ResourceLoader.exists(normalized_path, "AudioStream"):
+			push_warning("Music track resource is missing or not imported: %s" % normalized_path)
+			return null
+		stream = ResourceLoader.load(normalized_path, "AudioStream") as AudioStream
+	else:
+		var absolute_path: String = ProjectSettings.globalize_path(normalized_path)
+		if normalized_path.to_lower().ends_with(".ogg"):
+			stream = AudioStreamOggVorbis.load_from_file(absolute_path)
+		elif normalized_path.to_lower().ends_with(".mp3"):
+			stream = AudioStreamMP3.load_from_file(absolute_path)
+
+	if stream != null:
+		_stream_cache[normalized_path] = stream
+	return stream
 
 
 func _load_tracks(directory_path: String, strip_loop_suffix: bool) -> Array[Dictionary]:

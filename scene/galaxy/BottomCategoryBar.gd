@@ -7,6 +7,8 @@ const MAX_CATEGORY_COUNT := 9
 const FALLBACK_CONTEXT_EMPIRE := "None selected"
 const FALLBACK_CONTEXT_SYSTEM := "No system selected"
 const FALLBACK_CONTEXT_OWNER := "Unclaimed"
+const LOCAL_ENTRY_PREFIX := "Focused System"
+const REMOTE_ENTRY_PREFIX := "Empire Space"
 const PALETTE_DUSK_BLUE := Color("355070")
 const PALETTE_DUSTY_LAVENDER := Color("6D597A")
 const PALETTE_ROSEWOOD := Color("B56576")
@@ -52,6 +54,11 @@ var _content_tween: Tween
 var _active_empire_name: String = FALLBACK_CONTEXT_EMPIRE
 var _selected_system_name: String = FALLBACK_CONTEXT_SYSTEM
 var _selected_system_owner_name: String = FALLBACK_CONTEXT_OWNER
+var _runtime_entries_by_category: Dictionary = {
+	"starbases": [],
+	"passive_fleets": [],
+	"military_fleets": [],
+}
 
 
 func _ready() -> void:
@@ -62,6 +69,7 @@ func _ready() -> void:
 	_apply_theme()
 	_refresh_tab_titles()
 	_refresh_page_contexts()
+	_refresh_runtime_lists()
 	if not _categories.is_empty():
 		_select_category(clampi(tab_view.current_tab, 0, _categories.size() - 1), false)
 	_set_expanded(false, false)
@@ -89,6 +97,7 @@ func set_category_hotkey(index: int, hotkey: Key) -> void:
 	_build_bubbles()
 	_refresh_tab_titles()
 	_refresh_page_contexts()
+	_refresh_runtime_lists()
 	if not _categories.is_empty():
 		_select_category(clampi(current_index, 0, _categories.size() - 1), false)
 	call_deferred("_refresh_bubble_positions")
@@ -119,6 +128,14 @@ func set_context(
 		else FALLBACK_CONTEXT_OWNER
 	)
 	_refresh_page_contexts()
+
+
+func set_runtime_entries(starbases: Array[Dictionary], passive_fleets: Array[Dictionary], military_fleets: Array[Dictionary]) -> void:
+	_runtime_entries_by_category["starbases"] = starbases.duplicate(true)
+	_runtime_entries_by_category["passive_fleets"] = passive_fleets.duplicate(true)
+	_runtime_entries_by_category["military_fleets"] = military_fleets.duplicate(true)
+	_refresh_page_contexts()
+	_refresh_runtime_lists()
 
 
 func consume_hotkey_event(event: InputEvent) -> bool:
@@ -174,6 +191,9 @@ func _collect_categories_from_pages() -> void:
 		var context_label: Label = (
 			page.get_node_or_null("PageContent/PageMargin/PageVBox/ContextLabel") as Label
 		)
+		var runtime_item_list: ItemList = (
+			page.get_node_or_null("PageContent/PageMargin/PageVBox/RuntimeItemList") as ItemList
+		)
 		var accent: Color = DEFAULT_ACCENTS[index % DEFAULT_ACCENTS.size()]
 		if accent_line != null:
 			accent = accent_line.color
@@ -189,6 +209,7 @@ func _collect_categories_from_pages() -> void:
 					"page": page,
 					"page_content": page_content,
 					"context_label": context_label,
+					"runtime_item_list": runtime_item_list,
 				}
 			)
 		)
@@ -280,7 +301,11 @@ func _apply_theme() -> void:
 func _refresh_tab_titles() -> void:
 	for index in range(_categories.size()):
 		var category: Dictionary = _categories[index]
+		var category_id: String = str(category.get("id", ""))
 		var title := str(category.get("title", "Tab"))
+		var count: int = _get_runtime_entry_count(category_id)
+		if count > 0 and category_id in ["starbases", "passive_fleets", "military_fleets"]:
+			title = "%s (%d)" % [title, count]
 		tab_view.set_tab_title(index, title)
 		tab_view.set_tab_tooltip(
 			index, "%s [%s]" % [title, _format_hotkey(int(category.get("hotkey", KEY_NONE)))]
@@ -293,6 +318,68 @@ func _refresh_page_contexts() -> void:
 		var context_label: Label = category.get("context_label", null) as Label
 		if context_label != null:
 			context_label.text = _build_context_text(str(category.get("id", "")))
+
+
+func _refresh_runtime_lists() -> void:
+	for category_variant in _categories:
+		var category: Dictionary = category_variant
+		var category_id: String = str(category.get("id", ""))
+		var runtime_item_list: ItemList = category.get("runtime_item_list", null) as ItemList
+		if runtime_item_list == null:
+			continue
+		_populate_runtime_item_list(runtime_item_list, category_id, _runtime_entries_by_category.get(category_id, []))
+	_refresh_tab_titles()
+
+
+func _populate_runtime_item_list(runtime_item_list: ItemList, category_id: String, entries_variant: Variant) -> void:
+	runtime_item_list.clear()
+	var entries: Array = entries_variant if entries_variant is Array else []
+	if entries.is_empty():
+		runtime_item_list.add_item(_get_empty_runtime_text(category_id))
+		runtime_item_list.set_item_disabled(0, true)
+		return
+
+	for entry_variant in entries:
+		var entry: Dictionary = entry_variant
+		runtime_item_list.add_item(_build_runtime_entry_text(entry))
+		var item_index: int = runtime_item_list.get_item_count() - 1
+		runtime_item_list.set_item_metadata(item_index, entry.duplicate(true))
+		if bool(entry.get("is_local", false)):
+			runtime_item_list.set_item_custom_fg_color(item_index, PALETTE_LIGHT_BRONZE)
+
+
+func _build_runtime_entry_text(entry: Dictionary) -> String:
+	var prefix: String = REMOTE_ENTRY_PREFIX
+	if bool(entry.get("is_local", false)):
+		prefix = LOCAL_ENTRY_PREFIX
+	var title: String = str(entry.get("title", "Unnamed")).strip_edges()
+	var summary: String = str(entry.get("summary", "")).strip_edges()
+	var location: String = str(entry.get("location", "")).strip_edges()
+	var parts: Array[String] = ["%s | %s" % [prefix, title]]
+	if not summary.is_empty():
+		parts.append(summary)
+	if not location.is_empty():
+		parts.append(location)
+	return "  ".join(parts)
+
+
+func _get_empty_runtime_text(category_id: String) -> String:
+	match category_id:
+		"starbases":
+			return "No owned stations yet."
+		"passive_fleets":
+			return "No passive fleets yet."
+		"military_fleets":
+			return "No military fleets yet."
+		_:
+			return "No runtime entries."
+
+
+func _get_runtime_entry_count(category_id: String) -> int:
+	var entries_variant: Variant = _runtime_entries_by_category.get(category_id, [])
+	if entries_variant is Array:
+		return entries_variant.size()
+	return 0
 
 
 func _build_context_text(category_id: String) -> String:
@@ -316,21 +403,26 @@ func _build_context_text(category_id: String) -> String:
 			)
 		"starbases":
 			return (
-				"Use this page for choke points, shipyards, and anchorages across %s space. Selected system: %s."
+				"%d owned stations can anchor %s space. Selected system: %s."
 				% [
+					_get_runtime_entry_count("starbases"),
 					active_empire_label,
 					_selected_system_name,
 				]
 			)
 		"passive_fleets":
 			return (
-				"Civilian and support task groups can stay organized here. Selected system: %s."
-				% _selected_system_name
+				"%d passive fleets are ready for science, logistics, and support work. Focus: %s."
+				% [
+					_get_runtime_entry_count("passive_fleets"),
+					_selected_system_name,
+				]
 			)
 		"military_fleets":
 			return (
-				"Combat fleets, rally anchors, and offensive staging can cluster here for %s. Focus: %s."
+				"%d military fleets can rally, patrol, and stage for %s. Focus: %s."
 				% [
+					_get_runtime_entry_count("military_fleets"),
 					active_empire_label,
 					_selected_system_name,
 				]

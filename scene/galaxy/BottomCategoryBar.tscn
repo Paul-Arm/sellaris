@@ -186,6 +186,20 @@ theme_override_font_sizes/font_size = 12
 text = "Use this page for choke points, shipyards, and anchorages."
 autowrap_mode = 3
 
+[node name="RuntimeListLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.74)
+theme_override_font_sizes/font_size = 11
+text = "Owned Stations"
+
+[node name="RuntimeItemList" type="ItemList" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+same_column_width = true
+max_text_lines = 2
+
 [node name="Passive Fleets" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -246,6 +260,20 @@ theme_override_font_sizes/font_size = 12
 text = "Civilian and support task groups can stay organized here."
 autowrap_mode = 3
 
+[node name="RuntimeListLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.74)
+theme_override_font_sizes/font_size = 11
+text = "Owned Passive Fleets"
+
+[node name="RuntimeItemList" type="ItemList" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+same_column_width = true
+max_text_lines = 2
+
 [node name="Military Fleets" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -305,6 +333,20 @@ theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
 theme_override_font_sizes/font_size = 12
 text = "Combat fleets, rally anchors, and offensive staging can cluster here."
 autowrap_mode = 3
+
+[node name="RuntimeListLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.74)
+theme_override_font_sizes/font_size = 11
+text = "Owned Military Fleets"
+
+[node name="RuntimeItemList" type="ItemList" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+same_column_width = true
+max_text_lines = 2
 
 [node name="BubbleLayer" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot"]
 layout_mode = 1

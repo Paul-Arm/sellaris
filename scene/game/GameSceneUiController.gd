@@ -71,6 +71,12 @@ func update_system_panel() -> void:
 			selected_owner_name = str(_host.empires_by_id[selected_owner_empire_id].get("name", selected_owner_name))
 
 	update_bottom_category_bar_context(active_empire_name, selected_system_name, selected_owner_name)
+	var bottom_drawer_entries: Dictionary = _host.build_bottom_drawer_runtime_entries(inspected_system_id)
+	_host.bottom_category_bar.set_runtime_entries(
+		bottom_drawer_entries.get("starbases", []),
+		bottom_drawer_entries.get("passive_fleets", []),
+		bottom_drawer_entries.get("military_fleets", [])
+	)
 
 	if inspected_system_id.is_empty() or not _host.systems_by_id.has(inspected_system_id):
 		_host.system_panel.visible = false

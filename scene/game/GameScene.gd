@@ -391,6 +391,136 @@ func _get_system_runtime_name(system_id: String) -> String:
 	return system_id
 
 
+func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Dictionary:
+	var result := {
+		"starbases": [],
+		"passive_fleets": [],
+		"military_fleets": [],
+	}
+	if active_empire_id.is_empty():
+		return result
+
+	var station_entries: Array[Dictionary] = []
+	for ship_id in SpaceManager.get_ship_ids_for_owner(active_empire_id):
+		var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
+		if ship == null or not ship.is_stationary():
+			continue
+
+		var ship_class: ShipClass = SpaceManager.get_ship_class(ship.class_id)
+		var system_name: String = _get_system_runtime_name(ship.current_system_id)
+		var is_local: bool = not inspected_system_id.is_empty() and ship.current_system_id == inspected_system_id
+		station_entries.append({
+			"id": ship.ship_id,
+			"title": ship.display_name,
+			"summary": "%s  Hull %d%%" % [
+				ship_class.display_name if ship_class != null else ship.class_id,
+				int(round(ship.get_hull_ratio() * 100.0)),
+			],
+			"location": system_name,
+			"is_local": is_local,
+			"tooltip": "%s\nClass: %s\nSystem: %s\nHull: %.0f / %.0f" % [
+				ship.display_name,
+				ship_class.display_name if ship_class != null else ship.class_id,
+				system_name,
+				ship.current_hull_points,
+				ship.max_hull_points,
+			],
+		})
+
+	var passive_fleet_entries: Array[Dictionary] = []
+	var military_fleet_entries: Array[Dictionary] = []
+	for fleet_id in SpaceManager.get_fleet_ids_for_owner(active_empire_id):
+		var fleet: FleetRuntime = SpaceManager.get_fleet(fleet_id)
+		if fleet == null:
+			continue
+
+		var fleet_bucket: Array[Dictionary] = military_fleet_entries if _is_military_fleet_runtime(fleet) else passive_fleet_entries
+		var system_name: String = _get_system_runtime_name(fleet.current_system_id)
+		var destination_name: String = _get_system_runtime_name(fleet.destination_system_id)
+		var ship_count: int = fleet.ship_ids.size()
+		var is_local: bool = not inspected_system_id.is_empty() and fleet.current_system_id == inspected_system_id
+		var status_text: String = "%d ships" % ship_count
+		if not destination_name.is_empty():
+			status_text += "  ->  %s" % destination_name
+			if fleet.eta_days_remaining > 0:
+				status_text += " (%dd)" % fleet.eta_days_remaining
+		elif not str(fleet.ai_role).is_empty():
+			status_text += "  %s" % _format_runtime_token(str(fleet.ai_role))
+
+		var member_names := PackedStringArray()
+		for ship_member_id in fleet.ship_ids:
+			var member_ship: ShipRuntime = SpaceManager.get_ship(ship_member_id)
+			if member_ship == null:
+				continue
+			member_names.append(member_ship.display_name)
+
+		fleet_bucket.append({
+			"id": fleet.fleet_id,
+			"title": fleet.display_name,
+			"summary": status_text,
+			"location": system_name,
+			"is_local": is_local,
+			"tooltip": "%s\nSystem: %s\nShips: %d\nRole: %s\nMembers: %s" % [
+				fleet.display_name,
+				system_name,
+				ship_count,
+				_format_runtime_token(str(fleet.ai_role)),
+				", ".join(member_names),
+			],
+		})
+
+	result["starbases"] = _sort_bottom_drawer_entries(station_entries)
+	result["passive_fleets"] = _sort_bottom_drawer_entries(passive_fleet_entries)
+	result["military_fleets"] = _sort_bottom_drawer_entries(military_fleet_entries)
+	return result
+
+
+func _sort_bottom_drawer_entries(entries: Array[Dictionary]) -> Array[Dictionary]:
+	var local_entries: Array[Dictionary] = []
+	var remote_entries: Array[Dictionary] = []
+	for entry_variant in entries:
+		var entry: Dictionary = entry_variant
+		if bool(entry.get("is_local", false)):
+			local_entries.append(entry)
+		else:
+			remote_entries.append(entry)
+	local_entries.sort_custom(_sort_bottom_drawer_entries_by_title)
+	remote_entries.sort_custom(_sort_bottom_drawer_entries_by_title)
+	var ordered_entries: Array[Dictionary] = []
+	ordered_entries.append_array(local_entries)
+	ordered_entries.append_array(remote_entries)
+	return ordered_entries
+
+
+func _is_military_fleet_runtime(fleet: FleetRuntime) -> bool:
+	for ship_id in fleet.ship_ids:
+		var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
+		if ship == null:
+			continue
+		var ship_class: ShipClass = SpaceManager.get_ship_class(ship.class_id)
+		if ship_class != null and ship_class.category == ShipClass.CATEGORY_COMBAT:
+			return true
+		for command_tag in ship.command_tags:
+			if str(command_tag).contains("combat"):
+				return true
+		if str(ship.ai_role).contains("combat") or str(ship.ai_role).contains("patrol") or str(ship.ai_role).contains("defense"):
+			return true
+	if str(fleet.ai_role).contains("combat") or str(fleet.ai_role).contains("patrol") or str(fleet.ai_role).contains("defense"):
+		return true
+	return false
+
+
+func _format_runtime_token(value: String) -> String:
+	var trimmed_value: String = value.strip_edges()
+	if trimmed_value.is_empty():
+		return "Unassigned"
+	return trimmed_value.replace("_", " ").capitalize()
+
+
+static func _sort_bottom_drawer_entries_by_title(a: Dictionary, b: Dictionary) -> bool:
+	return str(a.get("title", "")).nocasecmp_to(str(b.get("title", ""))) < 0
+
+
 static func _variant_to_packed_string_array(values: Variant) -> PackedStringArray:
 	var result := PackedStringArray()
 	if values is PackedStringArray:

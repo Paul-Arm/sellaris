@@ -1,16 +1,13 @@
-extends Node3D
+extends Node
 
 const GALAXY_GENERATOR_SCRIPT: Script = preload("res://scene/galaxy/GalaxyGenerator.gd")
 const GALAXY_STATE_SCRIPT: Script = preload("res://scene/galaxy/GalaxyState.gd")
 const EMPIRE_FACTORY_SCRIPT: Script = preload("res://scene/galaxy/EmpireFactory.gd")
-const GALAXY_MAP_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyMapRenderer.gd")
-const GALAXY_SCENE_UI_CONTROLLER_SCRIPT: Script = preload("res://scene/galaxy/GalaxySceneUiController.gd")
+const GAME_SCENE_UI_CONTROLLER_SCRIPT: Script = preload("res://scene/game/GameSceneUiController.gd")
+const GAME_VIEW_ROUTER_SCRIPT: Script = preload("res://scene/game/GameViewRouter.gd")
 const GALAXY_DEBUG_SPAWNER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyDebugSpawner.gd")
 const GALAXY_HUD_MUSIC_CONTROLLER_SCRIPT: Script = preload("res://scene/UI/GalaxyHudMusicController.gd")
-const STAR_CORE_SHADER := preload("res://scene/galaxy/StarCore.gdshader")
-const STAR_GLOW_SHADER := preload("res://scene/galaxy/StarGlow.gdshader")
-const DEFAULT_EMPIRE_COUNT := 6
-const SYSTEM_PICK_RADIUS := 26.0
+const DEFAULT_EMPIRE_COUNT: int = 6
 
 @export var star_count: int = 900
 @export var galaxy_radius: float = 3000.0
@@ -22,14 +19,7 @@ const SYSTEM_PICK_RADIUS := 26.0
 @export_range(0.0, 0.35, 0.01) var ownership_core_opacity: float = 0.0
 @export var custom_systems: Array[Resource] = []
 
-@onready var camera_rig: Node3D = $CameraRig
-@onready var camera: Camera3D = $CameraRig/Camera3D
-@onready var stars: Node3D = $Stars
-@onready var core_stars: MultiMeshInstance3D = $Stars/CoreStars
-@onready var glow_stars: MultiMeshInstance3D = $Stars/GlowStars
-@onready var ownership_markers: MeshInstance3D = $Stars/OwnershipMarkers
-@onready var ownership_connectors: MeshInstance3D = $Stars/OwnershipConnectors
-@onready var hyperlanes: MeshInstance3D = $Hyperlanes
+@onready var view_root: Node = $ViewRoot
 @onready var info_label: Label = $CanvasLayer/InfoLabel
 @onready var loading_overlay: Control = $CanvasLayer/LoadingOverlay
 @onready var loading_status: Label = $CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer/LoadingStatus
@@ -52,7 +42,6 @@ const SYSTEM_PICK_RADIUS := 26.0
 @onready var debug_spawn_toggle_button: Button = $CanvasLayer/DebugSpawnToggleButton
 @onready var debug_spawn_panel: PanelContainer = $CanvasLayer/DebugSpawnPanel
 @onready var galaxy_hud: Control = $CanvasLayer/GalaxyHud
-@onready var system_view = $CanvasLayer/SystemView
 
 var seed_text: String = ""
 var generated_seed: int = 0
@@ -77,14 +66,14 @@ var _empire_picker_requires_selection: bool = true
 var _galaxy_presentation_visibility: Dictionary = {}
 var _system_panel_snapshot_cache: Dictionary = {}
 var _system_panel_snapshot_token: int = 0
-var _sim_speed_display_steps := [0.5, 1.0, 2.0, 4.0]
-var _sim_speed_actual_steps := [0.25, 0.5, 1.0, 2.0]
+var _sim_speed_display_steps: Array[float] = [0.5, 1.0, 2.0, 4.0]
+var _sim_speed_actual_steps: Array[float] = [0.25, 0.5, 1.0, 2.0]
 var _sim_speed_index: int = 0
 var _sim_paused: bool = false
-var _map_renderer = GALAXY_MAP_RENDERER_SCRIPT.new()
-var _scene_ui_controller = GALAXY_SCENE_UI_CONTROLLER_SCRIPT.new()
-var _debug_spawner = GALAXY_DEBUG_SPAWNER_SCRIPT.new()
-var _music_ui_controller = GALAXY_HUD_MUSIC_CONTROLLER_SCRIPT.new()
+var _scene_ui_controller: GameSceneUiController = GAME_SCENE_UI_CONTROLLER_SCRIPT.new()
+var _view_router: GameViewRouter = GAME_VIEW_ROUTER_SCRIPT.new()
+var _debug_spawner: GalaxyDebugSpawner = GALAXY_DEBUG_SPAWNER_SCRIPT.new()
+var _music_ui_controller: RefCounted = GALAXY_HUD_MUSIC_CONTROLLER_SCRIPT.new()
 
 
 func set_seed_text(value: String) -> void:
@@ -119,16 +108,19 @@ func _ready() -> void:
 	empire_picker_list.item_selected.connect(_on_empire_picker_item_selected)
 	empire_picker_list.item_activated.connect(_on_empire_picker_item_activated)
 	bottom_category_bar.category_selected.connect(_on_bottom_category_selected)
-	system_view.close_requested.connect(_close_system_view)
 	SimClock.day_tick.connect(_on_sim_day_tick)
 	SimClock.month_tick.connect(_on_sim_month_tick)
 	SimClock.year_tick.connect(_on_sim_year_tick)
+
 	ownership_bright_rim_enabled = SettingsManager.get_territory_bright_rim()
 	ownership_core_opacity = SettingsManager.get_territory_core_opacity()
-	_map_renderer.bind(self, STAR_CORE_SHADER, STAR_GLOW_SHADER)
+
 	_scene_ui_controller.bind(self)
+	_view_router.bind(view_root)
+	_bind_view_signals()
 	_debug_spawner.bind(self, debug_spawn_panel, debug_spawn_toggle_button)
 	_music_ui_controller.bind(galaxy_hud)
+
 	_sync_sim_clock_ui()
 	_sync_territory_settings_ui()
 	_update_system_panel()
@@ -137,11 +129,12 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	_unbind_view_signals()
 	_disconnect_space_runtime_signals()
-	if _map_renderer != null:
-		_map_renderer.unbind()
 	if _scene_ui_controller != null:
 		_scene_ui_controller.unbind()
+	if _view_router != null:
+		_view_router.unbind()
 	if _debug_spawner != null:
 		_debug_spawner.unbind()
 	if _music_ui_controller != null:
@@ -150,24 +143,21 @@ func _exit_tree() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if system_view.is_open():
-			if system_view.handle_cancel_action():
-				_close_system_view()
-			return
 		if galaxy_hud.is_settings_visible():
 			_set_settings_overlay_visible(false)
 			return
 		if empire_picker_overlay.visible and not _empire_picker_requires_selection:
 			_set_empire_picker_visible(false, false)
 			return
+		if is_system_view_open():
+			var system_view: SystemView = get_system_view()
+			if system_view != null and system_view.handle_cancel_action():
+				_close_system_view()
+			return
 		_set_settings_overlay_visible(true)
 		return
 
 	if _is_generating:
-		return
-
-	if system_view.is_open():
-		system_view.handle_view_input(event)
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -187,46 +177,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if galaxy_hud.is_settings_visible():
 		return
 
-	if system_view.is_open():
-		return
-
 	if bottom_category_bar.consume_hotkey_event(event):
 		get_viewport().set_input_as_handled()
 		return
 
-	if event is InputEventMouseMotion:
-		if _is_pointer_over_gui():
-			return
-		if pinned_system_id.is_empty():
-			hovered_system_id = _pick_system_at_screen_position(event.position)
-			_update_system_panel()
-			_update_info_label()
-		return
-
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _is_pointer_over_gui():
-			return
-
-		var clicked_system_id: String = _pick_system_at_screen_position(event.position)
-		if clicked_system_id.is_empty():
-			return
-		hovered_system_id = clicked_system_id
-		selected_system_id = clicked_system_id
-		_update_system_panel()
-		_update_info_label()
-		_open_system_view(clicked_system_id)
-		return
-
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
-		if _is_pointer_over_gui():
-			return
-
-		var clicked_system_id: String = _pick_system_at_screen_position(event.position)
-		pinned_system_id = clicked_system_id
-		hovered_system_id = clicked_system_id
-		_render_stars()
-		_update_system_panel()
-		_update_info_label()
+	_view_router.handle_active_view_input(event)
 
 
 func _generate_galaxy_async() -> void:
@@ -244,6 +199,7 @@ func _generate_galaxy_async() -> void:
 	_set_empire_picker_visible(false, false)
 	_set_settings_overlay_visible(false)
 	_set_loading_state(true, "Preparing generator...", 0.0)
+	show_galaxy_view()
 	await get_tree().process_frame
 
 	system_positions.clear()
@@ -255,21 +211,18 @@ func _generate_galaxy_async() -> void:
 	system_indices_by_id.clear()
 	empires_by_id.clear()
 	galaxy_state.reset()
-	system_view.hide_view()
 	_set_galaxy_presentation_visible(true)
-	core_stars.multimesh = null
-	glow_stars.multimesh = null
-	ownership_markers.mesh = null
-	ownership_connectors.mesh = null
-	hyperlanes.mesh = null
 	system_preview_image.texture = null
-	if camera_rig.has_method("reset_view"):
-		camera_rig.reset_view(galaxy_radius)
+	_clear_galaxy_view()
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view != null:
+		galaxy_view.sync_interaction_state("", "")
+		galaxy_view.reset_camera_view(galaxy_radius)
 
 	_set_loading_state(true, "Resolving settings...", 0.1)
 	await get_tree().process_frame
 
-	var resolved_settings := {
+	var resolved_settings: Dictionary = {
 		"seed_text": seed_text,
 		"star_count": star_count,
 		"galaxy_radius": galaxy_radius,
@@ -278,7 +231,8 @@ func _generate_galaxy_async() -> void:
 		"shape": galaxy_shape,
 		"hyperlane_density": hyperlane_density,
 	}
-	for key in generation_settings.keys():
+	for key_variant in generation_settings.keys():
+		var key: Variant = key_variant
 		resolved_settings[key] = generation_settings[key]
 
 	_set_loading_state(true, "Placing systems and hyperlanes...", 0.45)
@@ -292,10 +246,10 @@ func _generate_galaxy_async() -> void:
 	galaxy_shape = str(layout.get("shape", galaxy_shape))
 	hyperlane_density = int(layout.get("hyperlane_density", hyperlane_density))
 	_sync_cached_state()
-	if camera_rig.has_method("set_galaxy_radius"):
-		camera_rig.set_galaxy_radius(galaxy_radius)
-	if camera_rig.has_method("reset_view"):
-		camera_rig.reset_view(galaxy_radius)
+	_sync_galaxy_view_state()
+	if galaxy_view != null:
+		galaxy_view.set_galaxy_radius(galaxy_radius)
+		galaxy_view.reset_camera_view(galaxy_radius)
 
 	_set_loading_state(true, "Preparing empire shells...", 0.6)
 	await get_tree().process_frame
@@ -329,7 +283,7 @@ func get_system_details(system_id: String) -> Dictionary:
 		return {}
 
 	var owner_id: String = galaxy_state.get_system_owner_id(system_id)
-	var owner_name := "Unclaimed"
+	var owner_name: String = "Unclaimed"
 	if empires_by_id.has(owner_id):
 		owner_name = str(empires_by_id[owner_id].get("name", owner_name))
 
@@ -498,11 +452,7 @@ func remove_runtime_hyperlane(system_a_id: String, system_b_id: String) -> bool:
 	return true
 
 
-func _apply_system_detail_state(
-	system_id: String,
-	resolved_details: Dictionary,
-	store_override: bool
-) -> bool:
+func _apply_system_detail_state(system_id: String, resolved_details: Dictionary, store_override: bool) -> bool:
 	if store_override:
 		if not galaxy_state.set_system_detail_override(system_id, resolved_details):
 			return false
@@ -523,7 +473,7 @@ func _apply_system_detail_state(
 
 func _initialize_empires() -> void:
 	var preset_empires: Array[Dictionary] = EmpirePresetManager.build_galaxy_empire_records()
-	var desired_empire_count := maxi(DEFAULT_EMPIRE_COUNT, preset_empires.size())
+	var desired_empire_count: int = maxi(DEFAULT_EMPIRE_COUNT, preset_empires.size())
 	var generated_empires: Array[Dictionary] = empire_factory.build_default_empires(
 		generated_seed,
 		system_records.size(),
@@ -564,7 +514,7 @@ func _sync_cached_state() -> void:
 
 
 func _connect_space_runtime_signals() -> void:
-	var runtime_signals := [
+	var runtime_signals: Array[Signal] = [
 		SpaceManager.ship_spawned,
 		SpaceManager.ship_removed,
 		SpaceManager.ship_updated,
@@ -578,7 +528,7 @@ func _connect_space_runtime_signals() -> void:
 
 
 func _disconnect_space_runtime_signals() -> void:
-	var runtime_signals := [
+	var runtime_signals: Array[Signal] = [
 		SpaceManager.ship_spawned,
 		SpaceManager.ship_removed,
 		SpaceManager.ship_updated,
@@ -600,16 +550,51 @@ func _sync_debug_spawner() -> void:
 	_debug_spawner.populate_panel(empire_records, system_records, active_empire_id, inspected_system_id)
 
 
+func _sync_galaxy_view_state() -> void:
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view == null:
+		return
+	galaxy_view.sync_state(
+		system_positions,
+		system_records,
+		hyperlane_links,
+		empires_by_id,
+		min_system_distance,
+		ownership_bright_rim_enabled,
+		ownership_core_opacity,
+		pinned_system_id
+	)
+	galaxy_view.sync_interaction_state(hovered_system_id, pinned_system_id)
+
+
+func _clear_galaxy_view() -> void:
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view != null:
+		galaxy_view.clear_rendered_map()
+
+
 func _render_stars() -> void:
-	_map_renderer.render_stars()
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view == null:
+		return
+	_sync_galaxy_view_state()
+	galaxy_view.render_stars()
 
 
 func _render_hyperlanes() -> void:
-	_map_renderer.render_hyperlanes()
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view == null:
+		return
+	_sync_galaxy_view_state()
+	galaxy_view.render_hyperlanes()
 
 
 func _render_ownership_markers() -> void:
-	_map_renderer.render_ownership_markers()
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view == null:
+		return
+	_sync_galaxy_view_state()
+	galaxy_view.render_ownership_markers()
 
 
 func _sync_territory_settings_ui() -> void:
@@ -682,44 +667,101 @@ func _update_bottom_category_bar_context(active_empire_name: String, selected_sy
 	_scene_ui_controller.update_bottom_category_bar_context(active_empire_name, selected_system_name, selected_owner_name)
 
 
-func _pick_system_at_screen_position(screen_position: Vector2) -> String:
-	var viewport_rect := get_viewport().get_visible_rect()
-	var best_system_id := ""
-	var best_distance_sq := SYSTEM_PICK_RADIUS * SYSTEM_PICK_RADIUS
-	var best_camera_distance_sq := INF
-
-	for system_record in system_records:
-		var system_position: Vector3 = system_record.get("position", Vector3.ZERO)
-		if camera.is_position_behind(system_position):
-			continue
-
-		var projected_position := camera.unproject_position(system_position)
-		if not viewport_rect.has_point(projected_position):
-			continue
-
-		var screen_distance_sq := projected_position.distance_squared_to(screen_position)
-		if screen_distance_sq > best_distance_sq:
-			continue
-
-		var camera_distance_sq := camera.global_position.distance_squared_to(system_position)
-		if screen_distance_sq < best_distance_sq or (is_equal_approx(screen_distance_sq, best_distance_sq) and camera_distance_sq < best_camera_distance_sq):
-			best_distance_sq = screen_distance_sq
-			best_camera_distance_sq = camera_distance_sq
-			best_system_id = str(system_record.get("id", ""))
-
-	return best_system_id
-
-
-func _is_pointer_over_gui() -> bool:
-	return get_viewport().gui_get_hovered_control() != null
-
-
 func _get_selected_empire_id_from_picker() -> String:
 	return _scene_ui_controller.get_selected_empire_id_from_picker()
 
 
 func _format_controller_kind(controller_kind: String) -> String:
 	return _scene_ui_controller.format_controller_kind(controller_kind)
+
+
+func get_galaxy_view() -> GalaxyMapView:
+	return _view_router.get_galaxy_view()
+
+
+func get_system_view() -> SystemView:
+	return _view_router.get_system_view()
+
+
+func is_system_view_open() -> bool:
+	return _view_router.is_system_view_open()
+
+
+func get_current_system_view_id() -> String:
+	var system_view: SystemView = get_system_view()
+	if system_view == null:
+		return ""
+	return system_view.get_current_system_id()
+
+
+func show_system_view(system_details: Dictionary, neighbor_count: int) -> void:
+	_view_router.show_system_view(system_details, neighbor_count)
+
+
+func show_galaxy_view() -> void:
+	_view_router.show_galaxy_view()
+
+
+func refresh_system_view(system_details: Dictionary, neighbor_count: int) -> void:
+	_view_router.refresh_system_view(system_details, neighbor_count)
+
+
+func set_galaxy_camera_input_blocked(blocked: bool) -> void:
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view != null:
+		galaxy_view.set_camera_input_blocked(blocked)
+
+
+func _bind_view_signals() -> void:
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view != null:
+		if not galaxy_view.hovered_system_changed.is_connected(_on_galaxy_view_hovered_system_changed):
+			galaxy_view.hovered_system_changed.connect(_on_galaxy_view_hovered_system_changed)
+		if not galaxy_view.inspect_system_requested.is_connected(_on_galaxy_view_inspect_system_requested):
+			galaxy_view.inspect_system_requested.connect(_on_galaxy_view_inspect_system_requested)
+		if not galaxy_view.pinned_system_changed.is_connected(_on_galaxy_view_pinned_system_changed):
+			galaxy_view.pinned_system_changed.connect(_on_galaxy_view_pinned_system_changed)
+
+	if not _view_router.system_close_requested.is_connected(_close_system_view):
+		_view_router.system_close_requested.connect(_close_system_view)
+
+
+func _unbind_view_signals() -> void:
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view != null:
+		if galaxy_view.hovered_system_changed.is_connected(_on_galaxy_view_hovered_system_changed):
+			galaxy_view.hovered_system_changed.disconnect(_on_galaxy_view_hovered_system_changed)
+		if galaxy_view.inspect_system_requested.is_connected(_on_galaxy_view_inspect_system_requested):
+			galaxy_view.inspect_system_requested.disconnect(_on_galaxy_view_inspect_system_requested)
+		if galaxy_view.pinned_system_changed.is_connected(_on_galaxy_view_pinned_system_changed):
+			galaxy_view.pinned_system_changed.disconnect(_on_galaxy_view_pinned_system_changed)
+
+	if _view_router != null and _view_router.system_close_requested.is_connected(_close_system_view):
+		_view_router.system_close_requested.disconnect(_close_system_view)
+
+
+func _on_galaxy_view_hovered_system_changed(system_id: String) -> void:
+	hovered_system_id = system_id
+	_update_system_panel()
+	_update_info_label()
+
+
+func _on_galaxy_view_inspect_system_requested(system_id: String) -> void:
+	if system_id.is_empty():
+		return
+	hovered_system_id = system_id
+	selected_system_id = system_id
+	_update_system_panel()
+	_update_info_label()
+	_open_system_view(system_id)
+
+
+func _on_galaxy_view_pinned_system_changed(system_id: String) -> void:
+	pinned_system_id = system_id
+	hovered_system_id = system_id
+	_render_stars()
+	_update_system_panel()
+	_update_info_label()
 
 
 func _on_change_empire_pressed() -> void:
@@ -747,7 +789,7 @@ func _on_empire_picker_item_activated(_index: int) -> void:
 
 
 func _on_select_empire_pressed() -> void:
-	var empire_id := _get_selected_empire_id_from_picker()
+	var empire_id: String = _get_selected_empire_id_from_picker()
 	if empire_id.is_empty():
 		return
 	assign_active_empire(empire_id)
@@ -764,8 +806,8 @@ func _sync_sim_clock_ui() -> void:
 	var current_speed: float = SimClock.sim_speed
 	_sim_paused = current_speed <= 0.0
 	if not _sim_paused:
-		var best_index := 0
-		var best_distance := INF
+		var best_index: int = 0
+		var best_distance: float = INF
 		for speed_index in range(_sim_speed_actual_steps.size()):
 			var distance: float = absf(_sim_speed_actual_steps[speed_index] - current_speed)
 			if distance < best_distance:
@@ -773,13 +815,13 @@ func _sync_sim_clock_ui() -> void:
 				best_index = speed_index
 		_sim_speed_index = best_index
 	var current_date: Dictionary = SimClock.get_current_date()
-	var date_text := "%04d-%02d-%02d" % [
+	var date_text: String = "%04d-%02d-%02d" % [
 		int(current_date.get("year", 0)),
 		int(current_date.get("month", 0)),
 		int(current_date.get("day", 0)),
 	]
 	var speed_value: float = _sim_speed_display_steps[_sim_speed_index]
-	var speed_text := "Paused" if _sim_paused else "x%s" % _format_speed_factor(speed_value)
+	var speed_text: String = "Paused" if _sim_paused else "x%s" % _format_speed_factor(speed_value)
 	galaxy_hud.set_sim_ui(date_text, speed_text, _sim_paused)
 
 
@@ -834,5 +876,4 @@ func _on_sim_year_tick(_year: int) -> void:
 
 
 func _on_bottom_category_selected(_category: Dictionary, _index: int) -> void:
-	# The bar handles its own visual state today; this hook keeps future category panels easy to add.
 	pass

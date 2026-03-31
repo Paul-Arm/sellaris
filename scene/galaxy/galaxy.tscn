@@ -176,6 +176,115 @@ text = "Claim Selected System"
 layout_mode = 2
 text = "Clear Owner"
 
+[node name="DebugSpawnToggleButton" type="Button" parent="CanvasLayer" unique_id=553212901]
+offset_left = 18.0
+offset_top = 56.0
+offset_right = 176.0
+offset_bottom = 92.0
+text = "Show Debug Spawner"
+
+[node name="DebugSpawnPanel" type="PanelContainer" parent="CanvasLayer" unique_id=412938557]
+visible = false
+offset_left = 18.0
+offset_top = 100.0
+offset_right = 324.0
+offset_bottom = 406.0
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/DebugSpawnPanel" unique_id=331975209]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/DebugSpawnPanel/MarginContainer" unique_id=181970533]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=194433489]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Debug Spawner"
+
+[node name="SubtitleLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=1782535532]
+layout_mode = 2
+text = "Spawn test fleets and stations into any system."
+autowrap_mode = 3
+
+[node name="EmpireLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=293276299]
+layout_mode = 2
+text = "Empire"
+
+[node name="EmpirePickerRow" type="HBoxContainer" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=1044480300]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EmpireOptionButton" type="OptionButton" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/EmpirePickerRow" unique_id=612779800]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UseActiveEmpireButton" type="Button" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/EmpirePickerRow" unique_id=774199842]
+custom_minimum_size = Vector2(96, 30)
+layout_mode = 2
+text = "Use Active"
+
+[node name="SystemLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=387668438]
+layout_mode = 2
+text = "System"
+
+[node name="SystemPickerRow" type="HBoxContainer" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=1173575046]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SystemOptionButton" type="OptionButton" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/SystemPickerRow" unique_id=279556623]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UseInspectedSystemButton" type="Button" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/SystemPickerRow" unique_id=1992514069]
+custom_minimum_size = Vector2(96, 30)
+layout_mode = 2
+text = "Use Inspect"
+
+[node name="FleetNameLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=1425453774]
+layout_mode = 2
+text = "Fleet Name"
+
+[node name="FleetNameLineEdit" type="LineEdit" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=605881214]
+layout_mode = 2
+placeholder_text = "Debug Fleet"
+
+[node name="FleetShipCountLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=2008228350]
+layout_mode = 2
+text = "Fleet Ship Count"
+
+[node name="FleetShipCountSpinBox" type="SpinBox" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=1082654420]
+layout_mode = 2
+min_value = 1.0
+max_value = 64.0
+step = 1.0
+value = 3.0
+
+[node name="ButtonRow" type="HBoxContainer" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=1971816897]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SpawnFleetButton" type="Button" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/ButtonRow" unique_id=75943842]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Spawn Fleet"
+
+[node name="SpawnStationButton" type="Button" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/ButtonRow" unique_id=507874547]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Spawn Station"
+
+[node name="StatusLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer" unique_id=1869460366]
+layout_mode = 2
+text = "F9 toggles the spawner."
+autowrap_mode = 3
+
 [node name="EmpirePickerOverlay" type="Control" parent="CanvasLayer" unique_id=1173058469]
 visible = false
 layout_mode = 3

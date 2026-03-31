@@ -1,6 +1,7 @@
 extends RefCounted
+class_name GameSceneUiController
 
-var _host: Node
+var _host: Node = null
 
 
 func bind(host: Node) -> void:
@@ -12,6 +13,9 @@ func unbind() -> void:
 
 
 func update_info_label() -> void:
+	if _host == null:
+		return
+
 	var displayed_seed: String = _host.seed_text if not _host.seed_text.is_empty() else str(_host.generated_seed)
 	var active_empire_name: String = "None"
 	if _host.empires_by_id.has(_host.active_empire_id):
@@ -21,7 +25,7 @@ func update_info_label() -> void:
 	var selected_summary: String = "Selected: None"
 	if not inspected_system_id.is_empty() and _host.systems_by_id.has(inspected_system_id):
 		var selected_owner: Dictionary = _host.galaxy_state.get_system_owner(inspected_system_id)
-		var selected_owner_name := "Unclaimed"
+		var selected_owner_name: String = "Unclaimed"
 		if not selected_owner.is_empty():
 			selected_owner_name = str(selected_owner.get("name", selected_owner_name))
 		selected_summary = "Selected: %s (%s)" % [_host.systems_by_id[inspected_system_id].get("name", inspected_system_id), selected_owner_name]
@@ -35,9 +39,13 @@ func update_info_label() -> void:
 		active_empire_name,
 		selected_summary,
 	]
+	_host.info_label.visible = not _host.is_system_view_open()
 
 
 func update_system_panel() -> void:
+	if _host == null:
+		return
+
 	var inspected_system_id: String = get_inspected_system_id()
 	_host.selected_system_id = inspected_system_id
 	var active_empire_name: String = "None selected"
@@ -72,8 +80,6 @@ func update_system_panel() -> void:
 		_host.claim_system_button.disabled = _host.active_empire_id.is_empty()
 		_host.clear_owner_button.disabled = true
 		return
-
-	_host.system_panel.visible = true
 
 	var system_record: Dictionary = _host.systems_by_id[inspected_system_id]
 	var owner_empire_id: String = _host.galaxy_state.get_system_owner_id(inspected_system_id)
@@ -112,19 +118,27 @@ func update_system_panel() -> void:
 		int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
 	]
 	update_system_panel_preview(inspected_system_id, system_details)
-	if _host.system_view.is_open() and _host.system_view.get_current_system_id() == inspected_system_id:
-		_host.system_view.show_system(system_details, neighbor_count)
+	if _host.is_system_view_open() and _host.get_current_system_view_id() == inspected_system_id:
+		_host.refresh_system_view(system_details, neighbor_count)
+
+	_host.system_panel.visible = not _host.is_system_view_open()
 	_host.claim_system_button.disabled = _host.active_empire_id.is_empty() or owner_empire_id == _host.active_empire_id
 	_host.clear_owner_button.disabled = owner_empire_id.is_empty()
 
 
 func get_inspected_system_id() -> String:
+	if _host == null:
+		return ""
+	if _host.is_system_view_open():
+		return _host.get_current_system_view_id()
 	if not _host.pinned_system_id.is_empty():
 		return _host.pinned_system_id
 	return _host.hovered_system_id
 
 
 func invalidate_system_panel_snapshot(system_id: String = "") -> void:
+	if _host == null:
+		return
 	if system_id.is_empty():
 		_host._system_panel_snapshot_cache.clear()
 		_host._system_panel_snapshot_token += 1
@@ -134,6 +148,8 @@ func invalidate_system_panel_snapshot(system_id: String = "") -> void:
 
 
 func update_system_panel_preview(system_id: String, system_details: Dictionary) -> void:
+	if _host == null:
+		return
 	if _host._system_panel_snapshot_cache.has(system_id):
 		_host.system_preview_image.texture = _host._system_panel_snapshot_cache[system_id]
 		return
@@ -144,6 +160,8 @@ func update_system_panel_preview(system_id: String, system_details: Dictionary) 
 
 
 func _capture_system_panel_snapshot(system_id: String, system_details: Dictionary, request_token: int) -> void:
+	if _host == null:
+		return
 	if request_token != _host._system_panel_snapshot_token:
 		return
 
@@ -158,7 +176,7 @@ func _capture_system_panel_snapshot(system_id: String, system_details: Dictionar
 	if snapshot_image == null or snapshot_image.is_empty():
 		return
 
-	var snapshot_texture := ImageTexture.create_from_image(snapshot_image)
+	var snapshot_texture: ImageTexture = ImageTexture.create_from_image(snapshot_image)
 	_host._system_panel_snapshot_cache[system_id] = snapshot_texture
 	_host.system_snapshot_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_host.system_snapshot_preview.clear_preview()
@@ -168,13 +186,15 @@ func _capture_system_panel_snapshot(system_id: String, system_details: Dictionar
 
 
 func populate_empire_picker() -> void:
+	if _host == null:
+		return
 	_host.empire_picker_list.clear()
 
 	for empire_index in range(_host.empire_records.size()):
 		var empire_record: Dictionary = _host.empire_records[empire_index]
 		var empire_id: String = str(empire_record.get("id", ""))
 		var controller_kind: String = str(empire_record.get("controller_kind", "unassigned"))
-		var item_text := "%s  [%s]" % [empire_record.get("name", empire_id), format_controller_kind(controller_kind)]
+		var item_text: String = "%s  [%s]" % [empire_record.get("name", empire_id), format_controller_kind(controller_kind)]
 		_host.empire_picker_list.add_item(item_text)
 		var item_index: int = _host.empire_picker_list.get_item_count() - 1
 		_host.empire_picker_list.set_item_metadata(item_index, empire_id)
@@ -189,12 +209,16 @@ func populate_empire_picker() -> void:
 
 
 func open_empire_picker(requires_selection: bool) -> void:
+	if _host == null:
+		return
 	_host._empire_picker_requires_selection = requires_selection
 	populate_empire_picker()
 	set_empire_picker_visible(true, requires_selection)
 
 
 func set_empire_picker_visible(visible_state: bool, requires_selection: bool = false) -> void:
+	if _host == null:
+		return
 	_host._empire_picker_requires_selection = requires_selection
 	_host.empire_picker_overlay.visible = visible_state
 	_host.cancel_empire_picker_button.visible = visible_state and not requires_selection
@@ -203,11 +227,15 @@ func set_empire_picker_visible(visible_state: bool, requires_selection: bool = f
 
 
 func set_settings_overlay_visible(visible_state: bool) -> void:
+	if _host == null:
+		return
 	_host.galaxy_hud.set_settings_visible(visible_state)
 	refresh_camera_input_block()
 
 
 func set_loading_state(visible_state: bool, status_text: String = "", progress_ratio: float = 0.0) -> void:
+	if _host == null:
+		return
 	_host.loading_overlay.visible = visible_state
 	if not status_text.is_empty():
 		_host.loading_status.text = status_text
@@ -216,69 +244,79 @@ func set_loading_state(visible_state: bool, status_text: String = "", progress_r
 
 
 func refresh_camera_input_block() -> void:
-	if _host.camera_rig.has_method("set_input_blocked"):
-		_host.camera_rig.set_input_blocked(_host._is_generating or _host.loading_overlay.visible or _host.empire_picker_overlay.visible or _host.galaxy_hud.is_settings_visible() or _host.system_view.is_open())
-	_host.bottom_category_bar.set_interaction_enabled(not (_host._is_generating or _host.loading_overlay.visible or _host.empire_picker_overlay.visible or _host.galaxy_hud.is_settings_visible() or _host.system_view.is_open()))
+	if _host == null:
+		return
+	var block_galaxy_camera: bool = _host._is_generating or _host.loading_overlay.visible or _host.empire_picker_overlay.visible or _host.galaxy_hud.is_settings_visible() or _host.is_system_view_open()
+	_host.set_galaxy_camera_input_blocked(block_galaxy_camera)
+	var block_shared_ui: bool = _host._is_generating or _host.loading_overlay.visible or _host.empire_picker_overlay.visible or _host.galaxy_hud.is_settings_visible()
+	_host.bottom_category_bar.set_interaction_enabled(not block_shared_ui)
 
 
 func set_galaxy_presentation_visible(visible_state: bool) -> void:
-	var nodes := {
-		"stars": _host.stars,
-		"hyperlanes": _host.hyperlanes,
+	if _host == null:
+		return
+	var nodes: Dictionary = {
 		"system_panel": _host.system_panel,
-		"bottom_category_bar": _host.bottom_category_bar,
 		"info_label": _host.info_label,
-		"galaxy_hud": _host.galaxy_hud,
 	}
 
 	if not visible_state:
 		_host._galaxy_presentation_visibility.clear()
-		for node_key in nodes.keys():
-			var node = nodes[node_key]
+		for node_key_variant in nodes.keys():
+			var node_key: String = str(node_key_variant)
+			var node: CanvasItem = nodes[node_key]
 			_host._galaxy_presentation_visibility[node_key] = node.visible
 			node.visible = false
 		return
 
-	for node_key in nodes.keys():
-		var node = nodes[node_key]
+	for node_key_variant in nodes.keys():
+		var node_key: String = str(node_key_variant)
+		var node: CanvasItem = nodes[node_key]
 		node.visible = bool(_host._galaxy_presentation_visibility.get(node_key, true))
 
 
 func open_system_view(system_id: String) -> void:
+	if _host == null:
+		return
 	if system_id.is_empty() or not _host.systems_by_id.has(system_id):
 		return
 	_host.selected_system_id = system_id
 	var system_details: Dictionary = _host.get_system_details(system_id)
 	var neighbor_count: int = _host.galaxy_state.get_neighbor_system_ids(system_id).size()
 	set_galaxy_presentation_visible(false)
-	_host.system_view.show_system(system_details, neighbor_count)
+	_host.show_system_view(system_details, neighbor_count)
 	refresh_camera_input_block()
 
 
 func close_system_view() -> void:
-	_host.system_view.hide_view()
+	if _host == null:
+		return
+	_host.show_galaxy_view()
 	set_galaxy_presentation_visible(true)
+	update_system_panel()
+	update_info_label()
 	refresh_camera_input_block()
 
 
 func update_bottom_category_bar_context(active_empire_name: String, selected_system_name: String, selected_owner_name: String) -> void:
-	_host.bottom_category_bar.set_context(active_empire_name, selected_system_name, selected_owner_name)
+	if _host != null:
+		_host.bottom_category_bar.set_context(active_empire_name, selected_system_name, selected_owner_name)
 
 
 func get_selected_empire_id_from_picker() -> String:
-	var selected_items: PackedInt32Array = _host.empire_picker_list.get_selected_items()
-	if selected_items.size() == 0:
+	if _host == null or _host.empire_picker_list.get_selected_items().is_empty():
 		return ""
-	return str(_host.empire_picker_list.get_item_metadata(int(selected_items[0])))
+	var selected_index: int = _host.empire_picker_list.get_selected_items()[0]
+	return str(_host.empire_picker_list.get_item_metadata(selected_index))
 
 
 func format_controller_kind(controller_kind: String) -> String:
 	match controller_kind:
-		"local_player":
-			return "Local Player"
-		"remote_player":
+		"player_local":
+			return "Player"
+		"player_remote":
 			return "Remote Player"
 		"ai":
 			return "AI"
 		_:
-			return "Open"
+			return "Unassigned"

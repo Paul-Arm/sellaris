@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://c8g7l07mw5i1x" path="res://scene/StarSystem/SystemView.gd" id="1_r4xd4"]
 [ext_resource type="PackedScene" path="res://scene/StarSystem/StarSystemPreview.tscn" id="2_h2fs4"]
-[ext_resource type="PackedScene" uid="uid://cbjt32qqq0ch1" path="res://scene/UI/GalaxyHud.tscn" id="3_hud"]
 [ext_resource type="Shader" path="res://scene/StarSystem/SystemViewPastel.gdshader" id="4_pastel"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_pastel"]
@@ -45,15 +44,12 @@ render_target_update_mode = 4
 
 [node name="StarSystemPreview" parent="PreviewViewportContainer/PreviewViewport" unique_id=653333693 instance=ExtResource("2_h2fs4")]
 
-[node name="GalaxyHud" parent="." unique_id=1590773212 instance=ExtResource("3_hud")]
-layout_mode = 1
-
 [node name="HeaderMargin" type="MarginContainer" parent="." unique_id=1035812035]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 28.0
-offset_top = 72.0
+offset_top = 92.0
 offset_right = -28.0
 offset_bottom = 164.0
 grow_horizontal = 2
@@ -89,7 +85,7 @@ anchor_top = 0.319
 anchor_right = 1.0
 anchor_bottom = 0.319
 offset_left = -360.0
-offset_top = 100.287994
+offset_top = 118.287994
 offset_right = -24.0
 offset_bottom = 238.288
 grow_horizontal = 0

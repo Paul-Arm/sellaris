@@ -22,6 +22,7 @@ SettingsManager="*res://autoload/SettingsManager.gd"
 SimClock="*uid://3e6kd3sqfbrk"
 EmpireManager="*uid://d1q7tp3dnalep"
 EmpirePresetManager="*res://autoload/EmpirePresetManager.gd"
+SpaceManager="*res://autoload/SpaceManager.gd"
 
 [display]
 

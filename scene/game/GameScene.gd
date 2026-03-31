@@ -30,7 +30,7 @@ const DEFAULT_EMPIRE_COUNT: int = 6
 @onready var change_empire_button: Button = $CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/ChangeEmpireButton
 @onready var system_preview_image: TextureRect = $CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/SystemPreviewImage
 @onready var system_snapshot_viewport: SubViewport = $CanvasLayer/SystemPreviewSnapshotViewport
-@onready var system_snapshot_preview: StarSystemPreview = $CanvasLayer/SystemPreviewSnapshotViewport/StarSystemPreview
+@onready var system_snapshot_preview: Node = $CanvasLayer/SystemPreviewSnapshotViewport/StarSystemPreview
 @onready var selected_system_title: Label = $CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/SelectedSystemTitle
 @onready var selected_system_meta: Label = $CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/SelectedSystemMeta
 @onready var claim_system_button: Button = $CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/ClaimSystemButton
@@ -70,6 +70,7 @@ var _sim_speed_display_steps: Array[float] = [0.5, 1.0, 2.0, 4.0]
 var _sim_speed_actual_steps: Array[float] = [0.25, 0.5, 1.0, 2.0]
 var _sim_speed_index: int = 0
 var _sim_paused: bool = false
+var _runtime_visual_refresh_queued: bool = false
 var _scene_ui_controller: GameSceneUiController = GAME_SCENE_UI_CONTROLLER_SCRIPT.new()
 var _view_router: GameViewRouter = GAME_VIEW_ROUTER_SCRIPT.new()
 var _debug_spawner: GalaxyDebugSpawner = GALAXY_DEBUG_SPAWNER_SCRIPT.new()
@@ -290,6 +291,7 @@ func get_system_details(system_id: String) -> Dictionary:
 	details["owner_empire_id"] = owner_id
 	details["owner_name"] = owner_name
 	details["space_presence"] = get_system_space_presence(system_id)
+	details["space_renderables"] = _build_system_renderables(system_id)
 	return details
 
 
@@ -321,6 +323,86 @@ func get_system_space_presence(system_id: String) -> Dictionary:
 	if system_id.is_empty():
 		return {}
 	return SpaceManager.build_system_presence(system_id)
+
+
+func _build_system_renderables(system_id: String) -> Dictionary:
+	var renderables: Dictionary = SpaceManager.build_system_renderables(system_id)
+	var ships_variant: Variant = renderables.get("ships", [])
+	if ships_variant is Array:
+		var decorated_ships: Array[Dictionary] = []
+		for ship_variant in ships_variant:
+			var ship_record: Dictionary = ship_variant
+			var decorated_ship: Dictionary = ship_record.duplicate(true)
+			var owner_empire_id: String = str(decorated_ship.get("owner_empire_id", ""))
+			decorated_ship["owner_color"] = _get_empire_runtime_color(owner_empire_id)
+			decorated_ship["owner_name"] = _get_empire_runtime_name(owner_empire_id)
+			decorated_ship["destination_system_name"] = _get_system_runtime_name(str(decorated_ship.get("destination_system_id", "")))
+			var fleet_id: String = str(decorated_ship.get("fleet_id", ""))
+			if not fleet_id.is_empty():
+				var fleet: FleetRuntime = SpaceManager.get_fleet(fleet_id)
+				if fleet != null:
+					decorated_ship["fleet_name"] = fleet.display_name
+			decorated_ships.append(decorated_ship)
+		renderables["ships"] = decorated_ships
+
+	var fleets_variant: Variant = renderables.get("fleets", [])
+	if fleets_variant is Array:
+		var decorated_fleets: Array[Dictionary] = []
+		for fleet_variant in fleets_variant:
+			var fleet_record: Dictionary = fleet_variant
+			var decorated_fleet: Dictionary = fleet_record.duplicate(true)
+			var owner_empire_id: String = str(decorated_fleet.get("owner_empire_id", ""))
+			decorated_fleet["owner_color"] = _get_empire_runtime_color(owner_empire_id)
+			decorated_fleet["owner_name"] = _get_empire_runtime_name(owner_empire_id)
+			decorated_fleet["destination_system_name"] = _get_system_runtime_name(str(decorated_fleet.get("destination_system_id", "")))
+			decorated_fleet["home_system_name"] = _get_system_runtime_name(str(decorated_fleet.get("home_system_id", "")))
+			var ship_display_names := PackedStringArray()
+			for ship_id in _variant_to_packed_string_array(decorated_fleet.get("ship_ids", PackedStringArray())):
+				var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
+				if ship == null:
+					continue
+				ship_display_names.append(ship.display_name)
+			decorated_fleet["ship_display_names"] = ship_display_names
+			decorated_fleets.append(decorated_fleet)
+		renderables["fleets"] = decorated_fleets
+
+	return renderables
+
+
+func _get_empire_runtime_color(empire_id: String) -> Color:
+	if empires_by_id.has(empire_id):
+		return empires_by_id[empire_id].get("color", Color.WHITE)
+	return Color(0.82, 0.88, 1.0, 1.0)
+
+
+func _get_empire_runtime_name(empire_id: String) -> String:
+	if empire_id.is_empty():
+		return "Unclaimed"
+	if empires_by_id.has(empire_id):
+		return str(empires_by_id[empire_id].get("name", empire_id))
+	return empire_id
+
+
+func _get_system_runtime_name(system_id: String) -> String:
+	if system_id.is_empty():
+		return ""
+	if systems_by_id.has(system_id):
+		return str(systems_by_id[system_id].get("name", system_id))
+	return system_id
+
+
+static func _variant_to_packed_string_array(values: Variant) -> PackedStringArray:
+	var result := PackedStringArray()
+	if values is PackedStringArray:
+		return values
+	if values is not Array:
+		return result
+	for value_variant in values:
+		var value: String = str(value_variant).strip_edges()
+		if value.is_empty():
+			continue
+		result.append(value)
+	return result
 
 
 func spawn_runtime_ship(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> ShipRuntime:
@@ -542,6 +624,15 @@ func _disconnect_space_runtime_signals() -> void:
 
 
 func _on_space_runtime_changed(_record_id: String) -> void:
+	if _runtime_visual_refresh_queued:
+		return
+	_runtime_visual_refresh_queued = true
+	call_deferred("_refresh_runtime_visuals")
+
+
+func _refresh_runtime_visuals() -> void:
+	_runtime_visual_refresh_queued = false
+	_render_runtime_placeholders()
 	_update_system_panel()
 
 
@@ -579,6 +670,20 @@ func _render_stars() -> void:
 		return
 	_sync_galaxy_view_state()
 	galaxy_view.render_stars()
+
+
+func _render_runtime_placeholders() -> void:
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view == null:
+		return
+	_sync_galaxy_view_state()
+	galaxy_view.render_runtime_placeholders()
+
+
+func _clear_runtime_placeholders() -> void:
+	var galaxy_view: GalaxyMapView = get_galaxy_view()
+	if galaxy_view != null:
+		galaxy_view.clear_runtime_placeholders()
 
 
 func _render_hyperlanes() -> void:

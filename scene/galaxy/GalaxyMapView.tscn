@@ -45,3 +45,11 @@ environment = SubResource("1")
 [node name="OwnershipConnectors" type="MeshInstance3D" parent="Stars"]
 
 [node name="Hyperlanes" type="MeshInstance3D" parent="."]
+
+[node name="RuntimePlaceholders" type="Node3D" parent="."]
+
+[node name="StationMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders"]
+
+[node name="FleetMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders"]
+
+[node name="ShipMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders"]

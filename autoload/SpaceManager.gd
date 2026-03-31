@@ -491,6 +491,71 @@ func build_system_presence(system_id: String) -> Dictionary:
 	return presence
 
 
+func build_system_renderables(system_id: String) -> Dictionary:
+	var renderables := {
+		"system_id": system_id,
+		"ships": [],
+		"fleets": [],
+	}
+	var ship_entries: Array[Dictionary] = []
+	var fleet_entries: Array[Dictionary] = []
+
+	for ship_id in get_ship_ids_in_system(system_id):
+		var ship := get_ship(ship_id)
+		if ship == null:
+			continue
+		var ship_class := get_ship_class(ship.class_id)
+		ship_entries.append({
+			"ship_id": ship.ship_id,
+			"display_name": ship.display_name,
+			"owner_empire_id": ship.owner_empire_id,
+			"class_id": ship.class_id,
+			"class_display_name": ship_class.display_name if ship_class != null else ship.class_id,
+			"class_category": ship_class.category if ship_class != null else "",
+			"fleet_id": ship.fleet_id,
+			"ai_role": str(ship.ai_role),
+			"is_mobile": ship.is_mobile(),
+			"is_stationary": ship.is_stationary(),
+			"hull_ratio": ship.get_hull_ratio(),
+			"current_hull_points": ship.current_hull_points,
+			"max_hull_points": ship.max_hull_points,
+			"current_system_id": ship.current_system_id,
+			"destination_system_id": ship.destination_system_id,
+			"eta_days_remaining": ship.eta_days_remaining,
+			"controller_kind": ship.controller_kind,
+			"controller_peer_id": ship.controller_peer_id,
+			"command_revision": ship.command_revision,
+			"command_tags": ship.command_tags.duplicate(),
+			"metadata": ship.metadata.duplicate(true),
+		})
+
+	for fleet_id in get_fleet_ids_in_system(system_id):
+		var fleet := get_fleet(fleet_id)
+		if fleet == null:
+			continue
+		fleet_entries.append({
+			"fleet_id": fleet.fleet_id,
+			"display_name": fleet.display_name,
+			"owner_empire_id": fleet.owner_empire_id,
+			"ship_count": fleet.ship_ids.size(),
+			"ship_ids": fleet.ship_ids.duplicate(),
+			"ai_role": str(fleet.ai_role),
+			"current_system_id": fleet.current_system_id,
+			"destination_system_id": fleet.destination_system_id,
+			"eta_days_remaining": fleet.eta_days_remaining,
+			"home_system_id": fleet.home_system_id,
+			"controller_kind": fleet.controller_kind,
+			"controller_peer_id": fleet.controller_peer_id,
+			"command_queue_size": fleet.command_queue.size(),
+			"command_revision": fleet.command_revision,
+			"metadata": fleet.metadata.duplicate(true),
+		})
+
+	renderables["ships"] = ship_entries
+	renderables["fleets"] = fleet_entries
+	return renderables
+
+
 func build_owner_presence(empire_id: String) -> Dictionary:
 	var presence := {
 		"empire_id": empire_id,

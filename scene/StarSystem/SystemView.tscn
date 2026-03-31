@@ -117,3 +117,40 @@ size_flags_vertical = 3
 text = "Planets: 0"
 vertical_alignment = 1
 autowrap_mode = 3
+
+[node name="SelectionPopup" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 28.0
+offset_top = 28.0
+offset_right = 332.0
+offset_bottom = 176.0
+mouse_filter = 2
+custom_minimum_size = Vector2(280, 0)
+
+[node name="PopupMargin" type="MarginContainer" parent="SelectionPopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="PopupVBox" type="VBoxContainer" parent="SelectionPopup/PopupMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PopupTitle" type="Label" parent="SelectionPopup/PopupMargin/PopupVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Selection"
+autowrap_mode = 3
+
+[node name="PopupSubtitle" type="Label" parent="SelectionPopup/PopupMargin/PopupVBox"]
+layout_mode = 2
+text = "Body"
+autowrap_mode = 3
+
+[node name="PopupBody" type="Label" parent="SelectionPopup/PopupMargin/PopupVBox"]
+layout_mode = 2
+text = ""
+autowrap_mode = 3

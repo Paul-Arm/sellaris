@@ -6,6 +6,7 @@ signal inspect_system_requested(system_id: String)
 signal pinned_system_changed(system_id: String)
 
 const GALAXY_MAP_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyMapRenderer.gd")
+const GALAXY_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyRuntimePlaceholderRenderer.gd")
 const STAR_CORE_SHADER: Shader = preload("res://scene/galaxy/StarCore.gdshader")
 const STAR_GLOW_SHADER: Shader = preload("res://scene/galaxy/StarGlow.gdshader")
 const SYSTEM_PICK_RADIUS: float = 26.0
@@ -18,6 +19,10 @@ const SYSTEM_PICK_RADIUS: float = 26.0
 @onready var ownership_markers: MeshInstance3D = $Stars/OwnershipMarkers
 @onready var ownership_connectors: MeshInstance3D = $Stars/OwnershipConnectors
 @onready var hyperlanes: MeshInstance3D = $Hyperlanes
+@onready var runtime_placeholders: Node3D = $RuntimePlaceholders
+@onready var station_markers: MultiMeshInstance3D = $RuntimePlaceholders/StationMarkers
+@onready var fleet_markers: MultiMeshInstance3D = $RuntimePlaceholders/FleetMarkers
+@onready var ship_markers: MultiMeshInstance3D = $RuntimePlaceholders/ShipMarkers
 
 var system_positions: Array[Vector3] = []
 var system_records: Array[Dictionary] = []
@@ -29,15 +34,19 @@ var ownership_core_opacity: float = 0.0
 var pinned_system_id: String = ""
 var _hovered_system_id: String = ""
 var _map_renderer: RefCounted = GALAXY_MAP_RENDERER_SCRIPT.new()
+var _runtime_placeholder_renderer: RefCounted = GALAXY_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT.new()
 
 
 func _ready() -> void:
 	_map_renderer.bind(self, STAR_CORE_SHADER, STAR_GLOW_SHADER)
+	_runtime_placeholder_renderer.bind(self)
 
 
 func _exit_tree() -> void:
 	if _map_renderer != null:
 		_map_renderer.unbind()
+	if _runtime_placeholder_renderer != null:
+		_runtime_placeholder_renderer.unbind()
 
 
 func sync_state(
@@ -121,6 +130,15 @@ func clear_rendered_map() -> void:
 	ownership_markers.mesh = null
 	ownership_connectors.mesh = null
 	hyperlanes.mesh = null
+	clear_runtime_placeholders()
+
+
+func render_runtime_placeholders() -> void:
+	_runtime_placeholder_renderer.render_runtime_placeholders()
+
+
+func clear_runtime_placeholders() -> void:
+	_runtime_placeholder_renderer.clear_runtime_placeholders()
 
 
 func set_camera_input_blocked(blocked: bool) -> void:

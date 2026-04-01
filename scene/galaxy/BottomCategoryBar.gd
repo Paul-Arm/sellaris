@@ -130,10 +130,10 @@ func set_context(
 	_refresh_page_contexts()
 
 
-func set_runtime_entries(starbases: Array[Dictionary], passive_fleets: Array[Dictionary], military_fleets: Array[Dictionary]) -> void:
-	_runtime_entries_by_category["starbases"] = starbases.duplicate(true)
-	_runtime_entries_by_category["passive_fleets"] = passive_fleets.duplicate(true)
-	_runtime_entries_by_category["military_fleets"] = military_fleets.duplicate(true)
+func set_runtime_entries(starbases: Variant, passive_fleets: Variant, military_fleets: Variant) -> void:
+	_runtime_entries_by_category["starbases"] = _normalize_runtime_entries(starbases)
+	_runtime_entries_by_category["passive_fleets"] = _normalize_runtime_entries(passive_fleets)
+	_runtime_entries_by_category["military_fleets"] = _normalize_runtime_entries(military_fleets)
 	_refresh_page_contexts()
 	_refresh_runtime_lists()
 
@@ -380,6 +380,19 @@ func _get_runtime_entry_count(category_id: String) -> int:
 	if entries_variant is Array:
 		return entries_variant.size()
 	return 0
+
+
+func _normalize_runtime_entries(entries_variant: Variant) -> Array[Dictionary]:
+	var normalized_entries: Array[Dictionary] = []
+	if entries_variant is not Array:
+		return normalized_entries
+
+	for entry_variant in entries_variant:
+		if entry_variant is not Dictionary:
+			continue
+		normalized_entries.append((entry_variant as Dictionary).duplicate(true))
+
+	return normalized_entries
 
 
 func _build_context_text(category_id: String) -> String:

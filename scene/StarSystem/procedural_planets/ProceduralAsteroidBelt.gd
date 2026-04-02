@@ -4,7 +4,6 @@ class_name ProceduralAsteroidBelt
 const ASTEROID_SCENE: PackedScene = preload("res://Planets/Asteroids/Asteroid.tscn")
 
 const VIEWPORT_TARGET_SIZE := 256.0
-const ASTEROID_VARIANTS := 3
 const DEFAULT_PIXELS := 2100.0
 const MIN_PIXELS := 1500.0
 const MAX_PIXELS := 2800.0
@@ -31,11 +30,6 @@ func _rebuild() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _get_belt_seed(_orbital)
 	var visual_metadata: Dictionary = _get_belt_visual_metadata(_orbital)
-
-	var textures: Array[Texture2D] = []
-	for variant_index in range(ASTEROID_VARIANTS):
-		textures.append(_build_asteroid_texture(rng, variant_index, visual_metadata))
-
 	var belt_radius: float = float(_orbital.get("orbit_radius", 0.0))
 	var belt_width: float = maxf(float(_orbital.get("orbit_width", 8.0)), 6.0)
 	var belt_height: float = float(_orbital.get("vertical_offset", 0.0))
@@ -43,11 +37,14 @@ func _rebuild() -> void:
 	var base_diameter: float = maxf(float(_orbital.get("size", 1.0)) * 0.72, 0.5) * ASTEROID_SCALE_MULTIPLIER
 
 	for asteroid_index in range(asteroid_count):
-		var texture: Texture2D = textures[asteroid_index % textures.size()]
+		var asteroid_rng := RandomNumberGenerator.new()
+		asteroid_rng.seed = _get_belt_seed(_orbital) + asteroid_index * 977
+		var texture: Texture2D = _build_asteroid_texture(asteroid_rng, asteroid_index, visual_metadata)
 		var asteroid := MeshInstance3D.new()
 		var mesh := QuadMesh.new()
-		var diameter: float = base_diameter * rng.randf_range(0.6, 1.5)
-		mesh.size = Vector2.ONE * diameter
+		var diameter: float = base_diameter * rng.randf_range(0.45, 1.95)
+		var aspect := Vector2(rng.randf_range(0.78, 1.32), rng.randf_range(0.78, 1.32))
+		mesh.size = Vector2(diameter * aspect.x, diameter * aspect.y)
 		asteroid.mesh = mesh
 		asteroid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		asteroid.material_override = _build_asteroid_material(texture)
@@ -78,8 +75,9 @@ func _build_asteroid_texture(rng: RandomNumberGenerator, variant_index: int, vis
 
 	var asteroid_canvas := ASTEROID_SCENE.instantiate()
 	holder.add_child(asteroid_canvas)
+	_ensure_unique_asteroid_material(asteroid_canvas)
 
-	var pixels: float = clampf(float(visual_metadata.get("pixels", DEFAULT_PIXELS)), MIN_PIXELS, MAX_PIXELS)
+	var pixels: float = clampf(float(visual_metadata.get("pixels", DEFAULT_PIXELS)) * rng.randf_range(0.9, 1.1), MIN_PIXELS, MAX_PIXELS)
 	if asteroid_canvas != null and asteroid_canvas.has_method("set_pixels"):
 		asteroid_canvas.call("set_pixels", pixels)
 
@@ -100,9 +98,10 @@ func _build_asteroid_texture(rng: RandomNumberGenerator, variant_index: int, vis
 	if asteroid_canvas != null and asteroid_canvas.has_method("set_rotates"):
 		asteroid_canvas.call("set_rotates", rng.randf_range(-PI, PI))
 	if asteroid_canvas != null and asteroid_canvas.has_method("set_light"):
-		asteroid_canvas.call("set_light", Vector2.ZERO)
+		asteroid_canvas.call("set_light", Vector2(rng.randf_range(-0.18, 0.18), rng.randf_range(-0.12, 0.12)))
 	if asteroid_canvas != null and asteroid_canvas.has_method("set_dither"):
 		asteroid_canvas.call("set_dither", true)
+	_randomize_asteroid_shape(asteroid_canvas, rng, variant_index)
 
 	return viewport.get_texture()
 
@@ -133,3 +132,26 @@ static func _get_belt_visual_metadata(orbital: Dictionary) -> Dictionary:
 		if belt_variant is Dictionary:
 			return belt_variant
 	return {}
+
+
+func _randomize_asteroid_shape(asteroid_canvas: Node, rng: RandomNumberGenerator, variant_index: int) -> void:
+	if asteroid_canvas == null:
+		return
+	var asteroid_rect := asteroid_canvas.get_node_or_null("Asteroid") as ColorRect
+	if asteroid_rect == null:
+		return
+	var material := asteroid_rect.material as ShaderMaterial
+	if material == null:
+		return
+
+	material.set_shader_parameter("size", rng.randf_range(3.2, 8.8) + float(variant_index % 3) * 0.25)
+	material.set_shader_parameter("octaves", rng.randi_range(1, 4))
+
+
+func _ensure_unique_asteroid_material(asteroid_canvas: Node) -> void:
+	if asteroid_canvas == null:
+		return
+	var asteroid_rect := asteroid_canvas.get_node_or_null("Asteroid") as ColorRect
+	if asteroid_rect == null or asteroid_rect.material == null:
+		return
+	asteroid_rect.material = asteroid_rect.material.duplicate()

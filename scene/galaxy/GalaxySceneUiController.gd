@@ -225,6 +225,7 @@ func set_galaxy_presentation_visible(visible_state: bool) -> void:
 	var nodes := {
 		"stars": _host.stars,
 		"hyperlanes": _host.hyperlanes,
+		"runtime_placeholders": _host.runtime_placeholders,
 		"system_panel": _host.system_panel,
 		"bottom_category_bar": _host.bottom_category_bar,
 		"info_label": _host.info_label,

@@ -5,6 +5,9 @@ signal selection_changed(selection_data: Dictionary)
 
 const SYSTEM_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemRuntimePlaceholderRenderer.gd")
 const SYSTEM_SELECTABLE_COMPONENT_SCRIPT: Script = preload("res://scene/StarSystem/SystemSelectableComponent.gd")
+const PROCEDURAL_PLANET_VISUAL_SCRIPT: Script = preload("res://scene/StarSystem/procedural_planets/ProceduralPlanetVisual.gd")
+const PROCEDURAL_STAR_VISUAL_SCRIPT: Script = preload("res://scene/StarSystem/procedural_planets/ProceduralStarVisual.gd")
+const PROCEDURAL_ASTEROID_BELT_SCRIPT: Script = preload("res://scene/StarSystem/procedural_planets/ProceduralAsteroidBelt.gd")
 const ORBITAL_TYPE_PLANET := "planet"
 const ORBITAL_TYPE_ASTEROID_BELT := "asteroid_belt"
 const ORBITAL_TYPE_STRUCTURE := "structure"
@@ -247,6 +250,8 @@ func _register_orbital_selectable(orbital: Dictionary, orbital_position: Vector3
 	else:
 		_append_labeled_line(lines, "Size", _format_number(float(orbital.get("size", 1.0)), 0.01))
 	if orbital_type == ORBITAL_TYPE_PLANET:
+		var world_info: Dictionary = ProceduralPlanetVisual.describe_planet(_current_system_details, orbital)
+		_append_labeled_line(lines, "Class", str(world_info.get("label", "Planet")))
 		_append_labeled_line(lines, "Colonizable", _format_bool(bool(orbital.get("is_colonizable", false))))
 		_append_labeled_line(lines, "Habitability", _format_percentage(float(orbital.get("habitability", 0.0))))
 	_append_labeled_line(lines, "Resource Richness", _format_percentage(float(orbital.get("resource_richness", 0.0))))
@@ -419,38 +424,10 @@ func _update_selection_indicator() -> void:
 
 
 func _build_star_visual(star: Dictionary, star_position: Vector3) -> void:
-	var star_scale: float = float(star.get("scale", 1.0))
-	var star_color: Color = star.get("color", Color(1.0, 0.9, 0.55, 1.0))
-	var special_type: String = str(star.get("special_type", "none"))
-
-	var star_root := Node3D.new()
-	star_root.position = star_position
-	bodies.add_child(star_root)
-
-	var core := MeshInstance3D.new()
-	var core_mesh := SphereMesh.new()
-	core_mesh.radius = 2.2 * star_scale
-	core_mesh.height = core_mesh.radius * 2.0
-	core_mesh.radial_segments = 22
-	core_mesh.rings = 12
-	core.mesh = core_mesh
-	core.material_override = _build_lit_material(star_color, star_color, 1.8, 0.2, 0.0)
-	star_root.add_child(core)
-
-	var glow := MeshInstance3D.new()
-	var glow_mesh := SphereMesh.new()
-	glow_mesh.radius = 3.6 * star_scale
-	glow_mesh.height = glow_mesh.radius * 2.0
-	glow_mesh.radial_segments = 18
-	glow_mesh.rings = 10
-	glow.mesh = glow_mesh
-	glow.material_override = _build_unshaded_material(_get_star_glow_color(star_color, special_type))
-	effects.add_child(glow)
-	glow.position = star_position
-
-	if special_type == SPECIAL_TYPE_BLACK_HOLE:
-		core.material_override = _build_lit_material(Color(0.08, 0.09, 0.12, 1.0), Color(0.06, 0.1, 0.18, 1.0), 0.65, 0.3, 0.9)
-		_build_black_hole_disk(star_position, star_scale)
+	var star_visual: ProceduralStarVisual = PROCEDURAL_STAR_VISUAL_SCRIPT.new() as ProceduralStarVisual
+	star_visual.position = star_position
+	star_visual.configure(star)
+	bodies.add_child(star_visual)
 
 
 func _build_black_hole_disk(star_position: Vector3, star_scale: float) -> void:
@@ -497,21 +474,9 @@ func _build_orbital_visual(orbital: Dictionary, orbital_position: Vector3) -> vo
 
 
 func _build_planet(orbital: Dictionary, orbital_position: Vector3) -> void:
-	var planet := MeshInstance3D.new()
-	var planet_mesh := SphereMesh.new()
-	var size: float = float(orbital.get("size", 1.0))
-	planet_mesh.radius = size
-	planet_mesh.height = size * 2.0
-	planet_mesh.radial_segments = 18
-	planet_mesh.rings = 10
-	planet.mesh = planet_mesh
-
-	var base_color: Color = orbital.get("color", Color(0.58, 0.68, 0.94, 1.0))
-	var emission_color := base_color.darkened(0.18)
-	if bool(orbital.get("is_colonizable", false)):
-		emission_color = emission_color.lerp(Color(0.3, 0.72, 0.36, 1.0), 0.4)
-	planet.material_override = _build_lit_material(base_color, emission_color, 0.45, 0.85, 0.0)
+	var planet: ProceduralPlanetVisual = PROCEDURAL_PLANET_VISUAL_SCRIPT.new() as ProceduralPlanetVisual
 	planet.position = orbital_position
+	planet.configure(_current_system_details, orbital)
 	bodies.add_child(planet)
 
 
@@ -561,40 +526,8 @@ func _build_ruin(orbital: Dictionary, orbital_position: Vector3) -> void:
 
 
 func _build_asteroid_belt(orbital: Dictionary) -> void:
-	var belt := MultiMeshInstance3D.new()
-	var rock_mesh := SphereMesh.new()
-	rock_mesh.radius = maxf(float(orbital.get("size", 1.0)) * 0.22, 0.18)
-	rock_mesh.height = rock_mesh.radius * 2.0
-	rock_mesh.radial_segments = 8
-	rock_mesh.rings = 4
-
-	var multimesh := MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.mesh = rock_mesh
-	multimesh.instance_count = 56
-
-	var rng := RandomNumberGenerator.new()
-	rng.seed = str(orbital.get("id", "belt")).hash()
-	var belt_radius: float = float(orbital.get("orbit_radius", 0.0))
-	var belt_width: float = maxf(float(orbital.get("orbit_width", 8.0)), 6.0)
-	var belt_height: float = float(orbital.get("vertical_offset", 0.0))
-
-	for instance_index in range(multimesh.instance_count):
-		var angle: float = float(instance_index) * TAU / float(multimesh.instance_count) + rng.randf_range(-0.09, 0.09)
-		var radius: float = belt_radius + rng.randf_range(-belt_width * 0.5, belt_width * 0.5)
-		var position := Vector3(cos(angle) * radius, belt_height + rng.randf_range(-0.25, 0.25), sin(angle) * radius)
-		var basis := Basis().rotated(Vector3.UP, rng.randf_range(0.0, TAU))
-		basis = basis.scaled(Vector3.ONE * rng.randf_range(0.45, 1.35))
-		multimesh.set_instance_transform(instance_index, Transform3D(basis, position))
-
-	belt.multimesh = multimesh
-	belt.material_override = _build_lit_material(
-		orbital.get("color", Color(0.6, 0.58, 0.54, 1.0)),
-		Color(0.12, 0.12, 0.12, 1.0),
-		0.08,
-		1.0,
-		0.0
-	)
+	var belt: ProceduralAsteroidBelt = PROCEDURAL_ASTEROID_BELT_SCRIPT.new() as ProceduralAsteroidBelt
+	belt.configure(orbital)
 	bodies.add_child(belt)
 
 

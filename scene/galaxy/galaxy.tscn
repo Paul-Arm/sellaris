@@ -50,6 +50,14 @@ environment = SubResource("Environment_j4v3k")
 
 [node name="Hyperlanes" type="MeshInstance3D" parent="." unique_id=1709715272]
 
+[node name="RuntimePlaceholders" type="Node3D" parent="." unique_id=916130405]
+
+[node name="StationMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders" unique_id=212203701]
+
+[node name="FleetMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders" unique_id=1005798452]
+
+[node name="ShipMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders" unique_id=107784758]
+
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=428941150]
 
 [node name="InfoLabel" type="Label" parent="CanvasLayer" unique_id=640211277]

@@ -3,14 +3,16 @@ extends RefCounted
 const BLACK_HOLE_TYPE := "Black hole"
 const NEUTRON_TYPE := "Neutron star"
 const O_CLASS_TYPE := "O class star"
-const OWNERSHIP_BLOB_RADIUS_FACTOR := 2.05
-const OWNERSHIP_EXCLUSION_RADIUS_FACTOR := 1.18
+const OWNERSHIP_BLOB_RADIUS_FACTOR := 2.28
+const OWNERSHIP_EXCLUSION_RADIUS_FACTOR := 1.1
 const OWNERSHIP_CONNECTOR_RADIUS_FACTOR := 0.8
 const OWNERSHIP_CONNECTION_DISTANCE_FACTOR := 5.75
 const OWNERSHIP_BORDER_WIDTH_FACTOR := 0.24
 const OWNERSHIP_CIRCLE_SEGMENTS := 40
 const OWNERSHIP_ISLAND_BRIDGE_DISTANCE_FACTOR := 1.15
 const OWNERSHIP_ISLAND_BRIDGE_RADIUS_FACTOR := 1.12
+const OWNERSHIP_COVERAGE_PADDING_FACTOR := 0.18
+const OWNERSHIP_FINAL_EXPAND_FACTOR := 0.16
 const HYPERLANE_OUTER_WIDTH_FACTOR := 0.16
 const HYPERLANE_CORE_WIDTH_FACTOR := 0.055
 const HYPERLANE_OUTER_MIN_WIDTH := 7.5
@@ -49,12 +51,6 @@ func render_stars() -> void:
 	core_material.set_shader_parameter("saturation_boost", 1.45)
 	core_mesh.material = core_material
 
-	var glow_mesh := SphereMesh.new()
-	glow_mesh.radius = 11.0
-	glow_mesh.height = 22.0
-	glow_mesh.radial_segments = 18
-	glow_mesh.rings = 12
-
 	var star_instances: Array[Dictionary] = []
 	for system_record in _host.system_records:
 		var star_profile: Dictionary = system_record.get("star_profile", {})
@@ -90,12 +86,6 @@ func render_stars() -> void:
 	core_multimesh.mesh = core_mesh
 	core_multimesh.instance_count = star_instances.size()
 
-	var glow_multimesh := MultiMesh.new()
-	glow_multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	glow_multimesh.use_colors = true
-	glow_multimesh.mesh = glow_mesh
-	glow_multimesh.instance_count = star_instances.size()
-
 	for i in range(star_instances.size()):
 		var instance: Dictionary = star_instances[i]
 		var star_scale: float = float(instance["scale"])
@@ -104,37 +94,25 @@ func render_stars() -> void:
 		var is_pinned: bool = bool(instance.get("is_pinned", false))
 		var star_position: Vector3 = instance["position"]
 		var core_scale := star_scale * 1.05
-		var glow_scale := star_scale * 2.0
 
 		if special_type == BLACK_HOLE_TYPE:
 			core_scale *= 0.72
-			glow_scale *= 1.25
 			color = color.darkened(0.55)
 		elif special_type == NEUTRON_TYPE:
 			core_scale *= 0.68
-			glow_scale *= 0.95
 		elif special_type == O_CLASS_TYPE:
 			core_scale *= 1.18
-			glow_scale *= 1.15
 
 		if is_pinned:
 			core_scale *= 1.18
-			glow_scale *= 1.55
 			color = color.lightened(0.18)
 
 		core_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * core_scale), star_position))
 		core_multimesh.set_instance_color(i, color)
 
-		var glow_color := _get_glow_color(color, special_type)
-		if is_pinned:
-			glow_color = glow_color.lerp(Color(1.0, 0.95, 0.62, 0.82), 0.62)
-			glow_color.a = maxf(glow_color.a, 0.78)
-		glow_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * glow_scale), star_position))
-		glow_multimesh.set_instance_color(i, glow_color)
-
 	_host.core_stars.multimesh = core_multimesh
-	_host.glow_stars.multimesh = glow_multimesh
-	_host.glow_stars.material_override = _build_glow_material()
+	_host.glow_stars.multimesh = null
+	_host.glow_stars.material_override = null
 
 
 func render_hyperlanes() -> void:
@@ -183,9 +161,6 @@ func render_ownership_markers() -> void:
 		_host.ownership_connectors.material_override = null
 		return
 
-	var fill_tool := SurfaceTool.new()
-	fill_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-
 	var border_tool := SurfaceTool.new()
 	border_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 
@@ -201,12 +176,11 @@ func render_ownership_markers() -> void:
 			var region_height: float = float(region_data["height"])
 			if region_polygon.size() < 3:
 				continue
-			_append_region_fill(fill_tool, region_polygon, region_height + 1.2, region_color)
-			_append_region_border(border_tool, region_polygon, region_height + 2.4, region_color)
+			_append_region_border(border_tool, region_polygon, region_height + 1.5, region_color)
 
-	_host.ownership_markers.mesh = fill_tool.commit()
+	_host.ownership_markers.mesh = null
 	_host.ownership_connectors.mesh = border_tool.commit()
-	_host.ownership_markers.material_override = _build_ownership_fill_material()
+	_host.ownership_markers.material_override = null
 	_host.ownership_connectors.material_override = _build_ownership_border_material()
 
 
@@ -231,9 +205,14 @@ func _build_empire_blob_regions(owner_empire_id: String, systems_for_empire: Arr
 		var merged_polygons: Array[PackedVector2Array] = _merge_overlapping_polygons(primitive_regions)
 		merged_polygons = _subtract_non_owned_systems(owner_empire_id, merged_polygons)
 		merged_polygons = _bridge_region_islands(owner_empire_id, cluster_systems, merged_polygons)
+		merged_polygons = _ensure_owned_system_coverage(owner_empire_id, cluster_systems, merged_polygons)
 
 		for merged_polygon in merged_polygons:
-			var styled_polygon := _smooth_polygon(_sanitize_polygon(merged_polygon), 1)
+			var expanded_polygon := _resolve_offset_polygon(
+				_sanitize_polygon(merged_polygon),
+				maxf(_host.min_system_distance * OWNERSHIP_FINAL_EXPAND_FACTOR, 6.0)
+			)
+			var styled_polygon := _smooth_polygon(_sanitize_polygon(expanded_polygon), 1)
 			if styled_polygon.size() < 3:
 				continue
 			clustered_regions.append({
@@ -555,6 +534,42 @@ func _bridge_region_islands(
 	return result_polygons
 
 
+func _ensure_owned_system_coverage(
+	owner_empire_id: String,
+	cluster_systems: Array,
+	polygons: Array[PackedVector2Array]
+) -> Array[PackedVector2Array]:
+	var coverage_radius: float = _get_ownership_blob_radius() + maxf(
+		_host.min_system_distance * OWNERSHIP_COVERAGE_PADDING_FACTOR,
+		8.0
+	)
+	var primitive_regions: Array[PackedVector2Array] = polygons.duplicate()
+	var added_coverage: bool = false
+
+	for system_variant in cluster_systems:
+		var system_record: Dictionary = system_variant
+		var system_point := Vector2(system_record["position"].x, system_record["position"].z)
+		if _is_system_point_covered(system_point, primitive_regions):
+			continue
+		primitive_regions.append(
+			_build_circle_polygon(system_point, coverage_radius, OWNERSHIP_CIRCLE_SEGMENTS)
+		)
+		added_coverage = true
+
+	if not added_coverage:
+		return primitive_regions
+
+	primitive_regions = _merge_overlapping_polygons(primitive_regions)
+	primitive_regions = _subtract_non_owned_systems(owner_empire_id, primitive_regions)
+
+	var result_polygons: Array[PackedVector2Array] = []
+	for polygon_variant in primitive_regions:
+		var polygon: PackedVector2Array = _sanitize_polygon(polygon_variant)
+		if polygon.size() >= 3:
+			result_polygons.append(polygon)
+	return result_polygons
+
+
 func _build_polygon_system_groups(cluster_systems: Array, polygons: Array[PackedVector2Array]) -> Array:
 	var groups: Array = []
 	for polygon_variant in polygons:
@@ -647,60 +662,49 @@ func _distance_sq_to_segment(point: Vector2, segment_start: Vector2, segment_end
 	return point.distance_squared_to(closest_point)
 
 
+func _is_system_point_covered(system_point: Vector2, polygons: Array[PackedVector2Array]) -> bool:
+	var capture_margin: float = maxf(_get_ownership_border_half_width() * 0.9, 5.0)
+	var capture_margin_sq: float = capture_margin * capture_margin
+
+	for polygon_variant in polygons:
+		var polygon: PackedVector2Array = _sanitize_polygon(polygon_variant)
+		if polygon.size() < 3:
+			continue
+		if Geometry2D.is_point_in_polygon(system_point, polygon):
+			return true
+		if not _is_point_near_polygon_bounds(system_point, polygon, capture_margin):
+			continue
+		if _distance_sq_to_polygon_edges(system_point, polygon) <= capture_margin_sq:
+			return true
+
+	return false
+
+
 func _append_region_fill(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
-	if _is_bright_rim_enabled():
-		var fill_color := region_color.darkened(0.42)
-		fill_color.a = clampf(_get_ownership_core_opacity(), 0.0, 0.18)
-		if fill_color.a > 0.001:
-			_append_triangulated_polygon(surface_tool, region_polygon, region_height, fill_color)
-		return
-
-	var haze_color := region_color
-	haze_color.a = 0.08
-	_append_region_band(
-		surface_tool,
-		region_polygon,
-		_get_ownership_border_half_width() * 3.0,
-		-_get_ownership_border_half_width() * 0.18,
-		region_height - 0.6,
-		haze_color
-	)
-
-	var fill_color := region_color
-	fill_color.a = 0.15
-	_append_triangulated_polygon(surface_tool, region_polygon, region_height, fill_color)
+	return
 
 
 func _append_region_border(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
 	var half_width: float = _get_ownership_border_half_width()
-	if _is_bright_rim_enabled():
-		var far_glow := region_color.darkened(0.1)
-		far_glow.a = 0.12
-		var halo_glow := region_color.lightened(0.06)
-		halo_glow.a = 0.26
-		var seam_glow := region_color.lightened(0.3)
-		seam_glow.a = 0.68
-		var edge_color := region_color.lightened(0.5)
-		edge_color.a = 0.94
-
-		_append_region_band(surface_tool, region_polygon, half_width * 3.1, half_width * 1.9, region_height + 0.08, far_glow)
-		_append_region_band(surface_tool, region_polygon, half_width * 1.9, half_width * 0.95, region_height + 0.3, halo_glow)
-		_append_region_band(surface_tool, region_polygon, half_width * 0.95, half_width * 0.2, region_height + 0.55, seam_glow)
-		_append_region_band(surface_tool, region_polygon, half_width * 0.22, 0.0, region_height + 0.8, edge_color)
+	var outer_polygon: PackedVector2Array = _resolve_offset_polygon(region_polygon, half_width * 1.2)
+	var inner_polygon: PackedVector2Array = _resolve_offset_polygon(region_polygon, -half_width * 0.72)
+	if outer_polygon.size() < 3 or inner_polygon.size() < 3:
 		return
 
-	var shadow_color := Color(0.02, 0.03, 0.05, 0.48)
-	var halo_color := region_color.darkened(0.08)
-	halo_color.a = 0.22
-	var border_color := region_color
-	border_color.a = 0.86
-	var highlight_color := region_color.lightened(0.32)
-	highlight_color.a = 0.56
+	var top_height: float = region_height + half_width * 0.12
+	var bottom_height: float = region_height - maxf(half_width * 0.42, 3.2)
+	var top_outer_color := region_color.lightened(0.18)
+	top_outer_color.a = 0.96
+	var top_inner_color := region_color.lightened(0.28)
+	top_inner_color.a = 0.9
+	var outer_wall_color := region_color.darkened(0.3)
+	outer_wall_color.a = 0.92
+	var inner_wall_color := region_color.darkened(0.12)
+	inner_wall_color.a = 0.78
 
-	_append_region_band(surface_tool, region_polygon, half_width * 1.9, -half_width * 0.95, region_height, shadow_color)
-	_append_region_band(surface_tool, region_polygon, half_width * 1.3, -half_width * 0.12, region_height + 0.25, halo_color)
-	_append_region_band(surface_tool, region_polygon, half_width * 0.64, -half_width * 0.38, region_height + 0.48, border_color)
-	_append_region_band(surface_tool, region_polygon, half_width * 0.24, 0.0, region_height + 0.7, highlight_color)
+	_append_region_ring_cap(surface_tool, outer_polygon, inner_polygon, top_height, top_outer_color, top_inner_color)
+	_append_region_ring_wall(surface_tool, outer_polygon, top_height, bottom_height, top_outer_color, outer_wall_color, false)
+	_append_region_ring_wall(surface_tool, inner_polygon, top_height, bottom_height, top_inner_color, inner_wall_color, true)
 
 
 func _append_triangle(surface_tool: SurfaceTool, a: Vector2, b: Vector2, c: Vector2, height: float, color: Color) -> void:
@@ -747,6 +751,94 @@ func _append_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
 	surface_tool.add_vertex(c)
 	surface_tool.set_color(color)
 	surface_tool.add_vertex(d)
+
+
+func _append_gradient_quad(
+	surface_tool: SurfaceTool,
+	a: Vector3,
+	b: Vector3,
+	c: Vector3,
+	d: Vector3,
+	color_a: Color,
+	color_b: Color,
+	color_c: Color,
+	color_d: Color
+) -> void:
+	surface_tool.set_color(color_a)
+	surface_tool.add_vertex(a)
+	surface_tool.set_color(color_b)
+	surface_tool.add_vertex(b)
+	surface_tool.set_color(color_c)
+	surface_tool.add_vertex(c)
+	surface_tool.set_color(color_a)
+	surface_tool.add_vertex(a)
+	surface_tool.set_color(color_c)
+	surface_tool.add_vertex(c)
+	surface_tool.set_color(color_d)
+	surface_tool.add_vertex(d)
+
+
+func _append_region_ring_cap(
+	surface_tool: SurfaceTool,
+	outer_polygon: PackedVector2Array,
+	inner_polygon: PackedVector2Array,
+	height: float,
+	outer_color: Color,
+	inner_color: Color
+) -> void:
+	var band_polygons: Array = Geometry2D.clip_polygons(outer_polygon, inner_polygon)
+	if band_polygons.is_empty():
+		return
+
+	for band_polygon_variant in band_polygons:
+		var band_polygon: PackedVector2Array = _sanitize_polygon(band_polygon_variant)
+		if band_polygon.size() < 3:
+			continue
+		_append_triangulated_polygon(surface_tool, band_polygon, height, outer_color.lerp(inner_color, 0.35))
+
+
+func _append_region_ring_wall(
+	surface_tool: SurfaceTool,
+	polygon: PackedVector2Array,
+	top_height: float,
+	bottom_height: float,
+	top_color: Color,
+	bottom_color: Color,
+	invert_face: bool
+) -> void:
+	if polygon.size() < 3:
+		return
+
+	for point_index in range(polygon.size()):
+		var next_index: int = (point_index + 1) % polygon.size()
+		var top_a := Vector3(polygon[point_index].x, top_height, polygon[point_index].y)
+		var top_b := Vector3(polygon[next_index].x, top_height, polygon[next_index].y)
+		var bottom_b := Vector3(polygon[next_index].x, bottom_height, polygon[next_index].y)
+		var bottom_a := Vector3(polygon[point_index].x, bottom_height, polygon[point_index].y)
+		if invert_face:
+			_append_gradient_quad(
+				surface_tool,
+				top_b,
+				top_a,
+				bottom_a,
+				bottom_b,
+				top_color,
+				top_color,
+				bottom_color,
+				bottom_color
+			)
+			continue
+		_append_gradient_quad(
+			surface_tool,
+			top_a,
+			top_b,
+			bottom_b,
+			bottom_a,
+			top_color,
+			top_color,
+			bottom_color,
+			bottom_color
+		)
 
 
 func _append_triangulated_polygon(surface_tool: SurfaceTool, polygon: PackedVector2Array, height: float, color: Color) -> void:
@@ -815,6 +907,8 @@ func _sanitize_polygon(polygon: PackedVector2Array) -> PackedVector2Array:
 	var sanitized := polygon
 	if sanitized.size() >= 2 and sanitized[0].is_equal_approx(sanitized[sanitized.size() - 1]):
 		sanitized.remove_at(sanitized.size() - 1)
+	if sanitized.size() >= 3 and _polygon_area(sanitized) < 0.0:
+		sanitized.reverse()
 	return sanitized
 
 
@@ -870,28 +964,20 @@ func _build_hyperlane_material() -> StandardMaterial3D:
 
 
 func _build_ownership_fill_material() -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.vertex_color_use_as_albedo = true
-	material.albedo_color = Color.WHITE
-	material.emission_enabled = not _is_bright_rim_enabled()
-	if material.emission_enabled:
-		material.emission = Color.WHITE
-		material.emission_energy_multiplier = 0.38
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return material
+	return null
 
 
 func _build_ownership_border_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
 	material.albedo_color = Color.WHITE
 	material.emission_enabled = true
 	material.emission = Color.WHITE
-	material.emission_energy_multiplier = 2.35 if _is_bright_rim_enabled() else 1.95
+	material.emission_energy_multiplier = 0.75
+	material.metallic = 0.08
+	material.roughness = 0.46
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
 

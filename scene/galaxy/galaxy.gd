@@ -4,6 +4,7 @@ const GALAXY_GENERATOR_SCRIPT: Script = preload("res://scene/galaxy/GalaxyGenera
 const GALAXY_STATE_SCRIPT: Script = preload("res://scene/galaxy/GalaxyState.gd")
 const EMPIRE_FACTORY_SCRIPT: Script = preload("res://scene/galaxy/EmpireFactory.gd")
 const GALAXY_MAP_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyMapRenderer.gd")
+const GALAXY_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyRuntimePlaceholderRenderer.gd")
 const GALAXY_SCENE_UI_CONTROLLER_SCRIPT: Script = preload("res://scene/galaxy/GalaxySceneUiController.gd")
 const GALAXY_DEBUG_SPAWNER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyDebugSpawner.gd")
 const GALAXY_HUD_MUSIC_CONTROLLER_SCRIPT: Script = preload("res://scene/UI/GalaxyHudMusicController.gd")
@@ -30,6 +31,10 @@ const SYSTEM_PICK_RADIUS := 26.0
 @onready var ownership_markers: MeshInstance3D = $Stars/OwnershipMarkers
 @onready var ownership_connectors: MeshInstance3D = $Stars/OwnershipConnectors
 @onready var hyperlanes: MeshInstance3D = $Hyperlanes
+@onready var runtime_placeholders: Node3D = $RuntimePlaceholders
+@onready var station_markers: MultiMeshInstance3D = $RuntimePlaceholders/StationMarkers
+@onready var fleet_markers: MultiMeshInstance3D = $RuntimePlaceholders/FleetMarkers
+@onready var ship_markers: MultiMeshInstance3D = $RuntimePlaceholders/ShipMarkers
 @onready var info_label: Label = $CanvasLayer/InfoLabel
 @onready var loading_overlay: Control = $CanvasLayer/LoadingOverlay
 @onready var loading_status: Label = $CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer/LoadingStatus
@@ -82,6 +87,7 @@ var _sim_speed_actual_steps := [0.25, 0.5, 1.0, 2.0]
 var _sim_speed_index: int = 0
 var _sim_paused: bool = false
 var _map_renderer = GALAXY_MAP_RENDERER_SCRIPT.new()
+var _runtime_placeholder_renderer = GALAXY_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT.new()
 var _scene_ui_controller = GALAXY_SCENE_UI_CONTROLLER_SCRIPT.new()
 var _debug_spawner = GALAXY_DEBUG_SPAWNER_SCRIPT.new()
 var _music_ui_controller = GALAXY_HUD_MUSIC_CONTROLLER_SCRIPT.new()
@@ -126,6 +132,7 @@ func _ready() -> void:
 	ownership_bright_rim_enabled = SettingsManager.get_territory_bright_rim()
 	ownership_core_opacity = SettingsManager.get_territory_core_opacity()
 	_map_renderer.bind(self, STAR_CORE_SHADER, STAR_GLOW_SHADER)
+	_runtime_placeholder_renderer.bind(self)
 	_scene_ui_controller.bind(self)
 	_debug_spawner.bind(self, debug_spawn_panel, debug_spawn_toggle_button)
 	_music_ui_controller.bind(galaxy_hud)
@@ -140,6 +147,8 @@ func _exit_tree() -> void:
 	_disconnect_space_runtime_signals()
 	if _map_renderer != null:
 		_map_renderer.unbind()
+	if _runtime_placeholder_renderer != null:
+		_runtime_placeholder_renderer.unbind()
 	if _scene_ui_controller != null:
 		_scene_ui_controller.unbind()
 	if _debug_spawner != null:
@@ -262,6 +271,7 @@ func _generate_galaxy_async() -> void:
 	ownership_markers.mesh = null
 	ownership_connectors.mesh = null
 	hyperlanes.mesh = null
+	_runtime_placeholder_renderer.clear_runtime_placeholders()
 	system_preview_image.texture = null
 	if camera_rig.has_method("reset_view"):
 		camera_rig.reset_view(galaxy_radius)
@@ -313,6 +323,7 @@ func _generate_galaxy_async() -> void:
 	await get_tree().process_frame
 	_render_hyperlanes()
 	_render_ownership_markers()
+	_render_runtime_placeholders()
 	_update_system_panel()
 	_update_info_label()
 
@@ -592,6 +603,7 @@ func _disconnect_space_runtime_signals() -> void:
 
 
 func _on_space_runtime_changed(_record_id: String) -> void:
+	_render_runtime_placeholders()
 	_update_system_panel()
 
 
@@ -610,6 +622,10 @@ func _render_hyperlanes() -> void:
 
 func _render_ownership_markers() -> void:
 	_map_renderer.render_ownership_markers()
+
+
+func _render_runtime_placeholders() -> void:
+	_runtime_placeholder_renderer.render_runtime_placeholders()
 
 
 func _sync_territory_settings_ui() -> void:

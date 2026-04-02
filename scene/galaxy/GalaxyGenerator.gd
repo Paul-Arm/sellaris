@@ -53,6 +53,42 @@ const PLANET_COLOR_PALETTE := [
 	Color(0.86, 0.48, 0.38, 1.0),
 	Color(0.56, 0.76, 0.72, 1.0),
 ]
+const PLANET_VISUAL_LANDMASS := "landmass"
+const PLANET_VISUAL_DRY := "dry_terran"
+const PLANET_VISUAL_BARREN := "no_atmosphere"
+const PLANET_VISUAL_ICE := "ice_world"
+const PLANET_VISUAL_LAVA := "lava_world"
+const PLANET_VISUAL_GAS := "gas_planet"
+const PASTEL_LAND_COLORS := [
+	Color(0.62, 0.78, 0.74, 1.0),
+	Color(0.7, 0.79, 0.92, 1.0),
+	Color(0.68, 0.84, 0.72, 1.0),
+]
+const PASTEL_DRY_COLORS := [
+	Color(0.86, 0.73, 0.6, 1.0),
+	Color(0.9, 0.76, 0.62, 1.0),
+	Color(0.83, 0.68, 0.58, 1.0),
+]
+const PASTEL_BARREN_COLORS := [
+	Color(0.78, 0.79, 0.84, 1.0),
+	Color(0.72, 0.74, 0.79, 1.0),
+	Color(0.82, 0.78, 0.86, 1.0),
+]
+const PASTEL_ICE_COLORS := [
+	Color(0.76, 0.88, 0.96, 1.0),
+	Color(0.82, 0.9, 0.98, 1.0),
+	Color(0.7, 0.84, 0.94, 1.0),
+]
+const PASTEL_LAVA_COLORS := [
+	Color(0.94, 0.66, 0.54, 1.0),
+	Color(0.9, 0.58, 0.52, 1.0),
+	Color(0.86, 0.54, 0.48, 1.0),
+]
+const PASTEL_GAS_COLORS := [
+	Color(0.9, 0.78, 0.66, 1.0),
+	Color(0.84, 0.72, 0.8, 1.0),
+	Color(0.8, 0.78, 0.92, 1.0),
+]
 const ASTEROID_BELT_COLOR := Color(0.6, 0.58, 0.54, 1.0)
 const STRUCTURE_COLOR := Color(0.42, 0.8, 1.0, 1.0)
 const RUIN_COLOR := Color(0.72, 0.73, 0.78, 1.0)
@@ -280,11 +316,19 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 		occupied_orbits.append(current_orbit)
 		var is_habitable := habitable_indices.has(planet_index)
 		var is_colonizable := colonizable_indices.has(planet_index)
-		var planet_color: Color = PLANET_COLOR_PALETTE[detail_rng.randi_range(0, PLANET_COLOR_PALETTE.size() - 1)]
-		if is_habitable:
-			planet_color = planet_color.lerp(Color(0.46, 0.92, 0.56, 1.0), 0.28)
-		elif is_colonizable:
-			planet_color = planet_color.lerp(Color(0.74, 0.86, 0.54, 1.0), 0.18)
+		var orbit_progress: float = 0.0 if planet_count <= 1 else float(planet_index) / float(planet_count - 1)
+		var visual_info: Dictionary = _build_planet_visual_info(
+			detail_rng,
+			star_profile,
+			orbit_progress,
+			is_habitable,
+			is_colonizable,
+			planet_index
+		)
+		var planet_color: Color = visual_info.get("color", PLANET_COLOR_PALETTE[planet_index % PLANET_COLOR_PALETTE.size()])
+		var planet_size: float = float(visual_info.get("size", detail_rng.randf_range(1.0, 3.9)))
+		var habitability: float = float(visual_info.get("habitability", 0.0))
+		is_colonizable = bool(visual_info.get("is_colonizable", is_colonizable))
 
 		orbitals.append({
 			"id": "planet_%02d" % planet_index,
@@ -293,13 +337,15 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 			"orbit_radius": current_orbit,
 			"orbit_angle": detail_rng.randf_range(0.0, TAU),
 			"vertical_offset": detail_rng.randf_range(-1.8, 1.8),
-			"size": detail_rng.randf_range(1.0, 3.9),
+			"size": planet_size,
 			"color": planet_color,
 			"orbit_width": 0.0,
 			"is_colonizable": is_colonizable,
-			"habitability": 0.76 if is_habitable else (0.48 if is_colonizable else snapped(detail_rng.randf_range(0.0, 0.28), 0.01)),
+			"habitability": habitability,
 			"resource_richness": snapped(detail_rng.randf_range(0.1, 1.0), 0.01),
-			"metadata": {},
+			"metadata": {
+				"planet_visual": visual_info.get("planet_visual", {}),
+			},
 		})
 
 	if planet_count > 0 and detail_rng.randf() < 0.68:
@@ -328,7 +374,9 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 				"is_colonizable": false,
 				"habitability": 0.0,
 				"resource_richness": snapped(detail_rng.randf_range(0.35, 1.0), 0.01),
-				"metadata": {},
+				"metadata": {
+					"belt_visual": _build_belt_visual_metadata(detail_rng),
+				},
 			})
 
 	var structure_count: int = detail_rng.randi_range(0, 2)
@@ -412,6 +460,123 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 		"is_custom": false,
 		"anomaly_risk": anomaly_risk,
 	}
+
+
+func _build_planet_visual_info(
+	detail_rng: RandomNumberGenerator,
+	star_profile: Dictionary,
+	orbit_progress: float,
+	is_habitable: bool,
+	is_colonizable: bool,
+	planet_index: int
+) -> Dictionary:
+	var special_type: String = str(star_profile.get("special_type", SPECIAL_TYPE_NONE))
+	var world_kind := PLANET_VISUAL_BARREN
+
+	if is_habitable:
+		world_kind = PLANET_VISUAL_LANDMASS if detail_rng.randf() < 0.74 else PLANET_VISUAL_DRY
+	elif is_colonizable:
+		if orbit_progress < 0.3:
+			world_kind = PLANET_VISUAL_DRY
+		else:
+			world_kind = PLANET_VISUAL_LANDMASS if detail_rng.randf() < 0.55 else PLANET_VISUAL_DRY
+	else:
+		if orbit_progress < 0.15:
+			world_kind = PLANET_VISUAL_LAVA if detail_rng.randf() < 0.52 else PLANET_VISUAL_DRY
+		elif orbit_progress < 0.35:
+			world_kind = PLANET_VISUAL_DRY if detail_rng.randf() < 0.55 else PLANET_VISUAL_BARREN
+		elif orbit_progress > 0.72:
+			world_kind = PLANET_VISUAL_GAS if detail_rng.randf() < 0.52 else PLANET_VISUAL_ICE
+		elif orbit_progress > 0.5:
+			world_kind = PLANET_VISUAL_GAS if detail_rng.randf() < 0.32 else PLANET_VISUAL_BARREN
+		else:
+			world_kind = PLANET_VISUAL_BARREN
+
+	if special_type == SPECIAL_TYPE_BLACK_HOLE and detail_rng.randf() < 0.5:
+		world_kind = PLANET_VISUAL_BARREN
+	elif special_type == SPECIAL_TYPE_NEUTRON and world_kind == PLANET_VISUAL_LANDMASS:
+		world_kind = PLANET_VISUAL_ICE if detail_rng.randf() < 0.55 else PLANET_VISUAL_BARREN
+
+	var size: float = 1.2
+	var habitability: float = 0.0
+	var resolved_colonizable: bool = is_colonizable
+	match world_kind:
+		PLANET_VISUAL_LANDMASS:
+			size = detail_rng.randf_range(1.4, 2.8)
+			habitability = 0.78 if is_habitable else 0.52
+		PLANET_VISUAL_DRY:
+			size = detail_rng.randf_range(1.2, 2.7)
+			habitability = 0.72 if is_habitable else (0.46 if is_colonizable else snapped(detail_rng.randf_range(0.08, 0.26), 0.01))
+		PLANET_VISUAL_ICE:
+			size = detail_rng.randf_range(1.3, 3.0)
+			habitability = 0.5 if is_colonizable else snapped(detail_rng.randf_range(0.02, 0.22), 0.01)
+			resolved_colonizable = is_colonizable and detail_rng.randf() < 0.5
+		PLANET_VISUAL_LAVA:
+			size = detail_rng.randf_range(1.2, 2.4)
+			habitability = snapped(detail_rng.randf_range(0.0, 0.12), 0.01)
+			resolved_colonizable = false
+		PLANET_VISUAL_GAS:
+			size = detail_rng.randf_range(3.2, 5.8)
+			habitability = 0.0
+			resolved_colonizable = false
+		_:
+			size = detail_rng.randf_range(1.0, 2.6)
+			habitability = snapped(detail_rng.randf_range(0.0, 0.18), 0.01)
+			resolved_colonizable = false
+
+	var palette: Array = _get_planet_palette_for_kind(world_kind)
+	var planet_color: Color = palette[detail_rng.randi_range(0, palette.size() - 1)]
+	var pixels: float = snappedf(detail_rng.randf_range(1700.0, 2800.0), 1.0)
+
+	return {
+		"kind": world_kind,
+		"color": planet_color,
+		"size": snappedf(size, 0.01),
+		"habitability": habitability,
+		"is_colonizable": resolved_colonizable,
+		"planet_visual": {
+			"kind": world_kind,
+			"pixels": pixels,
+			"has_atmosphere": world_kind in [PLANET_VISUAL_LANDMASS, PLANET_VISUAL_ICE, PLANET_VISUAL_GAS] or (world_kind == PLANET_VISUAL_DRY and resolved_colonizable),
+			"has_ring": world_kind == PLANET_VISUAL_GAS,
+			"variant_index": planet_index,
+		},
+	}
+
+
+func _build_belt_visual_metadata(detail_rng: RandomNumberGenerator) -> Dictionary:
+	return {
+		"pixels": snappedf(detail_rng.randf_range(1850.0, 2500.0), 1.0),
+		"density": detail_rng.randi_range(30, 70),
+	}
+
+
+func _build_star_visual_metadata(
+	star_rng: RandomNumberGenerator,
+	special_type: String,
+	is_primary: bool
+) -> Dictionary:
+	return {
+		"kind": "black_hole" if special_type == SPECIAL_TYPE_BLACK_HOLE else "star",
+		"pixels": snappedf(star_rng.randf_range(1900.0 if is_primary else 1700.0, 2800.0 if is_primary else 2400.0), 1.0),
+		"rotation": star_rng.randf_range(-0.5, 0.5),
+	}
+
+
+func _get_planet_palette_for_kind(world_kind: String) -> Array:
+	match world_kind:
+		PLANET_VISUAL_LANDMASS:
+			return PASTEL_LAND_COLORS
+		PLANET_VISUAL_DRY:
+			return PASTEL_DRY_COLORS
+		PLANET_VISUAL_ICE:
+			return PASTEL_ICE_COLORS
+		PLANET_VISUAL_LAVA:
+			return PASTEL_LAVA_COLORS
+		PLANET_VISUAL_GAS:
+			return PASTEL_GAS_COLORS
+		_:
+			return PASTEL_BARREN_COLORS
 
 
 func _build_shape_context(
@@ -1265,6 +1430,9 @@ func _build_star_profile(galaxy_seed: int, system_record: Dictionary) -> Diction
 		"is_primary": true,
 		"special_type": special_type,
 		"star_class": primary_star_class,
+		"metadata": {
+			"star_visual": _build_star_visual_metadata(star_rng, special_type, true),
+		},
 	})
 
 	for i in range(1, star_count):
@@ -1279,6 +1447,9 @@ func _build_star_profile(galaxy_seed: int, system_record: Dictionary) -> Diction
 			"is_primary": false,
 			"special_type": SPECIAL_TYPE_NONE,
 			"star_class": STAR_CLASS_BY_COLOR[companion_color_name],
+			"metadata": {
+				"star_visual": _build_star_visual_metadata(star_rng, SPECIAL_TYPE_NONE, false),
+			},
 		})
 
 	return {
@@ -1528,6 +1699,7 @@ func _normalize_star_entry(star_entry: Dictionary, star_index: int) -> Dictionar
 	result["orbit_radius"] = float(result.get("orbit_radius", 0.0))
 	result["orbit_angle"] = float(result.get("orbit_angle", 0.0))
 	result["vertical_offset"] = float(result.get("vertical_offset", 0.0))
+	result["metadata"] = result.get("metadata", {}).duplicate(true)
 	return result
  
  

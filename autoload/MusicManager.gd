@@ -28,7 +28,29 @@ func _ready() -> void:
 	_emit_playback_changed()
 
 
+func _exit_tree() -> void:
+	if _player != null:
+		if _player.finished.is_connected(_on_player_finished):
+			_player.finished.disconnect(_on_player_finished)
+		_player.stop()
+		_player.stream = null
+	_stream_cache.clear()
+	_menu_tracks.clear()
+	_game_tracks.clear()
+	_current_track_name = ""
+	_mode = ""
+
+
 func play_menu_loops() -> void:
+	if DisplayServer.get_name() == "headless":
+		_mode = "menu"
+		_current_track_name = ""
+		if _player != null:
+			_player.stop()
+			_player.stream = null
+			_player.stream_paused = false
+		_emit_playback_changed()
+		return
 	if _menu_tracks.is_empty():
 		return
 	if _mode == "menu" and _player.playing:
@@ -38,6 +60,15 @@ func play_menu_loops() -> void:
 
 
 func play_game_tracks() -> void:
+	if DisplayServer.get_name() == "headless":
+		_mode = "game"
+		_current_track_name = ""
+		if _player != null:
+			_player.stop()
+			_player.stream = null
+			_player.stream_paused = false
+		_emit_playback_changed()
+		return
 	if _game_tracks.is_empty():
 		return
 	if _mode == "game" and _player.playing:

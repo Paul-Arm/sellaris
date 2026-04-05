@@ -331,7 +331,7 @@ func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vect
 		"body_text": _join_lines(lines),
 		"anchor_local_position": marker_position,
 		"screen_pick_radius": 19.0 if is_station else 17.0,
-		"highlight_radius": 3.0 if is_station else 2.1,
+		"highlight_radius": 3.0 if is_station else 2.4,
 		"highlight_color": Color(owner_color.r, owner_color.g, owner_color.b, 0.98),
 		"pick_priority": 30 if is_station else 26,
 	}))
@@ -339,9 +339,10 @@ func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vect
 
 func _register_runtime_fleet_selectable(record: Dictionary, marker_position: Vector3) -> void:
 	var owner_name: String = str(record.get("owner_name", "Unclaimed"))
+	var ship_count: int = maxi(int(record.get("ship_count", 0)), 1)
 	var lines: Array[String] = []
 	_append_labeled_line(lines, "Owner", owner_name)
-	_append_labeled_line(lines, "Ships", str(int(record.get("ship_count", 0))))
+	_append_labeled_line(lines, "Ships", str(ship_count))
 	_append_labeled_line(lines, "Role", _format_token_label(str(record.get("ai_role", ""))))
 	_append_labeled_line(lines, "Controller", _format_controller_kind(str(record.get("controller_kind", ""))))
 	if int(record.get("controller_peer_id", 0)) > 0:
@@ -363,8 +364,8 @@ func _register_runtime_fleet_selectable(record: Dictionary, marker_position: Vec
 		"subtitle": "Fleet / %s" % owner_name,
 		"body_text": _join_lines(lines),
 		"anchor_local_position": marker_position,
-		"screen_pick_radius": 22.0,
-		"highlight_radius": 3.4,
+		"screen_pick_radius": 22.0 + minf(float(ship_count), 14.0) * 0.75,
+		"highlight_radius": 3.6 + minf(float(ship_count), 18.0) * 0.14,
 		"highlight_color": Color(owner_color.r, owner_color.g, owner_color.b, 0.98),
 		"pick_priority": 34,
 	}))

@@ -74,6 +74,7 @@ var _system_details: Dictionary = {}
 var _orbital: Dictionary = {}
 var _orbital_index: int = -1
 var _visual_config: Dictionary = {}
+var _camera_facing_nodes: Array[Node3D] = []
 
 
 func configure(system_details: Dictionary, orbital: Dictionary, orbital_index: int = -1) -> void:
@@ -88,6 +89,10 @@ func configure(system_details: Dictionary, orbital: Dictionary, orbital_index: i
 func _ready() -> void:
 	if not _visual_config.is_empty():
 		_rebuild()
+
+
+func _process(_delta: float) -> void:
+	_update_camera_facing_nodes()
 
 
 static func describe_planet(system_details: Dictionary, orbital: Dictionary, orbital_index: int = -1) -> Dictionary:
@@ -128,6 +133,9 @@ static func build_visual_config(
 	var scene_variant: String = _resolve_scene_variant(rng, kind, has_ring, visual_metadata)
 	var scene: PackedScene = _get_scene_for_variant(scene_variant)
 	var base_diameter: float = maxf(float(orbital.get("size", 1.0)) * 2.0, 1.4)
+	var surface_rotation: float = _resolve_float_override(visual_metadata, "rotation", rng.randf_range(-PI, PI))
+	var ring_yaw: float = _resolve_float_override(visual_metadata, "ring_yaw", wrapf(surface_rotation * 0.6, -PI, PI))
+	var ring_tilt: float = _resolve_float_override(visual_metadata, "ring_tilt", deg_to_rad(rng.randf_range(14.0, 28.0)))
 
 	return {
 		"kind": kind,
@@ -136,9 +144,13 @@ static func build_visual_config(
 		"scene_variant": scene_variant,
 		"seed": orbital_seed,
 		"pixels": clampf(_resolve_float_override(visual_metadata, "pixels", DEFAULT_PIXELS), MIN_PIXELS, MAX_PIXELS),
-		"rotation": _resolve_float_override(visual_metadata, "rotation", rng.randf_range(-PI, PI)),
+		"rotation": surface_rotation,
 		"light_origin": _resolve_light_origin(scene_variant, visual_metadata),
 		"base_diameter": base_diameter,
+		"has_ring": has_ring,
+		"split_ring": has_ring and scene_variant == "gas_planet_layers",
+		"ring_yaw": ring_yaw,
+		"ring_tilt": ring_tilt,
 		"has_atmosphere": has_atmosphere,
 		"atmosphere_color": _get_atmosphere_color(scene_variant),
 		"atmosphere_alpha": _get_atmosphere_alpha(kind, has_atmosphere),
@@ -150,6 +162,7 @@ static func build_visual_config(
 func _rebuild() -> void:
 	for child in get_children():
 		child.free()
+	_camera_facing_nodes.clear()
 
 	if _visual_config.is_empty():
 		return
@@ -158,6 +171,82 @@ func _rebuild() -> void:
 	var scene: PackedScene = scene_variant as PackedScene
 	if scene == null:
 		return
+
+	var body_layer: Dictionary = {}
+	var ring_layer: Dictionary = {}
+	if bool(_visual_config.get("split_ring", false)):
+		body_layer = _build_planet_texture_layer(scene, PackedStringArray(["Ring"]), 1.0)
+		ring_layer = _build_planet_texture_layer(scene, PackedStringArray(["GasLayers"]), 3.0)
+	else:
+		body_layer = _build_planet_texture_layer(scene)
+	if body_layer.is_empty():
+		return
+
+	var base_diameter: float = float(_visual_config.get("base_diameter", 2.0))
+	if _visual_config.get("atmosphere_alpha", 0.0) > 0.001:
+		var atmosphere := MeshInstance3D.new()
+		var atmosphere_mesh := QuadMesh.new()
+		atmosphere_mesh.size = Vector2.ONE * base_diameter * float(_visual_config.get("atmosphere_scale", 1.16))
+		atmosphere.mesh = atmosphere_mesh
+		atmosphere.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		atmosphere.material_override = _build_halo_material(
+			_visual_config.get("atmosphere_color", Color(0.7, 0.86, 1.0, 1.0)),
+			float(_visual_config.get("atmosphere_alpha", 0.14))
+		)
+		add_child(atmosphere)
+		_register_camera_facing_node(atmosphere)
+
+	if not ring_layer.is_empty():
+		var ring_texture: Texture2D = ring_layer.get("texture", null) as Texture2D
+		if ring_texture != null:
+			var ring_quad := MeshInstance3D.new()
+			var ring_mesh := QuadMesh.new()
+			ring_mesh.size = Vector2.ONE * base_diameter * float(ring_layer.get("relative_scale", 3.0))
+			ring_quad.mesh = ring_mesh
+			ring_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			ring_quad.transform = Transform3D(
+				_build_ring_basis(
+					float(_visual_config.get("ring_tilt", deg_to_rad(20.0))),
+					float(_visual_config.get("ring_yaw", 0.0))
+				),
+				Vector3.ZERO
+			)
+			ring_quad.material_override = _build_planet_material(
+				ring_texture,
+				_visual_config.get("atmosphere_color", Color.WHITE),
+				0.1,
+				BaseMaterial3D.BILLBOARD_DISABLED,
+				1
+			)
+			add_child(ring_quad)
+
+	var body_texture: Texture2D = body_layer.get("texture", null) as Texture2D
+	if body_texture == null:
+		return
+
+	var quad := MeshInstance3D.new()
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2.ONE * base_diameter * float(body_layer.get("relative_scale", 1.0))
+	quad.mesh = mesh
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	quad.material_override = _build_planet_material(
+		body_texture,
+		_visual_config.get("atmosphere_color", Color.WHITE),
+		float(_visual_config.get("emission_energy", 0.18)),
+		BaseMaterial3D.BILLBOARD_ENABLED,
+		0
+	)
+	add_child(quad)
+	_update_camera_facing_nodes()
+
+
+func _build_planet_texture_layer(
+	scene: PackedScene,
+	hidden_nodes: PackedStringArray = PackedStringArray(),
+	relative_scale_override: float = -1.0
+) -> Dictionary:
+	if scene == null:
+		return {}
 
 	var viewport := SubViewport.new()
 	viewport.disable_3d = true
@@ -172,77 +261,108 @@ func _rebuild() -> void:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	viewport.add_child(holder)
 
-	var planet_canvas := scene.instantiate()
+	var planet_canvas: Node = scene.instantiate()
 	holder.add_child(planet_canvas)
+	_set_canvas_nodes_visible(planet_canvas, hidden_nodes, false)
 
 	var pixels: float = float(_visual_config.get("pixels", DEFAULT_PIXELS))
-	var relative_scale := 1.0
-	if planet_canvas != null and planet_canvas.has_method("set_pixels"):
+	if planet_canvas.has_method("set_pixels"):
 		planet_canvas.call("set_pixels", pixels)
-	if planet_canvas != null:
+
+	var relative_scale := 1.0
+	if relative_scale_override > 0.0:
+		relative_scale = relative_scale_override
+	else:
 		var relative_scale_variant: Variant = planet_canvas.get("relative_scale")
 		if relative_scale_variant != null:
 			relative_scale = maxf(float(relative_scale_variant), 1.0)
-		var content_extent: float = maxf(pixels * relative_scale, 1.0)
-		holder.scale = Vector2.ONE * (VIEWPORT_TARGET_SIZE / content_extent)
+	var content_extent: float = maxf(pixels * relative_scale, 1.0)
+	holder.scale = Vector2.ONE * (VIEWPORT_TARGET_SIZE / content_extent)
+
 	if planet_canvas is Control:
 		var planet_control: Control = planet_canvas as Control
 		planet_control.position = Vector2.ONE * pixels * 0.5 * (relative_scale - 1.0)
 
 	var seed_value: int = int(_visual_config.get("seed", 0))
 	seed(seed_value)
-	if planet_canvas != null and planet_canvas.has_method("set_seed"):
+	if planet_canvas.has_method("set_seed"):
 		planet_canvas.call("set_seed", seed_value)
-	if planet_canvas != null and planet_canvas.has_method("set_rotates"):
+	if planet_canvas.has_method("set_rotates"):
 		planet_canvas.call("set_rotates", float(_visual_config.get("rotation", 0.0)))
-	if planet_canvas != null and planet_canvas.has_method("set_light"):
+	if planet_canvas.has_method("set_light"):
 		planet_canvas.call("set_light", _visual_config.get("light_origin", Vector2(0.39, 0.39)))
-	if planet_canvas != null and planet_canvas.has_method("set_dither"):
+	if planet_canvas.has_method("set_dither"):
 		planet_canvas.call("set_dither", true)
 
-	var base_diameter: float = float(_visual_config.get("base_diameter", 2.0))
-	if _visual_config.get("atmosphere_alpha", 0.0) > 0.001:
-		var atmosphere := MeshInstance3D.new()
-		var atmosphere_mesh := QuadMesh.new()
-		atmosphere_mesh.size = Vector2.ONE * base_diameter * float(_visual_config.get("atmosphere_scale", 1.16))
-		atmosphere.mesh = atmosphere_mesh
-		atmosphere.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		atmosphere.material_override = _build_halo_material(
-			_visual_config.get("atmosphere_color", Color(0.7, 0.86, 1.0, 1.0)),
-			float(_visual_config.get("atmosphere_alpha", 0.14))
-		)
-		add_child(atmosphere)
-
-	var quad := MeshInstance3D.new()
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2.ONE * base_diameter * relative_scale
-	quad.mesh = mesh
-	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	quad.material_override = _build_planet_material(
-		viewport.get_texture(),
-		_visual_config.get("atmosphere_color", Color.WHITE),
-		float(_visual_config.get("emission_energy", 0.18))
-	)
-	add_child(quad)
+	return {
+		"texture": viewport.get_texture(),
+		"relative_scale": relative_scale,
+	}
 
 
-func _build_planet_material(texture: Texture2D, emission_color: Color, emission_energy: float) -> StandardMaterial3D:
+func _set_canvas_nodes_visible(planet_canvas: Node, node_names: PackedStringArray, is_visible: bool) -> void:
+	for node_name in node_names:
+		var canvas_item: CanvasItem = planet_canvas.find_child(node_name, true, false) as CanvasItem
+		if canvas_item != null:
+			canvas_item.visible = is_visible
+
+
+func _build_planet_material(
+	texture: Texture2D,
+	emission_color: Color,
+	emission_energy: float,
+	billboard_mode: BaseMaterial3D.BillboardMode,
+	render_priority: int = 0
+) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	material.billboard_mode = billboard_mode
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	material.albedo_texture = texture
 	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	material.emission_enabled = true
 	material.emission = emission_color
 	material.emission_energy_multiplier = emission_energy
+	material.render_priority = render_priority
 	return material
+
+
+func _build_ring_basis(ring_tilt: float, ring_yaw: float) -> Basis:
+	var ring_normal := Vector3.UP.rotated(Vector3.RIGHT, ring_tilt).rotated(Vector3.UP, ring_yaw).normalized()
+	var x_axis := ring_normal.cross(Vector3.UP)
+	if x_axis.length() < 0.001:
+		x_axis = ring_normal.cross(Vector3.RIGHT)
+	x_axis = x_axis.normalized()
+	var y_axis := ring_normal.cross(x_axis).normalized()
+	return Basis(x_axis, y_axis, ring_normal)
+
+
+func _register_camera_facing_node(node: Node3D) -> void:
+	if node == null:
+		return
+	_camera_facing_nodes.append(node)
+
+
+func _update_camera_facing_nodes() -> void:
+	if _camera_facing_nodes.is_empty():
+		return
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if camera == null:
+		return
+	var camera_basis: Basis = camera.global_transform.basis.orthonormalized()
+	for node in _camera_facing_nodes:
+		if not is_instance_valid(node):
+			continue
+		var node_transform: Transform3D = node.global_transform
+		node_transform.basis = camera_basis
+		node.global_transform = node_transform
 
 
 func _build_halo_material(color: Color, alpha: float) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = ATMOSPHERE_HALO_SHADER
+	material.render_priority = 2
 	var halo_color: Color = color
 	halo_color.a = alpha
 	material.set_shader_parameter("halo_color", halo_color)

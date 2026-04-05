@@ -2,11 +2,18 @@ extends RefCounted
 class_name GalaxyRuntimePlaceholderRenderer
 
 const STATION_BASE_RADIUS: float = 18.0
-const FLEET_BASE_RADIUS: float = 28.0
 const RING_STEP: float = 6.0
 const STATION_HEIGHT: float = 9.0
-const FLEET_HEIGHT: float = 13.0
+const FLEET_ICON_HEIGHT: float = 13.0
 const SLOTS_PER_RING: int = 6
+const SHIPS_PER_BAR: int = 100
+const BAR_COLUMNS: int = 6
+const BAR_SPACING_X: float = 6.0
+const BAR_ROW_STEP: float = 2.2
+const BAR_BASE_Y_OFFSET: float = 4.3
+const FLEET_CIRCLE_RADIUS: float = 2.2
+const FLEET_BAR_LENGTH: float = 4.4
+const FLEET_BAR_THICKNESS: float = 0.5
 
 var _host: Node = null
 
@@ -25,35 +32,34 @@ func render_runtime_placeholders() -> void:
 		return
 
 	var station_instances: Array[Dictionary] = []
-	var fleet_instances: Array[Dictionary] = []
+	var fleet_icon_instances: Array[Dictionary] = []
+	var fleet_bar_instances: Array[Dictionary] = []
 
 	for system_record in _host.system_records:
 		var system_id: String = str(system_record.get("id", ""))
 		if system_id.is_empty():
 			continue
 		var system_position: Vector3 = system_record.get("position", Vector3.ZERO)
-		var fleet_index: int = 0
 		var station_index: int = 0
-
-		for fleet_id in SpaceManager.get_fleet_ids_in_system(system_id):
-			var fleet: FleetRuntime = SpaceManager.get_fleet(fleet_id)
-			if fleet == null:
-				continue
-
-			var fleet_layout: Dictionary = _resolve_marker_layout(
-				FLEET_BASE_RADIUS,
-				fleet_index,
-				system_position,
-				fleet.fleet_id.hash(),
-				FLEET_HEIGHT
-			)
-			fleet_instances.append({
-				"position": fleet_layout.get("position", system_position),
-				"yaw": float(fleet_layout.get("yaw", 0.0)),
-				"scale": 1.0 + min(float(fleet.ship_ids.size()), 20.0) * 0.05,
-				"color": _get_owner_color(fleet.owner_empire_id),
+		var mobile_ship_summary: Dictionary = _summarize_mobile_ships_in_system(system_id)
+		if not mobile_ship_summary.is_empty():
+			var icon_center := system_position + Vector3(0.0, FLEET_ICON_HEIGHT, 0.0)
+			var ship_count: int = int(mobile_ship_summary.get("ship_count", 0))
+			var underscore_count: int = ship_count / SHIPS_PER_BAR
+			var color := _get_owner_color(str(mobile_ship_summary.get("owner_empire_id", "")))
+			fleet_icon_instances.append({
+				"position": icon_center,
+				"yaw": 0.0,
+				"scale": 1.0,
+				"color": color,
 			})
-			fleet_index += 1
+			for bar_position in _build_bar_positions(icon_center, underscore_count):
+				fleet_bar_instances.append({
+					"position": bar_position,
+					"yaw": 0.0,
+					"scale": 1.0,
+					"color": color,
+				})
 
 		for ship_id in SpaceManager.get_ship_ids_in_system(system_id):
 			var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
@@ -76,9 +82,9 @@ func render_runtime_placeholders() -> void:
 				station_index += 1
 
 	_render_multimesh(_host.station_markers, _build_station_mesh(), station_instances)
-	_render_multimesh(_host.fleet_markers, _build_fleet_mesh(), fleet_instances)
+	_render_multimesh(_host.fleet_markers, _build_fleet_mesh(), fleet_icon_instances)
 	if _host.get("ship_markers") != null:
-		_host.ship_markers.multimesh = null
+		_render_multimesh(_host.ship_markers, _build_bar_mesh(), fleet_bar_instances)
 
 
 func clear_runtime_placeholders() -> void:
@@ -139,11 +145,14 @@ func _apply_materials() -> void:
 	if _host == null:
 		return
 	var station_material: StandardMaterial3D = _build_material(0.52, 1.35)
-	var fleet_material: StandardMaterial3D = _build_material(0.4, 1.6)
+	var fleet_material: StandardMaterial3D = _build_material(0.95, 1.25)
+	var bar_material: StandardMaterial3D = _build_material(0.92, 0.95)
 	_host.station_markers.material_override = station_material
 	_host.fleet_markers.material_override = fleet_material
+	_host.fleet_markers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if _host.get("ship_markers") != null:
-		_host.ship_markers.material_override = null
+		_host.ship_markers.material_override = bar_material
+		_host.ship_markers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func _build_material(alpha: float, emission_energy: float) -> StandardMaterial3D:
@@ -174,21 +183,66 @@ func _build_station_mesh() -> Mesh:
 
 
 func _build_fleet_mesh() -> Mesh:
-	var surface_tool := SurfaceTool.new()
-	surface_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var color := Color.WHITE
-	_append_triangle_prism(
-		surface_tool,
-		[
-			Vector3(0.0, 0.0, 4.8),
-			Vector3(-2.5, 0.0, -3.2),
-			Vector3(2.5, 0.0, -3.2),
-		],
-		0.8,
-		color
-	)
-	_append_box(surface_tool, Vector3(0.0, 0.05, -1.1), Vector3(2.4, 0.35, 2.4), color)
-	return surface_tool.commit()
+	var mesh := SphereMesh.new()
+	mesh.radius = FLEET_CIRCLE_RADIUS
+	mesh.height = FLEET_CIRCLE_RADIUS * 2.0
+	mesh.radial_segments = 12
+	mesh.rings = 6
+	return mesh
+
+
+func _build_bar_mesh() -> Mesh:
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(FLEET_BAR_LENGTH, FLEET_BAR_THICKNESS, FLEET_BAR_THICKNESS)
+	return mesh
+
+
+func _summarize_mobile_ships_in_system(system_id: String) -> Dictionary:
+	var ship_count: int = 0
+	var owner_ship_counts: Dictionary = {}
+
+	for ship_id in SpaceManager.get_ship_ids_in_system(system_id):
+		var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
+		if ship == null or ship.is_stationary():
+			continue
+		ship_count += 1
+		owner_ship_counts[ship.owner_empire_id] = int(owner_ship_counts.get(ship.owner_empire_id, 0)) + 1
+
+	if ship_count <= 0:
+		return {}
+
+	var dominant_owner_id: String = ""
+	var dominant_count: int = -1
+	var is_tied: bool = false
+	for owner_id_variant in owner_ship_counts.keys():
+		var owner_id: String = str(owner_id_variant)
+		var owner_count: int = int(owner_ship_counts.get(owner_id_variant, 0))
+		if owner_count > dominant_count:
+			dominant_owner_id = owner_id
+			dominant_count = owner_count
+			is_tied = false
+		elif owner_count == dominant_count:
+			is_tied = true
+
+	return {
+		"ship_count": ship_count,
+		"owner_empire_id": "" if is_tied else dominant_owner_id,
+	}
+
+
+func _build_bar_positions(icon_center: Vector3, underscore_count: int) -> Array[Vector3]:
+	var positions: Array[Vector3] = []
+	for bar_index in range(underscore_count):
+		var row_index: int = bar_index / BAR_COLUMNS
+		var column_index: int = bar_index % BAR_COLUMNS
+		var row_count: int = mini(BAR_COLUMNS, underscore_count - row_index * BAR_COLUMNS)
+		var x_offset: float = (float(column_index) - float(row_count - 1) * 0.5) * BAR_SPACING_X
+		positions.append(icon_center + Vector3(
+			x_offset,
+			-BAR_BASE_Y_OFFSET - float(row_index) * BAR_ROW_STEP,
+			0.0
+		))
+	return positions
 
 
 func _append_box(surface_tool: SurfaceTool, center: Vector3, size: Vector3, color: Color) -> void:

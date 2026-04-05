@@ -1,68 +1,94 @@
-extends RefCounted
+extends Node
+class_name GameSceneViewSystem
 
-var _host: Node = null
+var _state: GameSceneState = null
+var _ui: GameSceneRefs = null
+var _view_router: GameViewRouter = null
+var _scene_ui_controller: GameSceneUiController = null
+var _runtime_system: GameSceneRuntimeSystem = null
+var _debug_spawner: GalaxyDebugSpawner = null
 
 
-func bind(host: Node) -> void:
-	_host = host
+func setup(
+	state: GameSceneState,
+	ui: GameSceneRefs,
+	view_router: GameViewRouter,
+	scene_ui_controller: GameSceneUiController,
+	runtime_system: GameSceneRuntimeSystem,
+	debug_spawner: GalaxyDebugSpawner
+) -> void:
+	_state = state
+	_ui = ui
+	_view_router = view_router
+	_scene_ui_controller = scene_ui_controller
+	_runtime_system = runtime_system
+	_debug_spawner = debug_spawner
 
 
-func unbind() -> void:
+func teardown() -> void:
 	_unbind_view_signals()
-	_host = null
+	_state = null
+	_ui = null
+	_view_router = null
+	_scene_ui_controller = null
+	_runtime_system = null
+	_debug_spawner = null
 
 
 func handle_unhandled_input(event: InputEvent) -> void:
-	if _host == null:
+	if _state == null or _ui == null:
 		return
 
 	if event.is_action_pressed("ui_cancel"):
-		if _host.galaxy_hud.is_settings_visible():
-			_host._set_settings_overlay_visible(false)
+		if _ui.galaxy_hud.is_settings_visible():
+			_scene_ui_controller.set_settings_overlay_visible(false)
 			return
-		if _host.empire_picker_overlay.visible and not _host._empire_picker_requires_selection:
-			_host._set_empire_picker_visible(false, false)
+		if _ui.empire_picker_overlay.visible and not _state.empire_picker_requires_selection:
+			_scene_ui_controller.set_empire_picker_visible(false, false)
 			return
-		if _host.is_system_view_open():
-			var system_view: SystemView = _host.get_system_view()
+		if _view_router.is_system_view_open():
+			var system_view: SystemView = _view_router.get_system_view()
 			if system_view != null and system_view.handle_cancel_action():
-				_host._close_system_view()
+				_scene_ui_controller.close_system_view()
 			return
-		_host._set_settings_overlay_visible(true)
+		_scene_ui_controller.set_settings_overlay_visible(true)
 		return
 
-	if _host._is_generating:
+	if _state.is_generating:
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_R:
-			_host.call_deferred("_generate_galaxy_async")
+			Callable(_runtime_system, "generate_async").call_deferred()
 			return
 		if event.keycode == KEY_E:
-			_host._open_empire_picker(false)
+			_scene_ui_controller.open_empire_picker(false)
 			return
 		if event.keycode == KEY_F9:
-			_host._debug_spawner.toggle()
+			_debug_spawner.toggle()
 			return
 
-	if _host.empire_picker_overlay.visible:
+	if _ui.empire_picker_overlay.visible:
 		return
 
-	if _host.galaxy_hud.is_settings_visible():
+	if _ui.galaxy_hud.is_settings_visible():
 		return
 
-	if _host.bottom_category_bar.consume_hotkey_event(event):
-		_host.get_viewport().set_input_as_handled()
+	if _ui.bottom_category_bar.consume_hotkey_event(event):
+		get_viewport().set_input_as_handled()
 		return
 
-	_host._view_router.handle_active_view_input(event)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE:
+		Callable(_scene_ui_controller, "update_system_panel").call_deferred()
+
+	_view_router.handle_active_view_input(event)
 
 
 func bind_view_signals() -> void:
-	if _host == null:
+	if _view_router == null:
 		return
 
-	var galaxy_view: GalaxyMapView = _host.get_galaxy_view()
+	var galaxy_view: GalaxyMapView = _view_router.get_galaxy_view()
 	if galaxy_view != null:
 		if not galaxy_view.hovered_system_changed.is_connected(_on_galaxy_view_hovered_system_changed):
 			galaxy_view.hovered_system_changed.connect(_on_galaxy_view_hovered_system_changed)
@@ -71,15 +97,15 @@ func bind_view_signals() -> void:
 		if not galaxy_view.pinned_system_changed.is_connected(_on_galaxy_view_pinned_system_changed):
 			galaxy_view.pinned_system_changed.connect(_on_galaxy_view_pinned_system_changed)
 
-	if not _host._view_router.system_close_requested.is_connected(_host._close_system_view):
-		_host._view_router.system_close_requested.connect(_host._close_system_view)
+	if not _view_router.system_close_requested.is_connected(_scene_ui_controller.close_system_view):
+		_view_router.system_close_requested.connect(_scene_ui_controller.close_system_view)
 
 
 func _unbind_view_signals() -> void:
-	if _host == null:
+	if _view_router == null:
 		return
 
-	var galaxy_view: GalaxyMapView = _host.get_galaxy_view()
+	var galaxy_view: GalaxyMapView = _view_router.get_galaxy_view()
 	if galaxy_view != null:
 		if galaxy_view.hovered_system_changed.is_connected(_on_galaxy_view_hovered_system_changed):
 			galaxy_view.hovered_system_changed.disconnect(_on_galaxy_view_hovered_system_changed)
@@ -88,29 +114,29 @@ func _unbind_view_signals() -> void:
 		if galaxy_view.pinned_system_changed.is_connected(_on_galaxy_view_pinned_system_changed):
 			galaxy_view.pinned_system_changed.disconnect(_on_galaxy_view_pinned_system_changed)
 
-	if _host._view_router != null and _host._view_router.system_close_requested.is_connected(_host._close_system_view):
-		_host._view_router.system_close_requested.disconnect(_host._close_system_view)
+	if _view_router.system_close_requested.is_connected(_scene_ui_controller.close_system_view):
+		_view_router.system_close_requested.disconnect(_scene_ui_controller.close_system_view)
 
 
 func _on_galaxy_view_hovered_system_changed(system_id: String) -> void:
-	_host.hovered_system_id = system_id
-	_host._update_system_panel()
-	_host._update_info_label()
+	_state.hovered_system_id = system_id
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_info_label()
 
 
 func _on_galaxy_view_inspect_system_requested(system_id: String) -> void:
 	if system_id.is_empty():
 		return
-	_host.hovered_system_id = system_id
-	_host.selected_system_id = system_id
-	_host._update_system_panel()
-	_host._update_info_label()
-	_host._open_system_view(system_id)
+	_state.hovered_system_id = system_id
+	_state.selected_system_id = system_id
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_info_label()
+	_scene_ui_controller.open_system_view(system_id)
 
 
 func _on_galaxy_view_pinned_system_changed(system_id: String) -> void:
-	_host.pinned_system_id = system_id
-	_host.hovered_system_id = system_id
-	_host._render_stars()
-	_host._update_system_panel()
-	_host._update_info_label()
+	_state.pinned_system_id = system_id
+	_state.hovered_system_id = system_id
+	_runtime_system.render_stars()
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_info_label()

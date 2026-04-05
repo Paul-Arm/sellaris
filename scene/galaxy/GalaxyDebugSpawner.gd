@@ -4,7 +4,6 @@ class_name GalaxyDebugSpawner
 const DEBUG_FLEET_CLASS_ID: String = "debug_corvette"
 const DEBUG_STATION_CLASS_ID: String = "debug_station"
 
-var _host: Node = null
 var _panel: PanelContainer = null
 var _toggle_button: Button = null
 var _empire_picker: OptionButton = null
@@ -17,12 +16,29 @@ var _spawn_fleet_button: Button = null
 var _spawn_station_button: Button = null
 var _status_label: Label = null
 var _visible: bool = false
+var _get_active_empire_id: Callable = Callable()
+var _get_inspected_system_id: Callable = Callable()
+var _get_systems_by_id: Callable = Callable()
+var _spawn_runtime_ship: Callable = Callable()
+var _create_runtime_fleet: Callable = Callable()
 
 
-func bind(host: Node, panel: PanelContainer, toggle_button: Button) -> void:
-	_host = host
+func bind(
+	panel: PanelContainer,
+	toggle_button: Button,
+	get_active_empire_id: Callable,
+	get_inspected_system_id: Callable,
+	get_systems_by_id: Callable,
+	spawn_runtime_ship: Callable,
+	create_runtime_fleet: Callable
+) -> void:
 	_panel = panel
 	_toggle_button = toggle_button
+	_get_active_empire_id = get_active_empire_id
+	_get_inspected_system_id = get_inspected_system_id
+	_get_systems_by_id = get_systems_by_id
+	_spawn_runtime_ship = spawn_runtime_ship
+	_create_runtime_fleet = create_runtime_fleet
 	_empire_picker = panel.get_node("MarginContainer/VBoxContainer/EmpirePickerRow/EmpireOptionButton") as OptionButton
 	_use_active_empire_button = panel.get_node("MarginContainer/VBoxContainer/EmpirePickerRow/UseActiveEmpireButton") as Button
 	_system_picker = panel.get_node("MarginContainer/VBoxContainer/SystemPickerRow/SystemOptionButton") as OptionButton
@@ -43,7 +59,6 @@ func bind(host: Node, panel: PanelContainer, toggle_button: Button) -> void:
 
 
 func unbind() -> void:
-	_host = null
 	_panel = null
 	_toggle_button = null
 	_empire_picker = null
@@ -55,6 +70,11 @@ func unbind() -> void:
 	_spawn_fleet_button = null
 	_spawn_station_button = null
 	_status_label = null
+	_get_active_empire_id = Callable()
+	_get_inspected_system_id = Callable()
+	_get_systems_by_id = Callable()
+	_spawn_runtime_ship = Callable()
+	_create_runtime_fleet = Callable()
 
 
 func configure() -> void:
@@ -213,26 +233,26 @@ func _on_toggle_pressed() -> void:
 
 
 func _on_use_active_empire_pressed() -> void:
-	if _host == null:
+	if not _get_active_empire_id.is_valid():
 		return
-	_select_option_button_value(_empire_picker, str(_host.get("active_empire_id")))
+	_select_option_button_value(_empire_picker, str(_get_active_empire_id.call()))
 	set_status("Spawner empire synced to the active empire.")
 
 
 func _on_use_inspected_system_pressed() -> void:
-	if _host == null:
+	if not _get_inspected_system_id.is_valid():
 		return
-	var inspected_system_id: String = str(_host.call("_get_inspected_system_id"))
+	var inspected_system_id: String = str(_get_inspected_system_id.call())
 	_select_option_button_value(_system_picker, inspected_system_id)
 	if inspected_system_id.is_empty():
 		set_status("No inspected system is available yet.")
 		return
-	var systems_by_id: Dictionary = _host.get("systems_by_id")
+	var systems_by_id: Dictionary = _resolve_systems_by_id()
 	set_status("Spawner system synced to %s." % str(systems_by_id.get(inspected_system_id, {}).get("name", inspected_system_id)))
 
 
 func _on_spawn_fleet_pressed() -> void:
-	if _host == null:
+	if not _spawn_runtime_ship.is_valid() or not _create_runtime_fleet.is_valid():
 		return
 
 	var empire_id: String = _get_selected_empire_id()
@@ -244,7 +264,7 @@ func _on_spawn_fleet_pressed() -> void:
 
 	var ship_ids := PackedStringArray()
 	for ship_index in range(ship_count):
-		var ship: ShipRuntime = _host.call("spawn_runtime_ship", DEBUG_FLEET_CLASS_ID, empire_id, system_id, {
+		var ship: ShipRuntime = _spawn_runtime_ship.call(DEBUG_FLEET_CLASS_ID, empire_id, system_id, {
 			"display_name": "Debug Corvette %02d" % (ship_index + 1),
 			"ai_role": "combat_patrol",
 		})
@@ -257,7 +277,7 @@ func _on_spawn_fleet_pressed() -> void:
 	if resolved_fleet_name.is_empty():
 		resolved_fleet_name = "Debug Fleet"
 
-	var fleet: FleetRuntime = _host.call("create_runtime_fleet", empire_id, system_id, ship_ids, {
+	var fleet: FleetRuntime = _create_runtime_fleet.call(empire_id, system_id, ship_ids, {
 		"display_name": resolved_fleet_name,
 		"ai_role": "combat_patrol",
 	})
@@ -265,12 +285,12 @@ func _on_spawn_fleet_pressed() -> void:
 		set_status("Fleet creation failed after spawning ships.")
 		return
 
-	var systems_by_id: Dictionary = _host.get("systems_by_id")
+	var systems_by_id: Dictionary = _resolve_systems_by_id()
 	set_status("Spawned %d corvettes as %s in %s." % [ship_count, resolved_fleet_name, str(systems_by_id.get(system_id, {}).get("name", system_id))])
 
 
 func _on_spawn_station_pressed() -> void:
-	if _host == null:
+	if not _spawn_runtime_ship.is_valid():
 		return
 
 	var empire_id: String = _get_selected_empire_id()
@@ -281,7 +301,7 @@ func _on_spawn_station_pressed() -> void:
 
 	var presence: Dictionary = SpaceManager.build_system_presence(system_id)
 	var station_count: int = int(presence.get("station_count", 0))
-	var station: ShipRuntime = _host.call("spawn_runtime_ship", DEBUG_STATION_CLASS_ID, empire_id, system_id, {
+	var station: ShipRuntime = _spawn_runtime_ship.call(DEBUG_STATION_CLASS_ID, empire_id, system_id, {
 		"display_name": "Debug Station %02d" % (station_count + 1),
 		"ai_role": "system_guard",
 	})
@@ -289,5 +309,12 @@ func _on_spawn_station_pressed() -> void:
 		set_status("Failed to spawn debug station.")
 		return
 
-	var systems_by_id: Dictionary = _host.get("systems_by_id")
+	var systems_by_id: Dictionary = _resolve_systems_by_id()
 	set_status("Spawned %s in %s." % [station.display_name, str(systems_by_id.get(system_id, {}).get("name", system_id))])
+
+
+func _resolve_systems_by_id() -> Dictionary:
+	if not _get_systems_by_id.is_valid():
+		return {}
+	var systems_by_id_variant: Variant = _get_systems_by_id.call()
+	return systems_by_id_variant if systems_by_id_variant is Dictionary else {}

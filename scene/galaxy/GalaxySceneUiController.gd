@@ -1,6 +1,12 @@
 extends RefCounted
 
+const HOVER_PREVIEW_DELAY_SEC: float = 1.0
+
 var _host: Node
+var _hover_preview_pending_system_id: String = ""
+var _hover_preview_ready_system_id: String = ""
+var _hover_preview_sequence: int = 0
+var _active_preview_system_id: String = ""
 
 
 func bind(host: Node) -> void:
@@ -8,6 +14,7 @@ func bind(host: Node) -> void:
 
 
 func unbind() -> void:
+	_reset_hover_preview_state()
 	_host = null
 
 
@@ -65,6 +72,7 @@ func update_system_panel() -> void:
 	update_bottom_category_bar_context(active_empire_name, selected_system_name, selected_owner_name)
 
 	if inspected_system_id.is_empty() or not _host.systems_by_id.has(inspected_system_id):
+		_clear_system_panel_preview()
 		_host.system_panel.visible = false
 		_host.selected_system_title.text = "No system selected"
 		_host.selected_system_meta.text = "Left-click a star system to inspect it. The galaxy map keeps compact summary data for every system, while richer stars, planets, belts, ruins, and structures are resolved on demand for the selected system."
@@ -111,7 +119,13 @@ func update_system_panel() -> void:
 		int(summary.get("colonizable_worlds", 0)),
 		int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
 	]
-	update_system_panel_preview(inspected_system_id, system_details)
+	_refresh_hover_preview_tracking(inspected_system_id)
+	var preview_system_id: String = _resolve_preview_target_system_id(inspected_system_id)
+	if preview_system_id.is_empty():
+		_clear_system_panel_preview()
+	else:
+		_active_preview_system_id = preview_system_id
+		update_system_panel_preview(preview_system_id, system_details)
 	if _host.system_view.is_open() and _host.system_view.get_current_system_id() == inspected_system_id:
 		_host.system_view.show_system(system_details, neighbor_count)
 	_host.claim_system_button.disabled = _host.active_empire_id.is_empty() or owner_empire_id == _host.active_empire_id
@@ -163,8 +177,99 @@ func _capture_system_panel_snapshot(system_id: String, system_details: Dictionar
 	_host.system_snapshot_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_host.system_snapshot_preview.clear_preview()
 
-	if get_inspected_system_id() == system_id:
+	if _resolve_preview_target_system_id(get_inspected_system_id()) == system_id:
 		_host.system_preview_image.texture = snapshot_texture
+
+
+func _refresh_hover_preview_tracking(inspected_system_id: String) -> void:
+	if not _is_hover_preview_candidate(inspected_system_id):
+		_cancel_hover_preview_delay()
+		return
+
+	if _hover_preview_ready_system_id == inspected_system_id:
+		_hover_preview_pending_system_id = inspected_system_id
+		return
+
+	if _hover_preview_pending_system_id == inspected_system_id:
+		return
+
+	_hover_preview_pending_system_id = inspected_system_id
+	_hover_preview_ready_system_id = ""
+	_hover_preview_sequence += 1
+	var request_sequence: int = _hover_preview_sequence
+	Callable(self, "_complete_hover_preview_delay").call_deferred(inspected_system_id, request_sequence)
+
+
+func _complete_hover_preview_delay(system_id: String, request_sequence: int) -> void:
+	if _host == null:
+		return
+
+	await _host.get_tree().create_timer(HOVER_PREVIEW_DELAY_SEC).timeout
+
+	if _host == null:
+		return
+	if request_sequence != _hover_preview_sequence:
+		return
+	if _hover_preview_pending_system_id != system_id:
+		return
+	if not _is_hover_preview_candidate(system_id):
+		return
+
+	_hover_preview_ready_system_id = system_id
+	_host._update_system_panel()
+
+
+func _resolve_preview_target_system_id(inspected_system_id: String) -> String:
+	if inspected_system_id.is_empty():
+		return ""
+	if _is_preview_interaction_blocked():
+		return ""
+	if _host.system_view.is_open() and _host.system_view.get_current_system_id() == inspected_system_id:
+		return inspected_system_id
+	if not _host.pinned_system_id.is_empty():
+		return inspected_system_id
+	if _hover_preview_ready_system_id == inspected_system_id:
+		return inspected_system_id
+	return ""
+
+
+func _is_preview_interaction_blocked() -> bool:
+	return _host.camera_rig != null and _host.camera_rig.has_method("is_middle_dragging") and _host.camera_rig.is_middle_dragging()
+
+
+func _is_hover_preview_candidate(inspected_system_id: String) -> bool:
+	if inspected_system_id.is_empty():
+		return false
+	if not _host.systems_by_id.has(inspected_system_id):
+		return false
+	if _is_preview_interaction_blocked():
+		return false
+	if _host.system_view.is_open():
+		return false
+	if not _host.pinned_system_id.is_empty():
+		return false
+	return _host.hovered_system_id == inspected_system_id
+
+
+func _clear_system_panel_preview() -> void:
+	if _host == null:
+		return
+	if _active_preview_system_id.is_empty() and _host.system_preview_image.texture == null:
+		return
+	_active_preview_system_id = ""
+	_host.system_preview_image.texture = null
+	_host._system_panel_snapshot_token += 1
+
+
+func _cancel_hover_preview_delay() -> void:
+	_hover_preview_pending_system_id = ""
+	_hover_preview_ready_system_id = ""
+	_hover_preview_sequence += 1
+
+
+func _reset_hover_preview_state() -> void:
+	_cancel_hover_preview_delay()
+	_active_preview_system_id = ""
 
 
 func populate_empire_picker() -> void:

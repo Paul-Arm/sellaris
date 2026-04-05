@@ -59,6 +59,9 @@ func handle_unhandled_input(event: InputEvent) -> void:
 		_host.get_viewport().set_input_as_handled()
 		return
 
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE:
+		Callable(_host, "_update_system_panel").call_deferred()
+
 	if event is InputEventMouseMotion:
 		if is_pointer_over_gui():
 			return

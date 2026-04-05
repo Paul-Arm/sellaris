@@ -4,9 +4,31 @@
 [ext_resource type="PackedScene" path="res://scene/galaxy/BottomCategoryBar.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scene/StarSystem/StarSystemPreview.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scene/UI/GalaxyHud.tscn" id="4"]
+[ext_resource type="Script" path="res://scene/game/GameViewRouter.gd" id="5"]
+[ext_resource type="Script" path="res://scene/game/GameSceneUiController.gd" id="6"]
+[ext_resource type="Script" path="res://scene/game/systems/GameSceneRuntimeSystem.gd" id="7"]
+[ext_resource type="Script" path="res://scene/game/systems/GameSceneViewSystem.gd" id="8"]
+[ext_resource type="Script" path="res://scene/game/systems/GameSceneSimulationSystem.gd" id="9"]
 
 [node name="GameScene" type="Node"]
 script = ExtResource("1")
+
+[node name="SceneSystems" type="Node" parent="."]
+
+[node name="ViewRouter" type="Node" parent="SceneSystems"]
+script = ExtResource("5")
+
+[node name="UiController" type="Node" parent="SceneSystems"]
+script = ExtResource("6")
+
+[node name="RuntimeSystem" type="Node" parent="SceneSystems"]
+script = ExtResource("7")
+
+[node name="ViewSystem" type="Node" parent="SceneSystems"]
+script = ExtResource("8")
+
+[node name="SimulationSystem" type="Node" parent="SceneSystems"]
+script = ExtResource("9")
 
 [node name="ViewRoot" type="Node" parent="."]
 

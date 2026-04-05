@@ -146,6 +146,10 @@ func set_camera_input_blocked(blocked: bool) -> void:
 		camera_rig.set_input_blocked(blocked)
 
 
+func is_middle_dragging() -> bool:
+	return camera_rig != null and camera_rig.has_method("is_middle_dragging") and camera_rig.is_middle_dragging()
+
+
 func set_galaxy_radius(radius: float) -> void:
 	if camera_rig != null and camera_rig.has_method("set_galaxy_radius"):
 		camera_rig.set_galaxy_radius(radius)

@@ -141,7 +141,15 @@ func _ready() -> void:
 	_map_renderer.bind(self, STAR_CORE_SHADER, STAR_GLOW_SHADER)
 	_runtime_placeholder_renderer.bind(self)
 	_scene_ui_controller.bind(self)
-	_debug_spawner.bind(self, debug_spawn_panel, debug_spawn_toggle_button)
+	_debug_spawner.bind(
+		debug_spawn_panel,
+		debug_spawn_toggle_button,
+		Callable(self, "_get_debug_spawner_active_empire_id"),
+		Callable(self, "_get_inspected_system_id"),
+		Callable(self, "_get_debug_spawner_systems_by_id"),
+		Callable(self, "spawn_runtime_ship"),
+		Callable(self, "create_runtime_fleet")
+	)
 	_music_ui_controller.bind(galaxy_hud)
 	_runtime_system.bind(self)
 	_input_system.bind(self)
@@ -337,6 +345,14 @@ func _get_selected_empire_id_from_picker() -> String:
 
 func _format_controller_kind(controller_kind: String) -> String:
 	return _scene_ui_controller.format_controller_kind(controller_kind)
+
+
+func _get_debug_spawner_active_empire_id() -> String:
+	return active_empire_id
+
+
+func _get_debug_spawner_systems_by_id() -> Dictionary:
+	return systems_by_id
 
 
 func _sync_sim_clock_ui() -> void:

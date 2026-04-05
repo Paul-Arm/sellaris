@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 class_name GameViewRouter
 
 signal system_close_requested
@@ -11,13 +11,13 @@ var _galaxy_view: GalaxyMapView = null
 var _system_view: SystemView = null
 
 
-func bind(view_root: Node) -> void:
+func setup(view_root: Node) -> void:
 	_view_root = view_root
 	_ensure_views()
 	show_galaxy_view()
 
 
-func unbind() -> void:
+func teardown() -> void:
 	if _system_view != null and _system_view.close_requested.is_connected(_on_system_close_requested):
 		_system_view.close_requested.disconnect(_on_system_close_requested)
 	_view_root = null
@@ -35,6 +35,12 @@ func get_system_view() -> SystemView:
 
 func is_system_view_open() -> bool:
 	return _system_view != null and _system_view.is_open()
+
+
+func get_current_system_view_id() -> String:
+	if _system_view == null:
+		return ""
+	return _system_view.get_current_system_id()
 
 
 func show_galaxy_view() -> void:
@@ -57,6 +63,11 @@ func refresh_system_view(system_details: Dictionary, neighbor_count: int) -> voi
 	if _system_view == null or not _system_view.is_open():
 		return
 	_system_view.show_system(system_details, neighbor_count)
+
+
+func set_galaxy_camera_input_blocked(blocked: bool) -> void:
+	if _galaxy_view != null:
+		_galaxy_view.set_camera_input_blocked(blocked)
 
 
 func handle_active_view_input(event: InputEvent) -> void:

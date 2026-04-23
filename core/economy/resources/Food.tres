@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ResourceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/economy/ResourceDefinition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+resource_id = "food"
+sort_key = 30
+display_name = "Food"
+category = "basic"
+is_special = false
+max_stockpile_milliunits = 200000000
+starting_amount_milliunits = 2500000
+ai_weight = 120
+visibility_rule = "always"

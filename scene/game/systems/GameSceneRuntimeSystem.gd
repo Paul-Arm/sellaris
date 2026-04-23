@@ -106,6 +106,10 @@ func generate_async() -> void:
 	await get_tree().process_frame
 	initialize_empires()
 
+	_scene_ui_controller.set_loading_state(true, "Bootstrapping economy...", 0.68)
+	await get_tree().process_frame
+	bootstrap_economy()
+
 	_scene_ui_controller.set_loading_state(true, "Preparing scene data...", 0.72)
 	await get_tree().process_frame
 
@@ -167,6 +171,7 @@ func get_runtime_snapshot() -> Dictionary:
 	return {
 		"galaxy": get_galaxy_state_snapshot(),
 		"space": SpaceManager.build_snapshot(),
+		"economy": EconomyManager.build_snapshot(),
 	}
 
 
@@ -333,6 +338,7 @@ func set_system_owner(system_id: String, empire_id: String) -> bool:
 		return false
 
 	sync_cached_state()
+	_sync_system_economy_sources(system_id)
 	render_ownership_markers()
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
@@ -406,6 +412,9 @@ func add_runtime_system(system_record: Dictionary, detail_patch: Dictionary = {}
 	render_stars()
 	render_hyperlanes()
 	render_ownership_markers()
+	if not _state.system_records.is_empty():
+		var created_system_id: String = str(_state.system_records[_state.system_records.size() - 1].get("id", ""))
+		_sync_system_economy_sources(created_system_id)
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
 	return true
@@ -464,6 +473,44 @@ func initialize_empires() -> void:
 	sync_cached_state()
 	_scene_ui_controller.populate_empire_picker()
 	_sync_debug_spawner_panel()
+
+
+func bootstrap_economy() -> void:
+	if _state == null:
+		return
+
+	var empire_ids := PackedStringArray()
+	for empire_record_variant in _state.empire_records:
+		var empire_record: Dictionary = empire_record_variant
+		var empire_id: String = str(empire_record.get("id", "")).strip_edges()
+		if empire_id.is_empty():
+			continue
+		empire_ids.append(empire_id)
+
+	EconomyManager.bootstrap(empire_ids, build_economy_galaxy_snapshot())
+
+
+func build_economy_galaxy_snapshot() -> Dictionary:
+	if _state == null:
+		return {}
+
+	var systems: Array[Dictionary] = []
+	for system_record_variant in _state.system_records:
+		var system_record: Dictionary = system_record_variant
+		var system_id: String = str(system_record.get("id", "")).strip_edges()
+		if system_id.is_empty():
+			continue
+		var system_details: Dictionary = resolve_system_details(system_id)
+		systems.append({
+			"id": system_id,
+			"owner_empire_id": str(system_record.get("owner_empire_id", "")),
+			"orbitals": system_details.get("orbitals", []).duplicate(true),
+		})
+
+	return {
+		"generated_seed": _state.generated_seed,
+		"systems": systems,
+	}
 
 
 func sync_cached_state() -> void:
@@ -639,10 +686,29 @@ func _apply_system_detail_state(system_id: String, resolved_details: Dictionary,
 
 	_scene_ui_controller.invalidate_system_panel_snapshot(system_id)
 	sync_cached_state()
+	_sync_system_economy_sources(system_id, resolved_details)
 	render_stars()
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
 	return true
+
+
+func _sync_system_economy_sources(system_id: String, resolved_details: Dictionary = {}) -> void:
+	if _state == null or not EconomyManager.is_bootstrapped():
+		return
+	if system_id.is_empty() or not _state.systems_by_id.has(system_id):
+		return
+
+	var system_details := resolved_details.duplicate(true)
+	if system_details.is_empty():
+		system_details = resolve_system_details(system_id)
+
+	EconomyManager.sync_system_sources(
+		system_id,
+		_state.galaxy_state.get_system_owner_id(system_id),
+		system_details.get("orbitals", []),
+		_state.generated_seed
+	)
 
 
 func _on_space_runtime_changed(_record_id: String) -> void:

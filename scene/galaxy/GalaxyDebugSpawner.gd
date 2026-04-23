@@ -192,7 +192,7 @@ func set_visible_state(visible_state: bool) -> void:
 	_refresh_toggle_text()
 
 
-func is_visible() -> bool:
+func is_spawner_visible() -> bool:
 	return _visible
 
 

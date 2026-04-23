@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ResourceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/economy/ResourceDefinition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+resource_id = "energy"
+sort_key = 20
+display_name = "Energy"
+category = "basic"
+is_special = false
+max_stockpile_milliunits = 250000000
+starting_amount_milliunits = 5000000
+ai_weight = 110
+visibility_rule = "always"

@@ -87,6 +87,7 @@ func _ready() -> void:
 	_species_system.bind(self)
 	_settings_system.bind(self)
 	_preset_system.bind(self)
+	_touch_cross_system_state()
 
 	_scene_setup.cache_ui_refs()
 	_scene_setup.configure_widgets()
@@ -110,6 +111,11 @@ func _exit_tree() -> void:
 		_species_system.unbind()
 	if _scene_setup != null:
 		_scene_setup.unbind()
+
+
+func _touch_cross_system_state() -> void:
+	if _is_syncing_settings_ui and _is_syncing_species_ui and not _species_catalog.is_empty():
+		return
 
 
 func _bind_actions() -> void:

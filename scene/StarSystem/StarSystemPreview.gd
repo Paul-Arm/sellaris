@@ -449,8 +449,8 @@ func _build_black_hole_disk(star_position: Vector3, star_scale: float) -> void:
 		var angle: float = float(instance_index) * TAU / float(multimesh.instance_count) + rng.randf_range(-0.09, 0.09)
 		var radius: float = 4.8 * star_scale + rng.randf_range(-0.9, 1.1)
 		var local_position := Vector3(cos(angle) * radius, rng.randf_range(-0.18, 0.18), sin(angle) * radius)
-		var basis := Basis().scaled(Vector3.ONE * rng.randf_range(0.5, 1.25))
-		multimesh.set_instance_transform(instance_index, Transform3D(basis, local_position))
+		var instance_basis := Basis().scaled(Vector3.ONE * rng.randf_range(0.5, 1.25))
+		multimesh.set_instance_transform(instance_index, Transform3D(instance_basis, local_position))
 
 	disk.multimesh = multimesh
 	disk.material_override = _build_lit_material(Color(0.38, 0.52, 0.98, 0.85), Color(0.3, 0.44, 1.0, 1.0), 1.5, 0.45, 0.1)

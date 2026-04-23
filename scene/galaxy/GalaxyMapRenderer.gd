@@ -1,5 +1,6 @@
 extends RefCounted
 
+const GALAXY_TERRITORY_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyTerritoryRenderer.gd")
 const BLACK_HOLE_TYPE := "Black hole"
 const NEUTRON_TYPE := "Neutron star"
 const O_CLASS_TYPE := "O class star"
@@ -22,15 +23,20 @@ const HYPERLANE_HEIGHT_OFFSET := 2.2
 var _host: Node
 var _star_core_shader: Shader
 var _star_glow_shader: Shader
+var _territory_renderer: RefCounted = GALAXY_TERRITORY_RENDERER_SCRIPT.new()
 
 
 func bind(host: Node, star_core_shader: Shader, star_glow_shader: Shader) -> void:
 	_host = host
 	_star_core_shader = star_core_shader
 	_star_glow_shader = star_glow_shader
+	if _territory_renderer != null:
+		_territory_renderer.bind(host)
 
 
 func unbind() -> void:
+	if _territory_renderer != null:
+		_territory_renderer.unbind()
 	_host = null
 	_star_core_shader = null
 	_star_glow_shader = null
@@ -140,6 +146,10 @@ func render_hyperlanes() -> void:
 
 
 func render_ownership_markers() -> void:
+	if _territory_renderer != null:
+		_territory_renderer.render()
+		return
+
 	var empire_owned_systems: Dictionary = {}
 	for system_record in _host.system_records:
 		var owner_empire_id: String = str(system_record.get("owner_empire_id", ""))
@@ -379,7 +389,7 @@ func _build_capsule_polygon(start_point: Vector2, end_point: Vector2, radius: fl
 	var normal := Vector2(-axis.y, axis.x)
 	var start_angle: float = normal.angle()
 	var end_angle: float = start_angle + PI
-	var arc_steps: int = maxi(6, OWNERSHIP_CIRCLE_SEGMENTS / 2)
+	var arc_steps: int = maxi(6, int(OWNERSHIP_CIRCLE_SEGMENTS / 2.0))
 
 	for step in range(arc_steps + 1):
 		var t: float = float(step) / float(arc_steps)
@@ -680,7 +690,7 @@ func _is_system_point_covered(system_point: Vector2, polygons: Array[PackedVecto
 	return false
 
 
-func _append_region_fill(surface_tool: SurfaceTool, region_polygon: PackedVector2Array, region_height: float, region_color: Color) -> void:
+func _append_region_fill(_surface_tool: SurfaceTool, _region_polygon: PackedVector2Array, _region_height: float, _region_color: Color) -> void:
 	return
 
 

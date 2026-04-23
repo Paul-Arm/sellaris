@@ -375,7 +375,7 @@ func _build_halo_material(color: Color, alpha: float) -> ShaderMaterial:
 static func _resolve_scene_variant(
 	rng: RandomNumberGenerator,
 	kind: String,
-	has_ring: bool,
+	_has_ring: bool,
 	visual_metadata: Dictionary
 ) -> String:
 	var explicit_variant: String = str(visual_metadata.get("scene_variant", "")).strip_edges().to_lower()

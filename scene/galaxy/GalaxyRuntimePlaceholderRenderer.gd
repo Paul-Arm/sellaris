@@ -45,7 +45,7 @@ func render_runtime_placeholders() -> void:
 		if not mobile_ship_summary.is_empty():
 			var icon_center := system_position + Vector3(0.0, FLEET_ICON_HEIGHT, 0.0)
 			var ship_count: int = int(mobile_ship_summary.get("ship_count", 0))
-			var underscore_count: int = ship_count / SHIPS_PER_BAR
+			var underscore_count: int = int(floor(float(ship_count) / float(SHIPS_PER_BAR)))
 			var color := _get_owner_color(str(mobile_ship_summary.get("owner_empire_id", "")))
 			fleet_icon_instances.append({
 				"position": icon_center,
@@ -114,15 +114,15 @@ func _render_multimesh(target: MultiMeshInstance3D, mesh: Mesh, instances: Array
 		var scale_value: float = float(instance.get("scale", 1.0))
 		var yaw: float = float(instance.get("yaw", 0.0))
 		var position: Vector3 = instance.get("position", Vector3.ZERO)
-		var basis: Basis = Basis(Vector3.UP, yaw).scaled(Vector3.ONE * scale_value)
-		multimesh.set_instance_transform(instance_index, Transform3D(basis, position))
+		var instance_basis: Basis = Basis(Vector3.UP, yaw).scaled(Vector3.ONE * scale_value)
+		multimesh.set_instance_transform(instance_index, Transform3D(instance_basis, position))
 		multimesh.set_instance_color(instance_index, instance.get("color", Color.WHITE))
 
 	target.multimesh = multimesh
 
 
 func _resolve_marker_layout(base_radius: float, index: int, origin: Vector3, seed_value: int, height: float) -> Dictionary:
-	var ring_index: int = index / SLOTS_PER_RING
+	var ring_index: int = int(floor(float(index) / float(SLOTS_PER_RING)))
 	var slot_index: int = index % SLOTS_PER_RING
 	var ring_slot_count: int = SLOTS_PER_RING + ring_index * 2
 	var seed_angle: float = float(abs(seed_value) % 3600) / 3600.0 * TAU
@@ -233,7 +233,7 @@ func _summarize_mobile_ships_in_system(system_id: String) -> Dictionary:
 func _build_bar_positions(icon_center: Vector3, underscore_count: int) -> Array[Vector3]:
 	var positions: Array[Vector3] = []
 	for bar_index in range(underscore_count):
-		var row_index: int = bar_index / BAR_COLUMNS
+		var row_index: int = int(floor(float(bar_index) / float(BAR_COLUMNS)))
 		var column_index: int = bar_index % BAR_COLUMNS
 		var row_count: int = mini(BAR_COLUMNS, underscore_count - row_index * BAR_COLUMNS)
 		var x_offset: float = (float(column_index) - float(row_count - 1) * 0.5) * BAR_SPACING_X

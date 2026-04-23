@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ResourceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/economy/ResourceDefinition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+resource_id = "dark_matter"
+sort_key = 60
+display_name = "Dark Matter"
+category = "special"
+is_special = true
+max_stockpile_milliunits = 50000000
+starting_amount_milliunits = 0
+ai_weight = 200
+visibility_rule = "discovered"

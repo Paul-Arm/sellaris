@@ -3,6 +3,7 @@ extends Node
 const SHIP_CLASS_SCRIPT: Script = preload("res://core/space/ShipClass.gd")
 const SHIP_RUNTIME_SCRIPT: Script = preload("res://core/space/ShipRuntime.gd")
 const FLEET_RUNTIME_SCRIPT: Script = preload("res://core/space/FleetRuntime.gd")
+const SHIP_SOURCE_PREFIX := "ship:"
 
 signal ship_class_registered(class_id: String)
 signal ship_spawned(ship_id: String)
@@ -11,8 +12,6 @@ signal ship_updated(ship_id: String)
 signal fleet_created(fleet_id: String)
 signal fleet_removed(fleet_id: String)
 signal fleet_updated(fleet_id: String)
-signal upkeep_totals_changed(empire_id: String, totals: Dictionary)
-signal upkeep_due(empire_id: String, totals: Dictionary, year: int, month: int)
 
 var _next_ship_id: int = 1
 var _next_fleet_id: int = 1
@@ -24,18 +23,17 @@ var _ship_ids_by_system: Dictionary = {}
 var _ship_ids_by_class: Dictionary = {}
 var _fleet_ids_by_owner: Dictionary = {}
 var _fleet_ids_by_system: Dictionary = {}
-var _monthly_upkeep_by_owner: Dictionary = {}
 
 
 func _ready() -> void:
 	if SimClock != null:
 		if not SimClock.day_tick.is_connected(_on_sim_day_tick):
 			SimClock.day_tick.connect(_on_sim_day_tick)
-		if not SimClock.month_tick.is_connected(_on_sim_month_tick):
-			SimClock.month_tick.connect(_on_sim_month_tick)
 
 
 func reset_runtime_state(clear_ship_classes: bool = false) -> void:
+	for ship_id_variant in _ships.keys():
+		_remove_ship_economy_source(str(ship_id_variant))
 	_next_ship_id = 1
 	_next_fleet_id = 1
 	_ships.clear()
@@ -45,7 +43,6 @@ func reset_runtime_state(clear_ship_classes: bool = false) -> void:
 	_ship_ids_by_class.clear()
 	_fleet_ids_by_owner.clear()
 	_fleet_ids_by_system.clear()
-	_monthly_upkeep_by_owner.clear()
 	if clear_ship_classes:
 		_ship_classes.clear()
 
@@ -62,7 +59,7 @@ func register_ship_class(ship_class: ShipClass, overwrite_existing: bool = false
 
 	_ship_classes[ship_class.class_id] = ship_class
 	if overwrite_existing:
-		_rebuild_indexes_and_upkeep()
+		_rebuild_indexes_and_economy_sources()
 	ship_class_registered.emit(ship_class.class_id)
 	return true
 
@@ -139,7 +136,7 @@ func spawn_ship(class_id: String, owner_empire_id: String, system_id: String, sp
 	_add_to_index(_ship_ids_by_owner, owner_empire_id, ship_id)
 	_add_to_index(_ship_ids_by_system, system_id, ship_id)
 	_add_to_index(_ship_ids_by_class, ship.class_id, ship_id)
-	_adjust_owner_upkeep(owner_empire_id, ship_class.get_monthly_upkeep(), false)
+	_sync_ship_economy_source(ship)
 	ship_spawned.emit(ship_id)
 	return ship
 
@@ -149,15 +146,13 @@ func remove_ship(ship_id: String) -> bool:
 	if ship == null:
 		return false
 
-	var ship_class := get_ship_class(ship.class_id)
 	if not ship.fleet_id.is_empty():
 		remove_ship_from_fleet(ship_id)
 
 	_remove_from_index(_ship_ids_by_owner, ship.owner_empire_id, ship_id)
 	_remove_from_index(_ship_ids_by_system, ship.current_system_id, ship_id)
 	_remove_from_index(_ship_ids_by_class, ship.class_id, ship_id)
-	if ship_class != null:
-		_adjust_owner_upkeep(ship.owner_empire_id, ship_class.get_monthly_upkeep(), true)
+	_remove_ship_economy_source(ship_id)
 	_ships.erase(ship_id)
 	ship_removed.emit(ship_id)
 	return true
@@ -180,7 +175,16 @@ func get_ship_ids_of_class(class_id: String) -> PackedStringArray:
 
 
 func get_owner_monthly_upkeep(empire_id: String) -> Dictionary:
-	return _sanitize_dictionary(_monthly_upkeep_by_owner.get(empire_id, {}))
+	var totals: Dictionary = {}
+	for ship_id in get_ship_ids_for_owner(empire_id):
+		var ship := get_ship(ship_id)
+		if ship == null:
+			continue
+		var ship_class := get_ship_class(ship.class_id)
+		if ship_class == null:
+			continue
+		_merge_amount_defs_into_map(totals, ship_class.get_monthly_upkeep())
+	return totals
 
 
 func set_ship_owner(
@@ -204,10 +208,9 @@ func set_ship_owner(
 	var changed := false
 	if ship.owner_empire_id != owner_empire_id:
 		_remove_from_index(_ship_ids_by_owner, ship.owner_empire_id, ship_id)
-		_adjust_owner_upkeep(ship.owner_empire_id, ship_class.get_monthly_upkeep(), true)
 		ship.owner_empire_id = owner_empire_id
 		_add_to_index(_ship_ids_by_owner, ship.owner_empire_id, ship_id)
-		_adjust_owner_upkeep(ship.owner_empire_id, ship_class.get_monthly_upkeep(), false)
+		_sync_ship_economy_source(ship)
 		changed = true
 
 	if ship.controller_kind != controller_kind:
@@ -662,7 +665,7 @@ func load_snapshot(snapshot: Dictionary, clear_existing_state: bool = true) -> v
 			continue
 		_fleets[fleet.fleet_id] = fleet
 
-	_rebuild_indexes_and_upkeep()
+	_rebuild_indexes_and_economy_sources()
 
 
 func _on_sim_day_tick(_date: Dictionary) -> void:
@@ -684,15 +687,6 @@ func _on_sim_day_tick(_date: Dictionary) -> void:
 		set_fleet_system(fleet.fleet_id, fleet.destination_system_id)
 
 
-func _on_sim_month_tick(year: int, month: int) -> void:
-	for empire_id_variant in _monthly_upkeep_by_owner.keys():
-		var empire_id: String = str(empire_id_variant)
-		var totals: Dictionary = get_owner_monthly_upkeep(empire_id)
-		if totals.is_empty():
-			continue
-		upkeep_due.emit(empire_id, totals, year, month)
-
-
 func _generate_ship_id() -> String:
 	var ship_id := "ship_%06d" % _next_ship_id
 	_next_ship_id += 1
@@ -705,22 +699,19 @@ func _generate_fleet_id() -> String:
 	return fleet_id
 
 
-func _rebuild_indexes_and_upkeep() -> void:
+func _rebuild_indexes_and_economy_sources() -> void:
 	_ship_ids_by_owner.clear()
 	_ship_ids_by_system.clear()
 	_ship_ids_by_class.clear()
 	_fleet_ids_by_owner.clear()
 	_fleet_ids_by_system.clear()
-	_monthly_upkeep_by_owner.clear()
 
 	for ship_variant in _ships.values():
 		var ship: ShipRuntime = ship_variant
 		_add_to_index(_ship_ids_by_owner, ship.owner_empire_id, ship.ship_id)
 		_add_to_index(_ship_ids_by_system, ship.current_system_id, ship.ship_id)
 		_add_to_index(_ship_ids_by_class, ship.class_id, ship.ship_id)
-		var ship_class := get_ship_class(ship.class_id)
-		if ship_class != null:
-			_adjust_owner_upkeep(ship.owner_empire_id, ship_class.get_monthly_upkeep(), false)
+		_sync_ship_economy_source(ship)
 
 	for fleet_variant in _fleets.values():
 		var fleet: FleetRuntime = fleet_variant
@@ -728,19 +719,53 @@ func _rebuild_indexes_and_upkeep() -> void:
 		_add_to_index(_fleet_ids_by_system, fleet.current_system_id, fleet.fleet_id)
 
 
-func _adjust_owner_upkeep(empire_id: String, costs: Dictionary, subtract: bool) -> void:
-	if empire_id.is_empty() or costs.is_empty():
+func _sync_ship_economy_source(ship: ShipRuntime) -> void:
+	if ship == null:
 		return
 
-	var current_totals: Dictionary = _sanitize_dictionary(_monthly_upkeep_by_owner.get(empire_id, {}))
-	var updated_totals := ShipUpkeepComponent.subtract_cost_maps(current_totals, costs) if subtract else ShipUpkeepComponent.merge_cost_maps(current_totals, costs)
-	if updated_totals.is_empty():
-		_monthly_upkeep_by_owner.erase(empire_id)
-		upkeep_totals_changed.emit(empire_id, {})
+	var source_id := _get_ship_source_id(ship.ship_id)
+	var ship_class := get_ship_class(ship.class_id)
+	if EconomyManager == null or ship_class == null or ship.owner_empire_id.is_empty():
+		_remove_ship_economy_source(ship.ship_id)
 		return
 
-	_monthly_upkeep_by_owner[empire_id] = updated_totals
-	upkeep_totals_changed.emit(empire_id, updated_totals.duplicate(true))
+	var upkeep_costs := ship_class.get_monthly_upkeep()
+	if upkeep_costs.is_empty():
+		_remove_ship_economy_source(ship.ship_id)
+		return
+
+	if EconomyManager.has_source(source_id):
+		EconomyManager.transfer_source(source_id, ship.owner_empire_id)
+		EconomyManager.update_source(source_id, [], upkeep_costs, [])
+		return
+
+	EconomyManager.register_source(
+		source_id,
+		ship.owner_empire_id,
+		[],
+		upkeep_costs,
+		[],
+		"ship_upkeep"
+	)
+
+
+func _remove_ship_economy_source(ship_id: String) -> void:
+	if EconomyManager == null:
+		return
+	var source_id := _get_ship_source_id(ship_id)
+	if EconomyManager.has_source(source_id):
+		EconomyManager.remove_source(source_id)
+
+
+func _get_ship_source_id(ship_id: String) -> String:
+	return "%s%s" % [SHIP_SOURCE_PREFIX, ship_id]
+
+
+func _merge_amount_defs_into_map(target: Dictionary, amounts: Array[ResourceAmountDef]) -> void:
+	for amount in amounts:
+		if amount == null or amount.resource_id.is_empty() or amount.milliunits == 0:
+			continue
+		target[amount.resource_id] = int(target.get(amount.resource_id, 0)) + amount.milliunits
 
 
 func _add_to_index(index: Dictionary, key: String, value: String) -> void:

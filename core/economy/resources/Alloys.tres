@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ResourceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://core/economy/ResourceDefinition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+resource_id = "alloys"
+sort_key = 40
+display_name = "Alloys"
+category = "strategic"
+is_special = false
+max_stockpile_milliunits = 150000000
+starting_amount_milliunits = 1000000
+ai_weight = 140
+visibility_rule = "always"

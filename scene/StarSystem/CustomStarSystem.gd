@@ -170,6 +170,8 @@ func _build_quick_orbital(
 		"orbit_width": orbit_width,
 		"is_colonizable": is_colonizable,
 		"habitability": habitability,
+		"habitability_points": int(round(clampf(habitability, 0.0, 1.0) * 100.0)),
+		"resource_richness_points": 50,
 		"resource_richness": 0.5,
 		"metadata": {},
 	}

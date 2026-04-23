@@ -328,7 +328,9 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 		var planet_color: Color = visual_info.get("color", PLANET_COLOR_PALETTE[planet_index % PLANET_COLOR_PALETTE.size()])
 		var planet_size: float = float(visual_info.get("size", detail_rng.randf_range(1.0, 3.9)))
 		var habitability: float = float(visual_info.get("habitability", 0.0))
+		var habitability_points: int = _to_points(habitability)
 		is_colonizable = bool(visual_info.get("is_colonizable", is_colonizable))
+		var resource_richness_points: int = _to_points(snapped(detail_rng.randf_range(0.1, 1.0), 0.01))
 
 		orbitals.append({
 			"id": "planet_%02d" % planet_index,
@@ -342,7 +344,9 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 			"orbit_width": 0.0,
 			"is_colonizable": is_colonizable,
 			"habitability": habitability,
-			"resource_richness": snapped(detail_rng.randf_range(0.1, 1.0), 0.01),
+			"habitability_points": habitability_points,
+			"resource_richness_points": resource_richness_points,
+			"resource_richness": float(resource_richness_points) / 100.0,
 			"metadata": {
 				"planet_visual": visual_info.get("planet_visual", {}),
 			},
@@ -361,6 +365,7 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 				9.0
 			)
 			occupied_orbits.append(belt_radius)
+			var belt_resource_richness_points: int = _to_points(snapped(detail_rng.randf_range(0.35, 1.0), 0.01))
 			orbitals.append({
 				"id": "belt_%02d" % belt_index,
 				"name": "%s Belt %d" % [resolved_name, belt_index + 1],
@@ -373,7 +378,9 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 				"orbit_width": detail_rng.randf_range(8.0, 18.0),
 				"is_colonizable": false,
 				"habitability": 0.0,
-				"resource_richness": snapped(detail_rng.randf_range(0.35, 1.0), 0.01),
+				"habitability_points": 0,
+				"resource_richness_points": belt_resource_richness_points,
+				"resource_richness": float(belt_resource_richness_points) / 100.0,
 				"metadata": {
 					"belt_visual": _build_belt_visual_metadata(detail_rng),
 				},
@@ -391,6 +398,7 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 			6.5
 		)
 		occupied_orbits.append(structure_radius)
+		var structure_resource_richness_points: int = _to_points(snapped(detail_rng.randf_range(0.2, 0.85), 0.01))
 		orbitals.append({
 			"id": "structure_%02d" % structure_index,
 			"name": "%s Relay %d" % [resolved_name, structure_index + 1],
@@ -403,7 +411,9 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 			"orbit_width": 0.0,
 			"is_colonizable": false,
 			"habitability": 0.0,
-			"resource_richness": snapped(detail_rng.randf_range(0.2, 0.85), 0.01),
+			"habitability_points": 0,
+			"resource_richness_points": structure_resource_richness_points,
+			"resource_richness": float(structure_resource_richness_points) / 100.0,
 			"metadata": {},
 		})
 
@@ -419,6 +429,7 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 			6.0
 		)
 		occupied_orbits.append(ruin_radius)
+		var ruin_resource_richness_points: int = _to_points(snapped(detail_rng.randf_range(0.15, 0.92), 0.01))
 		orbitals.append({
 			"id": "ruin_%02d" % ruin_index,
 			"name": "%s Ruin %d" % [resolved_name, ruin_index + 1],
@@ -431,7 +442,9 @@ func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionar
 			"orbit_width": 0.0,
 			"is_colonizable": false,
 			"habitability": 0.0,
-			"resource_richness": snapped(detail_rng.randf_range(0.15, 0.92), 0.01),
+			"habitability_points": 0,
+			"resource_richness_points": ruin_resource_richness_points,
+			"resource_richness": float(ruin_resource_richness_points) / 100.0,
 			"metadata": {},
 		})
 
@@ -1716,12 +1729,16 @@ func _normalize_orbital_entry(orbital_entry: Dictionary, orbital_index: int) -> 
 	result["vertical_offset"] = float(result.get("vertical_offset", 0.0))
 	result["orbit_width"] = float(result.get("orbit_width", 0.0))
 	result["is_colonizable"] = bool(result.get("is_colonizable", false))
-	result["habitability"] = clampf(float(result.get("habitability", 0.0)), 0.0, 1.0)
-	result["resource_richness"] = clampf(float(result.get("resource_richness", 0.5)), 0.0, 1.0)
+	var habitability_points: int = clampi(int(result.get("habitability_points", _to_points(float(result.get("habitability", 0.0))))), 0, 100)
+	var resource_richness_points: int = clampi(int(result.get("resource_richness_points", _to_points(float(result.get("resource_richness", 0.5))))), 0, 100)
+	result["habitability_points"] = habitability_points
+	result["habitability"] = float(habitability_points) / 100.0
+	result["resource_richness_points"] = resource_richness_points
+	result["resource_richness"] = float(resource_richness_points) / 100.0
 	result["metadata"] = result.get("metadata", {}).duplicate(true)
 	return result
- 
- 
+
+
 func _get_default_orbital_color(orbital_type: String, orbital_index: int) -> Color:
 	match orbital_type:
 		ORBITAL_TYPE_ASTEROID_BELT:
@@ -1732,6 +1749,10 @@ func _get_default_orbital_color(orbital_type: String, orbital_index: int) -> Col
 			return RUIN_COLOR
 		_:
 			return PLANET_COLOR_PALETTE[orbital_index % PLANET_COLOR_PALETTE.size()]
+
+
+func _to_points(value: float) -> int:
+	return clampi(int(round(clampf(value, 0.0, 1.0) * 100.0)), 0, 100)
  
  
 func _infer_star_class_from_entry(color_name: String, special_type: String) -> String:

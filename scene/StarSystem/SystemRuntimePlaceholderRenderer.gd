@@ -140,9 +140,9 @@ func _build_group(
 		var layout: Dictionary = _resolve_layout(base_radius, record_index, entity_id.hash())
 		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
 		var scale_blend: Vector3 = damaged_scale.lerp(base_scale, hull_ratio)
-		var basis: Basis = Basis(Vector3.UP, float(layout.get("yaw", 0.0))).scaled(scale_blend)
+		var instance_basis: Basis = Basis(Vector3.UP, float(layout.get("yaw", 0.0))).scaled(scale_blend)
 		var position: Vector3 = layout.get("position", Vector3.ZERO)
-		multimesh.set_instance_transform(record_index, Transform3D(basis, position))
+		multimesh.set_instance_transform(record_index, Transform3D(instance_basis, position))
 		multimesh.set_instance_color(record_index, _get_owner_color(record, alpha))
 		instance_layouts.append({
 			"record": record.duplicate(true),
@@ -184,9 +184,9 @@ func _build_sprite_group(
 		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
 		var size_multiplier: float = lerpf(0.84, 1.0, hull_ratio)
 
-		var basis: Basis = Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier)
+		var instance_basis: Basis = Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier)
 		var position: Vector3 = layout.get("position", Vector3.ZERO)
-		multimesh.set_instance_transform(record_index, Transform3D(basis, position))
+		multimesh.set_instance_transform(record_index, Transform3D(instance_basis, position))
 		multimesh.set_instance_color(record_index, _get_marker_tint(record, alpha, tint_strength))
 		instance_layouts.append({
 			"record": record.duplicate(true),
@@ -237,8 +237,8 @@ func _build_fleet_group(
 			var hull_ratio: float = clampf(float(member_record.get("hull_ratio", 1.0)), 0.2, 1.0)
 			var size_multiplier: float = lerpf(0.82, 1.0, hull_ratio)
 			var member_position: Vector3 = fleet_center + _resolve_fleet_member_offset(member_index, member_records.size(), fleet_id.hash())
-			var basis: Basis = Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier)
-			multimesh.set_instance_transform(instance_index, Transform3D(basis, member_position))
+			var instance_basis: Basis = Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier)
+			multimesh.set_instance_transform(instance_index, Transform3D(instance_basis, member_position))
 			multimesh.set_instance_color(instance_index, _get_marker_tint(member_record, alpha, tint_strength))
 			instance_index += 1
 
@@ -257,7 +257,7 @@ func _build_fleet_group(
 
 
 func _resolve_layout(base_radius: float, index: int, seed_value: int) -> Dictionary:
-	var ring_index: int = index / SLOTS_PER_RING
+	var ring_index: int = int(floor(float(index) / float(SLOTS_PER_RING)))
 	var slot_index: int = index % SLOTS_PER_RING
 	var slot_count: int = SLOTS_PER_RING + ring_index * 2
 	var seed_angle: float = float(abs(seed_value) % 3600) / 3600.0 * TAU

@@ -62,9 +62,9 @@ func get_capability_mask() -> int:
 	return mask
 
 
-func get_monthly_upkeep() -> Dictionary:
+func get_monthly_upkeep() -> Array[ResourceAmountDef]:
 	if upkeep_component == null:
-		return {}
+		return []
 	return upkeep_component.get_monthly_costs()
 
 

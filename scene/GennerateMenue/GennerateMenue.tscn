@@ -211,6 +211,13 @@ text = "Hyperlane Density"
 [node name="HyperlaneDensitySpinBox" type="SpinBox" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=1644872429]
 layout_mode = 2
 
+[node name="EmpireLabel" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid"]
+layout_mode = 2
+text = "Starting Empire"
+
+[node name="EmpireOptionButton" type="OptionButton" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid"]
+layout_mode = 2
+
 [node name="InfoPanel" type="PanelContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox" unique_id=205635041]
 custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
@@ -235,5 +242,5 @@ text = "Generation Notes"
 [node name="Hint" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/InfoPanel/MarginContainer/InfoVBox" unique_id=1097349]
 layout_mode = 2
 size_flags_vertical = 3
-text = "Custom crafted systems can still be added in the Galaxy scene via the Custom Systems export list, and the generated empire picker will include your saved presets."
+text = "The selected starting empire will be assigned a home system during generation. Saved presets appear here alongside a generated fallback empire."
 autowrap_mode = 2

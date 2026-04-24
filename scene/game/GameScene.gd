@@ -41,6 +41,10 @@ func configure(settings: Dictionary) -> void:
 		galaxy_shape = str(_state.generation_settings["shape"])
 	if _state.generation_settings.has("hyperlane_density"):
 		hyperlane_density = int(_state.generation_settings["hyperlane_density"])
+	if _state.generation_settings.has("selected_starting_empire_id"):
+		_state.selected_starting_empire_id = str(_state.generation_settings["selected_starting_empire_id"])
+	if _state.generation_settings.has("selected_starting_empire_preset_name"):
+		_state.selected_starting_empire_preset_name = str(_state.generation_settings["selected_starting_empire_preset_name"])
 	_apply_export_settings_to_state()
 
 
@@ -87,6 +91,16 @@ func _on_clear_owner_pressed() -> void:
 	if _state.selected_system_id.is_empty():
 		return
 	_runtime_system.clear_system_owner(_state.selected_system_id)
+
+
+func _on_survey_system_pressed() -> void:
+	if _state.selected_system_id.is_empty():
+		return
+	_runtime_system.survey_system_for_active_empire(_state.selected_system_id)
+
+
+func _on_debug_reveal_toggled() -> void:
+	_runtime_system.set_debug_reveal_galaxy(not _state.debug_reveal_galaxy)
 
 
 func _on_empire_picker_item_selected(_index: int) -> void:
@@ -152,6 +166,8 @@ func _connect_scene_signals() -> void:
 	_ui.change_empire_button.pressed.connect(_scene_ui_controller.open_empire_picker.bind(false))
 	_ui.claim_system_button.pressed.connect(_on_claim_selected_system_pressed)
 	_ui.clear_owner_button.pressed.connect(_on_clear_owner_pressed)
+	_ui.survey_system_button.pressed.connect(_on_survey_system_pressed)
+	_ui.debug_reveal_toggle_button.pressed.connect(_on_debug_reveal_toggled)
 	_ui.select_empire_button.pressed.connect(_on_select_empire_pressed)
 	_ui.cancel_empire_picker_button.pressed.connect(_on_cancel_empire_picker_pressed)
 	_ui.galaxy_hud.close_settings_requested.connect(_simulation_system.on_close_settings_pressed)

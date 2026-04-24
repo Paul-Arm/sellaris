@@ -1,7 +1,7 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://iyt1og47f8xj"]
 
-[ext_resource type="Script" path="res://scene/galaxy/GalaxyMapView.gd" id="1"]
-[ext_resource type="Script" path="res://scene/galaxy/GalaxyCameraController.gd" id="2"]
+[ext_resource type="Script" uid="uid://cujmyjejttfu4" path="res://scene/galaxy/GalaxyMapView.gd" id="1"]
+[ext_resource type="Script" uid="uid://e4krux16ghmk" path="res://scene/galaxy/GalaxyCameraController.gd" id="2"]
 
 [sub_resource type="Environment" id="1"]
 background_mode = 1
@@ -13,43 +13,72 @@ tonemap_exposure = 0.92
 glow_enabled = true
 glow_intensity = 0.08
 glow_bloom = 0.04
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.0
+volumetric_fog_albedo = Color(0.18, 0.26, 0.42, 1)
+volumetric_fog_emission = Color(0.02, 0.05, 0.09, 1)
+volumetric_fog_emission_energy = 0.35
+volumetric_fog_length = 12000.0
 
-[node name="GalaxyMapView" type="Node3D"]
+[sub_resource type="Gradient" id="Gradient_5p2xk"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_4iuij"]
+
+[sub_resource type="NoiseTexture3D" id="NoiseTexture3D_58cq5"]
+width = 444
+height = 444
+depth = 444
+noise = SubResource("FastNoiseLite_4iuij")
+color_ramp = SubResource("Gradient_5p2xk")
+seamless = true
+
+[sub_resource type="FogMaterial" id="FogMaterial_galaxy"]
+density = 1.1569
+albedo = Color(0.16, 0.24, 0.42, 1)
+emission = Color(0.025, 0.055, 0.12, 1)
+edge_fade = 0.1414208
+density_texture = SubResource("NoiseTexture3D_58cq5")
+
+[node name="GalaxyMapView" type="Node3D" unique_id=1297125926]
 script = ExtResource("1")
 
-[node name="CameraRig" type="Node3D" parent="."]
+[node name="CameraRig" type="Node3D" parent="." unique_id=461089316]
 script = ExtResource("2")
 
-[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+[node name="Camera3D" type="Camera3D" parent="CameraRig" unique_id=2064635372]
 transform = Transform3D(1, 0, 0, 0, 0.8290376, 0.5591929, 0, -0.5591929, 0.8290376, 0, 1100, 1400)
 current = true
 fov = 42.0
 far = 12000.0
 
-[node name="SunLight" type="DirectionalLight3D" parent="."]
+[node name="SunLight" type="DirectionalLight3D" parent="." unique_id=2113568968]
 transform = Transform3D(0.81915206, -0.4967318, 0.2867882, 0, 0.49999997, 0.86602545, -0.57357645, -0.70940655, 0.409576, 0, 0, 0)
 light_energy = 1.1
 shadow_enabled = true
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1171016628]
 environment = SubResource("1")
 
-[node name="Stars" type="Node3D" parent="."]
+[node name="FogVolume" type="FogVolume" parent="WorldEnvironment" unique_id=1277242186]
+shape = 4
+material = SubResource("FogMaterial_galaxy")
 
-[node name="CoreStars" type="MultiMeshInstance3D" parent="Stars"]
+[node name="Stars" type="Node3D" parent="." unique_id=445984268]
 
-[node name="GlowStars" type="MultiMeshInstance3D" parent="Stars"]
+[node name="CoreStars" type="MultiMeshInstance3D" parent="Stars" unique_id=42836867]
 
-[node name="OwnershipMarkers" type="MeshInstance3D" parent="Stars"]
+[node name="GlowStars" type="MultiMeshInstance3D" parent="Stars" unique_id=1308154042]
 
-[node name="OwnershipConnectors" type="MeshInstance3D" parent="Stars"]
+[node name="OwnershipMarkers" type="MeshInstance3D" parent="Stars" unique_id=1485271050]
 
-[node name="Hyperlanes" type="MeshInstance3D" parent="."]
+[node name="OwnershipConnectors" type="MeshInstance3D" parent="Stars" unique_id=1752217203]
 
-[node name="RuntimePlaceholders" type="Node3D" parent="."]
+[node name="Hyperlanes" type="MeshInstance3D" parent="." unique_id=108680595]
 
-[node name="StationMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders"]
+[node name="RuntimePlaceholders" type="Node3D" parent="." unique_id=1175349313]
 
-[node name="FleetMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders"]
+[node name="StationMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders" unique_id=1765854602]
 
-[node name="ShipMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders"]
+[node name="FleetMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders" unique_id=1286719330]
+
+[node name="ShipMarkers" type="MultiMeshInstance3D" parent="RuntimePlaceholders" unique_id=338894662]

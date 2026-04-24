@@ -39,6 +39,8 @@ func render_runtime_placeholders() -> void:
 		var system_id: String = str(system_record.get("id", ""))
 		if system_id.is_empty():
 			continue
+		if not _is_system_visible(system_id):
+			continue
 		var system_position: Vector3 = system_record.get("position", Vector3.ZERO)
 		var station_index: int = 0
 		var mobile_ship_summary: Dictionary = _summarize_mobile_ships_in_system(system_id)
@@ -139,6 +141,14 @@ func _get_owner_color(owner_empire_id: String) -> Color:
 	if _host != null and _host.empires_by_id.has(owner_empire_id):
 		return _host.empires_by_id[owner_empire_id].get("color", Color.WHITE)
 	return Color(0.82, 0.88, 1.0, 1.0)
+
+
+func _is_system_visible(system_id: String) -> bool:
+	if system_id.is_empty():
+		return false
+	if _host != null and _host.has_method("is_system_visible_on_map"):
+		return bool(_host.is_system_visible_on_map(system_id))
+	return true
 
 
 func _apply_materials() -> void:

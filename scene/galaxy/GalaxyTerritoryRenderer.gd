@@ -9,19 +9,19 @@ const OWNERSHIP_BLOB_RADIUS_MIN := 30.0
 const OWNERSHIP_FALLOFF_RADIUS_FACTOR := 1.85
 const OWNERSHIP_FIELD_MARGIN_FACTOR := 0.85
 const OWNERSHIP_FIELD_MARGIN_MIN := 42.0
-const OWNERSHIP_TEXEL_TARGET_FACTOR := 0.18
-const OWNERSHIP_TEXEL_TARGET_MIN := 9.0
-const OWNERSHIP_RESOLUTION_MIN := 96
-const OWNERSHIP_RESOLUTION_MAX := 440
+const OWNERSHIP_TEXEL_TARGET_FACTOR := 0.08
+const OWNERSHIP_TEXEL_TARGET_MIN := 3.75
+const OWNERSHIP_RESOLUTION_MIN := 192
+const OWNERSHIP_RESOLUTION_MAX := 1280
 const OWNERSHIP_BRIDGE_SAMPLE_SPACING_FACTOR := 0.78
 const OWNERSHIP_BRIDGE_WEIGHT := 0.12
 const OWNERSHIP_BRIDGE_RADIUS_FACTOR := 0.38
 const OWNERSHIP_BRIDGE_MAX_LENGTH_FACTOR := 2.5
-const OWNERSHIP_BLOCKER_WEIGHT := 0.78
-const OWNERSHIP_BLOCKER_RADIUS_FACTOR := 0.72
+const OWNERSHIP_BLOCKER_WEIGHT := 1.16
+const OWNERSHIP_BLOCKER_RADIUS_FACTOR := 1.05
 const OWNERSHIP_COMPETITOR_WEIGHT := 0.72
 const OWNERSHIP_CONTOUR_POINT_SNAP := 0.05
-const OWNERSHIP_LOOP_SMOOTHING_PASSES := 3
+const OWNERSHIP_LOOP_SMOOTHING_PASSES := 6
 const OWNERSHIP_LOOP_MITER_LIMIT := 2.6
 const OWNERSHIP_BORDER_HEIGHT := -6.0
 const OWNERSHIP_FILL_HEIGHT := -5.65
@@ -81,13 +81,16 @@ func _collect_owned_systems() -> Dictionary:
 
 	for system_record_variant in _host.system_records:
 		var system_record: Dictionary = system_record_variant
+		var system_id: String = str(system_record.get("id", ""))
+		if not _is_system_visible(system_id):
+			continue
 		var owner_empire_id: String = str(system_record.get("owner_empire_id", ""))
 		if owner_empire_id.is_empty() or not _host.empires_by_id.has(owner_empire_id):
 			continue
 
 		var owned_systems: Array = empire_systems.get(owner_empire_id, [])
 		owned_systems.append({
-			"system_id": str(system_record.get("id", "")),
+			"system_id": system_id,
 			"position": system_record.get("position", Vector3.ZERO),
 		})
 		empire_systems[owner_empire_id] = owned_systems
@@ -101,6 +104,8 @@ func _build_topology_signature(empire_systems: Dictionary) -> String:
 
 	for system_record_variant in _host.system_records:
 		var system_record: Dictionary = system_record_variant
+		if not _is_system_visible(str(system_record.get("id", ""))):
+			continue
 		var owner_empire_id: String = str(system_record.get("owner_empire_id", ""))
 		if owner_empire_id.is_empty() or not empire_systems.has(owner_empire_id):
 			continue
@@ -122,6 +127,8 @@ func _build_topology_signature(empire_systems: Dictionary) -> String:
 
 		var system_a: Dictionary = _host.system_records[link.x]
 		var system_b: Dictionary = _host.system_records[link.y]
+		if not _is_system_visible(str(system_a.get("id", ""))) or not _is_system_visible(str(system_b.get("id", ""))):
+			continue
 		var owner_a: String = str(system_a.get("owner_empire_id", ""))
 		var owner_b: String = str(system_b.get("owner_empire_id", ""))
 		if owner_a.is_empty() or owner_a != owner_b:
@@ -379,6 +386,8 @@ func _build_blocker_fields(
 
 	for system_record_variant in _host.system_records:
 		var system_record: Dictionary = system_record_variant
+		if not _is_system_hint_visible(str(system_record.get("id", ""))):
+			continue
 		var system_owner_id: String = str(system_record.get("owner_empire_id", ""))
 		var position: Vector3 = system_record.get("position", Vector3.ZERO)
 		var point := Vector2(position.x, position.z)
@@ -421,6 +430,8 @@ func _splat_bridge_influences(
 
 		var system_a: Dictionary = _host.system_records[link.x]
 		var system_b: Dictionary = _host.system_records[link.y]
+		if not _is_system_visible(str(system_a.get("id", ""))) or not _is_system_visible(str(system_b.get("id", ""))):
+			continue
 		var owner_a: String = str(system_a.get("owner_empire_id", ""))
 		var owner_b: String = str(system_b.get("owner_empire_id", ""))
 		if owner_a.is_empty() or owner_a != owner_b or not empire_index_by_id.has(owner_a):
@@ -1058,3 +1069,19 @@ func _get_border_outer_width() -> float:
 
 func _get_border_inner_width() -> float:
 	return maxf(float(_host.min_system_distance) * OWNERSHIP_BORDER_INNER_FACTOR, OWNERSHIP_BORDER_INNER_MIN)
+
+
+func _is_system_visible(system_id: String) -> bool:
+	if system_id.is_empty():
+		return false
+	if _host != null and _host.has_method("is_system_visible_on_map"):
+		return bool(_host.is_system_visible_on_map(system_id))
+	return true
+
+
+func _is_system_hint_visible(system_id: String) -> bool:
+	if system_id.is_empty():
+		return false
+	if _host != null and _host.has_method("is_system_hint_visible_on_map"):
+		return bool(_host.is_system_hint_visible_on_map(system_id))
+	return _is_system_visible(system_id)

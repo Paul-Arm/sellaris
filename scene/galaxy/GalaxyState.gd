@@ -1,4 +1,5 @@
 extends RefCounted
+class_name GalaxyState
 
 const DEFAULT_STAR_PROFILE := {
 	"system_type": "normal",
@@ -32,6 +33,10 @@ const DEFAULT_SYSTEM_SUMMARY := {
 	"anomaly_risk": 0.0,
 }
 const HYPERLANE_INTERSECTION_EPSILON := 0.001
+const INTEL_NONE := 0
+const INTEL_SENSOR := 1
+const INTEL_EXPLORED := 2
+const INTEL_SURVEYED := 3
 
 var generated_seed: int = 0
 var min_system_distance: float = 0.0
@@ -46,6 +51,7 @@ var ownership_by_system_id: Dictionary = {}
 var empires: Array[Dictionary] = []
 var empires_by_id: Dictionary = {}
 var empire_ids: PackedStringArray = PackedStringArray()
+var intel_by_empire_id: Dictionary = {}
 
 
 func reset() -> void:
@@ -62,6 +68,7 @@ func reset() -> void:
 	empires.clear()
 	empires_by_id.clear()
 	empire_ids = PackedStringArray()
+	intel_by_empire_id.clear()
 
 
 func load_from_layout(layout: Dictionary) -> void:
@@ -82,6 +89,7 @@ func load_from_layout(layout: Dictionary) -> void:
 		hyperlane_links.append(Vector2i(mini(link.x, link.y), maxi(link.x, link.y)))
 
 	hyperlane_graph = layout.get("hyperlane_graph", {}).duplicate(true)
+	intel_by_empire_id = _normalize_intel_map(layout.get("intel_by_empire_id", {}))
 	_rebuild_system_indexes()
 	_rebuild_ownership_index()
 	_rebuild_hyperlane_graph()
@@ -95,6 +103,7 @@ func set_empires(empire_records: Array[Dictionary]) -> void:
 
 	_rebuild_empire_indexes()
 	_rebuild_empire_owned_system_ids()
+	_ensure_empire_intel_records()
 
 
 func get_system(system_id: String) -> Dictionary:
@@ -150,6 +159,99 @@ func get_neighbor_system_ids(system_id: String) -> PackedStringArray:
 	return neighbor_ids
 
 
+func get_system_intel_level(empire_id: String, system_id: String) -> int:
+	if empire_id.is_empty() or system_id.is_empty():
+		return INTEL_NONE
+	var empire_intel: Dictionary = intel_by_empire_id.get(empire_id, {})
+	return clampi(int(empire_intel.get(system_id, INTEL_NONE)), INTEL_NONE, INTEL_SURVEYED)
+
+
+func get_system_intel_label(empire_id: String, system_id: String) -> String:
+	match get_system_intel_level(empire_id, system_id):
+		INTEL_SURVEYED:
+			return "Surveyed"
+		INTEL_EXPLORED:
+			return "Explored"
+		INTEL_SENSOR:
+			return "Sensor Contact"
+		_:
+			return "Unknown"
+
+
+func is_system_visible_to_empire(empire_id: String, system_id: String) -> bool:
+	return get_system_intel_level(empire_id, system_id) >= INTEL_SENSOR
+
+
+func has_full_system_intel(empire_id: String, system_id: String) -> bool:
+	return get_system_intel_level(empire_id, system_id) >= INTEL_EXPLORED
+
+
+func get_system_intel_for_empire(empire_id: String) -> Dictionary:
+	return intel_by_empire_id.get(empire_id, {}).duplicate(true)
+
+
+func clear_empire_intel(empire_id: String) -> bool:
+	if empire_id.is_empty():
+		return false
+	intel_by_empire_id[empire_id] = {}
+	return true
+
+
+func reveal_system_intel(empire_id: String, system_id: String, intel_level: int) -> bool:
+	if empire_id.is_empty() or not empires_by_id.has(empire_id):
+		return false
+	if system_id.is_empty() or not system_indices_by_id.has(system_id):
+		return false
+
+	var normalized_level: int = clampi(intel_level, INTEL_NONE, INTEL_SURVEYED)
+	var empire_intel: Dictionary = intel_by_empire_id.get(empire_id, {})
+	var current_level: int = int(empire_intel.get(system_id, INTEL_NONE))
+	if current_level >= normalized_level:
+		return false
+
+	empire_intel[system_id] = normalized_level
+	intel_by_empire_id[empire_id] = empire_intel
+	return true
+
+
+func reveal_system_radius(
+	empire_id: String,
+	origin_system_id: String,
+	jump_radius: int,
+	origin_intel_level: int = INTEL_EXPLORED,
+	ranged_intel_level: int = INTEL_SENSOR
+) -> bool:
+	if empire_id.is_empty() or origin_system_id.is_empty():
+		return false
+	if not empires_by_id.has(empire_id) or not system_indices_by_id.has(origin_system_id):
+		return false
+
+	var changed := reveal_system_intel(empire_id, origin_system_id, origin_intel_level)
+	var max_depth: int = maxi(jump_radius, 0)
+	if max_depth <= 0:
+		return changed
+
+	var visited: Dictionary = {}
+	visited[origin_system_id] = 0
+	var queue: Array[String] = [origin_system_id]
+
+	while not queue.is_empty():
+		var current_system_id: String = queue.pop_front()
+		var current_depth: int = int(visited[current_system_id])
+		if current_depth >= max_depth:
+			continue
+
+		for neighbor_system_id in get_neighbor_system_ids(current_system_id):
+			if neighbor_system_id.is_empty() or visited.has(neighbor_system_id):
+				continue
+			var neighbor_depth: int = current_depth + 1
+			visited[neighbor_system_id] = neighbor_depth
+			queue.append(neighbor_system_id)
+			changed = reveal_system_intel(empire_id, neighbor_system_id, ranged_intel_level) or changed
+
+	return changed
+
+
 func set_system_owner(system_id: String, empire_id: String) -> bool:
 	if not system_indices_by_id.has(system_id):
 		return false
@@ -173,6 +275,30 @@ func set_system_owner(system_id: String, empire_id: String) -> bool:
 
 	_rebuild_empire_owned_system_ids()
 	return true
+
+
+func set_empire_home_system(empire_id: String, system_id: String) -> bool:
+	if empire_id.is_empty() or not empires_by_id.has(empire_id):
+		return false
+	if not system_id.is_empty() and not system_indices_by_id.has(system_id):
+		return false
+
+	var changed: bool = false
+	for empire_index in range(empires.size()):
+		var empire_record: Dictionary = empires[empire_index]
+		if str(empire_record.get("id", "")) != empire_id:
+			continue
+		if str(empire_record.get("home_system_id", "")) == system_id:
+			break
+		empire_record["home_system_id"] = system_id
+		empires[empire_index] = empire_record
+		changed = true
+		break
+
+	if changed:
+		_rebuild_empire_indexes()
+		_rebuild_empire_owned_system_ids()
+	return changed
 
 
 func clear_system_owner(system_id: String) -> bool:
@@ -309,6 +435,7 @@ func build_snapshot() -> Dictionary:
 		"system_detail_overrides": system_detail_overrides_by_id.duplicate(true),
 		"empires": empires.duplicate(true),
 		"ownership_by_system_id": ownership_by_system_id.duplicate(true),
+		"intel_by_empire_id": intel_by_empire_id.duplicate(true),
 	}
 
 
@@ -353,6 +480,35 @@ func _normalize_empire_record(empire_record: Dictionary, empire_index: int) -> D
 		empire_record["home_system_id"] = ""
 	empire_record["owned_system_ids"] = PackedStringArray()
 	return empire_record
+
+
+func _normalize_intel_map(intel_map_variant: Variant) -> Dictionary:
+	var normalized: Dictionary = {}
+	if intel_map_variant is not Dictionary:
+		return normalized
+
+	var intel_map: Dictionary = intel_map_variant
+	for empire_id_variant in intel_map.keys():
+		var empire_id: String = str(empire_id_variant)
+		var empire_intel_variant: Variant = intel_map.get(empire_id_variant, {})
+		if empire_intel_variant is not Dictionary:
+			continue
+		var normalized_empire_intel: Dictionary = {}
+		var empire_intel: Dictionary = empire_intel_variant
+		for system_id_variant in empire_intel.keys():
+			var system_id: String = str(system_id_variant)
+			var intel_level: int = clampi(int(empire_intel.get(system_id_variant, INTEL_NONE)), INTEL_NONE, INTEL_SURVEYED)
+			if system_id.is_empty() or intel_level <= INTEL_NONE:
+				continue
+			normalized_empire_intel[system_id] = intel_level
+		normalized[empire_id] = normalized_empire_intel
+	return normalized
+
+
+func _ensure_empire_intel_records() -> void:
+	for empire_id in empire_ids:
+		if not intel_by_empire_id.has(empire_id):
+			intel_by_empire_id[empire_id] = {}
 
 
 func _hyperlane_crosses_existing(a_index: int, b_index: int) -> bool:

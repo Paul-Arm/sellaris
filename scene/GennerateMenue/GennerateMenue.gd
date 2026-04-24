@@ -9,8 +9,11 @@ const MAIN_MENU_SCENE_PATH := "res://scene/MainMenue/MainUI.tscn"
 @onready var min_radius_spin_box: SpinBox = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid/MinRadiusSpinBox
 @onready var shape_option_button: OptionButton = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid/ShapeOptionButton
 @onready var hyperlane_density_spin_box: SpinBox = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid/HyperlaneDensitySpinBox
+@onready var empire_option_button: OptionButton = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid/EmpireOptionButton
 @onready var generate_button: Button = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/GenerateButton
 @onready var back_button: Button = $MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/BackButton
+
+const FALLBACK_GENERATED_EMPIRE_ID := "generated_empire_00"
 
 var generator: RefCounted = GALAXY_GENERATOR_SCRIPT.new()
 
@@ -44,6 +47,10 @@ func _on_generate_pressed() -> void:
 		"shape": generator.get_shape_options()[shape_option_button.selected],
 		"hyperlane_density": int(hyperlane_density_spin_box.value),
 	}
+	var selected_empire: Dictionary = _get_selected_empire_metadata()
+	if not selected_empire.is_empty():
+		settings["selected_starting_empire_id"] = str(selected_empire.get("empire_id", ""))
+		settings["selected_starting_empire_preset_name"] = str(selected_empire.get("preset_name", ""))
 	if galaxy.has_method("configure"):
 		galaxy.configure(settings)
 
@@ -80,3 +87,38 @@ func _setup_controls() -> void:
 	hyperlane_density_spin_box.max_value = 8
 	hyperlane_density_spin_box.step = 1
 	hyperlane_density_spin_box.value = 2
+
+	_populate_empire_options()
+
+
+func _populate_empire_options() -> void:
+	empire_option_button.clear()
+	EmpirePresetManager.load_presets()
+	var preset_records: Array[Dictionary] = EmpirePresetManager.build_galaxy_empire_records()
+
+	for preset_record in preset_records:
+		var empire_id: String = str(preset_record.get("id", ""))
+		if empire_id.is_empty():
+			continue
+		empire_option_button.add_item("%s  |  Saved Preset" % str(preset_record.get("name", empire_id)))
+		var item_index: int = empire_option_button.item_count - 1
+		empire_option_button.set_item_metadata(item_index, {
+			"empire_id": empire_id,
+			"preset_name": str(preset_record.get("preset_name", "")),
+		})
+
+	empire_option_button.add_item("Generated Empire 1")
+	empire_option_button.set_item_metadata(empire_option_button.item_count - 1, {
+		"empire_id": FALLBACK_GENERATED_EMPIRE_ID,
+		"preset_name": "",
+	})
+	empire_option_button.select(0)
+
+
+func _get_selected_empire_metadata() -> Dictionary:
+	if empire_option_button.item_count <= 0 or empire_option_button.selected < 0:
+		return {}
+	var metadata: Variant = empire_option_button.get_item_metadata(empire_option_button.selected)
+	if metadata is Dictionary:
+		return metadata.duplicate(true)
+	return {}

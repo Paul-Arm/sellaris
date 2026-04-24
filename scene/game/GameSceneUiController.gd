@@ -26,6 +26,7 @@ func setup(
 	_runtime_system = runtime_system
 	_view_router = view_router
 	_debug_spawner = debug_spawner
+	update_debug_reveal_button()
 
 
 func teardown() -> void:
@@ -38,7 +39,7 @@ func teardown() -> void:
 
 
 func update_info_label() -> void:
-	if _state == null or _ui == null:
+	if _state == null or _ui == null or _runtime_system == null:
 		return
 
 	var displayed_seed: String = _state.seed_text if not _state.seed_text.is_empty() else str(_state.generated_seed)
@@ -48,11 +49,15 @@ func update_info_label() -> void:
 
 	var inspected_system_id: String = get_inspected_system_id()
 	var selected_summary: String = "Selected: None"
+	var inspected_system_details: Dictionary = {}
 	if not inspected_system_id.is_empty() and _state.systems_by_id.has(inspected_system_id):
-		var selected_owner: Dictionary = _state.galaxy_state.get_system_owner(inspected_system_id)
-		var selected_owner_name: String = "Unclaimed"
-		if not selected_owner.is_empty():
-			selected_owner_name = str(selected_owner.get("name", selected_owner_name))
+		inspected_system_details = _runtime_system.get_system_details(inspected_system_id)
+	if (
+		not inspected_system_id.is_empty()
+		and _state.systems_by_id.has(inspected_system_id)
+		and not inspected_system_details.is_empty()
+	):
+		var selected_owner_name: String = str(inspected_system_details.get("owner_name", "Unknown"))
 		selected_summary = "Selected: %s (%s)" % [_state.systems_by_id[inspected_system_id].get("name", inspected_system_id), selected_owner_name]
 
 	_ui.info_label.text = "Seed: %s\nSystems: %d  Shape: %s  Hyperlanes: %d  Empires: %d\nActive Empire: %s  %s\nPan: WASD / Arrows / Edge / Middle Drag  Orbit: Right Drag  Zoom: Mouse Wheel  Pick Empire: E  Regenerate: R  System View: Left Click  Back: Esc closes overlays and returns to galaxy" % [
@@ -68,7 +73,7 @@ func update_info_label() -> void:
 
 
 func update_system_panel() -> void:
-	if _state == null or _ui == null:
+	if _state == null or _ui == null or _runtime_system == null:
 		return
 
 	var inspected_system_id: String = get_inspected_system_id()
@@ -87,13 +92,15 @@ func update_system_panel() -> void:
 
 	_ui.empire_status_label.text = "Active Empire: %s" % active_empire_name
 
+	var visible_system_details: Dictionary = {}
+	if not inspected_system_id.is_empty() and _state.systems_by_id.has(inspected_system_id):
+		visible_system_details = _runtime_system.get_system_details(inspected_system_id)
+
 	var selected_system_name: String = "No system selected"
 	var selected_owner_name: String = "Unclaimed"
-	if not inspected_system_id.is_empty() and _state.systems_by_id.has(inspected_system_id):
+	if not visible_system_details.is_empty():
 		selected_system_name = str(_state.systems_by_id[inspected_system_id].get("name", inspected_system_id))
-		var selected_owner_empire_id: String = _state.galaxy_state.get_system_owner_id(inspected_system_id)
-		if _state.empires_by_id.has(selected_owner_empire_id):
-			selected_owner_name = str(_state.empires_by_id[selected_owner_empire_id].get("name", selected_owner_name))
+		selected_owner_name = str(visible_system_details.get("owner_name", selected_owner_name))
 
 	update_bottom_category_bar_context(active_empire_name, selected_system_name, selected_owner_name)
 	_sync_debug_spawner_defaults(inspected_system_id)
@@ -110,8 +117,9 @@ func update_system_panel() -> void:
 		_ui.selected_system_title.text = "No system selected"
 		_ui.selected_system_meta.text = "Left-click a star system to inspect it. The galaxy map keeps compact summary data for every system, while richer stars, planets, belts, ruins, and structures are resolved on demand for the selected system."
 		_ui.system_preview_image.texture = null
-		_ui.claim_system_button.disabled = _state.active_empire_id.is_empty()
+		_ui.claim_system_button.disabled = true
 		_ui.clear_owner_button.disabled = true
+		_ui.survey_system_button.disabled = true
 		return
 
 	var system_record: Dictionary = _state.systems_by_id[inspected_system_id]
@@ -120,11 +128,23 @@ func update_system_panel() -> void:
 	if _state.empires_by_id.has(owner_empire_id):
 		owner_name = str(_state.empires_by_id[owner_empire_id].get("name", owner_name))
 
-	var system_details: Dictionary = _runtime_system.get_system_details(inspected_system_id)
+	var system_details: Dictionary = visible_system_details
+	if system_details.is_empty():
+		_clear_system_panel_preview()
+		_ui.system_panel.visible = false
+		_ui.survey_system_button.disabled = true
+		return
+
 	var summary: Dictionary = system_details.get("system_summary", system_record.get("system_summary", {}))
 	var star_profile: Dictionary = system_details.get("star_profile", system_record.get("star_profile", {}))
 	var space_presence: Dictionary = system_details.get("space_presence", {})
 	var neighbor_count: int = _state.galaxy_state.get_neighbor_system_ids(inspected_system_id).size()
+	var intel_label: String = str(system_details.get("intel_label", "Unknown"))
+	var intel_level: int = int(system_details.get("intel_level", GalaxyState.INTEL_NONE))
+	var has_full_intel: bool = bool(system_details.get("has_full_intel", false))
+	var is_redacted: bool = bool(system_details.get("is_redacted", false))
+	var show_hyperlane_count: bool = bool(system_details.get("show_hyperlane_count", true))
+	var can_survey: bool = bool(system_details.get("can_survey", intel_level >= GalaxyState.INTEL_SENSOR and not has_full_intel))
 	var star_count_label: int = int(summary.get("star_count", star_profile.get("star_count", 1)))
 	var star_class: String = str(star_profile.get("star_class", "G"))
 	var special_type: String = str(star_profile.get("special_type", "none"))
@@ -133,23 +153,35 @@ func update_system_panel() -> void:
 		special_label = "  Special: %s" % special_type
 
 	_ui.selected_system_title.text = str(system_record.get("name", inspected_system_id))
-	_ui.selected_system_meta.text = "Owner: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nLocal Presence: Fleets %d  Mobile %d  Stations %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%" % [
-		owner_name,
-		star_class,
-		star_count_label,
-		special_label,
-		neighbor_count,
-		int(summary.get("planet_count", 0)),
-		int(summary.get("asteroid_belt_count", 0)),
-		int(summary.get("structure_count", 0)),
-		int(summary.get("ruin_count", 0)),
-		int(space_presence.get("fleet_count", 0)),
-		int(space_presence.get("mobile_ship_count", 0)),
-		int(space_presence.get("station_count", 0)),
-		int(summary.get("habitable_worlds", 0)),
-		int(summary.get("colonizable_worlds", 0)),
-		int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
-	]
+	owner_name = str(system_details.get("owner_name", owner_name))
+	if is_redacted:
+		var hyperlane_text: String = "Hyperlane Connections: Unknown"
+		if show_hyperlane_count:
+			hyperlane_text = "Hyperlane Connections: %d" % neighbor_count
+		_ui.selected_system_meta.text = "Owner: %s\nIntel: %s\n%s\nDetailed bodies, local presence, and anomaly data require exploration or a survey." % [
+			owner_name,
+			intel_label,
+			hyperlane_text,
+		]
+	else:
+		_ui.selected_system_meta.text = "Owner: %s\nIntel: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nLocal Presence: Fleets %d  Mobile %d  Stations %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%" % [
+			owner_name,
+			intel_label,
+			star_class,
+			star_count_label,
+			special_label,
+			neighbor_count,
+			int(summary.get("planet_count", 0)),
+			int(summary.get("asteroid_belt_count", 0)),
+			int(summary.get("structure_count", 0)),
+			int(summary.get("ruin_count", 0)),
+			int(space_presence.get("fleet_count", 0)),
+			int(space_presence.get("mobile_ship_count", 0)),
+			int(space_presence.get("station_count", 0)),
+			int(summary.get("habitable_worlds", 0)),
+			int(summary.get("colonizable_worlds", 0)),
+			int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
+		]
 	_refresh_hover_preview_tracking(inspected_system_id)
 	var preview_system_id: String = _resolve_preview_target_system_id(inspected_system_id)
 	if preview_system_id.is_empty():
@@ -161,8 +193,10 @@ func update_system_panel() -> void:
 		_view_router.refresh_system_view(system_details, neighbor_count)
 
 	_ui.system_panel.visible = not _view_router.is_system_view_open()
-	_ui.claim_system_button.disabled = _state.active_empire_id.is_empty() or owner_empire_id == _state.active_empire_id
-	_ui.clear_owner_button.disabled = owner_empire_id.is_empty()
+	_ui.claim_system_button.disabled = _state.active_empire_id.is_empty() or owner_empire_id == _state.active_empire_id or not has_full_intel
+	_ui.clear_owner_button.disabled = owner_empire_id.is_empty() or not has_full_intel
+	_ui.survey_system_button.text = "Survey Complete" if has_full_intel else "Survey System"
+	_ui.survey_system_button.disabled = _state.active_empire_id.is_empty() or not can_survey or has_full_intel
 
 
 func get_inspected_system_id() -> String:
@@ -317,6 +351,9 @@ func set_galaxy_presentation_visible(visible_state: bool) -> void:
 func open_system_view(system_id: String) -> void:
 	if _state == null or system_id.is_empty() or not _state.systems_by_id.has(system_id):
 		return
+	if not _runtime_system.can_open_system_view(system_id):
+		update_system_panel()
+		return
 	_state.selected_system_id = system_id
 	var system_details: Dictionary = _runtime_system.get_system_details(system_id)
 	var neighbor_count: int = _state.galaxy_state.get_neighbor_system_ids(system_id).size()
@@ -349,14 +386,20 @@ func get_selected_empire_id_from_picker() -> String:
 
 func format_controller_kind(controller_kind: String) -> String:
 	match controller_kind:
-		"player_local":
+		"player_local", "local_player":
 			return "Player"
-		"player_remote":
+		"player_remote", "remote_player":
 			return "Remote Player"
 		"ai":
 			return "AI"
 		_:
 			return "Unassigned"
+
+
+func update_debug_reveal_button() -> void:
+	if _state == null or _ui == null or _ui.debug_reveal_toggle_button == null:
+		return
+	_ui.debug_reveal_toggle_button.text = "Hide Galaxy" if _state.debug_reveal_galaxy else "Reveal Galaxy"
 
 
 func _refresh_hover_preview_tracking(inspected_system_id: String) -> void:
@@ -400,6 +443,8 @@ func _complete_hover_preview_delay(system_id: String, request_sequence: int) -> 
 func _resolve_preview_target_system_id(inspected_system_id: String) -> String:
 	if inspected_system_id.is_empty():
 		return ""
+	if not _runtime_system.can_open_system_view(inspected_system_id):
+		return ""
 	if _is_preview_interaction_blocked():
 		return ""
 	if _view_router.is_system_view_open() and _view_router.get_current_system_view_id() == inspected_system_id:
@@ -420,6 +465,8 @@ func _is_hover_preview_candidate(inspected_system_id: String) -> bool:
 	if inspected_system_id.is_empty():
 		return false
 	if not _state.systems_by_id.has(inspected_system_id):
+		return false
+	if not _runtime_system.can_open_system_view(inspected_system_id):
 		return false
 	if _is_preview_interaction_blocked():
 		return false

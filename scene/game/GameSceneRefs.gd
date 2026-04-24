@@ -17,11 +17,13 @@ var selected_system_title: Label = null
 var selected_system_meta: Label = null
 var claim_system_button: Button = null
 var clear_owner_button: Button = null
+var survey_system_button: Button = null
 var empire_picker_overlay: Control = null
 var empire_picker_list: ItemList = null
 var select_empire_button: Button = null
 var cancel_empire_picker_button: Button = null
 var debug_spawn_toggle_button: Button = null
+var debug_reveal_toggle_button: Button = null
 var debug_spawn_panel: PanelContainer = null
 var galaxy_hud: Control = null
 
@@ -44,11 +46,13 @@ static func from_root(root: Node) -> GameSceneRefs:
 	refs.selected_system_meta = root.get_node("CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/SelectedSystemMeta") as Label
 	refs.claim_system_button = root.get_node("CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/ClaimSystemButton") as Button
 	refs.clear_owner_button = root.get_node("CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/ClearOwnerButton") as Button
+	refs.survey_system_button = root.get_node("CanvasLayer/SystemPanel/MarginContainer/VBoxContainer/SurveySystemButton") as Button
 	refs.empire_picker_overlay = root.get_node("CanvasLayer/EmpirePickerOverlay") as Control
 	refs.empire_picker_list = root.get_node("CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/EmpirePickerList") as ItemList
 	refs.select_empire_button = root.get_node("CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/ButtonRow/SelectEmpireButton") as Button
 	refs.cancel_empire_picker_button = root.get_node("CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/ButtonRow/CancelEmpirePickerButton") as Button
 	refs.debug_spawn_toggle_button = root.get_node("CanvasLayer/DebugSpawnToggleButton") as Button
+	refs.debug_reveal_toggle_button = root.get_node("CanvasLayer/DebugRevealToggleButton") as Button
 	refs.debug_spawn_panel = root.get_node("CanvasLayer/DebugSpawnPanel") as PanelContainer
 	refs.galaxy_hud = root.get_node("CanvasLayer/GalaxyHud") as Control
 	return refs

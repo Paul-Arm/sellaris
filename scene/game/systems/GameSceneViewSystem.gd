@@ -131,6 +131,8 @@ func _on_galaxy_view_inspect_system_requested(system_id: String) -> void:
 	_state.selected_system_id = system_id
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
+	if not _runtime_system.can_open_system_view(system_id):
+		return
 	_scene_ui_controller.open_system_view(system_id)
 
 

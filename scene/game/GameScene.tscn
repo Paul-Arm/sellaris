@@ -111,7 +111,7 @@ anchor_right = 1.0
 offset_left = -333.0
 offset_top = 138.0
 offset_right = -7.0
-offset_bottom = 620.0
+offset_bottom = 660.0
 grow_horizontal = 0
 
 [node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SystemPanel"]
@@ -158,12 +158,23 @@ text = "Claim Selected System"
 layout_mode = 2
 text = "Clear Owner"
 
+[node name="SurveySystemButton" type="Button" parent="CanvasLayer/SystemPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Survey System"
+
 [node name="DebugSpawnToggleButton" type="Button" parent="CanvasLayer"]
 offset_left = 18.0
 offset_top = 56.0
 offset_right = 176.0
 offset_bottom = 92.0
 text = "Show Debug Spawner"
+
+[node name="DebugRevealToggleButton" type="Button" parent="CanvasLayer"]
+offset_left = 184.0
+offset_top = 56.0
+offset_right = 354.0
+offset_bottom = 92.0
+text = "Reveal Galaxy"
 
 [node name="DebugSpawnPanel" type="PanelContainer" parent="CanvasLayer"]
 visible = false

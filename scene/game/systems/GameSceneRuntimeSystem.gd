@@ -2,6 +2,7 @@ extends Node
 class_name GameSceneRuntimeSystem
 
 const DEFAULT_EMPIRE_COUNT: int = 6
+const STARTING_SENSOR_JUMP_DEPTH: int = 2
 
 var _state: GameSceneState = null
 var _ui: GameSceneRefs = null
@@ -44,7 +45,9 @@ func generate_async() -> void:
 	_state.hovered_system_id = ""
 	_state.pinned_system_id = ""
 	_state.active_empire_id = ""
+	_state.debug_reveal_galaxy = false
 	_scene_ui_controller.invalidate_system_panel_snapshot()
+	_scene_ui_controller.update_debug_reveal_button()
 	_scene_ui_controller.set_empire_picker_visible(false, false)
 	_scene_ui_controller.set_settings_overlay_visible(false)
 	_scene_ui_controller.set_loading_state(true, "Preparing generator...", 0.0)
@@ -105,6 +108,7 @@ func generate_async() -> void:
 	_scene_ui_controller.set_loading_state(true, "Preparing empire shells...", 0.6)
 	await get_tree().process_frame
 	initialize_empires()
+	var starting_home_system_id: String = _assign_starting_empire_and_home_system()
 
 	_scene_ui_controller.set_loading_state(true, "Bootstrapping economy...", 0.68)
 	await get_tree().process_frame
@@ -128,10 +132,26 @@ func generate_async() -> void:
 	await get_tree().process_frame
 	_scene_ui_controller.set_loading_state(false)
 	_state.is_generating = false
-	_scene_ui_controller.open_empire_picker(true)
+	if not starting_home_system_id.is_empty():
+		_focus_galaxy_camera_on_system(starting_home_system_id)
+	if _state.active_empire_id.is_empty():
+		_scene_ui_controller.open_empire_picker(true)
+	else:
+		_scene_ui_controller.set_empire_picker_visible(false, false)
+		_scene_ui_controller.update_system_panel()
+		_scene_ui_controller.update_info_label()
 
 
 func get_system_details(system_id: String) -> Dictionary:
+	if _state == null:
+		return {}
+	if not _has_map_hint_for_active_empire(system_id):
+		return {}
+
+	var intel_level: int = _get_active_system_intel_level(system_id)
+	if intel_level < GalaxyState.INTEL_SENSOR:
+		return _build_unknown_system_hint_details(system_id)
+
 	var details: Dictionary = resolve_system_details(system_id)
 	if details.is_empty():
 		return {}
@@ -145,6 +165,12 @@ func get_system_details(system_id: String) -> Dictionary:
 	details["owner_name"] = owner_name
 	details["space_presence"] = get_system_space_presence(system_id)
 	details["space_renderables"] = build_system_renderables(system_id)
+	details["intel_level"] = _get_active_system_intel_level(system_id)
+	details["intel_label"] = _get_active_system_intel_label(system_id)
+	details["has_full_intel"] = _has_full_intel_for_active_empire(system_id)
+	details["show_hyperlane_count"] = true
+	if not bool(details.get("has_full_intel", false)):
+		return _build_redacted_system_details(system_id, details)
 	return details
 
 
@@ -327,6 +353,12 @@ func assign_active_empire(empire_id: String) -> bool:
 
 	_state.active_empire_id = empire_id
 	sync_cached_state()
+	if _view_router.is_system_view_open() and not can_open_system_view(_view_router.get_current_system_view_id()):
+		_scene_ui_controller.close_system_view()
+	render_stars()
+	render_hyperlanes()
+	render_ownership_markers()
+	render_runtime_placeholders()
 	_scene_ui_controller.populate_empire_picker()
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
@@ -338,8 +370,19 @@ func set_system_owner(system_id: String, empire_id: String) -> bool:
 		return false
 
 	sync_cached_state()
+	if not empire_id.is_empty():
+		_state.galaxy_state.reveal_system_radius(
+			empire_id,
+			system_id,
+			STARTING_SENSOR_JUMP_DEPTH,
+			GalaxyState.INTEL_EXPLORED,
+			GalaxyState.INTEL_SENSOR
+		)
+		sync_cached_state()
 	_sync_system_economy_sources(system_id)
 	render_ownership_markers()
+	render_stars()
+	render_hyperlanes()
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
 	return true
@@ -347,6 +390,57 @@ func set_system_owner(system_id: String, empire_id: String) -> bool:
 
 func clear_system_owner(system_id: String) -> bool:
 	return set_system_owner(system_id, "")
+
+
+func survey_system_for_active_empire(system_id: String) -> bool:
+	if _state == null or _state.active_empire_id.is_empty():
+		return false
+	if system_id.is_empty() or not _state.systems_by_id.has(system_id):
+		return false
+	if not _is_system_visible_for_active_empire(system_id):
+		return false
+
+	var changed: bool = _state.galaxy_state.reveal_system_radius(
+		_state.active_empire_id,
+		system_id,
+		STARTING_SENSOR_JUMP_DEPTH,
+		GalaxyState.INTEL_SURVEYED,
+		GalaxyState.INTEL_SENSOR
+	)
+	if not changed:
+		return false
+
+	sync_cached_state()
+	render_stars()
+	render_hyperlanes()
+	render_ownership_markers()
+	render_runtime_placeholders()
+	_scene_ui_controller.invalidate_system_panel_snapshot(system_id)
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_info_label()
+	return true
+
+
+func set_debug_reveal_galaxy(enabled: bool) -> void:
+	if _state == null:
+		return
+	if _state.debug_reveal_galaxy == enabled:
+		return
+	_state.debug_reveal_galaxy = enabled
+	if not enabled and _view_router.is_system_view_open() and not can_open_system_view(_view_router.get_current_system_view_id()):
+		_scene_ui_controller.close_system_view()
+	render_stars()
+	render_hyperlanes()
+	render_ownership_markers()
+	render_runtime_placeholders()
+	_scene_ui_controller.invalidate_system_panel_snapshot()
+	_scene_ui_controller.update_debug_reveal_button()
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_info_label()
+
+
+func can_open_system_view(system_id: String) -> bool:
+	return _has_full_intel_for_active_empire(system_id)
 
 
 func set_runtime_system_details(system_id: String, detail_patch: Dictionary) -> bool:
@@ -475,6 +569,78 @@ func initialize_empires() -> void:
 	_sync_debug_spawner_panel()
 
 
+func _assign_starting_empire_and_home_system() -> String:
+	if _state == null or _state.empire_records.is_empty() or _state.system_records.is_empty():
+		return ""
+
+	var empire_id: String = _resolve_requested_starting_empire_id()
+	if empire_id.is_empty():
+		return ""
+
+	var home_system_id: String = _pick_starting_system_for_empire(empire_id)
+	if home_system_id.is_empty():
+		return ""
+
+	_state.galaxy_state.set_local_player_empire(empire_id)
+	_state.galaxy_state.set_empire_home_system(empire_id, home_system_id)
+	_state.galaxy_state.set_system_owner(home_system_id, empire_id)
+	_state.galaxy_state.reveal_system_radius(
+		empire_id,
+		home_system_id,
+		STARTING_SENSOR_JUMP_DEPTH,
+		GalaxyState.INTEL_SURVEYED,
+		GalaxyState.INTEL_SENSOR
+	)
+	_state.active_empire_id = empire_id
+	_state.hovered_system_id = home_system_id
+	_state.selected_system_id = home_system_id
+	_state.pinned_system_id = home_system_id
+	sync_cached_state()
+	_scene_ui_controller.populate_empire_picker()
+	_sync_debug_spawner_panel()
+	return home_system_id
+
+
+func _resolve_requested_starting_empire_id() -> String:
+	var requested_empire_id: String = _state.selected_starting_empire_id.strip_edges()
+	if not requested_empire_id.is_empty() and _state.empires_by_id.has(requested_empire_id):
+		return requested_empire_id
+
+	var requested_preset_name: String = _state.selected_starting_empire_preset_name.strip_edges()
+	if not requested_preset_name.is_empty():
+		for empire_record_variant in _state.empire_records:
+			var empire_record: Dictionary = empire_record_variant
+			if str(empire_record.get("preset_name", "")) == requested_preset_name:
+				return str(empire_record.get("id", ""))
+
+	for empire_record_variant in _state.empire_records:
+		var empire_record: Dictionary = empire_record_variant
+		var empire_id: String = str(empire_record.get("id", ""))
+		if not empire_id.is_empty():
+			return empire_id
+
+	return ""
+
+
+func _pick_starting_system_for_empire(empire_id: String) -> String:
+	var candidates := PackedStringArray()
+	for system_record_variant in _state.system_records:
+		var system_record: Dictionary = system_record_variant
+		var system_id: String = str(system_record.get("id", "")).strip_edges()
+		if system_id.is_empty():
+			continue
+		if not str(system_record.get("owner_empire_id", "")).is_empty():
+			continue
+		candidates.append(system_id)
+
+	if candidates.is_empty():
+		return ""
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(abs(_state.generated_seed * 1315423911 + empire_id.hash()))
+	return candidates[rng.randi_range(0, candidates.size() - 1)]
+
+
 func bootstrap_economy() -> void:
 	if _state == null:
 		return
@@ -577,7 +743,9 @@ func sync_galaxy_view_state() -> void:
 		_state.min_system_distance,
 		_state.ownership_bright_rim_enabled,
 		_state.ownership_core_opacity,
-		_state.pinned_system_id
+		_state.pinned_system_id,
+		_get_active_empire_intel_map(),
+		_state.debug_reveal_galaxy
 	)
 	galaxy_view.sync_interaction_state(_state.hovered_system_id, _state.pinned_system_id)
 
@@ -624,6 +792,121 @@ func render_ownership_markers() -> void:
 		return
 	sync_galaxy_view_state()
 	galaxy_view.render_ownership_markers()
+
+
+func _focus_galaxy_camera_on_system(system_id: String) -> void:
+	var galaxy_view: GalaxyMapView = _view_router.get_galaxy_view()
+	if galaxy_view == null or system_id.is_empty():
+		return
+	galaxy_view.focus_camera_on_system(system_id)
+
+
+func _get_active_empire_intel_map() -> Dictionary:
+	if _state == null or _state.active_empire_id.is_empty():
+		return {}
+	return _state.galaxy_state.get_system_intel_for_empire(_state.active_empire_id)
+
+
+func _get_active_system_intel_level(system_id: String) -> int:
+	if _state == null or system_id.is_empty():
+		return GalaxyState.INTEL_NONE
+	if _state.debug_reveal_galaxy:
+		return GalaxyState.INTEL_SURVEYED
+	if _state.active_empire_id.is_empty():
+		return GalaxyState.INTEL_NONE
+	return _state.galaxy_state.get_system_intel_level(_state.active_empire_id, system_id)
+
+
+func _get_active_system_intel_label(system_id: String) -> String:
+	if _state != null and _state.debug_reveal_galaxy:
+		return "Debug Revealed"
+	if _state == null or _state.active_empire_id.is_empty():
+		return "Unknown"
+	return _state.galaxy_state.get_system_intel_label(_state.active_empire_id, system_id)
+
+
+func _is_system_visible_for_active_empire(system_id: String) -> bool:
+	return _get_active_system_intel_level(system_id) >= GalaxyState.INTEL_SENSOR
+
+
+func _has_map_hint_for_active_empire(system_id: String) -> bool:
+	return _state != null and not system_id.is_empty() and _state.systems_by_id.has(system_id)
+
+
+func _has_full_intel_for_active_empire(system_id: String) -> bool:
+	return _get_active_system_intel_level(system_id) >= GalaxyState.INTEL_EXPLORED
+
+
+func _build_unknown_system_hint_details(system_id: String) -> Dictionary:
+	var system_record: Dictionary = _state.systems_by_id.get(system_id, {})
+	return {
+		"id": system_id,
+		"name": str(system_record.get("name", system_id)),
+		"owner_empire_id": "",
+		"owner_name": "Unknown",
+		"intel_level": GalaxyState.INTEL_NONE,
+		"intel_label": "Unknown",
+		"has_full_intel": false,
+		"is_redacted": true,
+		"show_hyperlane_count": false,
+		"can_survey": false,
+		"system_summary": {
+			"star_count": 0,
+			"star_class": "?",
+			"special_type": "none",
+			"planet_count": 0,
+			"asteroid_belt_count": 0,
+			"structure_count": 0,
+			"ruin_count": 0,
+			"colonizable_worlds": 0,
+			"habitable_worlds": 0,
+			"anomaly_risk": 0.0,
+		},
+		"star_profile": {
+			"star_class": "?",
+			"star_count": 0,
+			"special_type": "none",
+			"stars": [],
+		},
+		"space_presence": {},
+		"space_renderables": {},
+	}
+
+
+func _build_redacted_system_details(system_id: String, full_details: Dictionary) -> Dictionary:
+	var system_record: Dictionary = _state.systems_by_id.get(system_id, {})
+	return {
+		"id": system_id,
+		"name": str(system_record.get("name", system_id)),
+		"owner_empire_id": str(full_details.get("owner_empire_id", "")),
+		"owner_name": str(full_details.get("owner_name", "Unknown")),
+		"intel_level": int(full_details.get("intel_level", GalaxyState.INTEL_SENSOR)),
+		"intel_label": str(full_details.get("intel_label", "Sensor Contact")),
+		"has_full_intel": false,
+		"is_redacted": true,
+		"show_hyperlane_count": int(full_details.get("intel_level", GalaxyState.INTEL_SENSOR)) >= GalaxyState.INTEL_SENSOR,
+		"can_survey": int(full_details.get("intel_level", GalaxyState.INTEL_SENSOR)) >= GalaxyState.INTEL_SENSOR,
+		"system_summary": {
+			"star_count": 0,
+			"star_class": "?",
+			"special_type": "none",
+			"planet_count": 0,
+			"asteroid_belt_count": 0,
+			"structure_count": 0,
+			"ruin_count": 0,
+			"colonizable_worlds": 0,
+			"habitable_worlds": 0,
+			"anomaly_risk": 0.0,
+		},
+		"star_profile": {
+			"star_class": "?",
+			"star_count": 0,
+			"special_type": "none",
+			"stars": [],
+		},
+		"space_presence": {},
+		"space_renderables": {},
+	}
 
 
 func _get_empire_runtime_color(empire_id: String) -> Color:
@@ -712,10 +995,46 @@ func _sync_system_economy_sources(system_id: String, resolved_details: Dictionar
 
 
 func _on_space_runtime_changed(_record_id: String) -> void:
-	if _state == null or _state.runtime_visual_refresh_queued:
+	if _state == null:
+		return
+	_reveal_intel_from_space_record(_record_id)
+	if _state.runtime_visual_refresh_queued:
 		return
 	_state.runtime_visual_refresh_queued = true
 	Callable(self, "refresh_runtime_visuals").call_deferred()
+
+
+func _reveal_intel_from_space_record(record_id: String) -> void:
+	if _state == null or record_id.is_empty():
+		return
+
+	var changed: bool = false
+	var fleet: FleetRuntime = SpaceManager.get_fleet(record_id)
+	if fleet != null:
+		changed = _reveal_intel_from_presence(fleet.owner_empire_id, fleet.current_system_id) or changed
+
+	var ship: ShipRuntime = SpaceManager.get_ship(record_id)
+	if ship != null:
+		changed = _reveal_intel_from_presence(ship.owner_empire_id, ship.current_system_id) or changed
+
+	if changed:
+		sync_cached_state()
+		render_stars()
+		render_hyperlanes()
+		render_ownership_markers()
+		_scene_ui_controller.invalidate_system_panel_snapshot()
+
+
+func _reveal_intel_from_presence(empire_id: String, system_id: String) -> bool:
+	if empire_id.is_empty() or system_id.is_empty():
+		return false
+	return _state.galaxy_state.reveal_system_radius(
+		empire_id,
+		system_id,
+		STARTING_SENSOR_JUMP_DEPTH,
+		GalaxyState.INTEL_EXPLORED,
+		GalaxyState.INTEL_SENSOR
+	)
 
 
 func _sync_debug_spawner_panel() -> void:

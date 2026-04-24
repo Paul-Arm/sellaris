@@ -17,13 +17,14 @@ vec4 sample_palette(float palette_index) {
 void fragment() {
 	float palette_index = round(UV2.x);
 	vec4 map_color = sample_palette(palette_index);
-	float outer_rim = (1.0 - smoothstep(0.0, 0.06, UV.y)) * bright_rim_strength;
-	float inner_falloff = pow(max(1.0 - UV.y, 0.0), 1.95);
-	float glow_band = (1.0 - UV.y) * 0.42;
-	float inner_coverage = mix(inner_alpha_floor, 1.0, inner_falloff);
+	float edge_distance = min(UV.y, 1.0 - UV.y);
+	float outer_rim = (1.0 - smoothstep(0.0, 0.11, edge_distance)) * bright_rim_strength;
+	float inner_falloff = pow(max(1.0 - UV.y, 0.0), 2.7);
+	float glow_band = (1.0 - UV.y) * 0.26;
+	float inner_coverage = inner_alpha_floor * 0.35 + inner_falloff * 0.22;
 	vec3 rim_tint = vec3(0.84, 0.87, 0.94);
 	vec3 final_color = mix(map_color.rgb * (0.92 + glow_band * 0.56), rim_tint, outer_rim);
 	ALBEDO = final_color;
-	EMISSION = final_color * (0.9 * inner_coverage + outer_rim * 0.55);
-	ALPHA = clamp(max(inner_coverage * map_color.a, outer_rim), 0.0, 1.0);
+	EMISSION = final_color * (0.45 * inner_coverage + outer_rim * 0.85);
+	ALPHA = clamp(inner_coverage * map_color.a + outer_rim * 0.78, 0.0, 1.0);
 }

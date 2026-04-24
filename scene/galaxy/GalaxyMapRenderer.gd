@@ -19,6 +19,12 @@ const HYPERLANE_CORE_WIDTH_FACTOR := 0.055
 const HYPERLANE_OUTER_MIN_WIDTH := 7.5
 const HYPERLANE_CORE_MIN_WIDTH := 2.6
 const HYPERLANE_HEIGHT_OFFSET := 2.2
+const HYPERLANE_CAP_SEGMENTS := 18
+const UNKNOWN_HINT_COLOR := Color(0.18, 0.24, 0.34, 1.0)
+const SENSOR_HINT_COLOR := Color(0.38, 0.58, 0.74, 1.0)
+const STAR_GLOW_ALPHA_FULL := 0.58
+const STAR_GLOW_ALPHA_SENSOR := 0.3
+const STAR_GLOW_ALPHA_UNKNOWN := 0.16
 
 var _host: Node
 var _star_core_shader: Shader
@@ -51,14 +57,37 @@ func render_stars() -> void:
 
 	var core_material := ShaderMaterial.new()
 	core_material.shader = _star_core_shader
-	core_material.set_shader_parameter("emission_strength", 1.2)
-	core_material.set_shader_parameter("rim_strength", 0.18)
-	core_material.set_shader_parameter("rim_power", 2.6)
-	core_material.set_shader_parameter("saturation_boost", 1.45)
+	core_material.set_shader_parameter("emission_strength", 1.45)
+	core_material.set_shader_parameter("rim_strength", 0.28)
+	core_material.set_shader_parameter("rim_power", 2.2)
+	core_material.set_shader_parameter("saturation_boost", 1.55)
 	core_mesh.material = core_material
+
+	var glow_mesh := SphereMesh.new()
+	glow_mesh.radius = 7.8
+	glow_mesh.height = 15.6
+	glow_mesh.radial_segments = 18
+	glow_mesh.rings = 10
 
 	var star_instances: Array[Dictionary] = []
 	for system_record in _host.system_records:
+		var system_id: String = str(system_record.get("id", ""))
+		if not _is_system_hint_visible(system_id):
+			continue
+		var intel_level: int = _get_system_intel_level(system_id)
+		if intel_level < GalaxyState.INTEL_EXPLORED:
+			star_instances.append({
+				"position": system_record["position"],
+				"color": SENSOR_HINT_COLOR if intel_level >= GalaxyState.INTEL_SENSOR else UNKNOWN_HINT_COLOR,
+				"scale": 0.86 if intel_level >= GalaxyState.INTEL_SENSOR else 0.72,
+				"special_type": "none",
+				"is_pinned": system_id == _host.pinned_system_id,
+				"is_hovered": _is_system_hovered(system_id),
+				"has_full_intel": false,
+				"intel_level": intel_level,
+			})
+			continue
+
 		var star_profile: Dictionary = system_record.get("star_profile", {})
 		var profile_stars: Array = star_profile.get("stars", [])
 		if profile_stars.is_empty():
@@ -83,7 +112,10 @@ func render_stars() -> void:
 				"color": star_data.get("color", star_profile.get("display_color", Color.WHITE)),
 				"scale": float(star_data.get("scale", 1.0)),
 				"special_type": str(star_data.get("special_type", "none")),
-				"is_pinned": str(system_record.get("id", "")) == _host.pinned_system_id,
+				"is_pinned": system_id == _host.pinned_system_id,
+				"is_hovered": _is_system_hovered(system_id),
+				"has_full_intel": _has_full_system_intel(system_id),
+				"intel_level": intel_level,
 			})
 
 	var core_multimesh := MultiMesh.new()
@@ -92,12 +124,21 @@ func render_stars() -> void:
 	core_multimesh.mesh = core_mesh
 	core_multimesh.instance_count = star_instances.size()
 
+	var glow_multimesh := MultiMesh.new()
+	glow_multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	glow_multimesh.use_colors = true
+	glow_multimesh.mesh = glow_mesh
+	glow_multimesh.instance_count = star_instances.size()
+
 	for i in range(star_instances.size()):
 		var instance: Dictionary = star_instances[i]
 		var star_scale: float = float(instance["scale"])
 		var color: Color = instance["color"]
 		var special_type: String = str(instance["special_type"])
 		var is_pinned: bool = bool(instance.get("is_pinned", false))
+		var is_hovered: bool = bool(instance.get("is_hovered", false))
+		var has_full_intel: bool = bool(instance.get("has_full_intel", true))
+		var intel_level: int = int(instance.get("intel_level", GalaxyState.INTEL_SURVEYED))
 		var star_position: Vector3 = instance["position"]
 		var core_scale := star_scale * 1.05
 
@@ -112,13 +153,45 @@ func render_stars() -> void:
 		if is_pinned:
 			core_scale *= 1.18
 			color = color.lightened(0.18)
+		if is_hovered:
+			core_scale *= 1.28
+			color = color.lightened(0.28)
+		if not has_full_intel:
+			if intel_level <= GalaxyState.INTEL_NONE:
+				core_scale *= 0.8
+				color = color.lerp(Color(0.09, 0.13, 0.2, 1.0), 0.32)
+			else:
+				core_scale *= 0.84
+				color = color.lerp(Color(0.42, 0.55, 0.68, 1.0), 0.58)
 
 		core_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * core_scale), star_position))
 		core_multimesh.set_instance_color(i, color)
 
+		var glow_scale: float = core_scale * (2.45 if has_full_intel else 2.05)
+		if special_type == BLACK_HOLE_TYPE:
+			glow_scale *= 0.82
+		elif special_type == O_CLASS_TYPE:
+			glow_scale *= 1.18
+		if is_pinned:
+			glow_scale *= 1.16
+		if is_hovered:
+			glow_scale *= 1.34
+		var glow_color := color.lightened(0.08)
+		if has_full_intel:
+			glow_color.a = STAR_GLOW_ALPHA_FULL
+		elif intel_level >= GalaxyState.INTEL_SENSOR:
+			glow_color.a = STAR_GLOW_ALPHA_SENSOR
+		else:
+			glow_color.a = STAR_GLOW_ALPHA_UNKNOWN
+		if is_hovered:
+			glow_color = glow_color.lightened(0.18)
+			glow_color.a = minf(glow_color.a + 0.28, 0.95)
+		glow_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * glow_scale), star_position))
+		glow_multimesh.set_instance_color(i, glow_color)
+
 	_host.core_stars.multimesh = core_multimesh
-	_host.glow_stars.multimesh = null
-	_host.glow_stars.material_override = null
+	_host.glow_stars.multimesh = glow_multimesh
+	_host.glow_stars.material_override = _build_glow_material()
 
 
 func render_hyperlanes() -> void:
@@ -130,16 +203,30 @@ func render_hyperlanes() -> void:
 	var surface_tool := SurfaceTool.new()
 	surface_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 
-	var outer_width := maxf(_host.min_system_distance * HYPERLANE_OUTER_WIDTH_FACTOR, HYPERLANE_OUTER_MIN_WIDTH)
+	var halo_width := maxf(_host.min_system_distance * 0.34, 18.0)
+	var outer_width := maxf(_host.min_system_distance * 0.17, HYPERLANE_OUTER_MIN_WIDTH)
 	var core_width := maxf(_host.min_system_distance * HYPERLANE_CORE_WIDTH_FACTOR, HYPERLANE_CORE_MIN_WIDTH)
-	var outer_color := Color(0.28, 0.96, 0.96, 0.16)
-	var core_color := Color(0.66, 1.0, 1.0, 0.76)
+	var halo_color := Color(0.16, 0.58, 1.0, 0.075)
+	var outer_color := Color(0.22, 0.8, 1.0, 0.2)
+	var core_color := Color(0.76, 1.0, 0.96, 0.72)
+	var has_visible_link: bool = false
 
 	for link in _host.hyperlane_links:
 		var start_point: Vector3 = _host.system_positions[link.x]
 		var end_point: Vector3 = _host.system_positions[link.y]
-		_append_hyperlane_band(surface_tool, start_point, end_point, outer_width, outer_color, HYPERLANE_HEIGHT_OFFSET)
-		_append_hyperlane_band(surface_tool, start_point, end_point, core_width, core_color, HYPERLANE_HEIGHT_OFFSET + 0.55)
+		var start_system_id: String = str(_host.system_records[link.x].get("id", ""))
+		var end_system_id: String = str(_host.system_records[link.y].get("id", ""))
+		if not _has_sensor_system_intel(start_system_id) or not _has_sensor_system_intel(end_system_id):
+			continue
+		has_visible_link = true
+		_append_hyperlane_capsule(surface_tool, start_point, end_point, halo_width, halo_color, HYPERLANE_HEIGHT_OFFSET - 0.2)
+		_append_hyperlane_capsule(surface_tool, start_point, end_point, outer_width, outer_color, HYPERLANE_HEIGHT_OFFSET + 0.15)
+		_append_hyperlane_capsule(surface_tool, start_point, end_point, core_width, core_color, HYPERLANE_HEIGHT_OFFSET + 0.65)
+
+	if not has_visible_link:
+		_host.hyperlanes.mesh = null
+		_host.hyperlanes.material_override = null
+		return
 
 	_host.hyperlanes.mesh = surface_tool.commit()
 	_host.hyperlanes.material_override = _build_hyperlane_material()
@@ -152,11 +239,14 @@ func render_ownership_markers() -> void:
 
 	var empire_owned_systems: Dictionary = {}
 	for system_record in _host.system_records:
+		var system_id: String = str(system_record.get("id", ""))
+		if not _is_system_visible(system_id):
+			continue
 		var owner_empire_id: String = str(system_record.get("owner_empire_id", ""))
 		if owner_empire_id.is_empty() or not _host.empires_by_id.has(owner_empire_id):
 			continue
 		var aura_record: Dictionary = {
-			"system_id": str(system_record.get("id", "")),
+			"system_id": system_id,
 			"position": system_record["position"],
 			"color": _host.empires_by_id[owner_empire_id].get("color", Color.WHITE),
 		}
@@ -745,7 +835,81 @@ func _append_hyperlane_band(
 	var end_left := Vector3(end_point.x + normal.x, end_point.y + height_offset, end_point.z + normal.y)
 	var end_right := Vector3(end_point.x - normal.x, end_point.y + height_offset, end_point.z - normal.y)
 	var start_right := Vector3(start_point.x - normal.x, start_point.y + height_offset, start_point.z - normal.y)
-	_append_quad(surface_tool, start_left, end_left, end_right, start_right, color)
+	_append_hyperlane_quad(surface_tool, start_left, end_left, end_right, start_right, color)
+
+
+func _append_hyperlane_capsule(
+	surface_tool: SurfaceTool,
+	start_point: Vector3,
+	end_point: Vector3,
+	width: float,
+	color: Color,
+	height_offset: float
+) -> void:
+	var start_2d := Vector2(start_point.x, start_point.z)
+	var end_2d := Vector2(end_point.x, end_point.z)
+	var direction := end_2d - start_2d
+	if direction.length_squared() <= 0.001:
+		return
+
+	var radius := width * 0.5
+	var axis_angle := direction.angle()
+	var center_2d := (start_2d + end_2d) * 0.5
+	var height := (start_point.y + end_point.y) * 0.5 + height_offset
+	var outline := PackedVector2Array()
+
+	for step in range(HYPERLANE_CAP_SEGMENTS + 1):
+		var t := float(step) / float(HYPERLANE_CAP_SEGMENTS)
+		var angle := axis_angle - PI * 0.5 + t * PI
+		outline.append(end_2d + Vector2(cos(angle), sin(angle)) * radius)
+
+	for step in range(HYPERLANE_CAP_SEGMENTS + 1):
+		var t := float(step) / float(HYPERLANE_CAP_SEGMENTS)
+		var angle := axis_angle + PI * 0.5 + t * PI
+		outline.append(start_2d + Vector2(cos(angle), sin(angle)) * radius)
+
+	var center := Vector3(center_2d.x, height, center_2d.y)
+	for point_index in range(outline.size()):
+		var next_index := (point_index + 1) % outline.size()
+		var point_a := outline[point_index]
+		var point_b := outline[next_index]
+		_append_colored_triangle_3d(
+			surface_tool,
+			center,
+			Vector3(point_a.x, height, point_a.y),
+			Vector3(point_b.x, height, point_b.y),
+			color
+		)
+
+
+func _append_colored_triangle_3d(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
+	surface_tool.set_color(color)
+	surface_tool.add_vertex(a)
+	surface_tool.set_color(color)
+	surface_tool.add_vertex(b)
+	surface_tool.set_color(color)
+	surface_tool.add_vertex(c)
+
+
+func _append_hyperlane_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:
+	surface_tool.set_color(color)
+	surface_tool.set_uv(Vector2(0.0, 0.0))
+	surface_tool.add_vertex(a)
+	surface_tool.set_color(color)
+	surface_tool.set_uv(Vector2(1.0, 0.0))
+	surface_tool.add_vertex(b)
+	surface_tool.set_color(color)
+	surface_tool.set_uv(Vector2(1.0, 1.0))
+	surface_tool.add_vertex(c)
+	surface_tool.set_color(color)
+	surface_tool.set_uv(Vector2(0.0, 0.0))
+	surface_tool.add_vertex(a)
+	surface_tool.set_color(color)
+	surface_tool.set_uv(Vector2(1.0, 1.0))
+	surface_tool.add_vertex(c)
+	surface_tool.set_color(color)
+	surface_tool.set_uv(Vector2(0.0, 1.0))
+	surface_tool.add_vertex(d)
 
 
 func _append_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:
@@ -963,12 +1127,12 @@ func _build_glow_material() -> ShaderMaterial:
 func _build_hyperlane_material() -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
 	material.albedo_color = Color.WHITE
 	material.emission_enabled = true
 	material.emission = Color.WHITE
-	material.emission_energy_multiplier = 1.45
+	material.emission_energy_multiplier = 1.55
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return material
 
@@ -1035,6 +1199,54 @@ func _get_region_height(systems_for_empire: Array) -> float:
 		var system_record: Dictionary = system_variant
 		total_height += float(system_record["position"].y)
 	return total_height / float(systems_for_empire.size())
+
+
+func _is_system_visible(system_id: String) -> bool:
+	if system_id.is_empty():
+		return false
+	if _host != null and _host.has_method("is_system_visible_on_map"):
+		return bool(_host.is_system_visible_on_map(system_id))
+	return true
+
+
+func _is_system_hint_visible(system_id: String) -> bool:
+	if system_id.is_empty():
+		return false
+	if _host != null and _host.has_method("is_system_hint_visible_on_map"):
+		return bool(_host.is_system_hint_visible_on_map(system_id))
+	return _is_system_visible(system_id)
+
+
+func _has_sensor_system_intel(system_id: String) -> bool:
+	if system_id.is_empty():
+		return false
+	if _host != null and _host.has_method("has_sensor_system_intel_on_map"):
+		return bool(_host.has_sensor_system_intel_on_map(system_id))
+	return _is_system_visible(system_id)
+
+
+func _has_full_system_intel(system_id: String) -> bool:
+	if system_id.is_empty():
+		return false
+	if _host != null and _host.has_method("has_full_system_intel_on_map"):
+		return bool(_host.has_full_system_intel_on_map(system_id))
+	return true
+
+
+func _get_system_intel_level(system_id: String) -> int:
+	if system_id.is_empty():
+		return GalaxyState.INTEL_NONE
+	if _host != null and _host.has_method("get_system_intel_level_on_map"):
+		return int(_host.get_system_intel_level_on_map(system_id))
+	return GalaxyState.INTEL_SURVEYED
+
+
+func _is_system_hovered(system_id: String) -> bool:
+	if system_id.is_empty():
+		return false
+	if _host != null and _host.has_method("get_hovered_system_id_on_map"):
+		return str(_host.get_hovered_system_id_on_map()) == system_id
+	return false
 
 
 func _get_star_offset(star_index: int, system_star_count: int, orbit_radius: float) -> Vector3:

@@ -1,6 +1,6 @@
 extends Control
 
-const GAME_SCENE := preload("res://scene/game/GameScene.tscn")
+const GAME_SCENE_PATH := "res://scene/game/GameScene.tscn"
 const GALAXY_GENERATOR_SCRIPT := preload("res://scene/galaxy/GalaxyGenerator.gd")
 const MAIN_MENU_SCENE_PATH := "res://scene/MainMenue/MainUI.tscn"
 
@@ -39,7 +39,12 @@ func _on_seed_submitted(_submitted_text: String) -> void:
 
 
 func _on_generate_pressed() -> void:
-	var galaxy := GAME_SCENE.instantiate()
+	var game_scene := load(GAME_SCENE_PATH) as PackedScene
+	if game_scene == null:
+		push_error("Unable to load game scene: %s" % GAME_SCENE_PATH)
+		return
+
+	var galaxy := game_scene.instantiate()
 	var settings := {
 		"seed_text": seed_input.text.strip_edges(),
 		"star_count": int(star_count_spin_box.value),

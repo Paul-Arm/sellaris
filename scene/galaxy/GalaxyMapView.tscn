@@ -20,24 +20,11 @@ volumetric_fog_emission = Color(0.02, 0.05, 0.09, 1)
 volumetric_fog_emission_energy = 0.35
 volumetric_fog_length = 12000.0
 
-[sub_resource type="Gradient" id="Gradient_5p2xk"]
-
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_4iuij"]
-
-[sub_resource type="NoiseTexture3D" id="NoiseTexture3D_58cq5"]
-width = 444
-height = 444
-depth = 444
-noise = SubResource("FastNoiseLite_4iuij")
-color_ramp = SubResource("Gradient_5p2xk")
-seamless = true
-
 [sub_resource type="FogMaterial" id="FogMaterial_galaxy"]
-density = 1.1569
+density = 0.0018
 albedo = Color(0.16, 0.24, 0.42, 1)
 emission = Color(0.025, 0.055, 0.12, 1)
-edge_fade = 0.1414208
-density_texture = SubResource("NoiseTexture3D_58cq5")
+edge_fade = 0.0
 
 [node name="GalaxyMapView" type="Node3D" unique_id=1297125926]
 script = ExtResource("1")

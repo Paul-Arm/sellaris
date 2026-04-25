@@ -19,7 +19,7 @@ const HYPERLANE_CORE_WIDTH_FACTOR := 0.055
 const HYPERLANE_OUTER_MIN_WIDTH := 7.5
 const HYPERLANE_CORE_MIN_WIDTH := 2.6
 const HYPERLANE_HEIGHT_OFFSET := 2.2
-const HYPERLANE_CAP_SEGMENTS := 18
+const HYPERLANE_RADIAL_SEGMENTS := 12
 const UNKNOWN_HINT_COLOR := Color(0.18, 0.24, 0.34, 1.0)
 const SENSOR_HINT_COLOR := Color(0.38, 0.58, 0.74, 1.0)
 const STAR_GLOW_ALPHA_FULL := 0.58
@@ -212,16 +212,20 @@ func render_hyperlanes() -> void:
 	var has_visible_link: bool = false
 
 	for link in _host.hyperlane_links:
-		var start_point: Vector3 = _host.system_positions[link.x]
-		var end_point: Vector3 = _host.system_positions[link.y]
-		var start_system_id: String = str(_host.system_records[link.x].get("id", ""))
-		var end_system_id: String = str(_host.system_records[link.y].get("id", ""))
+		if link.x < 0 or link.y < 0 or link.x >= _host.system_records.size() or link.y >= _host.system_records.size():
+			continue
+		var start_record: Dictionary = _host.system_records[link.x]
+		var end_record: Dictionary = _host.system_records[link.y]
+		var start_point: Vector3 = start_record.get("position", Vector3.ZERO)
+		var end_point: Vector3 = end_record.get("position", Vector3.ZERO)
+		var start_system_id: String = str(start_record.get("id", ""))
+		var end_system_id: String = str(end_record.get("id", ""))
 		if not _has_sensor_system_intel(start_system_id) or not _has_sensor_system_intel(end_system_id):
 			continue
 		has_visible_link = true
-		_append_hyperlane_capsule(surface_tool, start_point, end_point, halo_width, halo_color, HYPERLANE_HEIGHT_OFFSET - 0.2)
-		_append_hyperlane_capsule(surface_tool, start_point, end_point, outer_width, outer_color, HYPERLANE_HEIGHT_OFFSET + 0.15)
-		_append_hyperlane_capsule(surface_tool, start_point, end_point, core_width, core_color, HYPERLANE_HEIGHT_OFFSET + 0.65)
+		_append_hyperlane_tube(surface_tool, start_point, end_point, halo_width, halo_color, HYPERLANE_HEIGHT_OFFSET)
+		_append_hyperlane_tube(surface_tool, start_point, end_point, outer_width, outer_color, HYPERLANE_HEIGHT_OFFSET)
+		_append_hyperlane_tube(surface_tool, start_point, end_point, core_width, core_color, HYPERLANE_HEIGHT_OFFSET)
 
 	if not has_visible_link:
 		_host.hyperlanes.mesh = null
@@ -815,8 +819,7 @@ func _append_triangle(surface_tool: SurfaceTool, a: Vector2, b: Vector2, c: Vect
 	surface_tool.set_color(color)
 	surface_tool.add_vertex(Vector3(c.x, height, c.y))
 
-
-func _append_hyperlane_band(
+func _append_hyperlane_tube(
 	surface_tool: SurfaceTool,
 	start_point: Vector3,
 	end_point: Vector3,
@@ -824,92 +827,32 @@ func _append_hyperlane_band(
 	color: Color,
 	height_offset: float
 ) -> void:
-	var start_2d := Vector2(start_point.x, start_point.z)
-	var end_2d := Vector2(end_point.x, end_point.z)
-	var direction := end_2d - start_2d
-	if direction.length_squared() <= 0.001:
-		return
-
-	var normal := Vector2(-direction.y, direction.x).normalized() * width * 0.5
-	var start_left := Vector3(start_point.x + normal.x, start_point.y + height_offset, start_point.z + normal.y)
-	var end_left := Vector3(end_point.x + normal.x, end_point.y + height_offset, end_point.z + normal.y)
-	var end_right := Vector3(end_point.x - normal.x, end_point.y + height_offset, end_point.z - normal.y)
-	var start_right := Vector3(start_point.x - normal.x, start_point.y + height_offset, start_point.z - normal.y)
-	_append_hyperlane_quad(surface_tool, start_left, end_left, end_right, start_right, color)
-
-
-func _append_hyperlane_capsule(
-	surface_tool: SurfaceTool,
-	start_point: Vector3,
-	end_point: Vector3,
-	width: float,
-	color: Color,
-	height_offset: float
-) -> void:
-	var start_2d := Vector2(start_point.x, start_point.z)
-	var end_2d := Vector2(end_point.x, end_point.z)
-	var direction := end_2d - start_2d
-	if direction.length_squared() <= 0.001:
+	var start := start_point + Vector3.UP * height_offset
+	var end := end_point + Vector3.UP * height_offset
+	var axis := end - start
+	if axis.length_squared() <= 0.001:
 		return
 
 	var radius := width * 0.5
-	var axis_angle := direction.angle()
-	var center_2d := (start_2d + end_2d) * 0.5
-	var height := (start_point.y + end_point.y) * 0.5 + height_offset
-	var outline := PackedVector2Array()
+	var forward := axis.normalized()
+	var reference := Vector3.UP
+	if absf(forward.dot(reference)) > 0.92:
+		reference = Vector3.RIGHT
+	var right := forward.cross(reference).normalized()
+	var up := right.cross(forward).normalized()
 
-	for step in range(HYPERLANE_CAP_SEGMENTS + 1):
-		var t := float(step) / float(HYPERLANE_CAP_SEGMENTS)
-		var angle := axis_angle - PI * 0.5 + t * PI
-		outline.append(end_2d + Vector2(cos(angle), sin(angle)) * radius)
+	for segment_index in range(HYPERLANE_RADIAL_SEGMENTS):
+		var next_index := (segment_index + 1) % HYPERLANE_RADIAL_SEGMENTS
+		var angle := float(segment_index) * TAU / float(HYPERLANE_RADIAL_SEGMENTS)
+		var next_angle := float(next_index) * TAU / float(HYPERLANE_RADIAL_SEGMENTS)
+		var ring_offset := (right * cos(angle) + up * sin(angle)) * radius
+		var next_ring_offset := (right * cos(next_angle) + up * sin(next_angle)) * radius
+		var start_a := start + ring_offset
+		var start_b := start + next_ring_offset
+		var end_a := end + ring_offset
+		var end_b := end + next_ring_offset
 
-	for step in range(HYPERLANE_CAP_SEGMENTS + 1):
-		var t := float(step) / float(HYPERLANE_CAP_SEGMENTS)
-		var angle := axis_angle + PI * 0.5 + t * PI
-		outline.append(start_2d + Vector2(cos(angle), sin(angle)) * radius)
-
-	var center := Vector3(center_2d.x, height, center_2d.y)
-	for point_index in range(outline.size()):
-		var next_index := (point_index + 1) % outline.size()
-		var point_a := outline[point_index]
-		var point_b := outline[next_index]
-		_append_colored_triangle_3d(
-			surface_tool,
-			center,
-			Vector3(point_a.x, height, point_a.y),
-			Vector3(point_b.x, height, point_b.y),
-			color
-		)
-
-
-func _append_colored_triangle_3d(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:
-	surface_tool.set_color(color)
-	surface_tool.add_vertex(a)
-	surface_tool.set_color(color)
-	surface_tool.add_vertex(b)
-	surface_tool.set_color(color)
-	surface_tool.add_vertex(c)
-
-
-func _append_hyperlane_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:
-	surface_tool.set_color(color)
-	surface_tool.set_uv(Vector2(0.0, 0.0))
-	surface_tool.add_vertex(a)
-	surface_tool.set_color(color)
-	surface_tool.set_uv(Vector2(1.0, 0.0))
-	surface_tool.add_vertex(b)
-	surface_tool.set_color(color)
-	surface_tool.set_uv(Vector2(1.0, 1.0))
-	surface_tool.add_vertex(c)
-	surface_tool.set_color(color)
-	surface_tool.set_uv(Vector2(0.0, 0.0))
-	surface_tool.add_vertex(a)
-	surface_tool.set_color(color)
-	surface_tool.set_uv(Vector2(1.0, 1.0))
-	surface_tool.add_vertex(c)
-	surface_tool.set_color(color)
-	surface_tool.set_uv(Vector2(0.0, 1.0))
-	surface_tool.add_vertex(d)
+		_append_quad(surface_tool, start_a, end_a, end_b, start_b, color)
 
 
 func _append_quad(surface_tool: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color) -> void:

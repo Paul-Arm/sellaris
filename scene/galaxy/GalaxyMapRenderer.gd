@@ -20,11 +20,15 @@ const HYPERLANE_OUTER_MIN_WIDTH := 7.5
 const HYPERLANE_CORE_MIN_WIDTH := 2.6
 const HYPERLANE_HEIGHT_OFFSET := 2.2
 const HYPERLANE_RADIAL_SEGMENTS := 12
-const UNKNOWN_HINT_COLOR := Color(0.18, 0.24, 0.34, 1.0)
-const SENSOR_HINT_COLOR := Color(0.38, 0.58, 0.74, 1.0)
-const STAR_GLOW_ALPHA_FULL := 0.58
-const STAR_GLOW_ALPHA_SENSOR := 0.3
-const STAR_GLOW_ALPHA_UNKNOWN := 0.16
+const UNKNOWN_HINT_COLOR := Color(0.28, 0.36, 0.48, 1.0)
+const SENSOR_HINT_COLOR := Color(0.6, 0.78, 1.0, 1.0)
+const STAR_GLOW_ALPHA_FULL := 0.7
+const STAR_GLOW_ALPHA_SENSOR := 0.44
+const STAR_GLOW_ALPHA_UNKNOWN := 0.24
+const STAR_BACKPLATE_HEIGHT_OFFSET := -5.5
+const STAR_BACKPLATE_SCALE_FULL := 4.2
+const STAR_BACKPLATE_SCALE_SENSOR := 4.75
+const STAR_BACKPLATE_SCALE_UNKNOWN := 4.2
 
 var _host: Node
 var _star_core_shader: Shader
@@ -57,12 +61,13 @@ func render_stars() -> void:
 
 	var core_material := ShaderMaterial.new()
 	core_material.shader = _star_core_shader
-	core_material.set_shader_parameter("emission_strength", 1.45)
-	core_material.set_shader_parameter("rim_strength", 0.28)
-	core_material.set_shader_parameter("rim_power", 2.2)
-	core_material.set_shader_parameter("saturation_boost", 1.55)
+	core_material.set_shader_parameter("emission_strength", 2.15)
+	core_material.set_shader_parameter("rim_strength", 0.42)
+	core_material.set_shader_parameter("rim_power", 1.9)
+	core_material.set_shader_parameter("saturation_boost", 1.8)
 	core_mesh.material = core_material
 
+	var backplate_mesh := _build_star_backplate_mesh()
 	var glow_mesh := SphereMesh.new()
 	glow_mesh.radius = 7.8
 	glow_mesh.height = 15.6
@@ -124,6 +129,12 @@ func render_stars() -> void:
 	core_multimesh.mesh = core_mesh
 	core_multimesh.instance_count = star_instances.size()
 
+	var backplate_multimesh := MultiMesh.new()
+	backplate_multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	backplate_multimesh.use_colors = true
+	backplate_multimesh.mesh = backplate_mesh
+	backplate_multimesh.instance_count = star_instances.size()
+
 	var glow_multimesh := MultiMesh.new()
 	glow_multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	glow_multimesh.use_colors = true
@@ -161,13 +172,32 @@ func render_stars() -> void:
 				core_scale *= 0.8
 				color = color.lerp(Color(0.09, 0.13, 0.2, 1.0), 0.32)
 			else:
-				core_scale *= 0.84
-				color = color.lerp(Color(0.42, 0.55, 0.68, 1.0), 0.58)
+				core_scale *= 0.98
+				color = color.lerp(Color(0.72, 0.86, 1.0, 1.0), 0.3)
 
 		core_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * core_scale), star_position))
 		core_multimesh.set_instance_color(i, color)
 
-		var glow_scale: float = core_scale * (2.45 if has_full_intel else 2.05)
+		var backplate_scale := core_scale * STAR_BACKPLATE_SCALE_FULL
+		if not has_full_intel:
+			backplate_scale = core_scale * (STAR_BACKPLATE_SCALE_SENSOR if intel_level >= GalaxyState.INTEL_SENSOR else STAR_BACKPLATE_SCALE_UNKNOWN)
+		if is_pinned:
+			backplate_scale *= 1.1
+		if is_hovered:
+			backplate_scale *= 1.18
+		var backplate_color := Color(0.015, 0.025, 0.045, 0.9)
+		if not has_full_intel:
+			backplate_color.a = 0.78 if intel_level >= GalaxyState.INTEL_SENSOR else 0.62
+		backplate_multimesh.set_instance_transform(
+			i,
+			Transform3D(
+				Basis().scaled(Vector3.ONE * backplate_scale),
+				star_position + Vector3.UP * STAR_BACKPLATE_HEIGHT_OFFSET
+			)
+		)
+		backplate_multimesh.set_instance_color(i, backplate_color)
+
+		var glow_scale: float = core_scale * (2.9 if has_full_intel else 2.45)
 		if special_type == BLACK_HOLE_TYPE:
 			glow_scale *= 0.82
 		elif special_type == O_CLASS_TYPE:
@@ -189,6 +219,8 @@ func render_stars() -> void:
 		glow_multimesh.set_instance_transform(i, Transform3D(Basis().scaled(Vector3.ONE * glow_scale), star_position))
 		glow_multimesh.set_instance_color(i, glow_color)
 
+	_host.star_backplates.multimesh = backplate_multimesh
+	_host.star_backplates.material_override = _build_star_backplate_material()
 	_host.core_stars.multimesh = core_multimesh
 	_host.glow_stars.multimesh = glow_multimesh
 	_host.glow_stars.material_override = _build_glow_material()
@@ -1059,11 +1091,65 @@ func _polygon_area(polygon: PackedVector2Array) -> float:
 func _build_glow_material() -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = _star_glow_shader
-	material.set_shader_parameter("fresnel_power", 2.4)
-	material.set_shader_parameter("glow_strength", 1.5)
+	material.set_shader_parameter("fresnel_power", 2.1)
+	material.set_shader_parameter("glow_strength", 2.05)
 	material.set_shader_parameter("pulse_strength", 0.06)
 	material.set_shader_parameter("pulse_speed", 0.95)
-	material.set_shader_parameter("center_fill", 0.22)
+	material.set_shader_parameter("center_fill", 0.3)
+	return material
+
+
+func _build_star_backplate_mesh() -> ArrayMesh:
+	var surface_tool := SurfaceTool.new()
+	surface_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var center := Vector3.ZERO
+	var inner_radius := 0.45
+	var outer_radius := 1.0
+	var center_color := Color(1.0, 1.0, 1.0, 0.72)
+	var inner_color := Color(1.0, 1.0, 1.0, 0.34)
+	var outer_color := Color(1.0, 1.0, 1.0, 0.0)
+	var segment_count := 28
+
+	for segment_index in range(segment_count):
+		var next_index := (segment_index + 1) % segment_count
+		var angle_a := float(segment_index) * TAU / float(segment_count)
+		var angle_b := float(next_index) * TAU / float(segment_count)
+		var inner_a := Vector3(cos(angle_a) * inner_radius, 0.0, sin(angle_a) * inner_radius)
+		var inner_b := Vector3(cos(angle_b) * inner_radius, 0.0, sin(angle_b) * inner_radius)
+		var outer_a := Vector3(cos(angle_a) * outer_radius, 0.0, sin(angle_a) * outer_radius)
+		var outer_b := Vector3(cos(angle_b) * outer_radius, 0.0, sin(angle_b) * outer_radius)
+
+		surface_tool.set_color(center_color)
+		surface_tool.add_vertex(center)
+		surface_tool.set_color(inner_color)
+		surface_tool.add_vertex(inner_a)
+		surface_tool.set_color(inner_color)
+		surface_tool.add_vertex(inner_b)
+
+		surface_tool.set_color(inner_color)
+		surface_tool.add_vertex(inner_a)
+		surface_tool.set_color(outer_color)
+		surface_tool.add_vertex(outer_a)
+		surface_tool.set_color(outer_color)
+		surface_tool.add_vertex(outer_b)
+		surface_tool.set_color(inner_color)
+		surface_tool.add_vertex(inner_a)
+		surface_tool.set_color(outer_color)
+		surface_tool.add_vertex(outer_b)
+		surface_tool.set_color(inner_color)
+		surface_tool.add_vertex(inner_b)
+
+	return surface_tool.commit()
+
+
+func _build_star_backplate_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = Color(0.015, 0.025, 0.045, 0.72)
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	return material
 
 

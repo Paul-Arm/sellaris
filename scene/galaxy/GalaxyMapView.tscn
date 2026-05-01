@@ -5,26 +5,14 @@
 
 [sub_resource type="Environment" id="1"]
 background_mode = 1
-background_color = Color(0.00392157, 0.00784314, 0.0196078, 1)
+background_color = Color(0.012, 0.018, 0.04, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.615686, 0.678431, 0.819608, 1)
-ambient_light_energy = 0.45
-tonemap_exposure = 0.92
+ambient_light_color = Color(0.7, 0.76, 0.94, 1)
+ambient_light_energy = 0.58
+tonemap_exposure = 1.05
 glow_enabled = true
-glow_intensity = 0.08
-glow_bloom = 0.04
-volumetric_fog_enabled = true
-volumetric_fog_density = 0.0
-volumetric_fog_albedo = Color(0.18, 0.26, 0.42, 1)
-volumetric_fog_emission = Color(0.02, 0.05, 0.09, 1)
-volumetric_fog_emission_energy = 0.35
-volumetric_fog_length = 12000.0
-
-[sub_resource type="FogMaterial" id="FogMaterial_galaxy"]
-density = 0.0018
-albedo = Color(0.16, 0.24, 0.42, 1)
-emission = Color(0.025, 0.055, 0.12, 1)
-edge_fade = 0.0
+glow_intensity = 0.13
+glow_bloom = 0.06
 
 [node name="GalaxyMapView" type="Node3D" unique_id=1297125926]
 script = ExtResource("1")
@@ -46,11 +34,21 @@ shadow_enabled = true
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1171016628]
 environment = SubResource("1")
 
-[node name="FogVolume" type="FogVolume" parent="WorldEnvironment" unique_id=1277242186]
-shape = 4
-material = SubResource("FogMaterial_galaxy")
+[node name="Background" type="Node3D" parent="." unique_id=1277242186]
+
+[node name="NebulaFar" type="MeshInstance3D" parent="Background" unique_id=1614623164]
+cast_shadow = 0
+
+[node name="NebulaNear" type="MeshInstance3D" parent="Background" unique_id=1173624051]
+cast_shadow = 0
+
+[node name="Starfield" type="MultiMeshInstance3D" parent="Background" unique_id=937583401]
+cast_shadow = 0
 
 [node name="Stars" type="Node3D" parent="." unique_id=445984268]
+
+[node name="StarBackplates" type="MultiMeshInstance3D" parent="Stars" unique_id=381552949]
+cast_shadow = 0
 
 [node name="CoreStars" type="MultiMeshInstance3D" parent="Stars" unique_id=42836867]
 

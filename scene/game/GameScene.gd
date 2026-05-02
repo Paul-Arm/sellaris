@@ -177,6 +177,8 @@ func _connect_scene_signals() -> void:
 	_ui.galaxy_hud.territory_core_opacity_changed.connect(_simulation_system.on_territory_core_opacity_changed)
 	_ui.empire_picker_list.item_selected.connect(_on_empire_picker_item_selected)
 	_ui.empire_picker_list.item_activated.connect(_on_empire_picker_item_activated)
+	_ui.bottom_category_bar.runtime_entry_activated.connect(_on_bottom_runtime_entry_activated)
+	_ui.bottom_category_bar.runtime_action_requested.connect(_on_bottom_runtime_entry_activated)
 	SimClock.day_tick.connect(_simulation_system.on_sim_day_tick)
 	SimClock.month_tick.connect(_simulation_system.on_sim_month_tick)
 	SimClock.year_tick.connect(_simulation_system.on_sim_year_tick)
@@ -188,3 +190,9 @@ func _get_active_empire_id() -> String:
 
 func _get_systems_by_id() -> Dictionary:
 	return _state.systems_by_id
+
+
+func _on_bottom_runtime_entry_activated(category_id: String, entry: Dictionary) -> void:
+	if category_id != "planets":
+		return
+	_scene_ui_controller.open_colony_modal(str(entry.get("id", "")))

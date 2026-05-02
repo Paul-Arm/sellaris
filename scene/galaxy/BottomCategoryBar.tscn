@@ -116,7 +116,7 @@ text = "Planet Operations"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.94)
 theme_override_font_sizes/font_size = 13
-text = "Use this page for colonies, districts, buildings, orbital bodies, and any planet-specific controls you want to build out later."
+text = "Colonies, population, buildings, and planetary jobs."
 autowrap_mode = 3
 
 [node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox" unique_id=88880766]
@@ -125,6 +125,25 @@ theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
 theme_override_font_sizes/font_size = 12
 text = "Select a system to surface its worlds here."
 autowrap_mode = 3
+
+[node name="RuntimeListLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.976471, 0.964706, 0.972549, 0.74)
+theme_override_font_sizes/font_size = 11
+text = "Owned Colonies"
+
+[node name="RuntimeItemList" type="ItemList" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_vertical = 3
+max_text_lines = 2
+same_column_width = true
+
+[node name="RuntimeActionButton" type="Button" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox"]
+custom_minimum_size = Vector2(150, 30)
+layout_mode = 2
+size_flags_horizontal = 8
+text = "Manage Colony"
 
 [node name="Starbases" type="Control" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView" unique_id=1996420714]
 visible = false

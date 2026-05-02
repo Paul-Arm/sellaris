@@ -69,6 +69,7 @@ static func _load_species_entry(archetype_id: String, species_type_id: String) -
 	var species_adjective := str(config.get_value("species", "species_adjective", species_name)).strip_edges()
 	var species_visuals_id := str(config.get_value("species", "species_visuals_id", "%s/%s" % [archetype_id, species_type_id])).strip_edges()
 	var name_set_id := str(config.get_value("species", "name_set_id", "")).strip_edges()
+	var trait_ids := _normalize_string_values(config.get_value("traits", "ids", []))
 
 	var menu_portrait_path := _resolve_relative_file_path(species_path, str(config.get_value("species", "menu_portrait", "")).strip_edges())
 	if menu_portrait_path.is_empty():
@@ -87,6 +88,7 @@ static func _load_species_entry(archetype_id: String, species_type_id: String) -
 		"species_adjective": species_adjective,
 		"species_visuals_id": species_visuals_id,
 		"name_set_id": name_set_id,
+		"trait_ids": trait_ids,
 		"folder_path": species_path,
 		"menu_portrait_path": menu_portrait_path,
 		"leader_portrait_paths": leader_portrait_paths,
@@ -164,6 +166,30 @@ static func _list_image_paths(path: String) -> Array[String]:
 			continue
 		results.append(path.path_join(file_name))
 	return results
+
+
+static func _normalize_string_values(values: Variant) -> PackedStringArray:
+	var result := PackedStringArray()
+	if values is PackedStringArray:
+		for value in values:
+			var normalized_value := str(value).strip_edges()
+			if not normalized_value.is_empty() and not result.has(normalized_value):
+				result.append(normalized_value)
+		return result
+	if values is String:
+		for value in str(values).split(",", false):
+			var normalized_value := str(value).strip_edges()
+			if not normalized_value.is_empty() and not result.has(normalized_value):
+				result.append(normalized_value)
+		return result
+	if values is not Array:
+		return result
+	for value_variant in values:
+		var value := str(value_variant).strip_edges()
+		if value.is_empty() or result.has(value):
+			continue
+		result.append(value)
+	return result
 
 
 static func _humanize_id(value: String) -> String:

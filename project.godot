@@ -23,6 +23,7 @@ SimClock="*uid://3e6kd3sqfbrk"
 EmpireManager="*uid://d1q7tp3dnalep"
 EmpirePresetManager="*res://autoload/EmpirePresetManager.gd"
 EconomyManager="*res://autoload/EconomyManager.gd"
+ColonyManager="*res://autoload/ColonyManager.gd"
 SpaceManager="*res://autoload/SpaceManager.gd"
 
 [display]

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const SPECIES_LIBRARY_SCRIPT := preload("res://core/empire/species/SpeciesLibrary.gd")
+
 const NAME_PREFIXES := [
 	"Auroran",
 	"Cygnan",
@@ -56,10 +58,14 @@ func build_default_empires(galaxy_seed: int, system_count: int, desired_count: i
 
 	var empires: Array[Dictionary] = []
 	var used_names: Dictionary = {}
+	var species_entries: Array[Dictionary] = _load_species_entries()
 
 	for empire_index in range(empire_count):
 		var empire_name := _build_unique_name(rng, used_names)
 		var color: Color = EMPIRE_COLORS[(empire_index + color_offset) % EMPIRE_COLORS.size()]
+		var species_entry: Dictionary = {}
+		if not species_entries.is_empty():
+			species_entry = species_entries[(empire_index + color_offset) % species_entries.size()]
 		empires.append({
 			"id": "empire_%02d" % empire_index,
 			"name": empire_name,
@@ -70,6 +76,13 @@ func build_default_empires(galaxy_seed: int, system_count: int, desired_count: i
 			"ai_profile": "",
 			"player_slot": empire_index,
 			"home_system_id": "",
+			"species_archetype_id": str(species_entry.get("archetype_id", "organic")),
+			"species_type_id": str(species_entry.get("species_type_id", "humanoid")),
+			"species_visuals_id": str(species_entry.get("species_visuals_id", "organic/humanoid")),
+			"species_name": str(species_entry.get("species_name", "Humanoid")),
+			"species_plural_name": str(species_entry.get("species_plural_name", "Humanoids")),
+			"species_adjective": str(species_entry.get("species_adjective", "Humanoid")),
+			"trait_ids": _packed_string_array_to_array(species_entry.get("trait_ids", PackedStringArray())),
 		})
 
 	return empires
@@ -88,3 +101,23 @@ func _build_unique_name(rng: RandomNumberGenerator, used_names: Dictionary) -> S
 	var fallback_name := "Empire %02d" % (used_names.size() + 1)
 	used_names[fallback_name] = true
 	return fallback_name
+
+
+func _load_species_entries() -> Array[Dictionary]:
+	var catalog: Dictionary = SPECIES_LIBRARY_SCRIPT.load_catalog()
+	var entries: Array[Dictionary] = []
+	for archetype_entry in SPECIES_LIBRARY_SCRIPT.get_archetype_entries(catalog):
+		for species_entry in SPECIES_LIBRARY_SCRIPT.get_species_entries(catalog, str(archetype_entry.get("id", ""))):
+			entries.append(species_entry)
+	return entries
+
+
+func _packed_string_array_to_array(values: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if values is PackedStringArray:
+		for value in values:
+			result.append(str(value))
+	elif values is Array:
+		for value_variant in values:
+			result.append(str(value_variant))
+	return result

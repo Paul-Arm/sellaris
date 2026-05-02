@@ -130,9 +130,11 @@ func build_galaxy_empire_records() -> Array[Dictionary]:
 			"biography": preset.biography,
 			"species_archetype_id": str(preset.species_archetype_id),
 			"species_type_id": str(preset.species_type_id),
+			"species_visuals_id": str(preset.species_visuals_id),
 			"species_name": preset.species_name,
 			"species_plural_name": preset.species_plural_name,
 			"species_adjective": preset.species_adjective,
+			"starting_planet_type": str(preset.starting_planet_type),
 			"preset_data": preset.to_dict(),
 		})
 	return records

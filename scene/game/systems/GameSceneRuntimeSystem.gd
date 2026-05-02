@@ -40,6 +40,7 @@ func generate_async() -> void:
 
 	_state.is_generating = true
 	SpaceManager.reset_runtime_state()
+	ColonyManager.reset_runtime_state()
 	_debug_spawner.register_debug_ship_classes()
 	_state.selected_system_id = ""
 	_state.hovered_system_id = ""
@@ -109,10 +110,11 @@ func generate_async() -> void:
 	await get_tree().process_frame
 	initialize_empires()
 	var starting_home_system_id: String = _assign_starting_empire_and_home_system()
+	var capital_context: Dictionary = _ensure_starting_capital_world(_state.active_empire_id, starting_home_system_id)
 
 	_scene_ui_controller.set_loading_state(true, "Bootstrapping economy...", 0.68)
 	await get_tree().process_frame
-	bootstrap_economy()
+	bootstrap_economy(capital_context)
 
 	_scene_ui_controller.set_loading_state(true, "Preparing scene data...", 0.72)
 	await get_tree().process_frame
@@ -165,6 +167,8 @@ func get_system_details(system_id: String) -> Dictionary:
 	details["owner_name"] = owner_name
 	details["space_presence"] = get_system_space_presence(system_id)
 	details["space_renderables"] = build_system_renderables(system_id)
+	details["colonies"] = _build_system_colony_summaries(system_id)
+	details["colony_count"] = details["colonies"].size()
 	details["intel_level"] = _get_active_system_intel_level(system_id)
 	details["intel_label"] = _get_active_system_intel_label(system_id)
 	details["has_full_intel"] = _has_full_intel_for_active_empire(system_id)
@@ -198,6 +202,7 @@ func get_runtime_snapshot() -> Dictionary:
 		"galaxy": get_galaxy_state_snapshot(),
 		"space": SpaceManager.build_snapshot(),
 		"economy": EconomyManager.build_snapshot(),
+		"colonies": ColonyManager.build_snapshot(),
 	}
 
 
@@ -251,14 +256,65 @@ func build_system_renderables(system_id: String) -> Dictionary:
 	return renderables
 
 
+func _build_system_colony_summaries(system_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if system_id.is_empty():
+		return result
+	var colony_ids := ColonyManager.get_colony_ids_for_system(system_id)
+	for colony_id in colony_ids:
+		var colony_details := get_colony_summary(colony_id)
+		if colony_details.is_empty():
+			continue
+		result.append({
+			"id": colony_id,
+			"name": str(colony_details.get("name", colony_id)),
+			"empire_id": str(colony_details.get("empire_id", "")),
+			"owner_name": str(colony_details.get("owner_name", "")),
+			"planet_name": str(colony_details.get("planet_name", "")),
+			"total_population": int(colony_details.get("total_population", 0)),
+			"idle_pop_count": int(colony_details.get("idle_pop_count", 0)),
+			"is_capital": bool(colony_details.get("is_capital", false)),
+		})
+	return result
+
+
 func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Dictionary:
 	var result := {
+		"planets": [],
 		"starbases": [],
 		"passive_fleets": [],
 		"military_fleets": [],
 	}
 	if _state == null or _state.active_empire_id.is_empty():
 		return result
+
+	var planet_entries: Array[Dictionary] = []
+	for colony_id in ColonyManager.get_colony_ids_for_empire(_state.active_empire_id):
+		var colony_details := get_colony_summary(colony_id)
+		if colony_details.is_empty():
+			continue
+		var colony_system_id := str(colony_details.get("system_id", ""))
+		var system_name := _get_system_runtime_name(colony_system_id)
+		var is_local_colony := not inspected_system_id.is_empty() and colony_system_id == inspected_system_id
+		planet_entries.append({
+			"id": colony_id,
+			"title": str(colony_details.get("name", colony_id)),
+			"summary": "%s pops  Idle %d  Net %s" % [
+				_format_runtime_population(int(colony_details.get("total_population", 0))),
+				int(colony_details.get("idle_pop_count", 0)),
+				_format_runtime_resource_net(colony_details.get("monthly_net", {})),
+			],
+			"location": system_name,
+			"is_local": is_local_colony,
+			"tooltip": "%s\nPlanet: %s\nSystem: %s\nPopulation: %s\nIdle pops: %d\nMonthly net: %s" % [
+				str(colony_details.get("name", colony_id)),
+				str(colony_details.get("planet_name", "")),
+				system_name,
+				_format_runtime_population(int(colony_details.get("total_population", 0))),
+				int(colony_details.get("idle_pop_count", 0)),
+				_format_runtime_resource_net(colony_details.get("monthly_net", {})),
+			],
+		})
 
 	var station_entries: Array[Dictionary] = []
 	for ship_id in SpaceManager.get_ship_ids_for_owner(_state.active_empire_id):
@@ -329,10 +385,77 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 			],
 		})
 
+	result["planets"] = _sort_bottom_drawer_entries(planet_entries)
 	result["starbases"] = _sort_bottom_drawer_entries(station_entries)
 	result["passive_fleets"] = _sort_bottom_drawer_entries(passive_fleet_entries)
 	result["military_fleets"] = _sort_bottom_drawer_entries(military_fleet_entries)
 	return result
+
+
+func get_manageable_colony_id_for_system(system_id: String) -> String:
+	if _state == null or system_id.is_empty() or _state.active_empire_id.is_empty():
+		return ""
+	return ColonyManager.get_first_manageable_colony_id(system_id, _state.active_empire_id)
+
+
+func get_colony_details(colony_id: String) -> Dictionary:
+	if _state == null or colony_id.is_empty():
+		return {}
+	var details := ColonyManager.get_colony_details(colony_id)
+	if details.is_empty():
+		return {}
+	var system_id := str(details.get("system_id", ""))
+	if _state.systems_by_id.has(system_id):
+		details["system_name"] = str(_state.systems_by_id[system_id].get("name", system_id))
+	if _state.empires_by_id.has(str(details.get("empire_id", ""))):
+		details["owner_name"] = str(_state.empires_by_id[str(details.get("empire_id", ""))].get("name", ""))
+	return details
+
+
+func get_colony_summary(colony_id: String) -> Dictionary:
+	if _state == null or colony_id.is_empty():
+		return {}
+	var summary := ColonyManager.get_colony_summary(colony_id)
+	if summary.is_empty():
+		return {}
+	var system_id := str(summary.get("system_id", ""))
+	if _state.systems_by_id.has(system_id):
+		summary["system_name"] = str(_state.systems_by_id[system_id].get("name", system_id))
+	if _state.empires_by_id.has(str(summary.get("empire_id", ""))):
+		summary["owner_name"] = str(_state.empires_by_id[str(summary.get("empire_id", ""))].get("name", ""))
+	return summary
+
+
+func assign_colony_pop_to_job(colony_id: String, pop_unit_id: String, job_id: String) -> bool:
+	var changed := ColonyManager.assign_pop_to_job(colony_id, pop_unit_id, job_id)
+	if changed:
+		_scene_ui_controller.update_system_panel()
+		_scene_ui_controller.update_info_label()
+	return changed
+
+
+func unassign_colony_pop_from_job(colony_id: String, pop_unit_id: String) -> bool:
+	var changed := ColonyManager.unassign_pop_from_job(colony_id, pop_unit_id)
+	if changed:
+		_scene_ui_controller.update_system_panel()
+		_scene_ui_controller.update_info_label()
+	return changed
+
+
+func set_colony_job_cap(colony_id: String, job_id: String, cap: int) -> bool:
+	var changed := ColonyManager.set_job_cap(colony_id, job_id, cap)
+	if changed:
+		_scene_ui_controller.update_system_panel()
+		_scene_ui_controller.update_info_label()
+	return changed
+
+
+func place_colony_building(colony_id: String, slot_id: String, building_id: String) -> bool:
+	var changed := ColonyManager.place_building(colony_id, slot_id, building_id)
+	if changed:
+		_scene_ui_controller.update_system_panel()
+		_scene_ui_controller.update_info_label()
+	return changed
 
 
 func spawn_runtime_ship(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> ShipRuntime:
@@ -380,6 +503,7 @@ func set_system_owner(system_id: String, empire_id: String) -> bool:
 		)
 		sync_cached_state()
 	_sync_system_economy_sources(system_id)
+	ColonyManager.transfer_colonies_in_system(system_id, empire_id)
 	render_ownership_markers()
 	render_stars()
 	render_hyperlanes()
@@ -601,6 +725,59 @@ func _assign_starting_empire_and_home_system() -> String:
 	return home_system_id
 
 
+func _ensure_starting_capital_world(empire_id: String, home_system_id: String) -> Dictionary:
+	if _state == null or empire_id.is_empty() or home_system_id.is_empty():
+		return {}
+	if not _state.empires_by_id.has(empire_id) or not _state.systems_by_id.has(home_system_id):
+		return {}
+
+	var empire_record: Dictionary = _state.empires_by_id[empire_id]
+	var system_details: Dictionary = resolve_system_details(home_system_id)
+	if system_details.is_empty():
+		return {}
+
+	var orbitals: Array = system_details.get("orbitals", []).duplicate(true)
+	var starting_planet_type := _get_empire_starting_planet_type(empire_record)
+	var planet_index := _pick_capital_planet_index(orbitals, starting_planet_type)
+	var selected_orbital_id := ""
+	if planet_index < 0:
+		var fallback_planet := _build_fallback_capital_orbital(system_details, starting_planet_type)
+		orbitals.append(fallback_planet)
+		selected_orbital_id = str(fallback_planet.get("id", ""))
+	else:
+		var capital_planet := _make_capital_world_orbital(orbitals[planet_index], starting_planet_type)
+		orbitals[planet_index] = capital_planet
+		selected_orbital_id = str(capital_planet.get("id", ""))
+
+	var resolved_details: Dictionary = _state.generator.apply_system_detail_patch(system_details, {
+		"orbitals": orbitals,
+	})
+	_state.galaxy_state.set_system_detail_override(home_system_id, resolved_details)
+	_state.galaxy_state.update_system_record(home_system_id, {
+		"star_profile": resolved_details.get("star_profile", {}),
+		"system_summary": resolved_details.get("system_summary", {}),
+	})
+	sync_cached_state()
+
+	var selected_planet: Dictionary = {}
+	for orbital_variant in resolved_details.get("orbitals", []):
+		var orbital: Dictionary = orbital_variant
+		if str(orbital.get("id", "")) == selected_orbital_id:
+			selected_planet = orbital.duplicate(true)
+			break
+	if selected_planet.is_empty():
+		return {}
+
+	return {
+		"empire_id": empire_id,
+		"system_id": home_system_id,
+		"system_name": str(_state.systems_by_id.get(home_system_id, {}).get("name", home_system_id)),
+		"planet_orbital_id": selected_orbital_id,
+		"planet": selected_planet,
+		"colony_name": str(selected_planet.get("name", "Capital")),
+	}
+
+
 func _resolve_requested_starting_empire_id() -> String:
 	var requested_empire_id: String = _state.selected_starting_empire_id.strip_edges()
 	if not requested_empire_id.is_empty() and _state.empires_by_id.has(requested_empire_id):
@@ -641,7 +818,110 @@ func _pick_starting_system_for_empire(empire_id: String) -> String:
 	return candidates[rng.randi_range(0, candidates.size() - 1)]
 
 
-func bootstrap_economy() -> void:
+func _pick_capital_planet_index(orbitals: Array, starting_planet_type: String) -> int:
+	var best_index := -1
+	var best_score := -INF
+	for orbital_index in range(orbitals.size()):
+		var orbital_variant: Variant = orbitals[orbital_index]
+		if orbital_variant is not Dictionary:
+			continue
+		var orbital: Dictionary = orbital_variant
+		if str(orbital.get("type", "")) != "planet":
+			continue
+		var score := float(int(orbital.get("habitability_points", 0)) * 4 + int(orbital.get("resource_richness_points", 50)))
+		if bool(orbital.get("is_colonizable", false)):
+			score += 1000.0
+		if not starting_planet_type.is_empty() and _get_orbital_planet_type(orbital) == starting_planet_type:
+			score += 500.0
+		if score <= best_score:
+			continue
+		best_score = score
+		best_index = orbital_index
+	return best_index
+
+
+func _make_capital_world_orbital(orbital_variant: Variant, starting_planet_type: String) -> Dictionary:
+	var orbital: Dictionary = (orbital_variant as Dictionary).duplicate(true)
+	orbital["is_colonizable"] = true
+	orbital["habitability_points"] = maxi(int(orbital.get("habitability_points", 0)), 75)
+	orbital["habitability"] = float(int(orbital["habitability_points"])) / 100.0
+	orbital["resource_richness_points"] = maxi(int(orbital.get("resource_richness_points", 50)), 55)
+	orbital["resource_richness"] = float(int(orbital["resource_richness_points"])) / 100.0
+	orbital["size"] = clampf(float(orbital.get("size", 2.1)), 1.6, 3.0)
+	if orbital.get("color", null) == null:
+		orbital["color"] = Color(0.62, 0.78, 0.74, 1.0)
+
+	var metadata: Dictionary = orbital.get("metadata", {}).duplicate(true)
+	if not starting_planet_type.is_empty():
+		metadata["planet_class_id"] = starting_planet_type
+	metadata["is_capital_world"] = true
+	var planet_visual: Dictionary = metadata.get("planet_visual", {}).duplicate(true)
+	if not planet_visual.has("kind") or str(planet_visual.get("kind", "")).is_empty() or str(planet_visual.get("kind", "")) == "gas_planet":
+		planet_visual["kind"] = "dry_terran" if starting_planet_type == "dry_terran" else "landmass"
+	planet_visual["has_atmosphere"] = true
+	planet_visual["has_ring"] = false
+	planet_visual["pixels"] = float(planet_visual.get("pixels", 2200.0))
+	metadata["planet_visual"] = planet_visual
+	orbital["metadata"] = metadata
+	return orbital
+
+
+func _build_fallback_capital_orbital(system_details: Dictionary, starting_planet_type: String) -> Dictionary:
+	var orbitals: Array = system_details.get("orbitals", [])
+	var max_orbit_radius := 30.0
+	for orbital_variant in orbitals:
+		if orbital_variant is not Dictionary:
+			continue
+		max_orbit_radius = maxf(max_orbit_radius, float((orbital_variant as Dictionary).get("orbit_radius", 30.0)))
+
+	var system_name := str(system_details.get("name", "Capital"))
+	return _make_capital_world_orbital({
+		"id": "capital_world",
+		"name": "%s Prime" % system_name,
+		"type": "planet",
+		"orbit_radius": max_orbit_radius + 16.0,
+		"orbit_angle": 0.0,
+		"vertical_offset": 0.0,
+		"size": 2.2,
+		"color": Color(0.62, 0.78, 0.74, 1.0),
+		"orbit_width": 0.0,
+		"is_colonizable": true,
+		"habitability_points": 80,
+		"habitability": 0.8,
+		"resource_richness_points": 60,
+		"resource_richness": 0.6,
+		"metadata": {
+			"planet_visual": {
+				"kind": "dry_terran" if starting_planet_type == "dry_terran" else "landmass",
+				"pixels": 2200.0,
+				"has_atmosphere": true,
+				"has_ring": false,
+				"variant_index": 0,
+			},
+		},
+	}, starting_planet_type)
+
+
+func _get_empire_starting_planet_type(empire_record: Dictionary) -> String:
+	var direct_value := str(empire_record.get("starting_planet_type", "")).strip_edges()
+	if not direct_value.is_empty():
+		return direct_value
+	var preset_data: Dictionary = empire_record.get("preset_data", {})
+	return str(preset_data.get("starting_planet_type", "")).strip_edges()
+
+
+func _get_orbital_planet_type(orbital: Dictionary) -> String:
+	var metadata: Dictionary = orbital.get("metadata", {})
+	var planet_visual: Dictionary = metadata.get("planet_visual", {})
+	var planet_type := str(orbital.get("planet_class_id", "")).strip_edges()
+	if planet_type.is_empty():
+		planet_type = str(metadata.get("planet_class_id", "")).strip_edges()
+	if planet_type.is_empty():
+		planet_type = str(planet_visual.get("kind", "")).strip_edges()
+	return planet_type
+
+
+func bootstrap_economy(capital_context: Dictionary = {}) -> void:
 	if _state == null:
 		return
 
@@ -654,6 +934,7 @@ func bootstrap_economy() -> void:
 		empire_ids.append(empire_id)
 
 	EconomyManager.bootstrap(empire_ids, build_economy_galaxy_snapshot())
+	ColonyManager.bootstrap(_state.empire_records, capital_context)
 
 
 func build_economy_galaxy_snapshot() -> Dictionary:
@@ -954,6 +1235,41 @@ func _format_runtime_token(value: String) -> String:
 	if trimmed_value.is_empty():
 		return "Unassigned"
 	return trimmed_value.replace("_", " ").capitalize()
+
+
+func _format_runtime_population(value: int) -> String:
+	if value >= 1000 and value % 1000 == 0:
+		return "%dk" % int(value / 1000)
+	return str(value)
+
+
+func _format_runtime_resource_net(resource_net_variant: Variant) -> String:
+	if resource_net_variant is not Dictionary:
+		return "0"
+	var resource_net: Dictionary = resource_net_variant
+	var resource_ids: Array[String] = []
+	for resource_id_variant in resource_net.keys():
+		var resource_id := str(resource_id_variant)
+		if resource_id.is_empty():
+			continue
+		if int(resource_net.get(resource_id_variant, 0)) == 0:
+			continue
+		resource_ids.append(resource_id)
+	resource_ids.sort()
+	if resource_ids.is_empty():
+		return "0"
+	var parts: Array[String] = []
+	for resource_id in resource_ids:
+		var milliunits: int = int(resource_net.get(resource_id, 0))
+		var sign: String = "+" if milliunits > 0 else "-"
+		var absolute_amount: int = abs(milliunits)
+		var whole: int = int(absolute_amount / 1000)
+		var fraction: int = absolute_amount % 1000
+		var amount_text: String = "%s%d" % [sign, whole]
+		if fraction > 0:
+			amount_text = "%s%d.%03d" % [sign, whole, fraction]
+		parts.append("%s %s" % [resource_id, amount_text])
+	return ", ".join(parts)
 
 
 func _apply_system_detail_state(system_id: String, resolved_details: Dictionary, store_override: bool) -> bool:

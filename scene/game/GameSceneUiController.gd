@@ -1,6 +1,7 @@
 extends Node
 class_name GameSceneUiController
 
+const COLONY_MODAL_SCRIPT := preload("res://scene/game/ColonyModal.gd")
 const HOVER_PREVIEW_DELAY_SEC: float = 1.0
 
 var _state: GameSceneState = null
@@ -12,6 +13,10 @@ var _hover_preview_pending_system_id: String = ""
 var _hover_preview_ready_system_id: String = ""
 var _hover_preview_sequence: int = 0
 var _active_preview_system_id: String = ""
+var _colony_modal: Control = null
+var _manage_colony_button: Button = null
+var _manage_colony_id: String = ""
+var _open_colony_id: String = ""
 
 
 func setup(
@@ -26,11 +31,20 @@ func setup(
 	_runtime_system = runtime_system
 	_view_router = view_router
 	_debug_spawner = debug_spawner
+	_ensure_colony_controls()
+	if not ColonyManager.colony_updated.is_connected(_on_colony_updated):
+		ColonyManager.colony_updated.connect(_on_colony_updated)
 	update_debug_reveal_button()
 
 
 func teardown() -> void:
 	_reset_hover_preview_state()
+	if ColonyManager.colony_updated.is_connected(_on_colony_updated):
+		ColonyManager.colony_updated.disconnect(_on_colony_updated)
+	if _colony_modal != null:
+		_colony_modal.queue_free()
+	_colony_modal = null
+	_manage_colony_button = null
 	_state = null
 	_ui = null
 	_runtime_system = null
@@ -82,6 +96,7 @@ func update_system_panel() -> void:
 	_ui.change_empire_button.text = "Choose Empire"
 	_ui.claim_system_button.text = "Claim Selected System"
 	_ui.claim_system_button.modulate = Color.WHITE
+	_set_manage_colony_button_state("", false)
 
 	if _state.empires_by_id.has(_state.active_empire_id):
 		var active_empire: Dictionary = _state.empires_by_id[_state.active_empire_id]
@@ -108,7 +123,8 @@ func update_system_panel() -> void:
 	_ui.bottom_category_bar.set_runtime_entries(
 		bottom_drawer_entries.get("starbases", []),
 		bottom_drawer_entries.get("passive_fleets", []),
-		bottom_drawer_entries.get("military_fleets", [])
+		bottom_drawer_entries.get("military_fleets", []),
+		bottom_drawer_entries.get("planets", [])
 	)
 
 	if inspected_system_id.is_empty() or not _state.systems_by_id.has(inspected_system_id):
@@ -132,6 +148,7 @@ func update_system_panel() -> void:
 	if system_details.is_empty():
 		_clear_system_panel_preview()
 		_ui.system_panel.visible = false
+		_set_manage_colony_button_state("", false)
 		_ui.survey_system_button.disabled = true
 		return
 
@@ -192,6 +209,10 @@ func update_system_panel() -> void:
 	if _view_router.is_system_view_open() and _view_router.get_current_system_view_id() == inspected_system_id:
 		_view_router.refresh_system_view(system_details, neighbor_count)
 
+	var manageable_colony_id := ""
+	if has_full_intel:
+		manageable_colony_id = _runtime_system.get_manageable_colony_id_for_system(inspected_system_id)
+	_set_manage_colony_button_state(manageable_colony_id, not manageable_colony_id.is_empty())
 	_ui.system_panel.visible = not _view_router.is_system_view_open()
 	_ui.claim_system_button.disabled = _state.active_empire_id.is_empty() or owner_empire_id == _state.active_empire_id or not has_full_intel
 	_ui.clear_owner_button.disabled = owner_empire_id.is_empty() or not has_full_intel
@@ -234,6 +255,8 @@ func update_system_panel_preview(system_id: String, system_details: Dictionary) 
 
 func _capture_system_panel_snapshot(system_id: String, system_details: Dictionary, request_token: int) -> void:
 	if _state == null or _ui == null:
+		return
+	if DisplayServer.get_name() == "headless":
 		return
 	if request_token != _state.system_panel_snapshot_token:
 		return
@@ -319,9 +342,10 @@ func set_loading_state(visible_state: bool, status_text: String = "", progress_r
 func refresh_camera_input_block() -> void:
 	if _state == null or _ui == null or _view_router == null:
 		return
-	var block_galaxy_camera: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or _view_router.is_system_view_open()
+	var modal_visible := is_colony_modal_visible()
+	var block_galaxy_camera: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or _view_router.is_system_view_open() or modal_visible
 	_view_router.set_galaxy_camera_input_blocked(block_galaxy_camera)
-	var block_shared_ui: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible()
+	var block_shared_ui: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or modal_visible
 	_ui.bottom_category_bar.set_interaction_enabled(not block_shared_ui)
 
 
@@ -375,6 +399,28 @@ func close_system_view() -> void:
 func update_bottom_category_bar_context(active_empire_name: String, selected_system_name: String, selected_owner_name: String) -> void:
 	if _ui != null:
 		_ui.bottom_category_bar.set_context(active_empire_name, selected_system_name, selected_owner_name)
+
+
+func is_colony_modal_visible() -> bool:
+	return _colony_modal != null and _colony_modal.visible
+
+
+func close_colony_modal() -> void:
+	if _colony_modal == null or not _colony_modal.visible:
+		return
+	_colony_modal.close()
+
+
+func open_colony_modal(colony_id: String) -> void:
+	if _runtime_system == null or colony_id.is_empty():
+		return
+	_ensure_colony_controls()
+	var colony_details := _runtime_system.get_colony_details(colony_id)
+	if colony_details.is_empty():
+		return
+	_open_colony_id = colony_id
+	_colony_modal.open_details(colony_details)
+	refresh_camera_input_block()
 
 
 func get_selected_empire_id_from_picker() -> String:
@@ -502,3 +548,97 @@ func _sync_debug_spawner_defaults(inspected_system_id: String) -> void:
 	if _debug_spawner == null:
 		return
 	_debug_spawner.sync_defaults(_state.active_empire_id, inspected_system_id, _state.empire_records, _state.system_records)
+
+
+func _ensure_colony_controls() -> void:
+	if _ui == null:
+		return
+
+	if _manage_colony_button == null and _ui.claim_system_button != null:
+		_manage_colony_button = Button.new()
+		_manage_colony_button.text = "Manage Colony"
+		_manage_colony_button.visible = false
+		_manage_colony_button.disabled = true
+		_manage_colony_button.pressed.connect(_on_manage_colony_pressed)
+		var panel_box := _ui.claim_system_button.get_parent() as VBoxContainer
+		if panel_box != null:
+			panel_box.add_child(_manage_colony_button)
+			panel_box.move_child(_manage_colony_button, _ui.claim_system_button.get_index())
+
+	if _colony_modal == null and _ui.canvas_layer != null:
+		_colony_modal = COLONY_MODAL_SCRIPT.new() as Control
+		_ui.canvas_layer.add_child(_colony_modal)
+		_colony_modal.close_requested.connect(_on_colony_modal_close_requested)
+		_colony_modal.assign_requested.connect(_on_colony_modal_assign_requested)
+		_colony_modal.unassign_requested.connect(_on_colony_modal_unassign_requested)
+		_colony_modal.job_cap_changed.connect(_on_colony_modal_job_cap_changed)
+		_colony_modal.building_place_requested.connect(_on_colony_modal_building_place_requested)
+
+
+func _set_manage_colony_button_state(colony_id: String, enabled: bool) -> void:
+	_manage_colony_id = colony_id.strip_edges()
+	if _manage_colony_button == null:
+		return
+	_manage_colony_button.visible = enabled
+	_manage_colony_button.disabled = not enabled
+	if enabled:
+		var details := _runtime_system.get_colony_details(_manage_colony_id) if _runtime_system != null else {}
+		var colony_name := str(details.get("name", "Colony"))
+		_manage_colony_button.text = "Manage %s" % colony_name
+	else:
+		_manage_colony_button.text = "Manage Colony"
+
+
+func _on_manage_colony_pressed() -> void:
+	if _manage_colony_id.is_empty():
+		return
+	open_colony_modal(_manage_colony_id)
+
+
+func _on_colony_modal_close_requested() -> void:
+	_open_colony_id = ""
+	refresh_camera_input_block()
+
+
+func _on_colony_modal_assign_requested(colony_id: String, pop_unit_id: String, job_id: String) -> void:
+	if _runtime_system == null:
+		return
+	if _runtime_system.assign_colony_pop_to_job(colony_id, pop_unit_id, job_id):
+		_refresh_open_colony_modal()
+
+
+func _on_colony_modal_unassign_requested(colony_id: String, pop_unit_id: String) -> void:
+	if _runtime_system == null:
+		return
+	if _runtime_system.unassign_colony_pop_from_job(colony_id, pop_unit_id):
+		_refresh_open_colony_modal()
+
+
+func _on_colony_modal_job_cap_changed(colony_id: String, job_id: String, cap: int) -> void:
+	if _runtime_system == null:
+		return
+	if _runtime_system.set_colony_job_cap(colony_id, job_id, cap):
+		_refresh_open_colony_modal()
+
+
+func _on_colony_modal_building_place_requested(colony_id: String, slot_id: String, building_id: String) -> void:
+	if _runtime_system == null:
+		return
+	_runtime_system.place_colony_building(colony_id, slot_id, building_id)
+	_refresh_open_colony_modal()
+
+
+func _on_colony_updated(colony_id: String) -> void:
+	if colony_id == _open_colony_id:
+		_refresh_open_colony_modal()
+	update_system_panel()
+
+
+func _refresh_open_colony_modal() -> void:
+	if _colony_modal == null or _open_colony_id.is_empty() or _runtime_system == null:
+		return
+	var details := _runtime_system.get_colony_details(_open_colony_id)
+	if details.is_empty():
+		close_colony_modal()
+		return
+	_colony_modal.open_details(details)

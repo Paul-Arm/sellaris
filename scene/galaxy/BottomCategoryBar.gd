@@ -2,6 +2,8 @@ extends Control
 class_name BottomCategoryBar
 
 signal category_selected(category: Dictionary, index: int)
+signal runtime_entry_activated(category_id: String, entry: Dictionary)
+signal runtime_action_requested(category_id: String, entry: Dictionary)
 
 const MAX_CATEGORY_COUNT := 9
 const FALLBACK_CONTEXT_EMPIRE := "None selected"
@@ -31,7 +33,7 @@ const DEFAULT_ACCENTS := [
 @export_range(460.0, 1400.0, 10.0) var min_bar_width: float = 640.0
 @export_range(600.0, 1800.0, 10.0) var max_bar_width: float = 1180.0
 @export_range(44.0, 100.0, 1.0) var collapsed_height: float = 62.0
-@export_range(120.0, 280.0, 1.0) var expanded_height: float = 188.0
+@export_range(120.0, 280.0, 1.0) var expanded_height: float = 230.0
 @export_range(0.05, 0.4, 0.01) var expand_duration: float = 0.2
 
 @onready var dock_panel: PanelContainer = $BottomAnchor/BottomAlign/CenterRow/DockPanel
@@ -55,6 +57,7 @@ var _active_empire_name: String = FALLBACK_CONTEXT_EMPIRE
 var _selected_system_name: String = FALLBACK_CONTEXT_SYSTEM
 var _selected_system_owner_name: String = FALLBACK_CONTEXT_OWNER
 var _runtime_entries_by_category: Dictionary = {
+	"planets": [],
 	"starbases": [],
 	"passive_fleets": [],
 	"military_fleets": [],
@@ -130,10 +133,17 @@ func set_context(
 	_refresh_page_contexts()
 
 
-func set_runtime_entries(starbases: Variant, passive_fleets: Variant, military_fleets: Variant) -> void:
+func set_runtime_entries(
+	starbases: Variant,
+	passive_fleets: Variant,
+	military_fleets: Variant,
+	planets: Variant = null
+) -> void:
 	_runtime_entries_by_category["starbases"] = _normalize_runtime_entries(starbases)
 	_runtime_entries_by_category["passive_fleets"] = _normalize_runtime_entries(passive_fleets)
 	_runtime_entries_by_category["military_fleets"] = _normalize_runtime_entries(military_fleets)
+	if planets != null:
+		_runtime_entries_by_category["planets"] = _normalize_runtime_entries(planets)
 	_refresh_page_contexts()
 	_refresh_runtime_lists()
 
@@ -194,6 +204,21 @@ func _collect_categories_from_pages() -> void:
 		var runtime_item_list: ItemList = (
 			page.get_node_or_null("PageContent/PageMargin/PageVBox/RuntimeItemList") as ItemList
 		)
+		var runtime_action_button: Button = (
+			page.get_node_or_null("PageContent/PageMargin/PageVBox/RuntimeActionButton") as Button
+		)
+		if runtime_item_list != null:
+			runtime_item_list.set_meta("category_id", page.name.to_snake_case())
+			if not bool(runtime_item_list.get_meta("runtime_signals_bound", false)):
+				runtime_item_list.item_activated.connect(_on_runtime_item_activated.bind(runtime_item_list))
+				runtime_item_list.item_selected.connect(_on_runtime_item_selected.bind(runtime_item_list))
+				runtime_item_list.set_meta("runtime_signals_bound", true)
+		if runtime_action_button != null:
+			runtime_action_button.set_meta("category_id", page.name.to_snake_case())
+			runtime_action_button.set_meta("runtime_item_list_path", runtime_action_button.get_path_to(runtime_item_list) if runtime_item_list != null else NodePath(""))
+			if not bool(runtime_action_button.get_meta("runtime_signals_bound", false)):
+				runtime_action_button.pressed.connect(_on_runtime_action_button_pressed.bind(runtime_action_button))
+				runtime_action_button.set_meta("runtime_signals_bound", true)
 		var accent: Color = DEFAULT_ACCENTS[index % DEFAULT_ACCENTS.size()]
 		if accent_line != null:
 			accent = accent_line.color
@@ -210,6 +235,7 @@ func _collect_categories_from_pages() -> void:
 					"page_content": page_content,
 					"context_label": context_label,
 					"runtime_item_list": runtime_item_list,
+					"runtime_action_button": runtime_action_button,
 				}
 			)
 		)
@@ -304,7 +330,7 @@ func _refresh_tab_titles() -> void:
 		var category_id: String = str(category.get("id", ""))
 		var title := str(category.get("title", "Tab"))
 		var count: int = _get_runtime_entry_count(category_id)
-		if count > 0 and category_id in ["starbases", "passive_fleets", "military_fleets"]:
+		if count > 0 and category_id in ["planets", "starbases", "passive_fleets", "military_fleets"]:
 			title = "%s (%d)" % [title, count]
 		tab_view.set_tab_title(index, title)
 		tab_view.set_tab_tooltip(
@@ -326,8 +352,10 @@ func _refresh_runtime_lists() -> void:
 		var category_id: String = str(category.get("id", ""))
 		var runtime_item_list: ItemList = category.get("runtime_item_list", null) as ItemList
 		if runtime_item_list == null:
+			_set_runtime_action_button_state(category, false)
 			continue
 		_populate_runtime_item_list(runtime_item_list, category_id, _runtime_entries_by_category.get(category_id, []))
+		_refresh_runtime_action_button(category)
 	_refresh_tab_titles()
 
 
@@ -346,6 +374,8 @@ func _populate_runtime_item_list(runtime_item_list: ItemList, category_id: Strin
 		runtime_item_list.set_item_metadata(item_index, entry.duplicate(true))
 		if bool(entry.get("is_local", false)):
 			runtime_item_list.set_item_custom_fg_color(item_index, PALETTE_LIGHT_BRONZE)
+	if runtime_item_list.get_item_count() > 0:
+		runtime_item_list.select(0)
 
 
 func _build_runtime_entry_text(entry: Dictionary) -> String:
@@ -367,6 +397,8 @@ func _get_empty_runtime_text(category_id: String) -> String:
 	match category_id:
 		"starbases":
 			return "No owned stations yet."
+		"planets":
+			return "No owned colonies yet."
 		"passive_fleets":
 			return "No passive fleets yet."
 		"military_fleets":
@@ -404,12 +436,14 @@ func _build_context_text(category_id: String) -> String:
 		"planets":
 			if _selected_system_name == FALLBACK_CONTEXT_SYSTEM:
 				return (
-					"Select a system to surface its worlds here. Active empire: %s."
-					% _active_empire_name
+					"%d colonies in %s space."
+					% [_get_runtime_entry_count("planets"), active_empire_label]
 				)
 			return (
-				"%s currently belongs to %s. This page is ready for worlds, districts, and build queues."
+				"%d colonies in %s space. Focus: %s (%s)."
 				% [
+					_get_runtime_entry_count("planets"),
+					active_empire_label,
 					_selected_system_name,
 					_selected_system_owner_name,
 				]
@@ -715,3 +749,66 @@ func _on_tab_view_tab_changed(tab: int) -> void:
 		return
 	_select_category(tab, true)
 	_set_expanded(true)
+
+
+func _on_runtime_item_selected(_index: int, runtime_item_list: ItemList) -> void:
+	var category_id := str(runtime_item_list.get_meta("category_id", ""))
+	for category in _categories:
+		if str(category.get("id", "")) != category_id:
+			continue
+		_refresh_runtime_action_button(category)
+		return
+
+
+func _on_runtime_item_activated(index: int, runtime_item_list: ItemList) -> void:
+	var entry := _get_runtime_entry_at(runtime_item_list, index)
+	if entry.is_empty():
+		return
+	runtime_entry_activated.emit(str(runtime_item_list.get_meta("category_id", "")), entry)
+
+
+func _on_runtime_action_button_pressed(runtime_action_button: Button) -> void:
+	var category_id := str(runtime_action_button.get_meta("category_id", ""))
+	var list_path := NodePath(str(runtime_action_button.get_meta("runtime_item_list_path", NodePath(""))))
+	var runtime_item_list := runtime_action_button.get_node_or_null(list_path) as ItemList
+	if runtime_item_list == null:
+		return
+	var selected_items := runtime_item_list.get_selected_items()
+	if selected_items.is_empty():
+		return
+	var entry := _get_runtime_entry_at(runtime_item_list, selected_items[0])
+	if entry.is_empty():
+		return
+	runtime_action_requested.emit(category_id, entry)
+
+
+func _get_runtime_entry_at(runtime_item_list: ItemList, index: int) -> Dictionary:
+	if index < 0 or index >= runtime_item_list.get_item_count():
+		return {}
+	if runtime_item_list.is_item_disabled(index):
+		return {}
+	var metadata: Variant = runtime_item_list.get_item_metadata(index)
+	if metadata is not Dictionary:
+		return {}
+	return (metadata as Dictionary).duplicate(true)
+
+
+func _refresh_runtime_action_button(category: Dictionary) -> void:
+	var runtime_item_list: ItemList = category.get("runtime_item_list", null) as ItemList
+	var enabled := false
+	if runtime_item_list != null and not runtime_item_list.get_selected_items().is_empty():
+		enabled = not _get_runtime_entry_at(runtime_item_list, runtime_item_list.get_selected_items()[0]).is_empty()
+	_set_runtime_action_button_state(category, enabled)
+
+
+func _set_runtime_action_button_state(category: Dictionary, enabled: bool) -> void:
+	var runtime_action_button: Button = category.get("runtime_action_button", null) as Button
+	if runtime_action_button == null:
+		return
+	var category_id := str(category.get("id", ""))
+	match category_id:
+		"planets":
+			runtime_action_button.text = "Manage Colony"
+		_:
+			runtime_action_button.text = "Open"
+	runtime_action_button.disabled = not enabled

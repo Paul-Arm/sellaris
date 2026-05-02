@@ -2,6 +2,7 @@ extends RefCounted
 class_name GameSceneRefs
 
 var view_root: Node = null
+var canvas_layer: CanvasLayer = null
 var info_label: Label = null
 var loading_overlay: Control = null
 var loading_status: Label = null
@@ -31,6 +32,7 @@ var galaxy_hud: Control = null
 static func from_root(root: Node) -> GameSceneRefs:
 	var refs := GameSceneRefs.new()
 	refs.view_root = root.get_node("ViewRoot")
+	refs.canvas_layer = root.get_node("CanvasLayer") as CanvasLayer
 	refs.info_label = root.get_node("CanvasLayer/InfoLabel") as Label
 	refs.loading_overlay = root.get_node("CanvasLayer/LoadingOverlay") as Control
 	refs.loading_status = root.get_node("CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer/LoadingStatus") as Label

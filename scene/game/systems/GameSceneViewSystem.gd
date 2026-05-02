@@ -40,6 +40,9 @@ func handle_unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event.is_action_pressed("ui_cancel"):
+		if _scene_ui_controller.is_colony_modal_visible():
+			_scene_ui_controller.close_colony_modal()
+			return
 		if _ui.galaxy_hud.is_settings_visible():
 			_scene_ui_controller.set_settings_overlay_visible(false)
 			return
@@ -69,6 +72,9 @@ func handle_unhandled_input(event: InputEvent) -> void:
 			return
 
 	if _ui.empire_picker_overlay.visible:
+		return
+
+	if _scene_ui_controller.is_colony_modal_visible():
 		return
 
 	if _ui.galaxy_hud.is_settings_visible():

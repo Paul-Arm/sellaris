@@ -10,9 +10,9 @@ signal building_place_requested(colony_id: String, slot_id: String, building_id:
 const BUILDING_PALETTE_CARD_SCRIPT := preload("res://scene/game/BuildingPaletteCard.gd")
 const BUILDING_HEX_SLOT_SCRIPT := preload("res://scene/game/BuildingHexSlot.gd")
 const PROCEDURAL_PLANET_VISUAL_SCRIPT := preload("res://scene/StarSystem/procedural_planets/ProceduralPlanetVisual.gd")
-const PANEL_MINIMUM_SIZE := Vector2(1180, 760)
-const HEX_SLOT_SIZE := Vector2(92, 80)
-const HEX_GRID_FALLBACK_SIZE := Vector2(1080, 455)
+const PANEL_MINIMUM_SIZE := Vector2(1320, 860)
+const HEX_SLOT_SIZE := Vector2(100, 88)
+const HEX_GRID_FALLBACK_SIZE := Vector2(1190, 535)
 const DISTRICT_PLACEHOLDERS := [
 	{"name": "City District", "summary": "Housing and local services", "status": "Coming later"},
 	{"name": "Generator District", "summary": "Energy jobs and infrastructure", "status": "Coming later"},
@@ -84,16 +84,16 @@ func _sync_overlay_rect() -> void:
 func _build_layout() -> void:
 	var dimmer := ColorRect.new()
 	dimmer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dimmer.color = Color(0.0, 0.0, 0.0, 0.68)
+	dimmer.color = Color(0.0, 0.0, 0.0, 0.76)
 	dimmer.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(dimmer)
 
 	var safe_area := MarginContainer.new()
 	safe_area.set_anchors_preset(Control.PRESET_FULL_RECT)
-	safe_area.add_theme_constant_override("margin_left", 36)
-	safe_area.add_theme_constant_override("margin_top", 36)
-	safe_area.add_theme_constant_override("margin_right", 36)
-	safe_area.add_theme_constant_override("margin_bottom", 36)
+	safe_area.add_theme_constant_override("margin_left", 22)
+	safe_area.add_theme_constant_override("margin_top", 22)
+	safe_area.add_theme_constant_override("margin_right", 22)
+	safe_area.add_theme_constant_override("margin_bottom", 22)
 	safe_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(safe_area)
 
@@ -106,17 +106,18 @@ func _build_layout() -> void:
 	_panel = PanelContainer.new()
 	_panel.custom_minimum_size = PANEL_MINIMUM_SIZE
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.035, 0.04, 0.05, 0.97), Color(0.42, 0.68, 0.82, 0.38), 6, 2))
 	center.add_child(_panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 20)
-	margin.add_theme_constant_override("margin_top", 18)
-	margin.add_theme_constant_override("margin_right", 20)
-	margin.add_theme_constant_override("margin_bottom", 18)
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 20)
 	_panel.add_child(margin)
 
 	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", 12)
+	root_vbox.add_theme_constant_override("separation", 10)
 	margin.add_child(root_vbox)
 
 	var header_row := HBoxContainer.new()
@@ -130,7 +131,7 @@ func _build_layout() -> void:
 
 	_title_label = Label.new()
 	_title_label.text = "Planet"
-	_title_label.add_theme_font_size_override("font_size", 24)
+	_title_label.add_theme_font_size_override("font_size", 26)
 	_title_label.clip_text = true
 	title_box.add_child(_title_label)
 
@@ -141,7 +142,10 @@ func _build_layout() -> void:
 
 	var close_button := Button.new()
 	close_button.text = "Close"
-	close_button.custom_minimum_size = Vector2(88, 34)
+	close_button.custom_minimum_size = Vector2(92, 38)
+	close_button.add_theme_stylebox_override("normal", _make_button_style(Color(0.08, 0.1, 0.12, 0.95), Color(0.32, 0.48, 0.58, 0.36)))
+	close_button.add_theme_stylebox_override("hover", _make_button_style(Color(0.12, 0.16, 0.19, 0.98), Color(0.62, 0.86, 1.0, 0.62)))
+	close_button.add_theme_stylebox_override("pressed", _make_button_style(Color(0.04, 0.08, 0.11, 1.0), Color(0.78, 0.96, 1.0, 0.8)))
 	close_button.pressed.connect(close)
 	header_row.add_child(close_button)
 
@@ -153,6 +157,7 @@ func _build_layout() -> void:
 	var tabs := TabContainer.new()
 	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_apply_tab_style(tabs)
 	root_vbox.add_child(tabs)
 
 	var infrastructure_tab := _build_infrastructure_tab()
@@ -164,34 +169,81 @@ func _build_layout() -> void:
 	tabs.add_child(management_tab)
 
 
+func _make_panel_style(fill_color: Color, border_color: Color, radius: int, border_width: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill_color
+	style.border_color = border_color
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(radius)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.42)
+	style.shadow_size = 18
+	style.shadow_offset = Vector2(0.0, 6.0)
+	style.content_margin_left = 0.0
+	style.content_margin_top = 0.0
+	style.content_margin_right = 0.0
+	style.content_margin_bottom = 0.0
+	return style
+
+
+func _make_button_style(fill_color: Color, border_color: Color) -> StyleBoxFlat:
+	var style := _make_panel_style(fill_color, border_color, 3, 1)
+	style.shadow_size = 3
+	style.shadow_offset = Vector2(0.0, 1.0)
+	style.content_margin_left = 12.0
+	style.content_margin_right = 12.0
+	style.content_margin_top = 7.0
+	style.content_margin_bottom = 7.0
+	return style
+
+
+func _make_tab_style(fill_color: Color, border_color: Color) -> StyleBoxFlat:
+	var style := _make_panel_style(fill_color, border_color, 2, 1)
+	style.shadow_size = 0
+	style.content_margin_left = 14.0
+	style.content_margin_right = 14.0
+	style.content_margin_top = 7.0
+	style.content_margin_bottom = 7.0
+	return style
+
+
+func _apply_tab_style(tabs: TabContainer) -> void:
+	tabs.add_theme_stylebox_override("panel", _make_panel_style(Color(0.012, 0.018, 0.024, 0.42), Color(0.14, 0.28, 0.36, 0.18), 3, 1))
+	tabs.add_theme_stylebox_override("tab_selected", _make_tab_style(Color(0.11, 0.16, 0.19, 0.98), Color(0.62, 0.84, 0.94, 0.62)))
+	tabs.add_theme_stylebox_override("tab_unselected", _make_tab_style(Color(0.035, 0.042, 0.052, 0.86), Color(0.18, 0.26, 0.32, 0.62)))
+	tabs.add_theme_stylebox_override("tab_hovered", _make_tab_style(Color(0.075, 0.1, 0.12, 0.94), Color(0.45, 0.68, 0.8, 0.52)))
+	tabs.add_theme_color_override("font_selected_color", Color(0.93, 0.98, 1.0, 1.0))
+	tabs.add_theme_color_override("font_unselected_color", Color(0.68, 0.74, 0.78, 0.96))
+	tabs.add_theme_font_size_override("font_size", 16)
+
+
 func _build_infrastructure_tab() -> Control:
 	var content := VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 10)
+	content.add_theme_constant_override("separation", 12)
 
 	var stage := Control.new()
 	stage.clip_contents = true
-	stage.custom_minimum_size = Vector2(0, 468)
+	stage.custom_minimum_size = Vector2(0, 552)
 	stage.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_child(stage)
 
 	var stage_backdrop := ColorRect.new()
 	stage_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	stage_backdrop.color = Color(0.04, 0.08, 0.12, 0.78)
+	stage_backdrop.color = Color(0.0, 0.0, 0.0, 1.0)
 	stage_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(stage_backdrop)
 
 	var viewport_container := _build_planet_viewport()
 	viewport_container.set_anchors_preset(Control.PRESET_FULL_RECT)
-	viewport_container.modulate = Color(1.0, 1.0, 1.0, 0.36)
+	viewport_container.modulate = Color(1.0, 1.0, 1.0, 0.82)
 	viewport_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(viewport_container)
 
 	var vignette := ColorRect.new()
 	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vignette.color = Color(0.0, 0.0, 0.0, 0.18)
+	vignette.color = Color(0.0, 0.0, 0.0, 0.02)
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(vignette)
 
@@ -219,8 +271,9 @@ func _build_infrastructure_tab() -> Control:
 	status_margin.add_child(_building_status_label)
 
 	var palette_panel := PanelContainer.new()
-	palette_panel.custom_minimum_size = Vector2(0, 126)
+	palette_panel.custom_minimum_size = Vector2(0, 148)
 	palette_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	palette_panel.add_theme_stylebox_override("panel", _make_panel_style(Color(0.025, 0.032, 0.04, 0.94), Color(0.28, 0.48, 0.58, 0.28), 4, 1))
 	content.add_child(palette_panel)
 
 	var palette_margin := MarginContainer.new()
@@ -233,6 +286,8 @@ func _build_infrastructure_tab() -> Control:
 	var palette_scroll := ScrollContainer.new()
 	palette_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	palette_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	palette_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	palette_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	palette_margin.add_child(palette_scroll)
 
 	_building_palette_container = HBoxContainer.new()
@@ -252,15 +307,22 @@ func _build_planet_viewport() -> SubViewportContainer:
 
 	_planet_viewport = SubViewport.new()
 	_planet_viewport.size = Vector2i(768, 768)
-	_planet_viewport.transparent_bg = true
+	_planet_viewport.transparent_bg = false
 	_planet_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	var world := World3D.new()
+	var environment := Environment.new()
+	environment.background_mode = Environment.BG_COLOR
+	environment.background_color = Color(0.0, 0.0, 0.0, 1.0)
+	world.environment = environment
+	_planet_viewport.world_3d = world
 	container.add_child(_planet_viewport)
 
 	var root := Node3D.new()
 	_planet_viewport.add_child(root)
 
 	var camera := Camera3D.new()
-	camera.position = Vector3(0.0, 0.0, 7.0)
+	camera.position = Vector3(0.0, 0.0, 5.2)
+	camera.fov = 38.0
 	camera.current = true
 	camera.look_at_from_position(camera.position, Vector3.ZERO, Vector3.UP)
 	root.add_child(camera)
@@ -271,7 +333,7 @@ func _build_planet_viewport() -> SubViewportContainer:
 	root.add_child(light)
 
 	_planet_visual = PROCEDURAL_PLANET_VISUAL_SCRIPT.new() as Node3D
-	_planet_visual.scale = Vector3.ONE * 1.85
+	_planet_visual.scale = Vector3.ONE * 3.35
 	root.add_child(_planet_visual)
 	return container
 
@@ -368,6 +430,18 @@ func _populate_planet_background(details: Dictionary) -> void:
 		planet_record["size"] = 2.2
 	if not planet_record.has("orbit_radius"):
 		planet_record["orbit_radius"] = 4.0
+	var metadata: Dictionary = planet_record.get("metadata", {}).duplicate(true) if planet_record.get("metadata", {}) is Dictionary else {}
+	var planet_visual: Dictionary = metadata.get("planet_visual", {}).duplicate(true) if metadata.get("planet_visual", {}) is Dictionary else {}
+	planet_visual["has_ring"] = false
+	planet_visual["ring"] = false
+	planet_visual["has_atmosphere"] = true
+	planet_visual["pixels"] = float(planet_visual.get("pixels", 2600.0))
+	planet_visual.erase("scene_variant")
+	var kind := str(planet_visual.get("kind", "")).strip_edges()
+	if kind == "gas_planet" or kind == "gas" or kind.is_empty():
+		planet_visual["kind"] = "landmass"
+	metadata["planet_visual"] = planet_visual
+	planet_record["metadata"] = metadata
 
 	var visual_key := "%s|%s|%s|%s" % [
 		str(details.get("system_id", "")),
@@ -399,8 +473,8 @@ func _populate_building_grid(slots_variant: Variant) -> void:
 	if layer_size.x <= 1.0 or layer_size.y <= 1.0:
 		layer_size = HEX_GRID_FALLBACK_SIZE
 
-	var axial_radius := 42.0
-	var center := layer_size * 0.5 + Vector2(0.0, -8.0)
+	var axial_radius := 49.0
+	var center := layer_size * 0.5 + Vector2(0.0, 0.0)
 	for slot_variant in slots:
 		if slot_variant is not Dictionary:
 			continue
@@ -444,7 +518,7 @@ func _populate_building_status(message: String) -> void:
 
 func _make_building_palette_card(building: Dictionary) -> Control:
 	var card = BUILDING_PALETTE_CARD_SCRIPT.new()
-	card.custom_minimum_size = Vector2(214, 96)
+	card.custom_minimum_size = Vector2(260, 108)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
@@ -454,18 +528,18 @@ func _make_building_palette_card(building: Dictionary) -> Control:
 	card.add_child(margin)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 4)
+	vbox.add_theme_constant_override("separation", 5)
 	margin.add_child(vbox)
 
 	var name_label := Label.new()
 	name_label.text = str(building.get("display_name", building.get("id", "Building")))
-	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.add_theme_font_size_override("font_size", 16)
 	name_label.clip_text = true
 	vbox.add_child(name_label)
 
 	var cost_label := Label.new()
 	cost_label.text = "Cost %s" % _format_amount_array(building.get("build_cost", []), false)
-	cost_label.clip_text = true
+	cost_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cost_label.modulate = Color(0.88, 0.91, 0.95, 0.95)
 	vbox.add_child(cost_label)
 
@@ -563,6 +637,7 @@ func _populate_jobs(jobs_variant: Variant) -> void:
 func _make_job_row(job: Dictionary, used_slots: int, job_cap: int, _fillable_slots: int, max_slots: int) -> Control:
 	var row := PanelContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_stylebox_override("panel", _make_panel_style(Color(0.035, 0.048, 0.058, 0.9), Color(0.22, 0.42, 0.52, 0.34), 4, 1))
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)
@@ -654,6 +729,7 @@ func _make_job_row(job: Dictionary, used_slots: int, job_cap: int, _fillable_slo
 func _make_info_row(title_text: String, body_text: String, right_text: String) -> Control:
 	var row := PanelContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_stylebox_override("panel", _make_panel_style(Color(0.035, 0.047, 0.057, 0.86), Color(0.18, 0.34, 0.42, 0.28), 4, 1))
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)

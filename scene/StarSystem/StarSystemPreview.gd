@@ -15,6 +15,7 @@ const ORBITAL_TYPE_RUIN := "ruin"
 const SPECIAL_TYPE_BLACK_HOLE := "Black hole"
 const SPECIAL_TYPE_NEUTRON := "Neutron star"
 const SPECIAL_TYPE_O_CLASS := "O class star"
+const STAR_SYSTEM_STAR_SIZE_MULTIPLIER := 1.6
 const ORBIT_SEGMENT_COUNT := 80
 const SELECTION_RING_SEGMENT_COUNT := 48
 
@@ -74,7 +75,7 @@ func set_system_details(system_details: Dictionary) -> void:
 	for star_variant in stars:
 		var star: Dictionary = star_variant
 		var star_position := _get_orbit_position(star)
-		max_radius = maxf(max_radius, star_position.length() + float(star.get("scale", 1.0)) * 8.0)
+		max_radius = maxf(max_radius, star_position.length() + float(star.get("scale", 1.0)) * 8.0 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER)
 		_build_star_visual(star, star_position)
 		_register_star_selectable(star, star_position)
 
@@ -230,8 +231,8 @@ func _register_star_selectable(star: Dictionary, star_position: Vector3) -> void
 		"subtitle": subtitle,
 		"body_text": _join_lines(lines),
 		"anchor_local_position": star_position,
-		"screen_pick_radius": 24.0 + float(star.get("scale", 1.0)) * 5.0,
-		"highlight_radius": 3.4 + float(star.get("scale", 1.0)) * 1.6,
+		"screen_pick_radius": 24.0 + float(star.get("scale", 1.0)) * 5.0 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER,
+		"highlight_radius": 3.4 + float(star.get("scale", 1.0)) * 1.6 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER,
 		"highlight_color": Color(star_color.r, star_color.g, star_color.b, 0.95),
 		"pick_priority": 10,
 	}))

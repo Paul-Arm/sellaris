@@ -9,7 +9,7 @@ const VIEWPORT_TARGET_SIZE := 768.0
 const DEFAULT_PIXELS := 2400.0
 const MIN_PIXELS := 1600.0
 const MAX_PIXELS := 3400.0
-const STAR_SCALE_MULTIPLIER := 2.0
+const STAR_SCALE_MULTIPLIER := 3.2
 
 var _star: Dictionary = {}
 var _visual_config: Dictionary = {}

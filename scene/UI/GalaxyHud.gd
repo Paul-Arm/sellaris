@@ -45,6 +45,8 @@ const RESOURCE_SHORT_NAMES := {
 	"living_metal": "Metal",
 	"dark_matter": "Dark",
 }
+const RESOURCE_BAR_MIN_WIDTH := 930.0
+const MUSIC_TRACK_DROPDOWN_WIDTH := 260.0
 
 @onready var settings_overlay: Control = $SettingsOverlay
 @onready var settings_music_volume_slider: HSlider = $SettingsOverlay/Panel/MarginContainer/VBoxContainer/MusicVolumeSlider
@@ -60,7 +62,9 @@ const RESOURCE_SHORT_NAMES := {
 @onready var music_box: PanelContainer = $TopPanel/MarginContainer/TopBarRow/MusicBox
 @onready var music_margin: MarginContainer = $TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin
 @onready var music_row: HBoxContainer = $TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow
-@onready var music_track_label: Label = $TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow/MusicTrackLabel
+@onready var music_track_dropdown: PanelContainer = $TopPanel/MusicTrackDropdown
+@onready var music_track_dropdown_margin: MarginContainer = $TopPanel/MusicTrackDropdown/MarginContainer
+@onready var music_track_label: Label = $TopPanel/MusicTrackDropdown/MarginContainer/MusicTrackLabel
 @onready var previous_track_button: Button = $TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow/PreviousTrackButton
 @onready var pause_track_button: Button = $TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow/PauseTrackButton
 @onready var next_track_button: Button = $TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow/NextTrackButton
@@ -102,8 +106,10 @@ func _ready() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED and _top_chrome != null:
-		call_deferred("_sync_top_chrome_bounds")
+	if what == NOTIFICATION_RESIZED:
+		if _top_chrome != null:
+			call_deferred("_sync_top_chrome_bounds")
+		call_deferred("_position_music_track_dropdown")
 
 
 func is_settings_visible() -> bool:
@@ -140,7 +146,9 @@ func set_territory_ui(bright_rim_enabled: bool, core_opacity: float) -> void:
 
 
 func set_music_track_visibility(visible_state: bool) -> void:
-	music_track_label.visible = visible_state
+	music_track_dropdown.visible = visible_state
+	if visible_state:
+		call_deferred("_position_music_track_dropdown")
 
 
 func set_sim_ui(date_text: String, speed_text: String, paused: bool) -> void:
@@ -175,7 +183,7 @@ func _apply_top_bar_theme() -> void:
 	top_bar_row.add_theme_constant_override("separation", 8)
 	top_bar_row.alignment = BoxContainer.ALIGNMENT_END
 
-	resource_box.custom_minimum_size = Vector2(382.0, 0.0)
+	resource_box.custom_minimum_size = Vector2(RESOURCE_BAR_MIN_WIDTH, 0.0)
 	resource_box.size_flags_horizontal = Control.SIZE_SHRINK_END
 	resource_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	resource_box.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
@@ -195,6 +203,13 @@ func _apply_top_bar_theme() -> void:
 	music_margin.add_theme_constant_override("margin_bottom", 4)
 	music_row.add_theme_constant_override("separation", 6)
 
+	music_track_dropdown.custom_minimum_size = Vector2(MUSIC_TRACK_DROPDOWN_WIDTH, 0.0)
+	music_track_dropdown.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	music_track_dropdown.add_theme_stylebox_override("panel", _build_hud_segment_style(Color(0.035, 0.05, 0.065, 0.88), Color(0.42, 0.66, 0.78, 0.42)))
+	music_track_dropdown_margin.add_theme_constant_override("margin_left", 10)
+	music_track_dropdown_margin.add_theme_constant_override("margin_top", 5)
+	music_track_dropdown_margin.add_theme_constant_override("margin_right", 10)
+	music_track_dropdown_margin.add_theme_constant_override("margin_bottom", 5)
 	sim_box.custom_minimum_size = Vector2(252.0, 0.0)
 	sim_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	sim_box.add_theme_stylebox_override("panel", _build_hud_segment_style(Color(0.04, 0.055, 0.07, 0.6), Color(0.58, 0.42, 0.64, 0.28)))
@@ -206,7 +221,7 @@ func _apply_top_bar_theme() -> void:
 
 	music_track_label.add_theme_color_override("font_color", Color(0.84, 0.91, 0.94, 0.9))
 	music_track_label.add_theme_font_size_override("font_size", 13)
-	music_track_label.custom_minimum_size = Vector2(98.0, 0.0)
+	music_track_label.custom_minimum_size = Vector2(220.0, 0.0)
 	sim_date_label.add_theme_color_override("font_color", Color(0.93, 0.96, 0.98, 0.95))
 	sim_date_label.add_theme_font_size_override("font_size", 13)
 	sim_date_label.custom_minimum_size = Vector2(128.0, 0.0)
@@ -226,6 +241,7 @@ func _apply_top_bar_theme() -> void:
 	if _top_chrome != null:
 		_top_chrome.set_accent(Color(0.58, 0.42, 0.64, 1.0))
 	call_deferred("_sync_top_chrome_bounds")
+	call_deferred("_position_music_track_dropdown")
 
 
 func _setup_resource_signals() -> void:
@@ -368,6 +384,22 @@ func _sync_top_chrome_bounds() -> void:
 		return
 
 	_top_chrome.set_cluster_bounds(left_edge - 42.0, right_edge + 18.0)
+
+
+func _position_music_track_dropdown() -> void:
+	if not is_node_ready() or music_track_dropdown == null or music_box == null:
+		return
+
+	var panel_rect := top_panel.get_global_rect()
+	var music_rect := music_box.get_global_rect()
+	var dropdown_size := Vector2(MUSIC_TRACK_DROPDOWN_WIDTH, music_track_dropdown.get_combined_minimum_size().y)
+	var right_aligned_x := music_rect.position.x + music_rect.size.x - dropdown_size.x - panel_rect.position.x
+	var min_x := 18.0
+	var max_x := maxf(min_x, top_panel.size.x - dropdown_size.x - 18.0)
+	var target_x := clampf(right_aligned_x, min_x, max_x)
+	var target_y := music_rect.position.y + music_rect.size.y + 5.0 - panel_rect.position.y
+	music_track_dropdown.position = Vector2(target_x, target_y)
+	music_track_dropdown.size = dropdown_size
 
 
 func _get_display_resource_ids() -> Array[String]:

@@ -193,7 +193,7 @@ text = "Debug Spawner"
 
 [node name="SubtitleLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Spawn test fleets and stations into any system."
+text = "Spawn test fleets, science ships, and stations into any system."
 autowrap_mode = 3
 
 [node name="EmpireLabel" type="Label" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer"]
@@ -259,6 +259,11 @@ theme_override_constants/separation = 8
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Spawn Fleet"
+
+[node name="SpawnScienceShipButton" type="Button" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Science Ship"
 
 [node name="SpawnStationButton" type="Button" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/ButtonRow"]
 layout_mode = 2

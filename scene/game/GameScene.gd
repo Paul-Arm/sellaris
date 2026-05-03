@@ -154,7 +154,7 @@ func _setup_scene_components() -> void:
 		Callable(self, "_get_active_empire_id"),
 		Callable(_scene_ui_controller, "get_inspected_system_id"),
 		Callable(self, "_get_systems_by_id"),
-		Callable(_runtime_system, "spawn_runtime_ship"),
+		Callable(_runtime_system, "spawn_runtime_unit"),
 		Callable(_runtime_system, "create_runtime_fleet")
 	)
 	_music_ui_controller.bind(_ui.galaxy_hud)

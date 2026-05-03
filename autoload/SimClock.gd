@@ -67,6 +67,15 @@ func get_current_day_serial() -> int:
 	return _current_day_serial
 
 
+func get_day_progress() -> float:
+	if _sim_speed_milli <= 0:
+		return 0.0
+	var threshold_usec_scaled := _real_usec_per_sim_day * 1000
+	if threshold_usec_scaled <= 0:
+		return 0.0
+	return clampf(float(_accumulator_scaled_usec) / float(threshold_usec_scaled), 0.0, 1.0)
+
+
 func get_current_month_serial() -> int:
 	return _current_month_serial
 

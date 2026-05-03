@@ -1,5 +1,5 @@
-extends ShipComponent
-class_name ShipUpkeepComponent
+extends SpaceUnitComponent
+class_name SpaceUnitUpkeepComponent
 
 const RESOURCE_AMOUNT_DEF_SCRIPT := preload("res://core/economy/ResourceAmountDef.gd")
 
@@ -22,17 +22,20 @@ func get_monthly_costs() -> Array[ResourceAmountDef]:
 
 
 func to_dict() -> Dictionary:
-	return {
+	var data := super.to_dict()
+	data.merge({
 		"component_key": str(component_key),
 		"build_costs": RESOURCE_AMOUNT_DEF_SCRIPT.to_dict_array(get_build_costs()),
 		"monthly_costs": RESOURCE_AMOUNT_DEF_SCRIPT.to_dict_array(get_monthly_costs()),
 		"crew_requirement": crew_requirement,
 		"command_point_cost": command_point_cost,
-	}
+	}, true)
+	return data
 
 
-static func from_dict(data: Dictionary) -> ShipUpkeepComponent:
-	var component := ShipUpkeepComponent.new()
+static func from_dict(data: Dictionary) -> SpaceUnitUpkeepComponent:
+	var component := SpaceUnitUpkeepComponent.new()
+	component.apply_base_dict(data)
 	component.component_key = StringName(str(data.get("component_key", "upkeep")))
 	component.build_costs = RESOURCE_AMOUNT_DEF_SCRIPT.normalize_array(data.get("build_costs", []))
 	component.monthly_costs = RESOURCE_AMOUNT_DEF_SCRIPT.normalize_array(data.get("monthly_costs", []))

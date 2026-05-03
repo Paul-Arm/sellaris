@@ -18,7 +18,7 @@ func generate_async() -> void:
 
 	_host._is_generating = true
 	SpaceManager.reset_runtime_state()
-	_host._debug_spawner.register_debug_ship_classes()
+	_host._debug_spawner.register_debug_unit_classes()
 	_host.selected_system_id = ""
 	_host.hovered_system_id = ""
 	_host.pinned_system_id = ""
@@ -162,16 +162,16 @@ func get_system_space_presence(system_id: String) -> Dictionary:
 	return SpaceManager.build_system_presence(system_id)
 
 
-func spawn_runtime_ship(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> ShipRuntime:
+func spawn_runtime_unit(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> SpaceUnitRuntime:
 	if _host == null or system_id.is_empty() or not _host.systems_by_id.has(system_id):
 		return null
-	return SpaceManager.spawn_ship(class_id, owner_empire_id, system_id, spawn_data)
+	return SpaceManager.spawn_unit(class_id, owner_empire_id, system_id, spawn_data)
 
 
-func create_runtime_fleet(owner_empire_id: String, system_id: String, ship_ids_variant: Variant = PackedStringArray(), fleet_data: Dictionary = {}) -> FleetRuntime:
+func create_runtime_fleet(owner_empire_id: String, system_id: String, unit_ids_variant: Variant = PackedStringArray(), fleet_data: Dictionary = {}) -> SpaceFleetRuntime:
 	if _host == null or system_id.is_empty() or not _host.systems_by_id.has(system_id):
 		return null
-	return SpaceManager.create_fleet(owner_empire_id, system_id, ship_ids_variant, fleet_data)
+	return SpaceManager.create_fleet(owner_empire_id, system_id, unit_ids_variant, fleet_data)
 
 
 func assign_active_empire(empire_id: String) -> bool:
@@ -430,9 +430,9 @@ func connect_space_runtime_signals() -> void:
 	if _host == null:
 		return
 	var runtime_signals := [
-		SpaceManager.ship_spawned,
-		SpaceManager.ship_removed,
-		SpaceManager.ship_updated,
+		SpaceManager.unit_spawned,
+		SpaceManager.unit_removed,
+		SpaceManager.unit_updated,
 		SpaceManager.fleet_created,
 		SpaceManager.fleet_removed,
 		SpaceManager.fleet_updated,
@@ -444,9 +444,9 @@ func connect_space_runtime_signals() -> void:
 
 func disconnect_space_runtime_signals() -> void:
 	var runtime_signals := [
-		SpaceManager.ship_spawned,
-		SpaceManager.ship_removed,
-		SpaceManager.ship_updated,
+		SpaceManager.unit_spawned,
+		SpaceManager.unit_removed,
+		SpaceManager.unit_updated,
 		SpaceManager.fleet_created,
 		SpaceManager.fleet_removed,
 		SpaceManager.fleet_updated,

@@ -46,8 +46,8 @@ func render_runtime_placeholders() -> void:
 		var mobile_ship_summary: Dictionary = _summarize_mobile_ships_in_system(system_id)
 		if not mobile_ship_summary.is_empty():
 			var icon_center := system_position + Vector3(0.0, FLEET_ICON_HEIGHT, 0.0)
-			var ship_count: int = int(mobile_ship_summary.get("ship_count", 0))
-			var underscore_count: int = int(floor(float(ship_count) / float(SHIPS_PER_BAR)))
+			var unit_count: int = int(mobile_ship_summary.get("unit_count", 0))
+			var underscore_count: int = int(floor(float(unit_count) / float(SHIPS_PER_BAR)))
 			var color := _get_owner_color(str(mobile_ship_summary.get("owner_empire_id", "")))
 			fleet_icon_instances.append({
 				"position": icon_center,
@@ -63,8 +63,8 @@ func render_runtime_placeholders() -> void:
 					"color": color,
 				})
 
-		for ship_id in SpaceManager.get_ship_ids_in_system(system_id):
-			var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
+		for unit_id in SpaceManager.get_unit_ids_in_system(system_id):
+			var ship: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
 			if ship == null:
 				continue
 			if ship.is_stationary():
@@ -72,7 +72,7 @@ func render_runtime_placeholders() -> void:
 					STATION_BASE_RADIUS,
 					station_index,
 					system_position,
-					ship.ship_id.hash(),
+					ship.unit_id.hash(),
 					STATION_HEIGHT
 				)
 				station_instances.append({
@@ -208,25 +208,25 @@ func _build_bar_mesh() -> Mesh:
 
 
 func _summarize_mobile_ships_in_system(system_id: String) -> Dictionary:
-	var ship_count: int = 0
-	var owner_ship_counts: Dictionary = {}
+	var unit_count: int = 0
+	var owner_unit_counts: Dictionary = {}
 
-	for ship_id in SpaceManager.get_ship_ids_in_system(system_id):
-		var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
+	for unit_id in SpaceManager.get_unit_ids_in_system(system_id):
+		var ship: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
 		if ship == null or ship.is_stationary():
 			continue
-		ship_count += 1
-		owner_ship_counts[ship.owner_empire_id] = int(owner_ship_counts.get(ship.owner_empire_id, 0)) + 1
+		unit_count += 1
+		owner_unit_counts[ship.owner_empire_id] = int(owner_unit_counts.get(ship.owner_empire_id, 0)) + 1
 
-	if ship_count <= 0:
+	if unit_count <= 0:
 		return {}
 
 	var dominant_owner_id: String = ""
 	var dominant_count: int = -1
 	var is_tied: bool = false
-	for owner_id_variant in owner_ship_counts.keys():
+	for owner_id_variant in owner_unit_counts.keys():
 		var owner_id: String = str(owner_id_variant)
-		var owner_count: int = int(owner_ship_counts.get(owner_id_variant, 0))
+		var owner_count: int = int(owner_unit_counts.get(owner_id_variant, 0))
 		if owner_count > dominant_count:
 			dominant_owner_id = owner_id
 			dominant_count = owner_count
@@ -235,7 +235,7 @@ func _summarize_mobile_ships_in_system(system_id: String) -> Dictionary:
 			is_tied = true
 
 	return {
-		"ship_count": ship_count,
+		"unit_count": unit_count,
 		"owner_empire_id": "" if is_tied else dominant_owner_id,
 	}
 

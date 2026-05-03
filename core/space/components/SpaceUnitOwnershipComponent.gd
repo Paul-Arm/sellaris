@@ -1,5 +1,5 @@
-extends ShipComponent
-class_name ShipOwnershipComponent
+extends SpaceUnitComponent
+class_name SpaceUnitOwnershipComponent
 
 const CONTROLLER_UNASSIGNED := "unassigned"
 const CONTROLLER_LOCAL_PLAYER := "local_player"
@@ -34,7 +34,8 @@ func supports_controller(controller_kind: String) -> bool:
 
 
 func to_dict() -> Dictionary:
-	return {
+	var data := super.to_dict()
+	data.merge({
 		"component_key": str(component_key),
 		"requires_owner": requires_owner,
 		"allow_local_player_control": allow_local_player_control,
@@ -42,11 +43,13 @@ func to_dict() -> Dictionary:
 		"allow_ai_control": allow_ai_control,
 		"authoritative_server_only": authoritative_server_only,
 		"transfer_clears_fleet_assignment": transfer_clears_fleet_assignment,
-	}
+	}, true)
+	return data
 
 
-static func from_dict(data: Dictionary) -> ShipOwnershipComponent:
-	var component := ShipOwnershipComponent.new()
+static func from_dict(data: Dictionary) -> SpaceUnitOwnershipComponent:
+	var component := SpaceUnitOwnershipComponent.new()
+	component.apply_base_dict(data)
 	component.component_key = StringName(str(data.get("component_key", "ownership")))
 	component.requires_owner = bool(data.get("requires_owner", true))
 	component.allow_local_player_control = bool(data.get("allow_local_player_control", true))

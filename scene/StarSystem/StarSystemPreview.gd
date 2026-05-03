@@ -292,16 +292,16 @@ func _register_runtime_selectables(runtime_layouts: Dictionary) -> void:
 		var fleet_entry: Dictionary = fleet_variant
 		_register_runtime_fleet_selectable(fleet_entry.get("record", {}), fleet_entry.get("position", Vector3.ZERO))
 
-	for ship_variant in runtime_layouts.get("ships", []):
-		var ship_entry: Dictionary = ship_variant
-		_register_runtime_ship_selectable(ship_entry.get("record", {}), ship_entry.get("position", Vector3.ZERO), false)
+	for unit_variant in runtime_layouts.get("units", []):
+		var unit_entry: Dictionary = unit_variant
+		_register_runtime_ship_selectable(unit_entry.get("record", {}), unit_entry.get("position", Vector3.ZERO), false)
 
 
 func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vector3, is_station: bool) -> void:
 	var owner_name: String = str(record.get("owner_name", "Unclaimed"))
 	var class_display_name: String = str(record.get("class_display_name", record.get("class_id", "Ship")))
-	var entity_kind: String = "station" if is_station else "ship"
-	var subtitle: String = "Ship / %s" % owner_name
+	var entity_kind: String = "station" if is_station else str(record.get("unit_kind", "unit"))
+	var subtitle: String = "%s / %s" % [_format_token_label(entity_kind), owner_name]
 	if is_station:
 		subtitle = "Station / %s" % owner_name
 	var lines: Array[String] = []
@@ -325,7 +325,7 @@ func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vect
 
 	var owner_color: Color = record.get("owner_color", Color(0.82, 0.88, 1.0, 1.0))
 	_register_selectable(_create_selectable({
-		"selection_id": "%s:%s" % [entity_kind, str(record.get("ship_id", record.get("display_name", "")))],
+		"selection_id": "%s:%s" % [entity_kind, str(record.get("unit_id", record.get("display_name", "")))],
 		"selection_kind": entity_kind,
 		"title": str(record.get("display_name", class_display_name)),
 		"subtitle": subtitle,
@@ -340,10 +340,10 @@ func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vect
 
 func _register_runtime_fleet_selectable(record: Dictionary, marker_position: Vector3) -> void:
 	var owner_name: String = str(record.get("owner_name", "Unclaimed"))
-	var ship_count: int = maxi(int(record.get("ship_count", 0)), 1)
+	var unit_count: int = maxi(int(record.get("unit_count", 0)), 1)
 	var lines: Array[String] = []
 	_append_labeled_line(lines, "Owner", owner_name)
-	_append_labeled_line(lines, "Ships", str(ship_count))
+	_append_labeled_line(lines, "Units", str(unit_count))
 	_append_labeled_line(lines, "Role", _format_token_label(str(record.get("ai_role", ""))))
 	_append_labeled_line(lines, "Controller", _format_controller_kind(str(record.get("controller_kind", ""))))
 	if int(record.get("controller_peer_id", 0)) > 0:
@@ -354,7 +354,7 @@ func _register_runtime_fleet_selectable(record: Dictionary, marker_position: Vec
 		_append_labeled_line(lines, "ETA", "%d days" % int(record.get("eta_days_remaining", 0)))
 	if int(record.get("command_queue_size", 0)) > 0:
 		_append_labeled_line(lines, "Queued Commands", str(int(record.get("command_queue_size", 0))))
-	_append_labeled_line(lines, "Members", _format_string_list(record.get("ship_display_names", PackedStringArray()), 4))
+	_append_labeled_line(lines, "Members", _format_string_list(record.get("unit_display_names", PackedStringArray()), 4))
 	_append_notes_and_metadata(lines, str(record.get("notes", "")), record.get("metadata", {}))
 
 	var owner_color: Color = record.get("owner_color", Color(0.82, 0.88, 1.0, 1.0))
@@ -365,8 +365,8 @@ func _register_runtime_fleet_selectable(record: Dictionary, marker_position: Vec
 		"subtitle": "Fleet / %s" % owner_name,
 		"body_text": _join_lines(lines),
 		"anchor_local_position": marker_position,
-		"screen_pick_radius": 22.0 + minf(float(ship_count), 14.0) * 0.75,
-		"highlight_radius": 3.6 + minf(float(ship_count), 18.0) * 0.14,
+		"screen_pick_radius": 22.0 + minf(float(unit_count), 14.0) * 0.75,
+		"highlight_radius": 3.6 + minf(float(unit_count), 18.0) * 0.14,
 		"highlight_color": Color(owner_color.r, owner_color.g, owner_color.b, 0.98),
 		"pick_priority": 34,
 	}))

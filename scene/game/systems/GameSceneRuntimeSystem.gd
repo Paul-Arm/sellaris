@@ -41,7 +41,7 @@ func generate_async() -> void:
 	_state.is_generating = true
 	SpaceManager.reset_runtime_state()
 	ColonyManager.reset_runtime_state()
-	_debug_spawner.register_debug_ship_classes()
+	_debug_spawner.register_debug_unit_classes()
 	_state.selected_system_id = ""
 	_state.hovered_system_id = ""
 	_state.pinned_system_id = ""
@@ -215,23 +215,23 @@ func get_system_space_presence(system_id: String) -> Dictionary:
 
 func build_system_renderables(system_id: String) -> Dictionary:
 	var renderables: Dictionary = SpaceManager.build_system_renderables(system_id)
-	var ships_variant: Variant = renderables.get("ships", [])
-	if ships_variant is Array:
-		var decorated_ships: Array[Dictionary] = []
-		for ship_variant in ships_variant:
-			var ship_record: Dictionary = ship_variant
-			var decorated_ship: Dictionary = ship_record.duplicate(true)
-			var owner_empire_id: String = str(decorated_ship.get("owner_empire_id", ""))
-			decorated_ship["owner_color"] = _get_empire_runtime_color(owner_empire_id)
-			decorated_ship["owner_name"] = _get_empire_runtime_name(owner_empire_id)
-			decorated_ship["destination_system_name"] = _get_system_runtime_name(str(decorated_ship.get("destination_system_id", "")))
-			var fleet_id: String = str(decorated_ship.get("fleet_id", ""))
+	var units_variant: Variant = renderables.get("units", [])
+	if units_variant is Array:
+		var decorated_units: Array[Dictionary] = []
+		for unit_variant in units_variant:
+			var unit_record: Dictionary = unit_variant
+			var decorated_unit: Dictionary = unit_record.duplicate(true)
+			var owner_empire_id: String = str(decorated_unit.get("owner_empire_id", ""))
+			decorated_unit["owner_color"] = _get_empire_runtime_color(owner_empire_id)
+			decorated_unit["owner_name"] = _get_empire_runtime_name(owner_empire_id)
+			decorated_unit["destination_system_name"] = _get_system_runtime_name(str(decorated_unit.get("destination_system_id", "")))
+			var fleet_id: String = str(decorated_unit.get("fleet_id", ""))
 			if not fleet_id.is_empty():
-				var fleet: FleetRuntime = SpaceManager.get_fleet(fleet_id)
+				var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(fleet_id)
 				if fleet != null:
-					decorated_ship["fleet_name"] = fleet.display_name
-			decorated_ships.append(decorated_ship)
-		renderables["ships"] = decorated_ships
+					decorated_unit["fleet_name"] = fleet.display_name
+			decorated_units.append(decorated_unit)
+		renderables["units"] = decorated_units
 
 	var fleets_variant: Variant = renderables.get("fleets", [])
 	if fleets_variant is Array:
@@ -244,13 +244,13 @@ func build_system_renderables(system_id: String) -> Dictionary:
 			decorated_fleet["owner_name"] = _get_empire_runtime_name(owner_empire_id)
 			decorated_fleet["destination_system_name"] = _get_system_runtime_name(str(decorated_fleet.get("destination_system_id", "")))
 			decorated_fleet["home_system_name"] = _get_system_runtime_name(str(decorated_fleet.get("home_system_id", "")))
-			var ship_display_names := PackedStringArray()
-			for ship_id in _variant_to_packed_string_array(decorated_fleet.get("ship_ids", PackedStringArray())):
-				var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
-				if ship == null:
+			var unit_display_names := PackedStringArray()
+			for unit_id in _variant_to_packed_string_array(decorated_fleet.get("unit_ids", PackedStringArray())):
+				var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+				if unit == null:
 					continue
-				ship_display_names.append(ship.display_name)
-			decorated_fleet["ship_display_names"] = ship_display_names
+				unit_display_names.append(unit.display_name)
+			decorated_fleet["unit_display_names"] = unit_display_names
 			decorated_fleets.append(decorated_fleet)
 		renderables["fleets"] = decorated_fleets
 
@@ -322,16 +322,16 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 		})
 
 	var station_entries: Array[Dictionary] = []
-	for ship_id in SpaceManager.get_ship_ids_for_owner(_state.active_empire_id):
-		var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
+	for unit_id in SpaceManager.get_unit_ids_for_owner(_state.active_empire_id):
+		var ship: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
 		if ship == null or not ship.is_stationary():
 			continue
 
-		var ship_class: ShipClass = SpaceManager.get_ship_class(ship.class_id)
+		var ship_class: SpaceUnitClass = SpaceManager.get_unit_class(ship.class_id)
 		var system_name: String = _get_system_runtime_name(ship.current_system_id)
 		var is_local: bool = not inspected_system_id.is_empty() and ship.current_system_id == inspected_system_id
 		station_entries.append({
-			"id": ship.ship_id,
+			"id": ship.unit_id,
 			"title": ship.display_name,
 			"summary": "%s  Hull %d%%" % [
 				ship_class.display_name if ship_class != null else ship.class_id,
@@ -351,16 +351,16 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 	var passive_fleet_entries: Array[Dictionary] = []
 	var military_fleet_entries: Array[Dictionary] = []
 	for fleet_id in SpaceManager.get_fleet_ids_for_owner(_state.active_empire_id):
-		var fleet: FleetRuntime = SpaceManager.get_fleet(fleet_id)
+		var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(fleet_id)
 		if fleet == null:
 			continue
 
 		var fleet_bucket: Array[Dictionary] = military_fleet_entries if _is_military_fleet_runtime(fleet) else passive_fleet_entries
 		var system_name: String = _get_system_runtime_name(fleet.current_system_id)
 		var destination_name: String = _get_system_runtime_name(fleet.destination_system_id)
-		var ship_count: int = fleet.ship_ids.size()
+		var unit_count: int = fleet.unit_ids.size()
 		var is_local: bool = not inspected_system_id.is_empty() and fleet.current_system_id == inspected_system_id
-		var status_text: String = "%d ships" % ship_count
+		var status_text: String = "%d units" % unit_count
 		if not destination_name.is_empty():
 			status_text += "  ->  %s" % destination_name
 			if fleet.eta_days_remaining > 0:
@@ -369,11 +369,11 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 			status_text += "  %s" % _format_runtime_token(str(fleet.ai_role))
 
 		var member_names := PackedStringArray()
-		for ship_member_id in fleet.ship_ids:
-			var member_ship: ShipRuntime = SpaceManager.get_ship(ship_member_id)
-			if member_ship == null:
+		for unit_member_id in fleet.unit_ids:
+			var member_unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_member_id)
+			if member_unit == null:
 				continue
-			member_names.append(member_ship.display_name)
+			member_names.append(member_unit.display_name)
 
 		fleet_bucket.append({
 			"id": fleet.fleet_id,
@@ -381,10 +381,10 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 			"summary": status_text,
 			"location": system_name,
 			"is_local": is_local,
-			"tooltip": "%s\nSystem: %s\nShips: %d\nRole: %s\nMembers: %s" % [
+			"tooltip": "%s\nSystem: %s\nUnits: %d\nRole: %s\nMembers: %s" % [
 				fleet.display_name,
 				system_name,
-				ship_count,
+				unit_count,
 				_format_runtime_token(str(fleet.ai_role)),
 				", ".join(member_names),
 			],
@@ -463,16 +463,16 @@ func place_colony_building(colony_id: String, slot_id: String, building_id: Stri
 	return changed
 
 
-func spawn_runtime_ship(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> ShipRuntime:
+func spawn_runtime_unit(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> SpaceUnitRuntime:
 	if _state == null or system_id.is_empty() or not _state.systems_by_id.has(system_id):
 		return null
-	return SpaceManager.spawn_ship(class_id, owner_empire_id, system_id, spawn_data)
+	return SpaceManager.spawn_unit(class_id, owner_empire_id, system_id, spawn_data)
 
 
-func create_runtime_fleet(owner_empire_id: String, system_id: String, ship_ids_variant: Variant = PackedStringArray(), fleet_data: Dictionary = {}) -> FleetRuntime:
+func create_runtime_fleet(owner_empire_id: String, system_id: String, unit_ids_variant: Variant = PackedStringArray(), fleet_data: Dictionary = {}) -> SpaceFleetRuntime:
 	if _state == null or system_id.is_empty() or not _state.systems_by_id.has(system_id):
 		return null
-	return SpaceManager.create_fleet(owner_empire_id, system_id, ship_ids_variant, fleet_data)
+	return SpaceManager.create_fleet(owner_empire_id, system_id, unit_ids_variant, fleet_data)
 
 
 func assign_active_empire(empire_id: String) -> bool:
@@ -992,9 +992,9 @@ func connect_space_runtime_signals() -> void:
 	if _state == null:
 		return
 	var runtime_signals: Array[Signal] = [
-		SpaceManager.ship_spawned,
-		SpaceManager.ship_removed,
-		SpaceManager.ship_updated,
+		SpaceManager.unit_spawned,
+		SpaceManager.unit_removed,
+		SpaceManager.unit_updated,
 		SpaceManager.fleet_created,
 		SpaceManager.fleet_removed,
 		SpaceManager.fleet_updated,
@@ -1006,9 +1006,9 @@ func connect_space_runtime_signals() -> void:
 
 func disconnect_space_runtime_signals() -> void:
 	var runtime_signals: Array[Signal] = [
-		SpaceManager.ship_spawned,
-		SpaceManager.ship_removed,
-		SpaceManager.ship_updated,
+		SpaceManager.unit_spawned,
+		SpaceManager.unit_removed,
+		SpaceManager.unit_updated,
 		SpaceManager.fleet_created,
 		SpaceManager.fleet_removed,
 		SpaceManager.fleet_updated,
@@ -1226,13 +1226,13 @@ func _get_system_runtime_name(system_id: String) -> String:
 	return system_id
 
 
-func _is_military_fleet_runtime(fleet: FleetRuntime) -> bool:
-	for ship_id in fleet.ship_ids:
-		var ship: ShipRuntime = SpaceManager.get_ship(ship_id)
+func _is_military_fleet_runtime(fleet: SpaceFleetRuntime) -> bool:
+	for unit_id in fleet.unit_ids:
+		var ship: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
 		if ship == null:
 			continue
-		var ship_class: ShipClass = SpaceManager.get_ship_class(ship.class_id)
-		if ship_class != null and ship_class.category == ShipClass.CATEGORY_COMBAT:
+		var ship_class: SpaceUnitClass = SpaceManager.get_unit_class(ship.class_id)
+		if ship_class != null and ship_class.category == SpaceUnitClass.CATEGORY_COMBAT:
 			return true
 		for command_tag in ship.command_tags:
 			if str(command_tag).contains("combat"):
@@ -1339,11 +1339,11 @@ func _reveal_intel_from_space_record(record_id: String) -> void:
 		return
 
 	var changed: bool = false
-	var fleet: FleetRuntime = SpaceManager.get_fleet(record_id)
+	var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(record_id)
 	if fleet != null:
 		changed = _reveal_intel_from_presence(fleet.owner_empire_id, fleet.current_system_id) or changed
 
-	var ship: ShipRuntime = SpaceManager.get_ship(record_id)
+	var ship: SpaceUnitRuntime = SpaceManager.get_unit(record_id)
 	if ship != null:
 		changed = _reveal_intel_from_presence(ship.owner_empire_id, ship.current_system_id) or changed
 

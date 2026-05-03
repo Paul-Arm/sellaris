@@ -147,7 +147,7 @@ func _ready() -> void:
 		Callable(self, "_get_debug_spawner_active_empire_id"),
 		Callable(self, "_get_inspected_system_id"),
 		Callable(self, "_get_debug_spawner_systems_by_id"),
-		Callable(self, "spawn_runtime_ship"),
+		Callable(self, "spawn_runtime_unit"),
 		Callable(self, "create_runtime_fleet")
 	)
 	_music_ui_controller.bind(galaxy_hud)
@@ -205,12 +205,12 @@ func get_system_space_presence(system_id: String) -> Dictionary:
 	return _runtime_system.get_system_space_presence(system_id)
 
 
-func spawn_runtime_ship(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> ShipRuntime:
-	return _runtime_system.spawn_runtime_ship(class_id, owner_empire_id, system_id, spawn_data)
+func spawn_runtime_unit(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> SpaceUnitRuntime:
+	return _runtime_system.spawn_runtime_unit(class_id, owner_empire_id, system_id, spawn_data)
 
 
-func create_runtime_fleet(owner_empire_id: String, system_id: String, ship_ids_variant: Variant = PackedStringArray(), fleet_data: Dictionary = {}) -> FleetRuntime:
-	return _runtime_system.create_runtime_fleet(owner_empire_id, system_id, ship_ids_variant, fleet_data)
+func create_runtime_fleet(owner_empire_id: String, system_id: String, unit_ids_variant: Variant = PackedStringArray(), fleet_data: Dictionary = {}) -> SpaceFleetRuntime:
+	return _runtime_system.create_runtime_fleet(owner_empire_id, system_id, unit_ids_variant, fleet_data)
 
 
 func assign_active_empire(empire_id: String) -> bool:

@@ -215,7 +215,7 @@ func update_system_panel() -> void:
 			int(summary.get("structure_count", 0)),
 			int(summary.get("ruin_count", 0)),
 			int(space_presence.get("fleet_count", 0)),
-			int(space_presence.get("mobile_ship_count", 0)),
+			int(space_presence.get("mobile_unit_count", 0)),
 			int(space_presence.get("station_count", 0)),
 			int(summary.get("habitable_worlds", 0)),
 			int(summary.get("colonizable_worlds", 0)),

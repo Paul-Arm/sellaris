@@ -31,48 +31,48 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 		"outer_radius": outer_radius,
 		"stations": [],
 		"fleets": [],
-		"ships": [],
+		"units": [],
 	}
 
 	if _host == null:
 		return result
 
-	var ships_variant: Variant = space_renderables.get("ships", [])
-	if ships_variant is not Array:
+	var units_variant: Variant = space_renderables.get("units", [])
+	if units_variant is not Array:
 		return result
 	var fleets_variant: Variant = space_renderables.get("fleets", [])
 
-	var mobile_ships: Array[Dictionary] = []
+	var mobile_units: Array[Dictionary] = []
 	var stations: Array[Dictionary] = []
 	var fleets: Array[Dictionary] = []
-	var fleet_ship_ids: Dictionary = {}
-	var ships_by_id: Dictionary = {}
+	var fleet_unit_ids: Dictionary = {}
+	var units_by_id: Dictionary = {}
 
 	if fleets_variant is Array:
 		for fleet_variant in fleets_variant:
 			var fleet_record: Dictionary = fleet_variant
 			fleets.append(fleet_record)
-			for ship_id in _variant_to_packed_string_array(fleet_record.get("ship_ids", PackedStringArray())):
-				fleet_ship_ids[ship_id] = true
+			for unit_id in _variant_to_packed_string_array(fleet_record.get("unit_ids", PackedStringArray())):
+				fleet_unit_ids[unit_id] = true
 
-	for ship_variant in ships_variant:
-		var ship_record: Dictionary = ship_variant
-		var ship_id: String = str(ship_record.get("ship_id", ""))
-		if not ship_id.is_empty():
-			ships_by_id[ship_id] = ship_record
-		if bool(ship_record.get("is_stationary", false)):
-			stations.append(ship_record)
-		elif not str(ship_record.get("fleet_id", "")).is_empty() and fleet_ship_ids.has(ship_id):
+	for unit_variant in units_variant:
+		var unit_record: Dictionary = unit_variant
+		var unit_id: String = str(unit_record.get("unit_id", ""))
+		if not unit_id.is_empty():
+			units_by_id[unit_id] = unit_record
+		if bool(unit_record.get("is_stationary", false)):
+			stations.append(unit_record)
+		elif not str(unit_record.get("fleet_id", "")).is_empty() and fleet_unit_ids.has(unit_id):
 			continue
 		else:
-			mobile_ships.append(ship_record)
+			mobile_units.append(unit_record)
 
 	var resolved_outer_radius: float = outer_radius
 	if not stations.is_empty():
 		var station_radius: float = outer_radius + STATION_RING_OFFSET
 		result["stations"] = _build_group(
 			stations,
-			"ship_id",
+			"unit_id",
 			station_radius,
 			Vector3(1.0, 1.0, 1.0),
 			Vector3(2.6, 2.0, 2.6),
@@ -85,7 +85,7 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 		var fleet_radius: float = outer_radius + FLEET_RING_OFFSET
 		result["fleets"] = _build_fleet_group(
 			fleets,
-			ships_by_id,
+			units_by_id,
 			fleet_radius,
 			0.98,
 			0.42,
@@ -94,14 +94,14 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 		)
 		var largest_fleet_size: int = 1
 		for fleet_record in fleets:
-			largest_fleet_size = maxi(largest_fleet_size, _variant_to_packed_string_array(fleet_record.get("ship_ids", PackedStringArray())).size())
+			largest_fleet_size = maxi(largest_fleet_size, _variant_to_packed_string_array(fleet_record.get("unit_ids", PackedStringArray())).size())
 		resolved_outer_radius = maxf(resolved_outer_radius, fleet_radius + _get_fleet_cluster_radius(largest_fleet_size) + 8.0)
 
-	if not mobile_ships.is_empty():
+	if not mobile_units.is_empty():
 		var ship_radius: float = outer_radius + SHIP_RING_OFFSET
-		result["ships"] = _build_sprite_group(
-			mobile_ships,
-			"ship_id",
+		result["units"] = _build_sprite_group(
+			mobile_units,
+			"unit_id",
 			ship_radius,
 			0.92,
 			0.28,
@@ -137,7 +137,7 @@ func _build_group(
 	for record_index in range(records.size()):
 		var record: Dictionary = records[record_index]
 		var entity_id: String = str(record.get(id_key, "%s_%02d" % [id_key, record_index]))
-		var layout: Dictionary = _resolve_layout(base_radius, record_index, entity_id.hash())
+		var layout: Dictionary = _resolve_record_layout(record, base_radius, record_index, entity_id.hash())
 		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
 		var scale_blend: Vector3 = damaged_scale.lerp(base_scale, hull_ratio)
 		var instance_basis: Basis = Basis(Vector3.UP, float(layout.get("yaw", 0.0))).scaled(scale_blend)
@@ -180,7 +180,7 @@ func _build_sprite_group(
 	for record_index in range(records.size()):
 		var record: Dictionary = records[record_index]
 		var entity_id: String = str(record.get(id_key, "%s_%02d" % [id_key, record_index]))
-		var layout: Dictionary = _resolve_layout(base_radius, record_index, entity_id.hash())
+		var layout: Dictionary = _resolve_record_layout(record, base_radius, record_index, entity_id.hash())
 		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
 		var size_multiplier: float = lerpf(0.84, 1.0, hull_ratio)
 
@@ -204,7 +204,7 @@ func _build_sprite_group(
 
 func _build_fleet_group(
 	fleet_records: Array[Dictionary],
-	ships_by_id: Dictionary,
+	units_by_id: Dictionary,
 	base_radius: float,
 	alpha: float,
 	emission_energy: float,
@@ -219,16 +219,16 @@ func _build_fleet_group(
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true
 	multimesh.mesh = mesh
-	multimesh.instance_count = _count_fleet_visual_instances(fleet_records, ships_by_id)
+	multimesh.instance_count = _count_fleet_visual_instances(fleet_records, units_by_id)
 	var instance_layouts: Array[Dictionary] = []
 	var instance_index: int = 0
 
 	for fleet_index in range(fleet_records.size()):
 		var fleet_record: Dictionary = fleet_records[fleet_index]
 		var fleet_id: String = str(fleet_record.get("fleet_id", "fleet_%02d" % fleet_index))
-		var fleet_layout: Dictionary = _resolve_layout(base_radius, fleet_index, fleet_id.hash())
+		var fleet_layout: Dictionary = _resolve_record_layout(fleet_record, base_radius, fleet_index, fleet_id.hash())
 		var fleet_center: Vector3 = fleet_layout.get("position", Vector3.ZERO)
-		var member_records: Array[Dictionary] = _get_fleet_member_records(fleet_record, ships_by_id)
+		var member_records: Array[Dictionary] = _get_fleet_member_records(fleet_record, units_by_id)
 		if member_records.is_empty():
 			member_records.append(fleet_record)
 
@@ -236,7 +236,7 @@ func _build_fleet_group(
 			var member_record: Dictionary = member_records[member_index]
 			var hull_ratio: float = clampf(float(member_record.get("hull_ratio", 1.0)), 0.2, 1.0)
 			var size_multiplier: float = lerpf(0.82, 1.0, hull_ratio)
-			var member_position: Vector3 = fleet_center + _resolve_fleet_member_offset(member_index, member_records.size(), fleet_id.hash())
+			var member_position: Vector3 = _get_record_position(member_record, fleet_center + _resolve_fleet_member_offset(member_index, member_records.size(), fleet_id.hash()))
 			var instance_basis: Basis = Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier)
 			multimesh.set_instance_transform(instance_index, Transform3D(instance_basis, member_position))
 			multimesh.set_instance_color(instance_index, _get_marker_tint(member_record, alpha, tint_strength))
@@ -270,18 +270,43 @@ func _resolve_layout(base_radius: float, index: int, seed_value: int) -> Diction
 	}
 
 
-func _get_fleet_member_records(fleet_record: Dictionary, ships_by_id: Dictionary) -> Array[Dictionary]:
+func _resolve_record_layout(record: Dictionary, base_radius: float, index: int, seed_value: int) -> Dictionary:
+	if record.has("interpolated_local_position") or record.has("local_position"):
+		var position := _get_record_position(record, Vector3.ZERO)
+		var yaw := 0.0
+		var velocity := _variant_to_vector3(record.get("velocity", Vector3.ZERO))
+		if velocity.length_squared() > 0.0001:
+			yaw = atan2(-velocity.z, velocity.x)
+		elif position.length_squared() > 0.0001:
+			yaw = atan2(-position.z, position.x)
+		return {
+			"position": position,
+			"yaw": yaw,
+			"radius": position.length(),
+		}
+	return _resolve_layout(base_radius, index, seed_value)
+
+
+func _get_record_position(record: Dictionary, fallback: Vector3) -> Vector3:
+	if record.has("interpolated_local_position"):
+		return _variant_to_vector3(record.get("interpolated_local_position", fallback))
+	if record.has("local_position"):
+		return _variant_to_vector3(record.get("local_position", fallback))
+	return fallback
+
+
+func _get_fleet_member_records(fleet_record: Dictionary, units_by_id: Dictionary) -> Array[Dictionary]:
 	var member_records: Array[Dictionary] = []
-	for ship_id in _variant_to_packed_string_array(fleet_record.get("ship_ids", PackedStringArray())):
-		if ships_by_id.has(ship_id):
-			member_records.append((ships_by_id[ship_id] as Dictionary).duplicate(true))
+	for unit_id in _variant_to_packed_string_array(fleet_record.get("unit_ids", PackedStringArray())):
+		if units_by_id.has(unit_id):
+			member_records.append((units_by_id[unit_id] as Dictionary).duplicate(true))
 	return member_records
 
 
-func _count_fleet_visual_instances(fleet_records: Array[Dictionary], ships_by_id: Dictionary) -> int:
+func _count_fleet_visual_instances(fleet_records: Array[Dictionary], units_by_id: Dictionary) -> int:
 	var total_instances: int = 0
 	for fleet_record in fleet_records:
-		var member_count: int = _get_fleet_member_records(fleet_record, ships_by_id).size()
+		var member_count: int = _get_fleet_member_records(fleet_record, units_by_id).size()
 		total_instances += maxi(member_count, 1)
 	return total_instances
 
@@ -305,15 +330,15 @@ func _resolve_fleet_member_offset(index: int, total_count: int, seed_value: int)
 	return Vector3(cos(angle) * radius, vertical_offset, sin(angle) * radius)
 
 
-func _get_fleet_cluster_radius(ship_count: int) -> float:
-	if ship_count <= 1:
+func _get_fleet_cluster_radius(unit_count: int) -> float:
+	if unit_count <= 1:
 		return 0.0
 
-	var remaining_ships: int = ship_count - 1
+	var remaining_units: int = unit_count - 1
 	var ring_index: int = 0
 	var ring_capacity: int = FLEET_MEMBER_SLOTS_PER_RING
-	while remaining_ships > ring_capacity:
-		remaining_ships -= ring_capacity
+	while remaining_units > ring_capacity:
+		remaining_units -= ring_capacity
 		ring_index += 1
 		ring_capacity = FLEET_MEMBER_SLOTS_PER_RING + ring_index * 2
 	return FLEET_MEMBER_BASE_RADIUS + float(ring_index) * FLEET_MEMBER_RING_STEP + FLEET_MEMBER_MARKER_SIZE * 0.5
@@ -374,3 +399,19 @@ static func _variant_to_packed_string_array(values: Variant) -> PackedStringArra
 			continue
 		result.append(value)
 	return result
+
+
+static func _variant_to_vector3(value: Variant) -> Vector3:
+	if value is Vector3:
+		return value
+	if value is Dictionary:
+		return Vector3(
+			float(value.get("x", 0.0)),
+			float(value.get("y", 0.0)),
+			float(value.get("z", 0.0))
+		)
+	if value is Array:
+		var values: Array = value
+		if values.size() >= 3:
+			return Vector3(float(values[0]), float(values[1]), float(values[2]))
+	return Vector3.ZERO

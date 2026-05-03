@@ -357,6 +357,8 @@ func set_galaxy_presentation_visible(visible_state: bool) -> void:
 		"info_label": _host.info_label,
 		"galaxy_hud": _host.galaxy_hud,
 	}
+	if _debug_info_panel != null:
+		nodes["debug_info_panel"] = _debug_info_panel
 
 	if not visible_state:
 		_host._galaxy_presentation_visibility.clear()

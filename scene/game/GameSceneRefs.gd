@@ -33,7 +33,7 @@ static func from_root(root: Node) -> GameSceneRefs:
 	var refs := GameSceneRefs.new()
 	refs.view_root = root.get_node("ViewRoot")
 	refs.canvas_layer = root.get_node("CanvasLayer") as CanvasLayer
-	refs.info_label = root.get_node("CanvasLayer/InfoLabel") as Label
+	refs.info_label = refs.canvas_layer.find_child("InfoLabel", true, false) as Label
 	refs.loading_overlay = root.get_node("CanvasLayer/LoadingOverlay") as Control
 	refs.loading_status = root.get_node("CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer/LoadingStatus") as Label
 	refs.loading_progress = root.get_node("CanvasLayer/LoadingOverlay/Panel/MarginContainer/VBoxContainer/LoadingProgress") as ProgressBar
@@ -53,8 +53,8 @@ static func from_root(root: Node) -> GameSceneRefs:
 	refs.empire_picker_list = root.get_node("CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/EmpirePickerList") as ItemList
 	refs.select_empire_button = root.get_node("CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/ButtonRow/SelectEmpireButton") as Button
 	refs.cancel_empire_picker_button = root.get_node("CanvasLayer/EmpirePickerOverlay/Panel/MarginContainer/VBoxContainer/ButtonRow/CancelEmpirePickerButton") as Button
-	refs.debug_spawn_toggle_button = root.get_node("CanvasLayer/DebugSpawnToggleButton") as Button
-	refs.debug_reveal_toggle_button = root.get_node("CanvasLayer/DebugRevealToggleButton") as Button
+	refs.debug_spawn_toggle_button = refs.canvas_layer.find_child("DebugSpawnToggleButton", true, false) as Button
+	refs.debug_reveal_toggle_button = refs.canvas_layer.find_child("DebugRevealToggleButton", true, false) as Button
 	refs.debug_spawn_panel = root.get_node("CanvasLayer/DebugSpawnPanel") as PanelContainer
 	refs.galaxy_hud = root.get_node("CanvasLayer/GalaxyHud") as Control
 	return refs

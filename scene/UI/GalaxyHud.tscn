@@ -85,7 +85,6 @@ text = "Territory Core Opacity"
 layout_mode = 2
 max_value = 0.35
 step = 0.01
-value = 0.0
 
 [node name="CloseSettingsButton" type="Button" parent="SettingsOverlay/Panel/MarginContainer/VBoxContainer" unique_id=837109372]
 layout_mode = 2
@@ -93,12 +92,9 @@ text = "Resume"
 
 [node name="TopPanel" type="Panel" parent="." unique_id=1206852677]
 layout_mode = 1
-anchors_preset = -1
-anchor_right = 1.006
-anchor_bottom = 0.004
-offset_top = -1.0
-offset_right = -6.9121094
-offset_bottom = 44.408
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 72.0
 grow_horizontal = 2
 
 [node name="MarginContainer" type="MarginContainer" parent="TopPanel" unique_id=152730802]
@@ -108,10 +104,10 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 6
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 6
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 10
 
 [node name="TopBarRow" type="HBoxContainer" parent="TopPanel/MarginContainer" unique_id=135071263]
 layout_mode = 2
@@ -119,42 +115,34 @@ theme_override_constants/separation = 10
 alignment = 2
 
 [node name="ResourceBox" type="PanelContainer" parent="TopPanel/MarginContainer/TopBarRow" unique_id=1062972107]
-custom_minimum_size = Vector2(170, 0)
+custom_minimum_size = Vector2(548, 0)
 layout_mode = 2
-size_flags_horizontal = 2
+size_flags_horizontal = 8
 size_flags_vertical = 4
 
 [node name="ResourceMargin" type="MarginContainer" parent="TopPanel/MarginContainer/TopBarRow/ResourceBox" unique_id=1794096271]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_right = 4
 
 [node name="ResourceRow" type="HBoxContainer" parent="TopPanel/MarginContainer/TopBarRow/ResourceBox/ResourceMargin" unique_id=745589521]
 layout_mode = 2
 theme_override_constants/separation = 8
-
-[node name="EnergyLabel" type="Label" parent="TopPanel/MarginContainer/TopBarRow/ResourceBox/ResourceMargin/ResourceRow" unique_id=802967526]
-layout_mode = 2
-text = "Energy: 200K"
-
-[node name="MatterLabel" type="Label" parent="TopPanel/MarginContainer/TopBarRow/ResourceBox/ResourceMargin/ResourceRow" unique_id=564849416]
-layout_mode = 2
-text = "Matter: 100K"
+alignment = 1
 
 [node name="MusicBox" type="PanelContainer" parent="TopPanel/MarginContainer/TopBarRow" unique_id=1110299152]
-custom_minimum_size = Vector2(250, 0)
+custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
+size_flags_vertical = 4
 
 [node name="MusicMargin" type="MarginContainer" parent="TopPanel/MarginContainer/TopBarRow/MusicBox" unique_id=1863065482]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 6
 
 [node name="MusicRow" type="HBoxContainer" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin" unique_id=599727003]
 layout_mode = 2
@@ -162,28 +150,29 @@ theme_override_constants/separation = 8
 
 [node name="MusicTrackLabel" type="Label" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=2019522173]
 visible = false
-custom_minimum_size = Vector2(130, 0)
+custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
+theme_override_font_sizes/font_size = 15
 text = "Music: Idle"
 clip_text = true
 
 [node name="PreviousTrackButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=1698734931]
-custom_minimum_size = Vector2(34, 0)
+custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
 text = "<<"
 
 [node name="PauseTrackButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=394556538]
-custom_minimum_size = Vector2(56, 0)
+custom_minimum_size = Vector2(68, 34)
 layout_mode = 2
 text = "Pause"
 
 [node name="NextTrackButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=856732429]
-custom_minimum_size = Vector2(34, 0)
+custom_minimum_size = Vector2(34, 34)
 layout_mode = 2
 text = ">>"
 
 [node name="MusicVolumeSlider" type="HSlider" parent="TopPanel/MarginContainer/TopBarRow/MusicBox/MusicMargin/MusicRow" unique_id=1888722682]
-custom_minimum_size = Vector2(70, 0)
+custom_minimum_size = Vector2(92, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
@@ -192,33 +181,35 @@ step = 0.01
 value = 0.7
 
 [node name="SimBox" type="PanelContainer" parent="TopPanel/MarginContainer/TopBarRow" unique_id=1664567702]
-custom_minimum_size = Vector2(300, 0)
+custom_minimum_size = Vector2(322, 0)
 layout_mode = 2
+size_flags_vertical = 4
 
 [node name="SimMargin" type="MarginContainer" parent="TopPanel/MarginContainer/TopBarRow/SimBox" unique_id=246356341]
 layout_mode = 2
-theme_override_constants/margin_left = 10
-theme_override_constants/margin_top = 4
-theme_override_constants/margin_right = 10
-theme_override_constants/margin_bottom = 4
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 6
 
 [node name="SimRow" type="HBoxContainer" parent="TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin" unique_id=898126175]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 9
 
 [node name="SimDateLabel" type="Label" parent="TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin/SimRow" unique_id=1520153648]
-custom_minimum_size = Vector2(160, 0)
+custom_minimum_size = Vector2(174, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
 text = "2025-01-01  x1"
 clip_text = true
 
 [node name="SimPauseButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin/SimRow" unique_id=951619025]
-custom_minimum_size = Vector2(58, 0)
+custom_minimum_size = Vector2(66, 34)
 layout_mode = 2
 text = "Pause"
 
 [node name="SimSpeedButton" type="Button" parent="TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin/SimRow" unique_id=382959518]
-custom_minimum_size = Vector2(34, 0)
+custom_minimum_size = Vector2(38, 34)
 layout_mode = 2
 text = ">>"

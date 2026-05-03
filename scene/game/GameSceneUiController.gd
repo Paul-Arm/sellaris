@@ -378,6 +378,8 @@ func set_galaxy_presentation_visible(visible_state: bool) -> void:
 		"system_panel": _ui.system_panel,
 		"info_label": _ui.info_label,
 	}
+	if _debug_info_panel != null:
+		nodes["debug_info_panel"] = _debug_info_panel
 
 	if not visible_state:
 		_state.galaxy_presentation_visibility.clear()

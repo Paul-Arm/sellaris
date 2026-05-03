@@ -19,7 +19,7 @@ shader_parameter/nebula_strength = 1.71999996155456
 shader_parameter/star_density = 0.5499999877064
 shader_parameter/motion_speed = 0.0530000025175
 
-[node name="MainMenue" type="Control"]
+[node name="MainMenue" type="Control" unique_id=2121804400]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -28,7 +28,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=898493352]
 material = SubResource("ShaderMaterial_7co16")
 layout_mode = 1
 anchors_preset = 15
@@ -37,7 +37,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Overlay" type="ColorRect" parent="."]
+[node name="Overlay" type="ColorRect" parent="." unique_id=2070577611]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -46,7 +46,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.01, 0.015, 0.03, 0.24)
 
-[node name="UiRoot" type="MarginContainer" parent="."]
+[node name="UiRoot" type="MarginContainer" parent="." unique_id=264918651]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -58,105 +58,106 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 28
 theme_override_constants/margin_bottom = 24
 
-[node name="RootVBox" type="VBoxContainer" parent="UiRoot"]
+[node name="RootVBox" type="VBoxContainer" parent="UiRoot" unique_id=939912999]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 18
 
-[node name="HeaderPanel" type="PanelContainer" parent="UiRoot/RootVBox"]
+[node name="HeaderPanel" type="PanelContainer" parent="UiRoot/RootVBox" unique_id=501828296]
 custom_minimum_size = Vector2(0, 104)
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/HeaderPanel"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/HeaderPanel" unique_id=1255727536]
 layout_mode = 2
 theme_override_constants/margin_left = 22
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 22
 theme_override_constants/margin_bottom = 18
 
-[node name="HeaderVBox" type="VBoxContainer" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer"]
+[node name="HeaderVBox" type="VBoxContainer" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer" unique_id=1427795512]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="HeaderTitle" type="Label" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer/HeaderVBox"]
+[node name="HeaderTitle" type="Label" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer/HeaderVBox" unique_id=417299309]
 layout_mode = 2
 theme_override_font_sizes/font_size = 34
 text = "Sellaris Command Nexus"
 
-[node name="HeaderSubtitle" type="Label" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer/HeaderVBox"]
+[node name="HeaderSubtitle" type="Label" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer/HeaderVBox" unique_id=1609766809]
 layout_mode = 2
 text = "This is the real startup menu scene. Singleplayer opens the galaxy generator UI, while presets, settings, and multiplayer stay here as dedicated pages."
 autowrap_mode = 2
 
-[node name="MainShell" type="PanelContainer" parent="UiRoot/RootVBox"]
+[node name="MainShell" type="PanelContainer" parent="UiRoot/RootVBox" unique_id=269165000]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell" unique_id=841051168]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="ShellRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer"]
+[node name="ShellRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer" unique_id=1529360996]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 18
 
-[node name="NavColumn" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow"]
+[node name="NavColumn" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow" unique_id=2130232802]
 custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="LandingButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+[node name="LandingButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn" unique_id=1461823278]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Landing Page"
 
-[node name="SingleplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+[node name="SingleplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn" unique_id=661138536]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Singleplayer"
 
-[node name="PresetsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+[node name="PresetsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn" unique_id=69751635]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Empire Presets"
 
-[node name="SettingsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+[node name="SettingsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn" unique_id=1230321364]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Settings"
 
-[node name="MultiplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+[node name="MultiplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn" unique_id=496340780]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Multiplayer"
 
-[node name="NavSpacer" type="Control" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+[node name="NavSpacer" type="Control" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn" unique_id=1616253758]
 custom_minimum_size = Vector2(0, 12)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="QuitButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn"]
+[node name="QuitButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn" unique_id=1576057047]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Quit Game"
 
-[node name="ContentTabs" type="TabContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow"]
+[node name="ContentTabs" type="TabContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow" unique_id=2096894121]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+current_tab = 0
 tabs_visible = false
 
-[node name="LandingPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs"]
+[node name="LandingPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs" unique_id=285884874]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -164,124 +165,126 @@ theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
+metadata/_tab_index = 0
 
-[node name="LandingVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage"]
+[node name="LandingVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage" unique_id=490525257]
 layout_mode = 2
 theme_override_constants/separation = 18
 
-[node name="HeroPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox"]
+[node name="HeroPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox" unique_id=1901079983]
 custom_minimum_size = Vector2(0, 240)
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel" unique_id=337953537]
 layout_mode = 2
 theme_override_constants/margin_left = 24
 theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="HeroVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer"]
+[node name="HeroVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer" unique_id=1398866928]
 layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="HeroTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox"]
+[node name="HeroTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox" unique_id=573522148]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Shape the next galactic era."
 
-[node name="HeroText" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox"]
+[node name="HeroText" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox" unique_id=242470176]
 layout_mode = 2
 text = "The main menu now lives in this authored scene. Singleplayer jumps into the galaxy generator scene, while empire presets, settings, and multiplayer stay inside this screen."
 autowrap_mode = 2
 
-[node name="LandingActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox"]
+[node name="LandingActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox" unique_id=386722241]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="StartSingleplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox/LandingActionRow"]
+[node name="StartSingleplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox/LandingActionRow" unique_id=2093899198]
 custom_minimum_size = Vector2(190, 46)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Start Singleplayer"
 
-[node name="OpenEmpirePresetsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox/LandingActionRow"]
+[node name="OpenEmpirePresetsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox/LandingActionRow" unique_id=1093147140]
 custom_minimum_size = Vector2(190, 46)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Open Empire Presets"
 
-[node name="LandingInfoRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox"]
+[node name="LandingInfoRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox" unique_id=2013101337]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 16
 
-[node name="SettingsCard" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow"]
+[node name="SettingsCard" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow" unique_id=150608829]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard" unique_id=853509884]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="SettingsCardVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer"]
+[node name="SettingsCardVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer" unique_id=1336852232]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="SettingsCardTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox"]
+[node name="SettingsCardTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox" unique_id=1561011983]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Settings"
 
-[node name="SettingsCardBody" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox"]
+[node name="SettingsCardBody" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox" unique_id=230789877]
 layout_mode = 2
 size_flags_vertical = 3
 text = "Music controls are already live here, and this page is ready for graphics, controls, and accessibility later."
 autowrap_mode = 2
 
-[node name="SettingsCardButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox"]
+[node name="SettingsCardButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox" unique_id=2037213685]
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Open Settings"
 
-[node name="MultiplayerCard" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow"]
+[node name="MultiplayerCard" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow" unique_id=506164191]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard" unique_id=1347688703]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="MultiplayerCardVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer"]
+[node name="MultiplayerCardVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer" unique_id=452311751]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="MultiplayerCardTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox"]
+[node name="MultiplayerCardTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox" unique_id=1804143605]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Multiplayer"
 
-[node name="MultiplayerCardBody" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox"]
+[node name="MultiplayerCardBody" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox" unique_id=541462861]
 layout_mode = 2
 size_flags_vertical = 3
 text = "The multiplayer destination exists now so the future lobby flow has a real home in the menu."
 autowrap_mode = 2
 
-[node name="MultiplayerCardButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox"]
+[node name="MultiplayerCardButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox" unique_id=326523094]
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Open Multiplayer"
 
-[node name="PresetsPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs"]
+[node name="PresetsPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs" unique_id=1223331918]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -289,333 +292,333 @@ theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
+metadata/_tab_index = 1
 
-[node name="ContentRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage"]
+[node name="ContentRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage" unique_id=401584213]
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="PresetBrowser" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow"]
+[node name="PresetBrowser" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow" unique_id=1666703940]
 custom_minimum_size = Vector2(320, 0)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser" unique_id=2058772191]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="BrowserVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer"]
+[node name="BrowserVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer" unique_id=1339757694]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="BrowserTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+[node name="BrowserTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox" unique_id=1617391482]
 layout_mode = 2
 theme_override_font_sizes/font_size = 26
 text = "Empire Presets"
 
-[node name="PresetCountLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+[node name="PresetCountLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox" unique_id=203863413]
 layout_mode = 2
 text = "Saved Empires: 0"
 
-[node name="PresetList" type="ItemList" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+[node name="PresetList" type="ItemList" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox" unique_id=346035716]
 custom_minimum_size = Vector2(0, 420)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="BrowserActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+[node name="BrowserActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox" unique_id=927563566]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="NewPresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox/BrowserActionRow"]
+[node name="NewPresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox/BrowserActionRow" unique_id=264127531]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "New Preset"
 
-[node name="DeletePresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox/BrowserActionRow"]
+[node name="DeletePresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox/BrowserActionRow" unique_id=1971688305]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 disabled = true
 text = "Delete"
 
-[node name="StatusLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox"]
+[node name="StatusLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetBrowser/MarginContainer/BrowserVBox" unique_id=1735120771]
 custom_minimum_size = Vector2(0, 62)
 layout_mode = 2
 text = "Create a new empire preset or select one to edit."
 autowrap_mode = 2
 
-[node name="PresetEditor" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow"]
+[node name="PresetEditor" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow" unique_id=1381222817]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor" unique_id=1066313286]
 layout_mode = 2
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="EditorVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer"]
+[node name="EditorVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer" unique_id=592007266]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="EditorTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox"]
+[node name="EditorTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox" unique_id=1885559253]
 layout_mode = 2
 theme_override_font_sizes/font_size = 26
 text = "Empire Designer"
 
-[node name="ScrollContainer" type="ScrollContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox"]
+[node name="ScrollContainer" type="ScrollContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox" unique_id=88445138]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="FormVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer"]
+[node name="FormVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer" unique_id=457982679]
 custom_minimum_size = Vector2(0, 720)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="SettingsGrid" type="GridContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="SettingsGrid" type="GridContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=336390861]
 layout_mode = 2
 size_flags_horizontal = 3
 columns = 4
 
-[node name="PresetNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="PresetNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=593750104]
 layout_mode = 2
 text = "Preset Name"
 
-[node name="PresetNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="PresetNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1175212930]
 layout_mode = 2
 
-[node name="EmpireNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="EmpireNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=663988734]
 layout_mode = 2
 text = "Empire Name"
 
-[node name="EmpireNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="EmpireNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=635289555]
 layout_mode = 2
 
-[node name="SelectedSpeciesLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SelectedSpeciesLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1920046020]
 layout_mode = 2
 text = "Species"
 
-[node name="SpeciesPickerRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesPickerRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1994230800]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="SelectedSpeciesInfo" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow"]
+[node name="SelectedSpeciesInfo" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow" unique_id=2022279533]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 2
 
-[node name="SelectedSpeciesNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow/SelectedSpeciesInfo"]
+[node name="SelectedSpeciesNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow/SelectedSpeciesInfo" unique_id=1566742586]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "No Species Selected"
 
-[node name="SelectedSpeciesCategoryLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow/SelectedSpeciesInfo"]
+[node name="SelectedSpeciesCategoryLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow/SelectedSpeciesInfo" unique_id=1528568654]
 layout_mode = 2
 text = "Choose a species from the discovered gallery."
 autowrap_mode = 2
 
-[node name="SelectSpeciesButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow"]
+[node name="SelectSpeciesButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid/SpeciesPickerRow" unique_id=1618591089]
 custom_minimum_size = Vector2(150, 40)
 layout_mode = 2
 text = "Select Species"
 
-[node name="SpeciesArchetypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesArchetypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1866581166]
 visible = false
 layout_mode = 2
 text = "Species Archetype"
 
-[node name="SpeciesArchetypeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesArchetypeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=600051393]
 visible = false
 layout_mode = 2
 
-[node name="SpeciesTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1517690755]
 visible = false
 layout_mode = 2
 text = "Species Type"
 
-[node name="SpeciesTypeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesTypeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1863779473]
 visible = false
 layout_mode = 2
 
-[node name="SpeciesVisualsIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesVisualsIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=721405148]
 visible = false
 layout_mode = 2
 text = "Species Visuals Id"
 
-[node name="SpeciesVisualsIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesVisualsIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=365570582]
 visible = false
 layout_mode = 2
 placeholder_text = "Auto-discovered from the species folder"
 
-[node name="SpeciesNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesNameLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=576084849]
 layout_mode = 2
 text = "Species Name"
 
-[node name="SpeciesNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesNameEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=926162913]
 layout_mode = 2
 
-[node name="SpeciesPluralLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesPluralLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1807982225]
 layout_mode = 2
 text = "Species Plural"
 
-[node name="SpeciesPluralEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesPluralEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1106041034]
 layout_mode = 2
 
-[node name="SpeciesAdjectiveLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesAdjectiveLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=423213642]
 layout_mode = 2
 text = "Species Adjective"
 
-[node name="SpeciesAdjectiveEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="SpeciesAdjectiveEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=902928812]
 layout_mode = 2
 
-[node name="NameSetIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="NameSetIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1757582048]
 layout_mode = 2
 text = "Name Set Id"
 
-[node name="NameSetIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="NameSetIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1531922608]
 layout_mode = 2
 
-[node name="GovernmentTypeIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="GovernmentTypeIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=172324693]
 layout_mode = 2
 text = "Government Type Id"
 
-[node name="GovernmentTypeIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="GovernmentTypeIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=884571062]
 layout_mode = 2
 
-[node name="AuthorityTypeIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="AuthorityTypeIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1929958788]
 layout_mode = 2
 text = "Authority Type Id"
 
-[node name="AuthorityTypeIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="AuthorityTypeIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1550361415]
 layout_mode = 2
 
-[node name="CivicIdsLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="CivicIdsLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1822189189]
 layout_mode = 2
 text = "Civic Ids"
 
-[node name="CivicIdsEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="CivicIdsEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=148622078]
 layout_mode = 2
 
-[node name="FlagPathLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="FlagPathLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1371155124]
 layout_mode = 2
 text = "Flag Path"
 
-[node name="FlagPathEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="FlagPathEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=623905973]
 layout_mode = 2
 
-[node name="OriginIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="OriginIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1999436037]
 layout_mode = 2
 text = "Origin Id"
 
-[node name="OriginIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="OriginIdEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=320679446]
 layout_mode = 2
 
-[node name="StartingSystemTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="StartingSystemTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=383379150]
 layout_mode = 2
 text = "Starting System Type"
 
-[node name="StartingSystemTypeEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="StartingSystemTypeEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=202844632]
 layout_mode = 2
 
-[node name="StartingPlanetTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="StartingPlanetTypeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=530140389]
 layout_mode = 2
 text = "Starting Planet Type"
 
-[node name="StartingPlanetTypeEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="StartingPlanetTypeEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=613818401]
 layout_mode = 2
 
-[node name="ShipSetIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="ShipSetIdLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=342770845]
 layout_mode = 2
 text = "Ship Set Id"
 
-[node name="ShipSetSpinBox" type="SpinBox" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="ShipSetSpinBox" type="SpinBox" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=485229904]
 layout_mode = 2
-min_value = 0.0
 max_value = 999.0
-step = 1.0
 
-[node name="EmpireColorLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="EmpireColorLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1946980989]
 layout_mode = 2
 text = "Empire Color"
 
-[node name="ColorPickerButton" type="ColorPickerButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="ColorPickerButton" type="ColorPickerButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=123369637]
 custom_minimum_size = Vector2(0, 36)
 layout_mode = 2
 
-[node name="MenuPortraitLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="MenuPortraitLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1639054719]
 visible = false
 layout_mode = 2
 text = "Menu Portrait"
 
-[node name="MenuPortraitPathEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid"]
+[node name="MenuPortraitPathEdit" type="LineEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox/SettingsGrid" unique_id=1860651258]
 visible = false
 layout_mode = 2
 placeholder_text = "Auto-discovered from menu_portrait.* or menu/"
 
-[node name="BiographyLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="BiographyLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=1011874900]
 layout_mode = 2
 text = "Biography"
 
-[node name="BiographyEdit" type="TextEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="BiographyEdit" type="TextEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=776359826]
 custom_minimum_size = Vector2(0, 220)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PortraitPreviewLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="PortraitPreviewLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=1805765998]
 layout_mode = 2
 text = "Selected Species Portrait"
 
-[node name="PortraitPreview" type="TextureRect" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="PortraitPreview" type="TextureRect" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=107605569]
 custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="LeaderPortraitPreviewLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="LeaderPortraitPreviewLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=2109245181]
 layout_mode = 2
 text = "Leader Portrait Gallery"
 
-[node name="LeaderPortraitPreviewFlow" type="HFlowContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="LeaderPortraitPreviewFlow" type="HFlowContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=1851013386]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 8
 
-[node name="LeaderPortraitsLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="LeaderPortraitsLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=1888750036]
 visible = false
 layout_mode = 2
 text = "Leader Portrait Pool"
 
-[node name="LeaderPortraitsEdit" type="TextEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox"]
+[node name="LeaderPortraitsEdit" type="TextEdit" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/ScrollContainer/FormVBox" unique_id=411530853]
 visible = false
 custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 placeholder_text = "Auto-discovered from the leaders/ folder."
 
-[node name="EditorActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox"]
+[node name="EditorActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox" unique_id=1064984522]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="SavePresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/EditorActionRow"]
+[node name="SavePresetButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/EditorActionRow" unique_id=1792394571]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Save Preset"
 
-[node name="ClearFormButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/EditorActionRow"]
+[node name="ClearFormButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/PresetsPage/ContentRow/PresetEditor/MarginContainer/EditorVBox/EditorActionRow" unique_id=825839118]
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Clear Form"
 
-[node name="SettingsPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs"]
+[node name="SettingsPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs" unique_id=212067696]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -623,114 +626,115 @@ theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
+metadata/_tab_index = 2
 
-[node name="SettingsVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage"]
+[node name="SettingsVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage" unique_id=2072038896]
 layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="SettingsTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+[node name="SettingsTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=605341855]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Settings"
 
-[node name="SettingsDescription" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+[node name="SettingsDescription" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=2051972270]
 layout_mode = 2
 text = "Menu audio is live here now. This page lives directly in the main menu scene instead of appearing as a popup."
 autowrap_mode = 2
 
-[node name="DisplayPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+[node name="DisplayPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=1640404099]
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel" unique_id=1965673906]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="DisplayVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer"]
+[node name="DisplayVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer" unique_id=1263940491]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="DisplayTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox"]
+[node name="DisplayTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox" unique_id=2145640382]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Display"
 
-[node name="DisplayGrid" type="GridContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox"]
+[node name="DisplayGrid" type="GridContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox" unique_id=546283367]
 layout_mode = 2
 columns = 2
 
-[node name="WindowModeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+[node name="WindowModeLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid" unique_id=1928782496]
 layout_mode = 2
 text = "Window Mode"
 
-[node name="WindowModeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+[node name="WindowModeOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid" unique_id=1508997843]
 layout_mode = 2
 
-[node name="ResolutionLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+[node name="ResolutionLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid" unique_id=686322036]
 layout_mode = 2
 text = "Resolution"
 
-[node name="ResolutionOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+[node name="ResolutionOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid" unique_id=383886220]
 layout_mode = 2
 
-[node name="AntiAliasingLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+[node name="AntiAliasingLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid" unique_id=1408799047]
 layout_mode = 2
 text = "Anti-Aliasing"
 
-[node name="AntiAliasingOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid"]
+[node name="AntiAliasingOptionButton" type="OptionButton" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox/DisplayGrid" unique_id=159252916]
 layout_mode = 2
 
-[node name="SettingsStatusLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox"]
+[node name="SettingsStatusLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox" unique_id=403766896]
 layout_mode = 2
 text = "Display settings are applied immediately and saved to user://settings.cfg."
 autowrap_mode = 2
 
-[node name="SettingsTrackLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+[node name="SettingsTrackLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=1439591383]
 layout_mode = 2
 text = "Current Track:"
 
-[node name="SettingsVolumeSlider" type="HSlider" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+[node name="SettingsVolumeSlider" type="HSlider" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=586996190]
 layout_mode = 2
-min_value = 0.0
 max_value = 1.0
 step = 0.01
 
-[node name="SettingsVolumeValueLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+[node name="SettingsVolumeValueLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=372388845]
 layout_mode = 2
 text = "Volume: 100%"
 
-[node name="SettingsButtonRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+[node name="SettingsButtonRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=1679641597]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="SettingsPreviousButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow"]
+[node name="SettingsPreviousButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow" unique_id=1301779070]
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Previous"
 
-[node name="SettingsPauseButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow"]
+[node name="SettingsPauseButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow" unique_id=202786443]
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Pause"
 
-[node name="SettingsNextButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow"]
+[node name="SettingsNextButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/SettingsButtonRow" unique_id=843126271]
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Next"
 
-[node name="SettingsHintLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox"]
+[node name="SettingsHintLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=2141613290]
 custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
 size_flags_vertical = 3
 text = "Resolution is remembered for windowed mode, and audio plus display preferences persist automatically between runs."
 autowrap_mode = 2
 
-[node name="MultiplayerPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs"]
+[node name="MultiplayerPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs" unique_id=441336759]
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -738,48 +742,49 @@ theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
+metadata/_tab_index = 3
 
-[node name="MultiplayerVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage"]
+[node name="MultiplayerVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage" unique_id=1989497012]
 layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="MultiplayerTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox"]
+[node name="MultiplayerTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox" unique_id=649485817]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Multiplayer"
 
-[node name="MultiplayerDescription" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox"]
+[node name="MultiplayerDescription" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox" unique_id=481475238]
 layout_mode = 2
 text = "This page is reserved for future hosting, joining, lobbies, and empire slot assignment."
 autowrap_mode = 2
 
-[node name="MultiplayerStatusPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox"]
+[node name="MultiplayerStatusPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox" unique_id=858054798]
 custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel"]
+[node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel" unique_id=1184816251]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="MultiplayerStatusVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer"]
+[node name="MultiplayerStatusVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer" unique_id=57187764]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="MultiplayerStatusTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer/MultiplayerStatusVBox"]
+[node name="MultiplayerStatusTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer/MultiplayerStatusVBox" unique_id=1279707915]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Not Yet Implemented"
 
-[node name="MultiplayerStatusText" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer/MultiplayerStatusVBox"]
+[node name="MultiplayerStatusText" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer/MultiplayerStatusVBox" unique_id=1818560476]
 layout_mode = 2
 size_flags_vertical = 3
 text = "The important part now is that multiplayer has its own real page in the main menu scene instead of being a popup afterthought."
 autowrap_mode = 2
 
-[node name="SpeciesGalleryOverlay" type="Control" parent="."]
+[node name="SpeciesGalleryOverlay" type="Control" parent="." unique_id=1141733961]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -789,7 +794,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
 
-[node name="SpeciesGalleryDimmer" type="ColorRect" parent="SpeciesGalleryOverlay"]
+[node name="SpeciesGalleryDimmer" type="ColorRect" parent="SpeciesGalleryOverlay" unique_id=1933369149]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -798,7 +803,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 0.72)
 
-[node name="SpeciesGalleryCenter" type="CenterContainer" parent="SpeciesGalleryOverlay"]
+[node name="SpeciesGalleryCenter" type="CenterContainer" parent="SpeciesGalleryOverlay" unique_id=1648405570]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -806,51 +811,51 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="SpeciesGalleryDialog" type="PanelContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter"]
+[node name="SpeciesGalleryDialog" type="PanelContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter" unique_id=30762994]
 custom_minimum_size = Vector2(1120, 720)
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog"]
+[node name="MarginContainer" type="MarginContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog" unique_id=1158666471]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="SpeciesGalleryVBox" type="VBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer"]
+[node name="SpeciesGalleryVBox" type="VBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer" unique_id=2140541895]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="SpeciesGalleryHeaderRow" type="HBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox"]
+[node name="SpeciesGalleryHeaderRow" type="HBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox" unique_id=450070662]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="SpeciesGalleryTitleBox" type="VBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow"]
+[node name="SpeciesGalleryTitleBox" type="VBoxContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow" unique_id=637168792]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="SpeciesGalleryTitle" type="Label" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow/SpeciesGalleryTitleBox"]
+[node name="SpeciesGalleryTitle" type="Label" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow/SpeciesGalleryTitleBox" unique_id=1064417421]
 layout_mode = 2
 theme_override_font_sizes/font_size = 26
 text = "Select Species"
 
-[node name="SpeciesGalleryDescription" type="Label" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow/SpeciesGalleryTitleBox"]
+[node name="SpeciesGalleryDescription" type="Label" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow/SpeciesGalleryTitleBox" unique_id=941552649]
 layout_mode = 2
 text = "Species are discovered automatically from res://core/empire/species. Open a category tab and click the portrait you want."
 autowrap_mode = 2
 
-[node name="SpeciesGalleryCloseButton" type="Button" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow"]
+[node name="SpeciesGalleryCloseButton" type="Button" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow" unique_id=1645335511]
 custom_minimum_size = Vector2(120, 40)
 layout_mode = 2
 text = "Close"
 
-[node name="SpeciesGalleryTabs" type="TabContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox"]
+[node name="SpeciesGalleryTabs" type="TabContainer" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox" unique_id=1772863253]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="DeleteOverlay" type="Control" parent="."]
+[node name="DeleteOverlay" type="Control" parent="." unique_id=1024221236]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -860,7 +865,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
 
-[node name="DeleteDimmer" type="ColorRect" parent="DeleteOverlay"]
+[node name="DeleteDimmer" type="ColorRect" parent="DeleteOverlay" unique_id=2090877052]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -869,7 +874,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 0.62)
 
-[node name="DeleteCenter" type="CenterContainer" parent="DeleteOverlay"]
+[node name="DeleteCenter" type="CenterContainer" parent="DeleteOverlay" unique_id=1634597371]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -877,45 +882,45 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="DeleteDialog" type="PanelContainer" parent="DeleteOverlay/DeleteCenter"]
+[node name="DeleteDialog" type="PanelContainer" parent="DeleteOverlay/DeleteCenter" unique_id=1050725460]
 custom_minimum_size = Vector2(440, 180)
 layout_mode = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog"]
+[node name="MarginContainer" type="MarginContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog" unique_id=1365376454]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="DeleteVBox" type="VBoxContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer"]
+[node name="DeleteVBox" type="VBoxContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer" unique_id=1943178326]
 layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="DeleteTitle" type="Label" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox"]
+[node name="DeleteTitle" type="Label" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox" unique_id=1718771377]
 layout_mode = 2
-horizontal_alignment = 1
 theme_override_font_sizes/font_size = 24
 text = "Confirm Delete"
+horizontal_alignment = 1
 
-[node name="DeleteConfirmLabel" type="Label" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox"]
+[node name="DeleteConfirmLabel" type="Label" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox" unique_id=1025171371]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
-horizontal_alignment = 1
 text = "Delete this preset permanently from disk?"
+horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="DeleteButtonRow" type="HBoxContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox"]
+[node name="DeleteButtonRow" type="HBoxContainer" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox" unique_id=103432833]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="DeleteCancelButton" type="Button" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox/DeleteButtonRow"]
+[node name="DeleteCancelButton" type="Button" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox/DeleteButtonRow" unique_id=8001532]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Cancel"
 
-[node name="DeleteConfirmButton" type="Button" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox/DeleteButtonRow"]
+[node name="DeleteConfirmButton" type="Button" parent="DeleteOverlay/DeleteCenter/DeleteDialog/MarginContainer/DeleteVBox/DeleteButtonRow" unique_id=1539308929]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 3

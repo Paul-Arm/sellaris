@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scene/StarSystem/StarSystemPreview.tscn" id="4_d35nq"]
 [ext_resource type="PackedScene" uid="uid://kq26o04nrlk5" path="res://scene/StarSystem/SystemView.tscn" id="5_d8u2w"]
 [ext_resource type="PackedScene" uid="uid://cbjt32qqq0ch1" path="res://scene/UI/GalaxyHud.tscn" id="6_hud"]
+[ext_resource type="Script" path="res://scene/UI/GalaxyDebugInfoPanel.gd" id="7_debug_info"]
 
 [sub_resource type="Environment" id="Environment_j4v3k"]
 background_mode = 1
@@ -60,14 +61,13 @@ environment = SubResource("Environment_j4v3k")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=428941150]
 
-[node name="InfoLabel" type="Label" parent="CanvasLayer" unique_id=640211277]
+[node name="DebugInfoPanel" type="PanelContainer" parent="CanvasLayer"]
 visible = false
-offset_left = 18.0
-offset_top = 18.0
-offset_right = 520.0
-offset_bottom = 110.0
-theme_override_font_sizes/font_size = 16
-text = "Generating galaxy..."
+script = ExtResource("7_debug_info")
+
+[node name="InfoLabel" type="Label" parent="CanvasLayer/DebugInfoPanel" unique_id=640211277]
+visible = false
+text = "Debug telemetry pending..."
 
 [node name="BottomCategoryBar" parent="CanvasLayer" unique_id=1236226271 instance=ExtResource("3_8vx58")]
 
@@ -184,19 +184,15 @@ text = "Claim Selected System"
 layout_mode = 2
 text = "Clear Owner"
 
-[node name="DebugSpawnToggleButton" type="Button" parent="CanvasLayer" unique_id=553212901]
-offset_left = 18.0
-offset_top = 56.0
-offset_right = 176.0
-offset_bottom = 92.0
+[node name="DebugSpawnToggleButton" type="Button" parent="CanvasLayer/DebugInfoPanel" unique_id=553212901]
 text = "Show Debug Spawner"
 
 [node name="DebugSpawnPanel" type="PanelContainer" parent="CanvasLayer" unique_id=412938557]
 visible = false
 offset_left = 18.0
-offset_top = 100.0
-offset_right = 324.0
-offset_bottom = 406.0
+offset_top = 262.0
+offset_right = 386.0
+offset_bottom = 584.0
 
 [node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/DebugSpawnPanel" unique_id=331975209]
 layout_mode = 2

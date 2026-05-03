@@ -2,6 +2,7 @@ extends Node
 class_name GameSceneUiController
 
 const COLONY_MODAL_SCRIPT := preload("res://scene/game/ColonyModal.gd")
+const DEBUG_INFO_PANEL_SCRIPT := preload("res://scene/UI/GalaxyDebugInfoPanel.gd")
 const HOVER_PREVIEW_DELAY_SEC: float = 1.0
 
 var _state: GameSceneState = null
@@ -17,6 +18,7 @@ var _colony_modal: Control = null
 var _manage_colony_button: Button = null
 var _manage_colony_id: String = ""
 var _open_colony_id: String = ""
+var _debug_info_panel: GalaxyDebugInfoPanel = null
 
 
 func setup(
@@ -31,6 +33,7 @@ func setup(
 	_runtime_system = runtime_system
 	_view_router = view_router
 	_debug_spawner = debug_spawner
+	_ensure_debug_info_panel()
 	_ensure_colony_controls()
 	if not ColonyManager.colony_updated.is_connected(_on_colony_updated):
 		ColonyManager.colony_updated.connect(_on_colony_updated)
@@ -45,11 +48,28 @@ func teardown() -> void:
 		_colony_modal.queue_free()
 	_colony_modal = null
 	_manage_colony_button = null
+	_debug_info_panel = null
 	_state = null
 	_ui = null
 	_runtime_system = null
 	_view_router = null
 	_debug_spawner = null
+
+
+func _ensure_debug_info_panel() -> void:
+	if _ui == null or _ui.canvas_layer == null or _ui.info_label == null:
+		return
+	var action_buttons: Array[Button] = []
+	if _ui.debug_spawn_toggle_button != null:
+		action_buttons.append(_ui.debug_spawn_toggle_button)
+	if _ui.debug_reveal_toggle_button != null:
+		action_buttons.append(_ui.debug_reveal_toggle_button)
+	_debug_info_panel = DEBUG_INFO_PANEL_SCRIPT.install(_ui.canvas_layer, _ui.info_label, action_buttons)
+	if _ui.debug_spawn_panel != null:
+		_ui.debug_spawn_panel.offset_left = 18.0
+		_ui.debug_spawn_panel.offset_top = 262.0
+		_ui.debug_spawn_panel.offset_right = 386.0
+		_ui.debug_spawn_panel.offset_bottom = 584.0
 
 
 func update_info_label() -> void:
@@ -74,7 +94,7 @@ func update_info_label() -> void:
 		var selected_owner_name: String = str(inspected_system_details.get("owner_name", "Unknown"))
 		selected_summary = "Selected: %s (%s)" % [_state.systems_by_id[inspected_system_id].get("name", inspected_system_id), selected_owner_name]
 
-	_ui.info_label.text = "Seed: %s\nSystems: %d  Shape: %s  Hyperlanes: %d  Empires: %d\nActive Empire: %s  %s\nPan: WASD / Arrows / Edge / Middle Drag  Orbit: Right Drag  Zoom: Mouse Wheel  Pick Empire: E  Regenerate: R  System View: Left Click  Back: Esc closes overlays and returns to galaxy" % [
+	_ui.info_label.text = "Seed %s\nSystems %d  Shape %s  Lanes %d  Empires %d\nEmpire %s\n%s\nWASD/Arrows pan  RMB orbit  Wheel zoom\nE empire  R regenerate  Click inspect  Esc back" % [
 		displayed_seed,
 		_state.system_positions.size(),
 		_state.galaxy_shape.capitalize(),
@@ -84,6 +104,8 @@ func update_info_label() -> void:
 		selected_summary,
 	]
 	_ui.info_label.visible = not _view_router.is_system_view_open()
+	if _debug_info_panel != null:
+		_debug_info_panel.visible = _ui.info_label.visible
 
 
 func update_system_panel() -> void:

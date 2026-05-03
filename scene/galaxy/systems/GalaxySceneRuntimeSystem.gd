@@ -23,6 +23,7 @@ func generate_async() -> void:
 	_host.hovered_system_id = ""
 	_host.pinned_system_id = ""
 	_host.active_empire_id = ""
+	_sync_hud_active_empire()
 	_host._invalidate_system_panel_snapshot()
 	_host._set_empire_picker_visible(false, false)
 	_host._set_settings_overlay_visible(false)
@@ -178,12 +179,20 @@ func assign_active_empire(empire_id: String) -> bool:
 		return false
 
 	_host.active_empire_id = empire_id
+	_sync_hud_active_empire()
 	sync_cached_state()
 	_host._populate_empire_picker()
 	_host._sync_debug_spawner()
 	_host._update_system_panel()
 	_host._update_info_label()
 	return true
+
+
+func _sync_hud_active_empire() -> void:
+	if _host == null or _host.galaxy_hud == null:
+		return
+	if _host.galaxy_hud.has_method("set_active_empire"):
+		_host.galaxy_hud.set_active_empire(_host.active_empire_id)
 
 
 func set_system_owner(system_id: String, empire_id: String) -> bool:

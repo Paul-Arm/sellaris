@@ -1,5 +1,6 @@
 extends RefCounted
 
+const DEBUG_INFO_PANEL_SCRIPT := preload("res://scene/UI/GalaxyDebugInfoPanel.gd")
 const HOVER_PREVIEW_DELAY_SEC: float = 1.0
 
 var _host: Node
@@ -7,15 +8,32 @@ var _hover_preview_pending_system_id: String = ""
 var _hover_preview_ready_system_id: String = ""
 var _hover_preview_sequence: int = 0
 var _active_preview_system_id: String = ""
+var _debug_info_panel: GalaxyDebugInfoPanel = null
 
 
 func bind(host: Node) -> void:
 	_host = host
+	_ensure_debug_info_panel()
 
 
 func unbind() -> void:
 	_reset_hover_preview_state()
+	_debug_info_panel = null
 	_host = null
+
+
+func _ensure_debug_info_panel() -> void:
+	if _host == null or _host.info_label == null:
+		return
+	var action_buttons: Array[Button] = []
+	if _host.debug_spawn_toggle_button != null:
+		action_buttons.append(_host.debug_spawn_toggle_button)
+	_debug_info_panel = DEBUG_INFO_PANEL_SCRIPT.install(_host.get_node("CanvasLayer"), _host.info_label, action_buttons)
+	if _host.debug_spawn_panel != null:
+		_host.debug_spawn_panel.offset_left = 18.0
+		_host.debug_spawn_panel.offset_top = 262.0
+		_host.debug_spawn_panel.offset_right = 386.0
+		_host.debug_spawn_panel.offset_bottom = 584.0
 
 
 func update_info_label() -> void:
@@ -33,7 +51,7 @@ func update_info_label() -> void:
 			selected_owner_name = str(selected_owner.get("name", selected_owner_name))
 		selected_summary = "Selected: %s (%s)" % [_host.systems_by_id[inspected_system_id].get("name", inspected_system_id), selected_owner_name]
 
-	_host.info_label.text = "Seed: %s\nSystems: %d  Shape: %s  Hyperlanes: %d  Empires: %d\nActive Empire: %s  %s\nPan: WASD / Arrows / Edge / Middle Drag  Orbit: Right Drag  Zoom: Mouse Wheel  Pick Empire: E  Regenerate: R  System View: Left Click  Back: Esc closes overlays and returns to galaxy" % [
+	_host.info_label.text = "Seed %s\nSystems %d  Shape %s  Lanes %d  Empires %d\nEmpire %s\n%s\nWASD/Arrows pan  RMB orbit  Wheel zoom\nE empire  R regenerate  Click inspect  Esc back" % [
 		displayed_seed,
 		_host.system_positions.size(),
 		_host.galaxy_shape.capitalize(),
@@ -42,6 +60,9 @@ func update_info_label() -> void:
 		active_empire_name,
 		selected_summary,
 	]
+	_host.info_label.visible = not _host.system_view.is_open()
+	if _debug_info_panel != null:
+		_debug_info_panel.visible = _host.info_label.visible
 
 
 func update_system_panel() -> void:

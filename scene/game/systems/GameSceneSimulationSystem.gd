@@ -56,6 +56,8 @@ func sync_sim_clock_ui() -> void:
 	var speed_value: float = _state.sim_speed_display_steps[_state.sim_speed_index]
 	var speed_text: String = "Paused" if _state.sim_paused else "x%s" % format_speed_factor(speed_value)
 	_ui.galaxy_hud.set_sim_ui(date_text, speed_text, _state.sim_paused)
+	if _ui.galaxy_hud.has_method("set_active_empire"):
+		_ui.galaxy_hud.set_active_empire(_state.active_empire_id)
 
 
 func format_speed_factor(speed_value: float) -> String:

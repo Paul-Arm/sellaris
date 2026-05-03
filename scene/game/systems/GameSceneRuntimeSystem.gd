@@ -46,6 +46,7 @@ func generate_async() -> void:
 	_state.hovered_system_id = ""
 	_state.pinned_system_id = ""
 	_state.active_empire_id = ""
+	_sync_hud_active_empire()
 	_state.debug_reveal_galaxy = false
 	_scene_ui_controller.invalidate_system_panel_snapshot()
 	_scene_ui_controller.update_debug_reveal_button()
@@ -296,9 +297,13 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 		var colony_system_id := str(colony_details.get("system_id", ""))
 		var system_name := _get_system_runtime_name(colony_system_id)
 		var is_local_colony := not inspected_system_id.is_empty() and colony_system_id == inspected_system_id
+		var planet_name := str(colony_details.get("planet_name", "")).strip_edges()
+		var colony_name := str(colony_details.get("name", colony_id)).strip_edges()
+		if colony_name.is_empty():
+			colony_name = colony_id
 		planet_entries.append({
 			"id": colony_id,
-			"title": str(colony_details.get("name", colony_id)),
+			"title": planet_name if not planet_name.is_empty() else colony_name,
 			"summary": "%s pops  Idle %d  Net %s" % [
 				_format_runtime_population(int(colony_details.get("total_population", 0))),
 				int(colony_details.get("idle_pop_count", 0)),
@@ -307,8 +312,8 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 			"location": system_name,
 			"is_local": is_local_colony,
 			"tooltip": "%s\nPlanet: %s\nSystem: %s\nPopulation: %s\nIdle pops: %d\nMonthly net: %s" % [
-				str(colony_details.get("name", colony_id)),
-				str(colony_details.get("planet_name", "")),
+				colony_name,
+				planet_name,
 				system_name,
 				_format_runtime_population(int(colony_details.get("total_population", 0))),
 				int(colony_details.get("idle_pop_count", 0)),
@@ -475,6 +480,7 @@ func assign_active_empire(empire_id: String) -> bool:
 		return false
 
 	_state.active_empire_id = empire_id
+	_sync_hud_active_empire()
 	sync_cached_state()
 	if _view_router.is_system_view_open() and not can_open_system_view(_view_router.get_current_system_view_id()):
 		_scene_ui_controller.close_system_view()
@@ -716,6 +722,7 @@ func _assign_starting_empire_and_home_system() -> String:
 		GalaxyState.INTEL_SENSOR
 	)
 	_state.active_empire_id = empire_id
+	_sync_hud_active_empire()
 	_state.hovered_system_id = home_system_id
 	_state.selected_system_id = home_system_id
 	_state.pinned_system_id = home_system_id
@@ -723,6 +730,13 @@ func _assign_starting_empire_and_home_system() -> String:
 	_scene_ui_controller.populate_empire_picker()
 	_sync_debug_spawner_panel()
 	return home_system_id
+
+
+func _sync_hud_active_empire() -> void:
+	if _ui == null or _ui.galaxy_hud == null or _state == null:
+		return
+	if _ui.galaxy_hud.has_method("set_active_empire"):
+		_ui.galaxy_hud.set_active_empire(_state.active_empire_id)
 
 
 func _ensure_starting_capital_world(empire_id: String, home_system_id: String) -> Dictionary:

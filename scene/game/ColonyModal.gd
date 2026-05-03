@@ -12,7 +12,6 @@ const BUILDING_HEX_SLOT_SCRIPT := preload("res://scene/game/BuildingHexSlot.gd")
 const PROCEDURAL_PLANET_VISUAL_SCRIPT := preload("res://scene/StarSystem/procedural_planets/ProceduralPlanetVisual.gd")
 const PANEL_MINIMUM_SIZE := Vector2(1320, 860)
 const HEX_SLOT_SIZE := Vector2(100, 88)
-const HEX_GRID_FALLBACK_SIZE := Vector2(1190, 535)
 const DISTRICT_PLACEHOLDERS := [
 	{"name": "City District", "summary": "Housing and local services", "status": "Coming later"},
 	{"name": "Generator District", "summary": "Energy jobs and infrastructure", "status": "Coming later"},
@@ -30,6 +29,8 @@ var _overview_stats_label: Label = null
 var _buildings_container: VBoxContainer = null
 var _districts_container: VBoxContainer = null
 var _building_grid_layer: Control = null
+var _building_grid_slots: Array = []
+var _building_grid_relayout_queued: bool = false
 var _building_palette_container: HBoxContainer = null
 var _building_status_label: Label = null
 var _planet_viewport: SubViewport = null
@@ -250,6 +251,7 @@ func _build_infrastructure_tab() -> Control:
 	_building_grid_layer = Control.new()
 	_building_grid_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_building_grid_layer.mouse_filter = Control.MOUSE_FILTER_PASS
+	_building_grid_layer.resized.connect(_queue_building_grid_relayout)
 	stage.add_child(_building_grid_layer)
 
 	var status_margin := MarginContainer.new()
@@ -467,17 +469,37 @@ func _populate_planet_background(details: Dictionary) -> void:
 func _populate_building_grid(slots_variant: Variant) -> void:
 	if _building_grid_layer == null:
 		return
-	_clear_node_children(_building_grid_layer)
+	_building_grid_slots.clear()
 	var slots: Array = slots_variant if slots_variant is Array else []
+	for slot_variant in slots:
+		if slot_variant is Dictionary:
+			_building_grid_slots.append((slot_variant as Dictionary).duplicate(true))
+	_layout_building_grid()
+
+
+func _queue_building_grid_relayout() -> void:
+	if _building_grid_slots.is_empty():
+		return
+	if _building_grid_relayout_queued:
+		return
+	_building_grid_relayout_queued = true
+	call_deferred("_layout_building_grid")
+
+
+func _layout_building_grid() -> void:
+	_building_grid_relayout_queued = false
+	if _building_grid_layer == null:
+		return
 	var layer_size := _building_grid_layer.size
 	if layer_size.x <= 1.0 or layer_size.y <= 1.0:
-		layer_size = HEX_GRID_FALLBACK_SIZE
+		_clear_node_children(_building_grid_layer)
+		_queue_building_grid_relayout()
+		return
 
 	var axial_radius := 49.0
-	var center := layer_size * 0.5 + Vector2(0.0, 0.0)
-	for slot_variant in slots:
-		if slot_variant is not Dictionary:
-			continue
+	var center := layer_size * 0.5
+	_clear_node_children(_building_grid_layer)
+	for slot_variant in _building_grid_slots:
 		var slot_data: Dictionary = slot_variant
 		var q := int(slot_data.get("q", 0))
 		var r := int(slot_data.get("r", 0))

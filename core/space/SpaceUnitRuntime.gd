@@ -64,6 +64,8 @@ func set_local_position(value: Vector3, day_serial: int = 0) -> void:
 
 
 func get_interpolated_local_position(day_progress: float) -> Vector3:
+	if not has_active_movement():
+		return local_position
 	return previous_local_position.lerp(local_position, clampf(day_progress, 0.0, 1.0))
 
 

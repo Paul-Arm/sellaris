@@ -43,6 +43,10 @@ func generate_async() -> void:
 	ColonyManager.reset_runtime_state()
 	_debug_spawner.register_debug_unit_classes()
 	_state.selected_system_id = ""
+	_state.selected_system_panel_id = ""
+	_state.selected_space_entity_kind = ""
+	_state.selected_space_entity_id = ""
+	_state.selected_space_entity_title = ""
 	_state.hovered_system_id = ""
 	_state.pinned_system_id = ""
 	_state.active_empire_id = ""
@@ -72,6 +76,7 @@ func generate_async() -> void:
 
 	var galaxy_view: GalaxyMapView = _view_router.get_galaxy_view()
 	if galaxy_view != null:
+		galaxy_view.set_selected_space_entity("", "")
 		galaxy_view.sync_interaction_state("", "")
 		galaxy_view.reset_camera_view(_state.galaxy_radius)
 
@@ -350,6 +355,43 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 
 	var passive_fleet_entries: Array[Dictionary] = []
 	var military_fleet_entries: Array[Dictionary] = []
+
+	for unit_id in SpaceManager.get_unit_ids_for_owner(_state.active_empire_id):
+		var ship: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+		if ship == null or ship.is_stationary() or not ship.fleet_id.is_empty():
+			continue
+
+		var ship_class: SpaceUnitClass = SpaceManager.get_unit_class(ship.class_id)
+		var unit_bucket: Array[Dictionary] = military_fleet_entries if _is_military_unit_runtime(ship) else passive_fleet_entries
+		var system_name: String = _get_system_runtime_name(ship.current_system_id)
+		var destination_name: String = _get_system_runtime_name(ship.destination_system_id)
+		var is_local: bool = not inspected_system_id.is_empty() and ship.current_system_id == inspected_system_id
+		var status_text: String = ship_class.display_name if ship_class != null else ship.class_id
+		if not destination_name.is_empty():
+			status_text += "  ->  %s" % destination_name
+			if ship.eta_days_remaining > 0:
+				status_text += " (%dd)" % ship.eta_days_remaining
+		elif not str(ship.ai_role).is_empty():
+			status_text += "  %s" % _format_runtime_token(str(ship.ai_role))
+
+		unit_bucket.append({
+			"id": ship.unit_id,
+			"entity_kind": "unit",
+			"selection_kind": SpaceUnitClass.UNIT_KIND_SHIP,
+			"title": ship.display_name,
+			"summary": status_text,
+			"location": system_name,
+			"is_local": is_local,
+			"tooltip": "%s\nClass: %s\nSystem: %s\nHull: %.0f / %.0f\nRole: %s" % [
+				ship.display_name,
+				ship_class.display_name if ship_class != null else ship.class_id,
+				system_name,
+				ship.current_hull_points,
+				ship.max_hull_points,
+				_format_runtime_token(str(ship.ai_role)),
+			],
+		})
+
 	for fleet_id in SpaceManager.get_fleet_ids_for_owner(_state.active_empire_id):
 		var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(fleet_id)
 		if fleet == null:
@@ -377,6 +419,8 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 
 		fleet_bucket.append({
 			"id": fleet.fleet_id,
+			"entity_kind": "fleet",
+			"selection_kind": "fleet",
 			"title": fleet.display_name,
 			"summary": status_text,
 			"location": system_name,
@@ -473,6 +517,47 @@ func create_runtime_fleet(owner_empire_id: String, system_id: String, unit_ids_v
 	if _state == null or system_id.is_empty() or not _state.systems_by_id.has(system_id):
 		return null
 	return SpaceManager.create_fleet(owner_empire_id, system_id, unit_ids_variant, fleet_data)
+
+
+func issue_space_entity_hyperlane_move(selection_kind: String, record_id: String, destination_system_id: String) -> bool:
+	if _state == null or record_id.is_empty() or destination_system_id.is_empty():
+		return false
+	if not _state.systems_by_id.has(destination_system_id):
+		return false
+
+	match selection_kind:
+		"fleet":
+			var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(record_id)
+			if fleet == null:
+				return false
+			if not _can_command_owner(fleet.owner_empire_id):
+				return false
+			var fleet_path := _find_hyperlane_path(fleet.current_system_id, destination_system_id)
+			if fleet_path.size() < 2:
+				return false
+			return SpaceManager.issue_fleet_hyperlane_move(
+				fleet.fleet_id,
+				destination_system_id,
+				_estimate_hyperlane_eta_days(fleet_path)
+			)
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			var unit: SpaceUnitRuntime = SpaceManager.get_unit(record_id)
+			if unit == null:
+				return false
+			if not unit.fleet_id.is_empty():
+				return issue_space_entity_hyperlane_move("fleet", unit.fleet_id, destination_system_id)
+			if not _can_command_owner(unit.owner_empire_id):
+				return false
+			var unit_path := _find_hyperlane_path(unit.current_system_id, destination_system_id)
+			if unit_path.size() < 2:
+				return false
+			return SpaceManager.issue_unit_hyperlane_move(
+				unit.unit_id,
+				destination_system_id,
+				_estimate_hyperlane_eta_days(unit_path)
+			)
+		_:
+			return false
 
 
 func assign_active_empire(empire_id: String) -> bool:
@@ -1024,6 +1109,7 @@ func refresh_runtime_visuals() -> void:
 	_state.runtime_visual_refresh_queued = false
 	render_runtime_placeholders()
 	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_selection_panel()
 
 
 func sync_galaxy_view_state() -> void:
@@ -1094,6 +1180,68 @@ func _focus_galaxy_camera_on_system(system_id: String) -> void:
 	if galaxy_view == null or system_id.is_empty():
 		return
 	galaxy_view.focus_camera_on_system(system_id)
+
+
+func _can_command_owner(owner_empire_id: String) -> bool:
+	return _state == null or _state.active_empire_id.is_empty() or owner_empire_id == _state.active_empire_id
+
+
+func _find_hyperlane_path(start_system_id: String, destination_system_id: String) -> PackedStringArray:
+	var empty_result := PackedStringArray()
+	if _state == null or start_system_id.is_empty() or destination_system_id.is_empty():
+		return empty_result
+	if start_system_id == destination_system_id:
+		empty_result.append(start_system_id)
+		return empty_result
+
+	var frontier: Array[String] = [start_system_id]
+	var previous_by_system: Dictionary = {start_system_id: ""}
+	var read_index := 0
+
+	while read_index < frontier.size():
+		var current_system_id: String = frontier[read_index]
+		read_index += 1
+		for neighbor_id in _state.galaxy_state.get_neighbor_system_ids(current_system_id):
+			if previous_by_system.has(neighbor_id):
+				continue
+			previous_by_system[neighbor_id] = current_system_id
+			if neighbor_id == destination_system_id:
+				return _reconstruct_hyperlane_path(previous_by_system, destination_system_id)
+			frontier.append(neighbor_id)
+
+	return empty_result
+
+
+func _reconstruct_hyperlane_path(previous_by_system: Dictionary, destination_system_id: String) -> PackedStringArray:
+	var reversed_path := PackedStringArray()
+	var current_system_id := destination_system_id
+	while not current_system_id.is_empty():
+		reversed_path.append(current_system_id)
+		current_system_id = str(previous_by_system.get(current_system_id, ""))
+
+	var path := PackedStringArray()
+	for index in range(reversed_path.size() - 1, -1, -1):
+		path.append(reversed_path[index])
+	return path
+
+
+func _estimate_hyperlane_eta_days(path: PackedStringArray) -> int:
+	if _state == null or path.size() < 2:
+		return 0
+	var eta_days := 0
+	for index in range(path.size() - 1):
+		var from_position: Vector3 = _get_system_position(path[index])
+		var to_position: Vector3 = _get_system_position(path[index + 1])
+		var segment_days := int(ceil(from_position.distance_to(to_position) / 90.0))
+		eta_days += maxi(segment_days, 8)
+	return maxi(eta_days, 1)
+
+
+func _get_system_position(system_id: String) -> Vector3:
+	if _state == null or not _state.systems_by_id.has(system_id):
+		return Vector3.ZERO
+	var system_record: Dictionary = _state.systems_by_id[system_id]
+	return system_record.get("position", Vector3.ZERO)
 
 
 func _get_active_empire_intel_map() -> Dictionary:
@@ -1242,6 +1390,18 @@ func _is_military_fleet_runtime(fleet: SpaceFleetRuntime) -> bool:
 	if str(fleet.ai_role).contains("combat") or str(fleet.ai_role).contains("patrol") or str(fleet.ai_role).contains("defense"):
 		return true
 	return false
+
+
+func _is_military_unit_runtime(ship: SpaceUnitRuntime) -> bool:
+	if ship == null:
+		return false
+	var ship_class: SpaceUnitClass = SpaceManager.get_unit_class(ship.class_id)
+	if ship_class != null and ship_class.category == SpaceUnitClass.CATEGORY_COMBAT:
+		return true
+	for command_tag in ship.command_tags:
+		if str(command_tag).contains("combat"):
+			return true
+	return str(ship.ai_role).contains("combat") or str(ship.ai_role).contains("patrol") or str(ship.ai_role).contains("defense")
 
 
 func _format_runtime_token(value: String) -> String:

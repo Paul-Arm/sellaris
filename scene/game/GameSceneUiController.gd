@@ -19,6 +19,10 @@ var _manage_colony_button: Button = null
 var _manage_colony_id: String = ""
 var _open_colony_id: String = ""
 var _debug_info_panel: GalaxyDebugInfoPanel = null
+var _selection_panel: PanelContainer = null
+var _selection_title_label: Label = null
+var _selection_subtitle_label: Label = null
+var _selection_body_label: Label = null
 
 
 func setup(
@@ -35,6 +39,7 @@ func setup(
 	_debug_spawner = debug_spawner
 	_ensure_debug_info_panel()
 	_ensure_colony_controls()
+	_ensure_selection_panel()
 	if not ColonyManager.colony_updated.is_connected(_on_colony_updated):
 		ColonyManager.colony_updated.connect(_on_colony_updated)
 	update_debug_reveal_button()
@@ -49,6 +54,10 @@ func teardown() -> void:
 	_colony_modal = null
 	_manage_colony_button = null
 	_debug_info_panel = null
+	_selection_panel = null
+	_selection_title_label = null
+	_selection_subtitle_label = null
+	_selection_body_label = null
 	_state = null
 	_ui = null
 	_runtime_system = null
@@ -70,6 +79,45 @@ func _ensure_debug_info_panel() -> void:
 		_ui.debug_spawn_panel.offset_top = 262.0
 		_ui.debug_spawn_panel.offset_right = 386.0
 		_ui.debug_spawn_panel.offset_bottom = 584.0
+
+
+func _ensure_selection_panel() -> void:
+	if _ui == null or _ui.canvas_layer == null:
+		return
+	if is_instance_valid(_selection_panel):
+		return
+
+	_selection_panel = PanelContainer.new()
+	_selection_panel.name = "SelectionPanel"
+	_selection_panel.visible = false
+	_selection_panel.offset_left = 18.0
+	_selection_panel.offset_top = 138.0
+	_selection_panel.offset_right = 344.0
+	_selection_panel.offset_bottom = 330.0
+	_ui.canvas_layer.add_child(_selection_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 14)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_right", 14)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	_selection_panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(vbox)
+
+	_selection_title_label = Label.new()
+	_selection_title_label.add_theme_font_size_override("font_size", 18)
+	vbox.add_child(_selection_title_label)
+
+	_selection_subtitle_label = Label.new()
+	_selection_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(_selection_subtitle_label)
+
+	_selection_body_label = Label.new()
+	_selection_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(_selection_body_label)
 
 
 func update_info_label() -> void:
@@ -94,7 +142,14 @@ func update_info_label() -> void:
 		var selected_owner_name: String = str(inspected_system_details.get("owner_name", "Unknown"))
 		selected_summary = "Selected: %s (%s)" % [_state.systems_by_id[inspected_system_id].get("name", inspected_system_id), selected_owner_name]
 
-	_ui.info_label.text = "Seed %s\nSystems %d  Shape %s  Lanes %d  Empires %d\nEmpire %s\n%s\nWASD/Arrows pan  RMB orbit  Wheel zoom\nE empire  R regenerate  Click inspect  Esc back" % [
+	var command_summary := "Command: None"
+	if not _state.selected_space_entity_id.is_empty():
+		var command_title := _state.selected_space_entity_title
+		if command_title.is_empty():
+			command_title = _state.selected_space_entity_id
+		command_summary = "Command: %s  |  Right-click a hyperlane-reachable system to move" % command_title
+
+	_ui.info_label.text = "Seed %s\nSystems %d  Shape %s  Lanes %d  Empires %d\nEmpire %s\n%s\n%s\nWASD/Arrows pan  RMB orbit  Wheel zoom\nE empire  R regenerate  Click inspect  Esc back" % [
 		displayed_seed,
 		_state.system_positions.size(),
 		_state.galaxy_shape.capitalize(),
@@ -102,6 +157,7 @@ func update_info_label() -> void:
 		_state.empire_records.size(),
 		active_empire_name,
 		selected_summary,
+		command_summary,
 	]
 	_ui.info_label.visible = not _view_router.is_system_view_open()
 	if _debug_info_panel != null:
@@ -247,9 +303,113 @@ func get_inspected_system_id() -> String:
 		return ""
 	if _view_router.is_system_view_open():
 		return _view_router.get_current_system_view_id()
-	if not _state.pinned_system_id.is_empty():
-		return _state.pinned_system_id
-	return _state.hovered_system_id
+	return _state.selected_system_panel_id
+
+
+func update_selection_panel() -> void:
+	_ensure_selection_panel()
+	if _selection_panel == null or _state == null:
+		return
+
+	if _state.selected_space_entity_id.is_empty():
+		_selection_panel.visible = false
+		return
+
+	match _state.selected_space_entity_kind:
+		"fleet":
+			_update_selection_panel_for_fleet(_state.selected_space_entity_id)
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			_update_selection_panel_for_unit(_state.selected_space_entity_id)
+		_:
+			_selection_panel.visible = false
+
+
+func _update_selection_panel_for_fleet(fleet_id: String) -> void:
+	var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(fleet_id)
+	if fleet == null:
+		_selection_panel.visible = false
+		return
+
+	var owner_name := _get_empire_display_name(fleet.owner_empire_id)
+	var system_name := _get_system_display_name(fleet.current_system_id)
+	var destination_name := _get_system_display_name(fleet.destination_system_id)
+	var member_names := PackedStringArray()
+	for unit_id in fleet.unit_ids:
+		var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+		if unit != null:
+			member_names.append(unit.display_name)
+
+	_selection_title_label.text = fleet.display_name
+	_selection_subtitle_label.text = "Fleet / %s" % owner_name
+	var lines: Array[String] = [
+		"System: %s" % system_name,
+		"Units: %d" % fleet.unit_ids.size(),
+	]
+	if not destination_name.is_empty():
+		lines.append("Destination: %s" % destination_name)
+		if fleet.eta_days_remaining > 0:
+			lines.append("ETA: %d days" % fleet.eta_days_remaining)
+	if not str(fleet.ai_role).is_empty():
+		lines.append("Role: %s" % _format_runtime_token(str(fleet.ai_role)))
+	if not member_names.is_empty():
+		lines.append("Members: %s" % ", ".join(member_names))
+	_selection_body_label.text = "\n".join(lines)
+	_selection_panel.visible = true
+
+
+func _update_selection_panel_for_unit(unit_id: String) -> void:
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+	if unit == null:
+		_selection_panel.visible = false
+		return
+
+	var unit_class: SpaceUnitClass = SpaceManager.get_unit_class(unit.class_id)
+	var owner_name := _get_empire_display_name(unit.owner_empire_id)
+	var system_name := _get_system_display_name(unit.current_system_id)
+	var destination_name := _get_system_display_name(unit.destination_system_id)
+
+	_selection_title_label.text = unit.display_name
+	_selection_subtitle_label.text = "%s / %s" % [
+		unit_class.display_name if unit_class != null else unit.class_id,
+		owner_name,
+	]
+	var lines: Array[String] = [
+		"System: %s" % system_name,
+		"Hull: %.0f / %.0f" % [unit.current_hull_points, unit.max_hull_points],
+	]
+	if not destination_name.is_empty():
+		lines.append("Destination: %s" % destination_name)
+		if unit.eta_days_remaining > 0:
+			lines.append("ETA: %d days" % unit.eta_days_remaining)
+	if not unit.fleet_id.is_empty():
+		var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(unit.fleet_id)
+		if fleet != null:
+			lines.append("Fleet: %s" % fleet.display_name)
+	if not str(unit.ai_role).is_empty():
+		lines.append("Role: %s" % _format_runtime_token(str(unit.ai_role)))
+	_selection_body_label.text = "\n".join(lines)
+	_selection_panel.visible = true
+
+
+func _get_empire_display_name(empire_id: String) -> String:
+	if _state != null and _state.empires_by_id.has(empire_id):
+		return str(_state.empires_by_id[empire_id].get("name", empire_id))
+	return "Unclaimed" if empire_id.is_empty() else empire_id
+
+
+func _get_system_display_name(system_id: String) -> String:
+	if system_id.is_empty():
+		return ""
+	if _state != null and _state.systems_by_id.has(system_id):
+		return str(_state.systems_by_id[system_id].get("name", system_id))
+	return system_id
+
+
+func _format_runtime_token(value: String) -> String:
+	var trimmed_value: String = value.strip_edges()
+	if trimmed_value.is_empty():
+		return "Unassigned"
+	return trimmed_value.replace("_", " ").capitalize()
 
 
 func invalidate_system_panel_snapshot(system_id: String = "") -> void:

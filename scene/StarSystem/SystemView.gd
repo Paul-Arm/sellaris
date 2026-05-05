@@ -31,6 +31,8 @@ func _ready() -> void:
 		close_button.pressed.connect(_on_close_pressed)
 	if preview != null and not preview.selection_changed.is_connected(_on_preview_selection_changed):
 		preview.selection_changed.connect(_on_preview_selection_changed)
+	if preview != null and not preview.movement_order_requested.is_connected(_on_preview_movement_order_requested):
+		preview.movement_order_requested.connect(_on_preview_movement_order_requested)
 	_hide_selection_popup()
 
 
@@ -91,6 +93,15 @@ func show_system(system_details: Dictionary, neighbor_count: int) -> void:
 		preview.set_system_details(system_details)
 
 
+func refresh_runtime(system_details: Dictionary, neighbor_count: int) -> void:
+	if not visible or str(system_details.get("id", "")) != _current_system_id:
+		show_system(system_details, neighbor_count)
+		return
+	_update_system_labels(system_details, neighbor_count)
+	if preview != null:
+		preview.refresh_runtime_placeholders(system_details)
+
+
 func hide_view() -> void:
 	_current_system_id = ""
 	visible = false
@@ -123,6 +134,9 @@ func get_current_system_id() -> String:
 func handle_cancel_action() -> bool:
 	if not visible:
 		return false
+	if preview != null:
+		preview.clear_selection()
+	_hide_selection_popup()
 	get_viewport().set_input_as_handled()
 	return true
 
@@ -133,6 +147,24 @@ func _on_close_pressed() -> void:
 
 func _on_preview_selection_changed(selection_data: Dictionary) -> void:
 	_update_selection_popup(selection_data)
+
+
+func _on_preview_movement_order_requested(selection_data: Dictionary, target_local_position: Vector3) -> void:
+	var record_id: String = str(selection_data.get("record_id", ""))
+	if record_id.is_empty():
+		return
+
+	match str(selection_data.get("selection_kind", "")):
+		"fleet":
+			SpaceManager.issue_fleet_move(record_id, target_local_position)
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			var unit: SpaceUnitRuntime = SpaceManager.get_unit(record_id)
+			if unit == null:
+				return
+			if not unit.fleet_id.is_empty():
+				SpaceManager.issue_fleet_move(unit.fleet_id, target_local_position)
+				return
+			SpaceManager.issue_unit_move(record_id, target_local_position)
 
 
 func _update_selection_popup(selection_data: Dictionary) -> void:
@@ -204,3 +236,28 @@ func _is_control_within(control: Control, ancestor: Node) -> bool:
 func _set_label_text(label: Label, value: String) -> void:
 	if label != null:
 		label.text = value
+
+
+func _update_system_labels(system_details: Dictionary, neighbor_count: int) -> void:
+	if system_details.is_empty():
+		return
+
+	var summary: Dictionary = system_details.get("system_summary", {})
+	var star_profile: Dictionary = system_details.get("star_profile", {})
+	var owner_name: String = str(system_details.get("owner_name", "Unclaimed"))
+	var star_class: String = str(summary.get("star_class", star_profile.get("star_class", "G")))
+	var star_count: int = int(summary.get("star_count", star_profile.get("star_count", 1)))
+	var special_type: String = str(summary.get("special_type", star_profile.get("special_type", SPECIAL_TYPE_NONE)))
+	var special_text: String = ""
+	if special_type != SPECIAL_TYPE_NONE:
+		special_text = "  Special: %s" % special_type
+
+	_set_label_text(title_label, str(system_details.get("name", _current_system_id)))
+	_set_label_text(subtitle_label, "System View")
+	_set_label_text(owner_label, "Owner: %s" % owner_name)
+	_set_label_text(summary_label, "Star Class: %s  Stars: %d%s\nHyperlane Connections: %d" % [
+		star_class,
+		star_count,
+		special_text,
+		neighbor_count,
+	])

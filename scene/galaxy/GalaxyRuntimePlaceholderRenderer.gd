@@ -11,9 +11,10 @@ const BAR_COLUMNS: int = 6
 const BAR_SPACING_X: float = 6.0
 const BAR_ROW_STEP: float = 2.2
 const BAR_BASE_Y_OFFSET: float = 4.3
-const FLEET_CIRCLE_RADIUS: float = 2.2
+const FLEET_ICON_SIZE: float = 11.0
 const FLEET_BAR_LENGTH: float = 4.4
 const FLEET_BAR_THICKNESS: float = 0.5
+const FLEET_ICON_TEXTURE: Texture2D = preload("res://assets/ships/spaceship.png")
 
 var _host: Node = null
 
@@ -155,7 +156,7 @@ func _apply_materials() -> void:
 	if _host == null:
 		return
 	var station_material: StandardMaterial3D = _build_material(0.52, 1.35)
-	var fleet_material: StandardMaterial3D = _build_material(0.95, 1.25)
+	var fleet_material: StandardMaterial3D = _build_fleet_icon_material()
 	var bar_material: StandardMaterial3D = _build_material(0.92, 0.95)
 	_host.station_markers.material_override = station_material
 	_host.fleet_markers.material_override = fleet_material
@@ -193,12 +194,17 @@ func _build_station_mesh() -> Mesh:
 
 
 func _build_fleet_mesh() -> Mesh:
-	var mesh := SphereMesh.new()
-	mesh.radius = FLEET_CIRCLE_RADIUS
-	mesh.height = FLEET_CIRCLE_RADIUS * 2.0
-	mesh.radial_segments = 12
-	mesh.rings = 6
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(FLEET_ICON_SIZE, FLEET_ICON_SIZE)
 	return mesh
+
+
+func _build_fleet_icon_material() -> StandardMaterial3D:
+	var material: StandardMaterial3D = _build_material(0.98, 1.35)
+	material.albedo_texture = FLEET_ICON_TEXTURE
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return material
 
 
 func _build_bar_mesh() -> Mesh:

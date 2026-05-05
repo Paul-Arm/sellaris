@@ -33,6 +33,10 @@ func _run(failures: Array[String]) -> void:
 		"display_name": "ISS Faraday",
 		"local_position": Vector3(2.0, 0.0, 0.0),
 	})
+	var science_c := SpaceManager.spawn_unit(SpaceManager.SCIENCE_SHIP_CLASS_ID, "empire_test", "sys_alpha", {
+		"display_name": "ISS Hopper",
+		"local_position": Vector3(4.0, 0.0, 0.0),
+	})
 	var station := SpaceManager.spawn_unit(DEBUG_STATION_CLASS_ID, "empire_test", "sys_alpha", {
 		"display_name": "Anchor One",
 		"local_position": Vector3(0.0, 0.0, 8.0),
@@ -40,9 +44,15 @@ func _run(failures: Array[String]) -> void:
 
 	_expect(science_a != null and science_a.is_mobile(), "science ship A should spawn mobile", failures)
 	_expect(science_b != null and science_b.is_mobile(), "science ship B should spawn mobile", failures)
+	_expect(science_c != null and science_c.is_mobile(), "science ship C should spawn mobile", failures)
 	_expect(station != null and station.is_stationary(), "debug station should spawn stationary", failures)
 	if station != null:
 		_expect(not SpaceManager.issue_unit_move(station.unit_id, Vector3(5.0, 0.0, 5.0)), "station should reject unit move orders", failures)
+	if science_c != null:
+		_expect(SpaceManager.issue_unit_hyperlane_move(science_c.unit_id, "sys_beta", 2), "independent ship hyperlane move should be accepted", failures)
+		for _day in range(2):
+			SpaceManager._on_sim_day_tick({})
+		_expect(science_c.current_system_id == "sys_beta", "independent ship should arrive through hyperlane travel", failures)
 
 	var fleet := SpaceManager.create_fleet("empire_test", "sys_alpha", [science_a.unit_id, science_b.unit_id], {
 		"display_name": "Science Group",
@@ -52,6 +62,11 @@ func _run(failures: Array[String]) -> void:
 		return
 
 	_expect(not SpaceManager.add_unit_to_fleet(station.unit_id, fleet.fleet_id), "station should not join a mobile fleet", failures)
+	_expect(SpaceManager.issue_fleet_hyperlane_move(fleet.fleet_id, "sys_beta", 2), "fleet hyperlane move should be accepted", failures)
+	for _day in range(2):
+		SpaceManager._on_sim_day_tick({})
+	_expect(fleet.current_system_id == "sys_beta", "fleet should arrive through hyperlane travel", failures)
+	_expect(science_a.current_system_id == "sys_beta" and science_b.current_system_id == "sys_beta", "fleet members should arrive with fleet", failures)
 	_expect(SpaceManager.issue_fleet_move(fleet.fleet_id, Vector3(19.0, 0.0, 0.0)), "fleet move order should be accepted", failures)
 	for _day in range(3):
 		SpaceManager._on_sim_day_tick({})

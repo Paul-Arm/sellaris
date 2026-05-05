@@ -300,6 +300,41 @@ func set_unit_system(unit_id: String, system_id: String) -> bool:
 	return true
 
 
+func issue_unit_hyperlane_move(unit_id: String, destination_system_id: String, eta_days: int = 1) -> bool:
+	var unit := get_unit(unit_id)
+	if unit == null or not unit.fleet_id.is_empty() or not unit.is_mobile():
+		return false
+	if destination_system_id.is_empty():
+		return false
+	if not _unit_uses_hyperlanes(unit):
+		return false
+	if unit.current_system_id == destination_system_id:
+		return clear_unit_hyperlane_move(unit_id)
+
+	unit.previous_local_position = unit.local_position
+	unit.target_local_position = unit.local_position
+	unit.velocity = Vector3.ZERO
+	unit.movement_state = SpaceUnitRuntime.MOVEMENT_IDLE
+	unit.destination_system_id = destination_system_id
+	unit.eta_days_remaining = maxi(eta_days, 1)
+	unit.command_revision += 1
+	unit_updated.emit(unit_id)
+	return true
+
+
+func clear_unit_hyperlane_move(unit_id: String) -> bool:
+	var unit := get_unit(unit_id)
+	if unit == null:
+		return false
+	var changed := not unit.destination_system_id.is_empty() or unit.eta_days_remaining > 0
+	unit.destination_system_id = ""
+	unit.eta_days_remaining = 0
+	if changed:
+		unit.command_revision += 1
+		unit_updated.emit(unit_id)
+	return changed
+
+
 func issue_unit_move(unit_id: String, target_position: Vector3) -> bool:
 	var unit := get_unit(unit_id)
 	if unit == null or not unit.fleet_id.is_empty() or not unit.is_mobile():
@@ -517,6 +552,63 @@ func set_fleet_destination(fleet_id: String, destination_system_id: String, eta_
 	return true
 
 
+func issue_fleet_hyperlane_move(fleet_id: String, destination_system_id: String, eta_days: int = 1) -> bool:
+	var fleet := get_fleet(fleet_id)
+	if fleet == null or fleet.unit_ids.is_empty():
+		return false
+	if destination_system_id.is_empty():
+		return false
+	if not _fleet_uses_hyperlanes(fleet):
+		return false
+	if fleet.current_system_id == destination_system_id:
+		return clear_fleet_hyperlane_move(fleet_id)
+
+	fleet.previous_local_position = fleet.local_position
+	fleet.target_local_position = fleet.local_position
+	fleet.velocity = Vector3.ZERO
+	fleet.movement_state = SpaceUnitRuntime.MOVEMENT_IDLE
+	fleet.destination_system_id = destination_system_id
+	fleet.eta_days_remaining = maxi(eta_days, 1)
+	fleet.command_revision += 1
+
+	for unit_id in fleet.unit_ids:
+		var unit := get_unit(unit_id)
+		if unit == null:
+			continue
+		unit.previous_local_position = unit.local_position
+		unit.target_local_position = unit.local_position
+		unit.velocity = Vector3.ZERO
+		unit.movement_state = SpaceUnitRuntime.MOVEMENT_IDLE
+		unit.destination_system_id = destination_system_id
+		unit.eta_days_remaining = fleet.eta_days_remaining
+		unit.command_revision += 1
+		unit_updated.emit(unit_id)
+
+	fleet_updated.emit(fleet_id)
+	return true
+
+
+func clear_fleet_hyperlane_move(fleet_id: String) -> bool:
+	var fleet := get_fleet(fleet_id)
+	if fleet == null:
+		return false
+	var changed := not fleet.destination_system_id.is_empty() or fleet.eta_days_remaining > 0
+	fleet.destination_system_id = ""
+	fleet.eta_days_remaining = 0
+	for unit_id in fleet.unit_ids:
+		var unit := get_unit(unit_id)
+		if unit == null:
+			continue
+		unit.destination_system_id = ""
+		unit.eta_days_remaining = 0
+		unit.command_revision += 1
+		unit_updated.emit(unit_id)
+	if changed:
+		fleet.command_revision += 1
+		fleet_updated.emit(fleet_id)
+	return changed
+
+
 func issue_fleet_move(fleet_id: String, target_position: Vector3) -> bool:
 	var fleet := get_fleet(fleet_id)
 	if fleet == null or fleet.unit_ids.is_empty():
@@ -710,7 +802,11 @@ func build_system_renderables(system_id: String) -> Dictionary:
 			"local_position": fleet.local_position,
 			"previous_local_position": fleet.previous_local_position,
 			"target_local_position": fleet.target_local_position,
-			"interpolated_local_position": fleet.previous_local_position.lerp(fleet.local_position, day_progress),
+			"interpolated_local_position": (
+				fleet.previous_local_position.lerp(fleet.local_position, day_progress)
+				if fleet.has_active_movement()
+				else fleet.local_position
+			),
 			"velocity": fleet.velocity,
 			"movement_state": fleet.movement_state,
 			"movement_order_id": fleet.movement_order_id,
@@ -837,6 +933,7 @@ func load_snapshot(snapshot: Dictionary, clear_existing_state: bool = true) -> v
 func _on_sim_day_tick(_date: Dictionary) -> void:
 	var day_serial := _get_current_day_serial()
 	_tick_fleet_hyperlane_travel()
+	_tick_unit_hyperlane_travel()
 	_tick_fleet_in_system_movement(day_serial)
 	_tick_independent_unit_movement(day_serial)
 
@@ -860,6 +957,19 @@ func _tick_fleet_hyperlane_travel() -> void:
 		set_fleet_system(fleet.fleet_id, fleet.destination_system_id)
 
 
+func _tick_unit_hyperlane_travel() -> void:
+	for unit_variant in _units.values():
+		var unit: SpaceUnitRuntime = unit_variant
+		if unit.destination_system_id.is_empty() or not unit.fleet_id.is_empty():
+			continue
+		if unit.eta_days_remaining > 0:
+			unit.eta_days_remaining -= 1
+		if unit.eta_days_remaining > 0:
+			unit_updated.emit(unit.unit_id)
+			continue
+		set_unit_system(unit.unit_id, unit.destination_system_id)
+
+
 func _tick_fleet_in_system_movement(day_serial: int) -> void:
 	for fleet_variant in _fleets.values():
 		var fleet: SpaceFleetRuntime = fleet_variant
@@ -875,6 +985,7 @@ func _tick_fleet_in_system_movement(day_serial: int) -> void:
 		var distance := offset.length()
 		if distance <= speed or distance <= 0.001:
 			fleet.local_position = fleet.target_local_position
+			fleet.previous_local_position = fleet.local_position
 			fleet.velocity = Vector3.ZERO
 			fleet.movement_state = SpaceUnitRuntime.MOVEMENT_IDLE
 		else:
@@ -902,6 +1013,7 @@ func _tick_independent_unit_movement(day_serial: int) -> void:
 		var distance := offset.length()
 		if distance <= speed or distance <= 0.001:
 			unit.local_position = unit.target_local_position
+			unit.previous_local_position = unit.local_position
 			unit.velocity = Vector3.ZERO
 			unit.movement_state = SpaceUnitRuntime.MOVEMENT_IDLE
 		else:
@@ -1012,6 +1124,25 @@ func _get_fleet_in_system_speed(fleet: SpaceFleetRuntime) -> float:
 			return 0.0
 		speed = minf(speed, unit_class.get_in_system_speed())
 	return speed if speed != INF else 0.0
+
+
+func _unit_uses_hyperlanes(unit: SpaceUnitRuntime) -> bool:
+	if unit == null:
+		return false
+	var unit_class := get_unit_class(unit.class_id)
+	if unit_class == null or unit_class.mobility_component == null:
+		return false
+	return unit_class.mobility_component.uses_hyperlanes
+
+
+func _fleet_uses_hyperlanes(fleet: SpaceFleetRuntime) -> bool:
+	if fleet == null or fleet.unit_ids.is_empty():
+		return false
+	for unit_id in fleet.unit_ids:
+		var unit := get_unit(unit_id)
+		if unit == null or not _unit_uses_hyperlanes(unit):
+			return false
+	return true
 
 
 func _sync_fleet_center_from_members(fleet: SpaceFleetRuntime) -> void:

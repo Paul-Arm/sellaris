@@ -2,6 +2,7 @@ extends Node3D
 class_name StarSystemPreview
 
 signal selection_changed(selection_data: Dictionary)
+signal movement_order_requested(selection_data: Dictionary, target_local_position: Vector3)
 
 const SYSTEM_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemRuntimePlaceholderRenderer.gd")
 const SYSTEM_SELECTABLE_COMPONENT_SCRIPT: Script = preload("res://scene/StarSystem/SystemSelectableComponent.gd")
@@ -18,6 +19,7 @@ const SPECIAL_TYPE_O_CLASS := "O class star"
 const STAR_SYSTEM_STAR_SIZE_MULTIPLIER := 1.6
 const ORBIT_SEGMENT_COUNT := 80
 const SELECTION_RING_SEGMENT_COUNT := 48
+const INVALID_COMMAND_TARGET := Vector3(INF, INF, INF)
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -30,8 +32,12 @@ var _has_content: bool = false
 var _current_system_details: Dictionary = {}
 var _runtime_placeholder_renderer: RefCounted = SYSTEM_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT.new()
 var _selectables: Array[SystemSelectableComponent] = []
+var _runtime_selectables: Array[SystemSelectableComponent] = []
 var _selected_selectable: SystemSelectableComponent = null
 var _selection_indicator: MeshInstance3D = null
+var _movement_route_indicator: MeshInstance3D = null
+var _runtime_effects_root: Node3D = null
+var _static_outer_radius: float = 22.0
 
 
 func _ready() -> void:
@@ -45,10 +51,29 @@ func _exit_tree() -> void:
 		_runtime_placeholder_renderer.unbind()
 
 
+func _process(_delta: float) -> void:
+	if not _has_content:
+		return
+	var space_renderables: Dictionary = _current_system_details.get("space_renderables", {})
+	if space_renderables.is_empty():
+		return
+	var day_progress: float = SimClock.get_day_progress() if SimClock != null and SimClock.has_method("get_day_progress") else 1.0
+	_runtime_placeholder_renderer.update_interpolated_runtime_positions(space_renderables, day_progress)
+	_update_runtime_selectable_positions(space_renderables, day_progress)
+	_update_movement_route_indicator(space_renderables, day_progress)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not _has_content:
 		return
 	if _is_pointer_over_gui():
+		return
+
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		var command_target: Vector3 = _get_command_target_at_screen_position(event.position)
+		if command_target != INVALID_COMMAND_TARGET:
+			movement_order_requested.emit(get_selected_command_entity(), command_target)
+			get_viewport().set_input_as_handled()
 		return
 
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -88,10 +113,8 @@ func set_system_details(system_details: Dictionary) -> void:
 		_build_orbital_visual(orbital, orbital_position)
 		_register_orbital_selectable(orbital, orbital_position)
 
-	var runtime_layouts: Dictionary = _runtime_placeholder_renderer.render_runtime_placeholders(
-		system_details.get("space_renderables", {}),
-		max_radius
-	)
+	_static_outer_radius = max_radius
+	var runtime_layouts: Dictionary = _render_runtime_layer(system_details.get("space_renderables", {}))
 	max_radius = maxf(max_radius, float(runtime_layouts.get("outer_radius", max_radius)))
 	_register_runtime_selectables(runtime_layouts)
 	_set_camera_distance(max_radius + 24.0)
@@ -104,8 +127,25 @@ func clear_preview() -> void:
 	_current_system_details.clear()
 	_clear_preview_nodes()
 	_clear_selectables()
+	_clear_runtime_selectables()
+	_static_outer_radius = 22.0
 	_has_content = false
 	_set_camera_distance(92.0)
+
+
+func refresh_runtime_placeholders(system_details: Dictionary) -> void:
+	if not _has_content:
+		set_system_details(system_details)
+		return
+
+	var previous_selection_id: String = get_selected_selection_id()
+	_current_system_details["space_renderables"] = system_details.get("space_renderables", {})
+	_clear_runtime_visuals()
+	_clear_runtime_selectables(false)
+	var runtime_layouts: Dictionary = _render_runtime_layer(system_details.get("space_renderables", {}))
+	_register_runtime_selectables(runtime_layouts)
+	_restore_selection(previous_selection_id)
+	_emit_selection_changed()
 
 
 func forward_input(event: InputEvent) -> void:
@@ -134,21 +174,66 @@ func get_selection_popup_state() -> Dictionary:
 	return _selected_selectable.build_popup_state(camera, get_viewport().get_visible_rect())
 
 
+func get_selected_command_entity() -> Dictionary:
+	if _selected_selectable == null:
+		return {}
+	if not _is_commandable_selection_kind(_selected_selectable.selection_kind):
+		return {}
+	var parts := _selected_selectable.selection_id.split(":", false, 1)
+	if parts.size() < 2:
+		return {}
+	return {
+		"selection_id": _selected_selectable.selection_id,
+		"selection_kind": _selected_selectable.selection_kind,
+		"record_id": str(parts[1]),
+	}
+
+
 func _clear_preview_nodes() -> void:
 	for container in [orbit_lines, bodies, effects]:
 		for child in container.get_children():
 			child.free()
 	pivot.rotation = Vector3(-0.28, 0.0, 0.0)
+	_runtime_effects_root = null
+	_ensure_runtime_effects_root()
 	_ensure_selection_indicator()
 	_update_selection_indicator()
 
 
 func _clear_selectables(emit_change: bool = true) -> void:
 	_selectables.clear()
+	_runtime_selectables.clear()
 	_selected_selectable = null
 	_update_selection_indicator()
 	if emit_change:
 		_emit_selection_changed()
+
+
+func _clear_runtime_selectables(emit_change: bool = true) -> void:
+	for selectable in _runtime_selectables:
+		_selectables.erase(selectable)
+	_runtime_selectables.clear()
+	if _selected_selectable != null and not _selectables.has(_selected_selectable):
+		_selected_selectable = null
+	_update_selection_indicator()
+	if emit_change:
+		_emit_selection_changed()
+
+
+func _clear_runtime_visuals() -> void:
+	_ensure_runtime_effects_root()
+	if _runtime_effects_root == null:
+		return
+	for child in _runtime_effects_root.get_children():
+		child.free()
+
+
+func _render_runtime_layer(space_renderables: Dictionary) -> Dictionary:
+	_ensure_runtime_effects_root()
+	return _runtime_placeholder_renderer.render_runtime_placeholders(
+		space_renderables,
+		_static_outer_radius
+	)
 
 
 func _restore_selection(selection_id: String) -> void:
@@ -200,6 +285,40 @@ func _register_selectable(selectable: SystemSelectableComponent) -> void:
 	if selectable == null:
 		return
 	_selectables.append(selectable)
+
+
+func _register_runtime_selectable(selectable: SystemSelectableComponent) -> void:
+	if selectable == null:
+		return
+	_register_selectable(selectable)
+	_runtime_selectables.append(selectable)
+
+
+func _update_runtime_selectable_positions(space_renderables: Dictionary, day_progress: float) -> void:
+	var records_by_key: Dictionary = {}
+	for unit_variant in space_renderables.get("units", []):
+		var unit_record: Dictionary = unit_variant
+		var unit_id := str(unit_record.get("unit_id", ""))
+		var unit_kind := str(unit_record.get("unit_kind", SpaceUnitClass.UNIT_KIND_SHIP))
+		if not unit_id.is_empty():
+			records_by_key["%s:%s" % [unit_kind, unit_id]] = unit_record
+			records_by_key["unit:%s" % unit_id] = unit_record
+	for fleet_variant in space_renderables.get("fleets", []):
+		var fleet_record: Dictionary = fleet_variant
+		var fleet_id := str(fleet_record.get("fleet_id", ""))
+		if not fleet_id.is_empty():
+			records_by_key["fleet:%s" % fleet_id] = fleet_record
+
+	var moved_selected := false
+	for selectable in _runtime_selectables:
+		if not records_by_key.has(selectable.selection_id):
+			continue
+		var record: Dictionary = records_by_key[selectable.selection_id]
+		selectable.anchor_local_position = _get_visual_record_position(record, day_progress)
+		if selectable == _selected_selectable:
+			moved_selected = true
+	if moved_selected:
+		_update_selection_indicator()
 
 
 func _register_star_selectable(star: Dictionary, star_position: Vector3) -> void:
@@ -320,11 +439,13 @@ func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vect
 	_append_labeled_line(lines, "Destination", str(record.get("destination_system_name", "")))
 	if int(record.get("eta_days_remaining", 0)) > 0:
 		_append_labeled_line(lines, "ETA", "%d days" % int(record.get("eta_days_remaining", 0)))
+	if not is_station:
+		_append_labeled_line(lines, "Orders", "Right-click empty space to move")
 	_append_labeled_line(lines, "Tags", _format_string_list(record.get("command_tags", PackedStringArray()), 6))
 	_append_notes_and_metadata(lines, str(record.get("notes", "")), record.get("metadata", {}))
 
 	var owner_color: Color = record.get("owner_color", Color(0.82, 0.88, 1.0, 1.0))
-	_register_selectable(_create_selectable({
+	_register_runtime_selectable(_create_selectable({
 		"selection_id": "%s:%s" % [entity_kind, str(record.get("unit_id", record.get("display_name", "")))],
 		"selection_kind": entity_kind,
 		"title": str(record.get("display_name", class_display_name)),
@@ -354,11 +475,12 @@ func _register_runtime_fleet_selectable(record: Dictionary, marker_position: Vec
 		_append_labeled_line(lines, "ETA", "%d days" % int(record.get("eta_days_remaining", 0)))
 	if int(record.get("command_queue_size", 0)) > 0:
 		_append_labeled_line(lines, "Queued Commands", str(int(record.get("command_queue_size", 0))))
+	_append_labeled_line(lines, "Orders", "Right-click empty space to move")
 	_append_labeled_line(lines, "Members", _format_string_list(record.get("unit_display_names", PackedStringArray()), 4))
 	_append_notes_and_metadata(lines, str(record.get("notes", "")), record.get("metadata", {}))
 
 	var owner_color: Color = record.get("owner_color", Color(0.82, 0.88, 1.0, 1.0))
-	_register_selectable(_create_selectable({
+	_register_runtime_selectable(_create_selectable({
 		"selection_id": "fleet:%s" % str(record.get("fleet_id", record.get("display_name", ""))),
 		"selection_kind": "fleet",
 		"title": str(record.get("display_name", "Fleet")),
@@ -400,6 +522,29 @@ func _ensure_selection_indicator() -> void:
 	effects.add_child(_selection_indicator)
 
 
+func _ensure_movement_route_indicator() -> void:
+	if is_instance_valid(_movement_route_indicator):
+		return
+	_movement_route_indicator = MeshInstance3D.new()
+	_movement_route_indicator.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	effects.add_child(_movement_route_indicator)
+
+
+func get_runtime_effects_root() -> Node3D:
+	_ensure_runtime_effects_root()
+	return _runtime_effects_root
+
+
+func _ensure_runtime_effects_root() -> void:
+	if is_instance_valid(_runtime_effects_root):
+		return
+	if effects == null:
+		return
+	_runtime_effects_root = Node3D.new()
+	_runtime_effects_root.name = "RuntimeEffects"
+	effects.add_child(_runtime_effects_root)
+
+
 func _update_selection_indicator() -> void:
 	_ensure_selection_indicator()
 	if _selection_indicator == null:
@@ -423,6 +568,103 @@ func _update_selection_indicator() -> void:
 	_selection_indicator.mesh = surface_tool.commit()
 	_selection_indicator.position = Vector3.ZERO
 	_selection_indicator.material_override = _build_line_material(0.7)
+
+
+func _update_movement_route_indicator(space_renderables: Dictionary, day_progress: float) -> void:
+	_ensure_movement_route_indicator()
+	if _movement_route_indicator == null:
+		return
+	var record: Dictionary = _get_selected_runtime_record(space_renderables)
+	if record.is_empty() or str(record.get("movement_state", "")) != SpaceUnitRuntime.MOVEMENT_MOVING:
+		_movement_route_indicator.mesh = null
+		return
+
+	var start_position := _get_visual_record_position(record, day_progress)
+	var target_position := _variant_to_vector3(record.get("target_local_position", start_position))
+	if start_position.distance_to(target_position) < 0.5:
+		_movement_route_indicator.mesh = null
+		return
+
+	_movement_route_indicator.mesh = _build_dotted_line_mesh(start_position + Vector3.UP * 0.42, target_position + Vector3.UP * 0.42, 1.2, 0.9, Color(0.62, 0.9, 1.0, 0.82))
+	_movement_route_indicator.position = Vector3.ZERO
+	if _movement_route_indicator.material_override == null:
+		_movement_route_indicator.material_override = _build_line_material(0.9)
+
+
+func _get_selected_runtime_record(space_renderables: Dictionary) -> Dictionary:
+	if _selected_selectable == null:
+		return {}
+	for unit_variant in space_renderables.get("units", []):
+		var unit_record: Dictionary = unit_variant
+		var unit_id := str(unit_record.get("unit_id", ""))
+		var unit_kind := str(unit_record.get("unit_kind", SpaceUnitClass.UNIT_KIND_SHIP))
+		if _selected_selectable.selection_id == "%s:%s" % [unit_kind, unit_id] or _selected_selectable.selection_id == "unit:%s" % unit_id:
+			return unit_record
+	for fleet_variant in space_renderables.get("fleets", []):
+		var fleet_record: Dictionary = fleet_variant
+		if _selected_selectable.selection_id == "fleet:%s" % str(fleet_record.get("fleet_id", "")):
+			return fleet_record
+	return {}
+
+
+func _get_visual_record_position(record: Dictionary, day_progress: float) -> Vector3:
+	if str(record.get("movement_state", SpaceUnitRuntime.MOVEMENT_IDLE)) != SpaceUnitRuntime.MOVEMENT_MOVING:
+		return _variant_to_vector3(record.get("local_position", Vector3.ZERO))
+	var previous := _variant_to_vector3(record.get("previous_local_position", record.get("local_position", Vector3.ZERO)))
+	var current := _variant_to_vector3(record.get("local_position", previous))
+	return previous.lerp(current, clampf(day_progress, 0.0, 1.0))
+
+
+func _build_dotted_line_mesh(start_position: Vector3, end_position: Vector3, dash_length: float, gap_length: float, color: Color) -> Mesh:
+	var surface_tool := SurfaceTool.new()
+	surface_tool.begin(Mesh.PRIMITIVE_LINES)
+	var offset := end_position - start_position
+	var distance := offset.length()
+	if distance <= 0.001:
+		return surface_tool.commit()
+	var direction := offset / distance
+	var cursor := 0.0
+	while cursor < distance:
+		var segment_end := minf(cursor + dash_length, distance)
+		surface_tool.set_color(color)
+		surface_tool.add_vertex(start_position + direction * cursor)
+		surface_tool.set_color(color)
+		surface_tool.add_vertex(start_position + direction * segment_end)
+		cursor += dash_length + gap_length
+	return surface_tool.commit()
+
+
+func _get_command_target_at_screen_position(screen_position: Vector2) -> Vector3:
+	if _selected_selectable == null:
+		return INVALID_COMMAND_TARGET
+	if get_selected_command_entity().is_empty():
+		return INVALID_COMMAND_TARGET
+	if camera == null or pivot == null:
+		return INVALID_COMMAND_TARGET
+
+	var ray_origin: Vector3 = camera.project_ray_origin(screen_position)
+	var ray_direction: Vector3 = camera.project_ray_normal(screen_position)
+	var plane_normal: Vector3 = pivot.global_transform.basis * Vector3.UP
+	plane_normal = plane_normal.normalized()
+	var denominator := plane_normal.dot(ray_direction)
+	if absf(denominator) <= 0.0001:
+		return INVALID_COMMAND_TARGET
+	var distance := plane_normal.dot(pivot.global_transform.origin - ray_origin) / denominator
+	if distance < 0.0:
+		return INVALID_COMMAND_TARGET
+	var intersection := ray_origin + ray_direction * distance
+
+	var target_local: Vector3 = pivot.to_local(intersection)
+	target_local.y = 0.0
+	return target_local
+
+
+func _is_commandable_selection_kind(selection_kind: String) -> bool:
+	match selection_kind:
+		"fleet", SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			return true
+		_:
+			return false
 
 
 func _build_star_visual(star: Dictionary, star_position: Vector3) -> void:
@@ -798,6 +1040,22 @@ func _format_variant_value(value: Variant) -> String:
 
 func _format_bool(value: bool) -> String:
 	return "Yes" if value else "No"
+
+
+static func _variant_to_vector3(value: Variant) -> Vector3:
+	if value is Vector3:
+		return value
+	if value is Dictionary:
+		return Vector3(
+			float(value.get("x", 0.0)),
+			float(value.get("y", 0.0)),
+			float(value.get("z", 0.0))
+		)
+	if value is Array:
+		var values: Array = value
+		if values.size() >= 3:
+			return Vector3(float(values[0]), float(values[1]), float(values[2]))
+	return Vector3.ZERO
 
 
 func _is_pointer_over_gui() -> bool:

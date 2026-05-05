@@ -193,6 +193,19 @@ func _get_systems_by_id() -> Dictionary:
 
 
 func _on_bottom_runtime_entry_activated(category_id: String, entry: Dictionary) -> void:
-	if category_id != "planets":
-		return
-	_scene_ui_controller.open_colony_modal(str(entry.get("id", "")))
+	match category_id:
+		"planets":
+			_scene_ui_controller.open_colony_modal(str(entry.get("id", "")))
+		"passive_fleets", "military_fleets":
+			var record_id := str(entry.get("id", ""))
+			var selection_kind := str(entry.get("selection_kind", "fleet"))
+			var galaxy_view := _view_router.get_galaxy_view()
+			if galaxy_view != null:
+				galaxy_view.set_selected_space_entity(selection_kind, record_id)
+			_state.selected_space_entity_kind = selection_kind
+			_state.selected_space_entity_id = record_id
+			_state.selected_space_entity_title = str(entry.get("title", record_id))
+			_state.selected_system_panel_id = ""
+			_scene_ui_controller.update_selection_panel()
+			_scene_ui_controller.update_system_panel()
+			_scene_ui_controller.update_info_label()

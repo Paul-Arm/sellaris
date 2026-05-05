@@ -62,7 +62,7 @@ func show_system_view(system_details: Dictionary, neighbor_count: int) -> void:
 func refresh_system_view(system_details: Dictionary, neighbor_count: int) -> void:
 	if _system_view == null or not _system_view.is_open():
 		return
-	_system_view.show_system(system_details, neighbor_count)
+	_system_view.refresh_runtime(system_details, neighbor_count)
 
 
 func set_galaxy_camera_input_blocked(blocked: bool) -> void:

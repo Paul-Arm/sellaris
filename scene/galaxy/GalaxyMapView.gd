@@ -3,13 +3,23 @@ class_name GalaxyMapView
 
 signal hovered_system_changed(system_id: String)
 signal inspect_system_requested(system_id: String)
+signal open_system_requested(system_id: String)
 signal pinned_system_changed(system_id: String)
+signal space_entity_selected(selection_data: Dictionary)
+signal space_entity_move_requested(selection_data: Dictionary, destination_system_id: String)
 
 const GALAXY_MAP_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyMapRenderer.gd")
 const GALAXY_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/galaxy/GalaxyRuntimePlaceholderRenderer.gd")
 const STAR_CORE_SHADER: Shader = preload("res://scene/galaxy/StarCore.gdshader")
 const STAR_GLOW_SHADER: Shader = preload("res://scene/galaxy/StarGlow.gdshader")
 const SYSTEM_PICK_RADIUS: float = 26.0
+const COMMAND_DESTINATION_PICK_RADIUS: float = 56.0
+const SPACE_ENTITY_PICK_RADIUS: float = 30.0
+const FLEET_ICON_HEIGHT: float = 13.0
+const SPACE_ROUTE_HEIGHT: float = 9.0
+const SPACE_ROUTE_DASH_LENGTH: float = 28.0
+const SPACE_ROUTE_GAP_LENGTH: float = 18.0
+const SELECTION_RING_SEGMENT_COUNT: int = 48
 const BACKGROUND_MIN_EXTENT: float = 9000.0
 const BACKGROUND_RADIUS_FACTOR: float = 3.8
 const BACKGROUND_STAR_COUNT: int = 680
@@ -51,6 +61,10 @@ var pinned_system_id: String = ""
 var system_intel_by_id: Dictionary = {}
 var debug_reveal_galaxy: bool = false
 var _hovered_system_id: String = ""
+var _selected_space_entity_kind: String = ""
+var _selected_space_entity_id: String = ""
+var _space_selection_indicator: MeshInstance3D = null
+var _space_route_indicator: MeshInstance3D = null
 var _map_renderer: RefCounted = GALAXY_MAP_RENDERER_SCRIPT.new()
 var _runtime_placeholder_renderer: RefCounted = GALAXY_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT.new()
 var _nebula_extent: float = 0.0
@@ -98,6 +112,8 @@ func sync_state(
 	system_intel_by_id = next_system_intel_by_id.duplicate(true)
 	debug_reveal_galaxy = next_debug_reveal_galaxy
 	_resize_background(0.0)
+	_update_space_selection_indicator()
+	_update_space_route_indicator()
 
 
 func sync_interaction_state(hovered_system_id: String, next_pinned_system_id: String) -> void:
@@ -124,19 +140,38 @@ func handle_view_input(event: InputEvent) -> void:
 		if _is_pointer_over_gui():
 			return
 
+		var clicked_entity: Dictionary = _pick_space_entity_at_screen_position(event.position)
+		if not clicked_entity.is_empty():
+			_select_space_entity(clicked_entity)
+			return
+
 		var clicked_system_id: String = _pick_system_at_screen_position(event.position)
 		if clicked_system_id.is_empty():
+			_clear_space_entity_selection()
 			return
+		_clear_space_entity_selection()
 		_hovered_system_id = clicked_system_id
 		hovered_system_changed.emit(clicked_system_id)
-		inspect_system_requested.emit(clicked_system_id)
+		if event.double_click:
+			open_system_requested.emit(clicked_system_id)
+		else:
+			inspect_system_requested.emit(clicked_system_id)
 		return
 
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 		if _is_pointer_over_gui():
 			return
 
-		var clicked_system_id: String = _pick_system_at_screen_position(event.position)
+		var selected_entity: Dictionary = _get_selected_space_entity_data()
+		var clicked_system_id: String = _pick_system_at_screen_position(
+			event.position,
+			COMMAND_DESTINATION_PICK_RADIUS if not selected_entity.is_empty() else SYSTEM_PICK_RADIUS
+		)
+		if not selected_entity.is_empty() and not clicked_system_id.is_empty():
+			space_entity_move_requested.emit(selected_entity, clicked_system_id)
+			_update_space_route_indicator()
+			return
+
 		pinned_system_id = clicked_system_id
 		_hovered_system_id = clicked_system_id
 		render_stars()
@@ -168,10 +203,21 @@ func clear_rendered_map() -> void:
 
 func render_runtime_placeholders() -> void:
 	_runtime_placeholder_renderer.render_runtime_placeholders()
+	_update_space_selection_indicator()
+	_update_space_route_indicator()
 
 
 func clear_runtime_placeholders() -> void:
 	_runtime_placeholder_renderer.clear_runtime_placeholders()
+	_update_space_selection_indicator()
+	_update_space_route_indicator()
+
+
+func set_selected_space_entity(selection_kind: String, record_id: String) -> void:
+	_selected_space_entity_kind = selection_kind
+	_selected_space_entity_id = record_id
+	_update_space_selection_indicator()
+	_update_space_route_indicator()
 
 
 func set_camera_input_blocked(blocked: bool) -> void:
@@ -231,10 +277,10 @@ func get_hovered_system_id_on_map() -> String:
 	return _hovered_system_id
 
 
-func _pick_system_at_screen_position(screen_position: Vector2) -> String:
+func _pick_system_at_screen_position(screen_position: Vector2, pick_radius: float = SYSTEM_PICK_RADIUS) -> String:
 	var viewport_rect: Rect2 = get_viewport().get_visible_rect()
 	var best_system_id: String = ""
-	var best_distance_sq: float = SYSTEM_PICK_RADIUS * SYSTEM_PICK_RADIUS
+	var best_distance_sq: float = pick_radius * pick_radius
 	var best_camera_distance_sq: float = INF
 
 	for system_record in system_records:
@@ -260,6 +306,323 @@ func _pick_system_at_screen_position(screen_position: Vector2) -> String:
 			best_system_id = system_id
 
 	return best_system_id
+
+
+func _pick_space_entity_at_screen_position(screen_position: Vector2) -> Dictionary:
+	var viewport_rect: Rect2 = get_viewport().get_visible_rect()
+	var best_entity: Dictionary = {}
+	var best_distance_sq: float = SPACE_ENTITY_PICK_RADIUS * SPACE_ENTITY_PICK_RADIUS
+
+	for system_record in system_records:
+		var system_id: String = str(system_record.get("id", ""))
+		if not is_system_visible_on_map(system_id):
+			continue
+		var entity_position := _get_space_entity_marker_position(system_id)
+		if camera.is_position_behind(entity_position):
+			continue
+
+		var projected_position: Vector2 = camera.unproject_position(entity_position)
+		if not viewport_rect.grow(SPACE_ENTITY_PICK_RADIUS).has_point(projected_position):
+			continue
+
+		var distance_sq: float = projected_position.distance_squared_to(screen_position)
+		if distance_sq > best_distance_sq:
+			continue
+
+		var entity_data: Dictionary = _get_primary_mobile_entity_in_system(system_id)
+		if entity_data.is_empty():
+			continue
+		best_distance_sq = distance_sq
+		best_entity = entity_data
+
+	return best_entity
+
+
+func _get_primary_mobile_entity_in_system(system_id: String) -> Dictionary:
+	if system_id.is_empty():
+		return {}
+
+	for fleet_id in SpaceManager.get_fleet_ids_in_system(system_id):
+		var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(fleet_id)
+		if fleet == null or fleet.unit_ids.is_empty():
+			continue
+		return {
+			"selection_kind": "fleet",
+			"record_id": fleet.fleet_id,
+			"system_id": system_id,
+			"title": fleet.display_name,
+		}
+
+	for unit_id in SpaceManager.get_unit_ids_in_system(system_id):
+		var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+		if unit == null or unit.is_stationary() or not unit.fleet_id.is_empty():
+			continue
+		return {
+			"selection_kind": SpaceUnitClass.UNIT_KIND_SHIP,
+			"record_id": unit.unit_id,
+			"system_id": system_id,
+			"title": unit.display_name,
+		}
+
+	return {}
+
+
+func _select_space_entity(selection_data: Dictionary) -> void:
+	_selected_space_entity_kind = str(selection_data.get("selection_kind", ""))
+	_selected_space_entity_id = str(selection_data.get("record_id", ""))
+	_update_space_selection_indicator()
+	_update_space_route_indicator()
+	space_entity_selected.emit(selection_data.duplicate(true))
+
+
+func _clear_space_entity_selection() -> void:
+	if _selected_space_entity_id.is_empty() and _selected_space_entity_kind.is_empty():
+		return
+	_selected_space_entity_kind = ""
+	_selected_space_entity_id = ""
+	_update_space_selection_indicator()
+	_update_space_route_indicator()
+	space_entity_selected.emit({})
+
+
+func _get_selected_space_entity_data() -> Dictionary:
+	if _selected_space_entity_id.is_empty():
+		return {}
+
+	match _selected_space_entity_kind:
+		"fleet":
+			var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(_selected_space_entity_id)
+			if fleet == null:
+				return {}
+			return {
+				"selection_kind": "fleet",
+				"record_id": fleet.fleet_id,
+				"system_id": fleet.current_system_id,
+				"destination_system_id": fleet.destination_system_id,
+				"title": fleet.display_name,
+			}
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			var unit: SpaceUnitRuntime = SpaceManager.get_unit(_selected_space_entity_id)
+			if unit == null:
+				return {}
+			return {
+				"selection_kind": _selected_space_entity_kind,
+				"record_id": unit.unit_id,
+				"system_id": unit.current_system_id,
+				"destination_system_id": unit.destination_system_id,
+				"title": unit.display_name,
+			}
+		_:
+			return {}
+
+
+func _get_space_entity_marker_position(system_id: String) -> Vector3:
+	var system_position: Vector3 = _get_system_position(system_id)
+	return system_position + Vector3(0.0, FLEET_ICON_HEIGHT, 0.0)
+
+
+func _get_system_position(system_id: String) -> Vector3:
+	for system_record in system_records:
+		if str(system_record.get("id", "")) == system_id:
+			return system_record.get("position", Vector3.ZERO)
+	return Vector3.ZERO
+
+
+func _ensure_space_selection_indicator() -> void:
+	if is_instance_valid(_space_selection_indicator):
+		return
+	if runtime_placeholders == null:
+		return
+	_space_selection_indicator = MeshInstance3D.new()
+	_space_selection_indicator.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	runtime_placeholders.add_child(_space_selection_indicator)
+
+
+func _ensure_space_route_indicator() -> void:
+	if is_instance_valid(_space_route_indicator):
+		return
+	if runtime_placeholders == null:
+		return
+	_space_route_indicator = MeshInstance3D.new()
+	_space_route_indicator.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	runtime_placeholders.add_child(_space_route_indicator)
+
+
+func _update_space_selection_indicator() -> void:
+	_ensure_space_selection_indicator()
+	if _space_selection_indicator == null:
+		return
+
+	var selected_entity: Dictionary = _get_selected_space_entity_data()
+	if selected_entity.is_empty():
+		_space_selection_indicator.mesh = null
+		return
+
+	var marker_position: Vector3 = _get_space_entity_marker_position(str(selected_entity.get("system_id", "")))
+	var radius := 9.0
+	var color := Color(0.62, 0.9, 1.0, 0.95)
+	var surface_tool := SurfaceTool.new()
+	surface_tool.begin(Mesh.PRIMITIVE_LINES)
+	for point_index in range(SELECTION_RING_SEGMENT_COUNT):
+		var from_angle: float = float(point_index) * TAU / float(SELECTION_RING_SEGMENT_COUNT)
+		var to_angle: float = float(point_index + 1) * TAU / float(SELECTION_RING_SEGMENT_COUNT)
+		surface_tool.set_color(color)
+		surface_tool.add_vertex(Vector3(cos(from_angle) * radius, 0.0, sin(from_angle) * radius))
+		surface_tool.set_color(color)
+		surface_tool.add_vertex(Vector3(cos(to_angle) * radius, 0.0, sin(to_angle) * radius))
+
+	_space_selection_indicator.mesh = surface_tool.commit()
+	_space_selection_indicator.position = marker_position
+	_space_selection_indicator.material_override = _build_space_selection_material()
+
+
+func _update_space_route_indicator() -> void:
+	_ensure_space_route_indicator()
+	if _space_route_indicator == null:
+		return
+
+	var selected_entity: Dictionary = _get_selected_space_entity_data()
+	if selected_entity.is_empty():
+		_space_route_indicator.mesh = null
+		return
+
+	var start_system_id: String = str(selected_entity.get("system_id", ""))
+	var destination_system_id: String = str(selected_entity.get("destination_system_id", ""))
+	if start_system_id.is_empty() or destination_system_id.is_empty() or start_system_id == destination_system_id:
+		_space_route_indicator.mesh = null
+		return
+
+	var path: PackedStringArray = _find_hyperlane_path(start_system_id, destination_system_id)
+	if path.size() < 2:
+		_space_route_indicator.mesh = null
+		return
+
+	_space_route_indicator.mesh = _build_dotted_route_mesh(path, Color(0.62, 0.9, 1.0, 0.78))
+	_space_route_indicator.position = Vector3.ZERO
+	_space_route_indicator.material_override = _build_space_selection_material()
+
+
+func _find_hyperlane_path(start_system_id: String, destination_system_id: String) -> PackedStringArray:
+	var empty_path: PackedStringArray = PackedStringArray()
+	if start_system_id.is_empty() or destination_system_id.is_empty():
+		return empty_path
+	if start_system_id == destination_system_id:
+		var single_path: PackedStringArray = PackedStringArray()
+		single_path.append(start_system_id)
+		return single_path
+
+	var visited: Dictionary = {}
+	var came_from: Dictionary = {}
+	var queue: Array[String] = [start_system_id]
+	var read_index: int = 0
+	visited[start_system_id] = true
+
+	while read_index < queue.size():
+		var current_system_id: String = queue[read_index]
+		read_index += 1
+		for neighbor_system_id in _get_hyperlane_neighbors(current_system_id):
+			if visited.has(neighbor_system_id):
+				continue
+			visited[neighbor_system_id] = true
+			came_from[neighbor_system_id] = current_system_id
+			if neighbor_system_id == destination_system_id:
+				return _reconstruct_hyperlane_path(start_system_id, destination_system_id, came_from)
+			queue.append(neighbor_system_id)
+
+	return empty_path
+
+
+func _get_hyperlane_neighbors(system_id: String) -> Array[String]:
+	var neighbors: Array[String] = []
+	var system_index: int = _get_system_index_by_id(system_id)
+	if system_index < 0:
+		return neighbors
+
+	for link in hyperlane_links:
+		var neighbor_index: int = -1
+		if link.x == system_index:
+			neighbor_index = link.y
+		elif link.y == system_index:
+			neighbor_index = link.x
+		if neighbor_index < 0 or neighbor_index >= system_records.size():
+			continue
+		var neighbor_id: String = str(system_records[neighbor_index].get("id", ""))
+		if neighbor_id.is_empty():
+			continue
+		neighbors.append(neighbor_id)
+
+	return neighbors
+
+
+func _get_system_index_by_id(system_id: String) -> int:
+	for system_index in range(system_records.size()):
+		if str(system_records[system_index].get("id", "")) == system_id:
+			return system_index
+	return -1
+
+
+func _reconstruct_hyperlane_path(start_system_id: String, destination_system_id: String, came_from: Dictionary) -> PackedStringArray:
+	var reversed_path: Array[String] = [destination_system_id]
+	var current_system_id: String = destination_system_id
+	while current_system_id != start_system_id:
+		if not came_from.has(current_system_id):
+			return PackedStringArray()
+		current_system_id = str(came_from[current_system_id])
+		reversed_path.append(current_system_id)
+
+	var path: PackedStringArray = PackedStringArray()
+	for path_index in range(reversed_path.size() - 1, -1, -1):
+		path.append(reversed_path[path_index])
+	return path
+
+
+func _build_dotted_route_mesh(path: PackedStringArray, color: Color) -> Mesh:
+	var surface_tool: SurfaceTool = SurfaceTool.new()
+	surface_tool.begin(Mesh.PRIMITIVE_LINES)
+
+	for path_index in range(path.size() - 1):
+		var start_position: Vector3 = _get_system_position(path[path_index])
+		var end_position: Vector3 = _get_system_position(path[path_index + 1])
+		start_position.y = SPACE_ROUTE_HEIGHT
+		end_position.y = SPACE_ROUTE_HEIGHT
+		_append_dotted_segment(surface_tool, start_position, end_position, SPACE_ROUTE_DASH_LENGTH, SPACE_ROUTE_GAP_LENGTH, color)
+
+	return surface_tool.commit()
+
+
+func _append_dotted_segment(
+	surface_tool: SurfaceTool,
+	start_position: Vector3,
+	end_position: Vector3,
+	dash_length: float,
+	gap_length: float,
+	color: Color
+) -> void:
+	var offset: Vector3 = end_position - start_position
+	var distance: float = offset.length()
+	if distance <= 0.001:
+		return
+	var direction: Vector3 = offset / distance
+	var cursor: float = 0.0
+	while cursor < distance:
+		var segment_end: float = minf(cursor + dash_length, distance)
+		surface_tool.set_color(color)
+		surface_tool.add_vertex(start_position + direction * cursor)
+		surface_tool.set_color(color)
+		surface_tool.add_vertex(start_position + direction * segment_end)
+		cursor += dash_length + gap_length
+
+
+func _build_space_selection_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = Color.WHITE
+	material.emission_enabled = true
+	material.emission = Color.WHITE
+	material.emission_energy_multiplier = 0.85
+	return material
 
 
 func _is_pointer_over_gui() -> bool:

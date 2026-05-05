@@ -16,6 +16,12 @@ const FLEET_MEMBER_RING_STEP: float = 1.9
 const FLEET_MEMBER_BASE_RADIUS: float = 1.4
 
 var _host: StarSystemPreview = null
+var _station_marker: MultiMeshInstance3D = null
+var _fleet_marker: MultiMeshInstance3D = null
+var _unit_marker: MultiMeshInstance3D = null
+var _station_instance_specs: Array[Dictionary] = []
+var _fleet_instance_specs: Array[Dictionary] = []
+var _unit_instance_specs: Array[Dictionary] = []
 
 
 func bind(host: StarSystemPreview) -> void:
@@ -27,6 +33,7 @@ func unbind() -> void:
 
 
 func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: float) -> Dictionary:
+	_reset_interpolation_state()
 	var result := {
 		"outer_radius": outer_radius,
 		"stations": [],
@@ -133,11 +140,13 @@ func _build_group(
 	multimesh.mesh = mesh
 	multimesh.instance_count = records.size()
 	var instance_layouts: Array[Dictionary] = []
+	var instance_specs: Array[Dictionary] = []
 
 	for record_index in range(records.size()):
 		var record: Dictionary = records[record_index]
 		var entity_id: String = str(record.get(id_key, "%s_%02d" % [id_key, record_index]))
-		var layout: Dictionary = _resolve_record_layout(record, base_radius, record_index, entity_id.hash())
+		var seed_value := entity_id.hash()
+		var layout: Dictionary = _resolve_record_layout(record, base_radius, record_index, seed_value)
 		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
 		var scale_blend: Vector3 = damaged_scale.lerp(base_scale, hull_ratio)
 		var instance_basis: Basis = Basis(Vector3.UP, float(layout.get("yaw", 0.0))).scaled(scale_blend)
@@ -150,10 +159,21 @@ func _build_group(
 			"yaw": float(layout.get("yaw", 0.0)),
 			"ring_radius": float(layout.get("radius", base_radius)),
 		})
+		instance_specs.append({
+			"id": entity_id,
+			"index": record_index,
+			"base_scale": base_scale,
+			"damaged_scale": damaged_scale,
+			"seed": seed_value,
+			"fallback_index": record_index,
+			"fallback_radius": base_radius,
+		})
 
 	marker.multimesh = multimesh
 	marker.material_override = _build_material(alpha, emission_energy)
-	_host.effects.add_child(marker)
+	_host.get_runtime_effects_root().add_child(marker)
+	_station_marker = marker
+	_station_instance_specs = instance_specs
 	return instance_layouts
 
 
@@ -176,11 +196,13 @@ func _build_sprite_group(
 	multimesh.mesh = mesh
 	multimesh.instance_count = records.size()
 	var instance_layouts: Array[Dictionary] = []
+	var instance_specs: Array[Dictionary] = []
 
 	for record_index in range(records.size()):
 		var record: Dictionary = records[record_index]
 		var entity_id: String = str(record.get(id_key, "%s_%02d" % [id_key, record_index]))
-		var layout: Dictionary = _resolve_record_layout(record, base_radius, record_index, entity_id.hash())
+		var seed_value := entity_id.hash()
+		var layout: Dictionary = _resolve_record_layout(record, base_radius, record_index, seed_value)
 		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
 		var size_multiplier: float = lerpf(0.84, 1.0, hull_ratio)
 
@@ -194,11 +216,21 @@ func _build_sprite_group(
 			"yaw": 0.0,
 			"ring_radius": float(layout.get("radius", base_radius)),
 		})
+		instance_specs.append({
+			"id": entity_id,
+			"index": record_index,
+			"base_size": base_size,
+			"seed": seed_value,
+			"fallback_index": record_index,
+			"fallback_radius": base_radius,
+		})
 
 	marker.multimesh = multimesh
 	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	marker.material_override = _build_ship_material(alpha, emission_energy)
-	_host.effects.add_child(marker)
+	_host.get_runtime_effects_root().add_child(marker)
+	_unit_marker = marker
+	_unit_instance_specs = instance_specs
 	return instance_layouts
 
 
@@ -221,6 +253,7 @@ func _build_fleet_group(
 	multimesh.mesh = mesh
 	multimesh.instance_count = _count_fleet_visual_instances(fleet_records, units_by_id)
 	var instance_layouts: Array[Dictionary] = []
+	var instance_specs: Array[Dictionary] = []
 	var instance_index: int = 0
 
 	for fleet_index in range(fleet_records.size()):
@@ -240,6 +273,15 @@ func _build_fleet_group(
 			var instance_basis: Basis = Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier)
 			multimesh.set_instance_transform(instance_index, Transform3D(instance_basis, member_position))
 			multimesh.set_instance_color(instance_index, _get_marker_tint(member_record, alpha, tint_strength))
+			instance_specs.append({
+				"index": instance_index,
+				"fleet_id": fleet_id,
+				"unit_id": str(member_record.get("unit_id", "")),
+				"member_index": member_index,
+				"member_count": member_records.size(),
+				"base_size": base_size,
+				"seed": fleet_id.hash(),
+			})
 			instance_index += 1
 
 		instance_layouts.append({
@@ -252,8 +294,104 @@ func _build_fleet_group(
 	marker.multimesh = multimesh
 	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	marker.material_override = _build_ship_material(alpha, emission_energy)
-	_host.effects.add_child(marker)
+	_host.get_runtime_effects_root().add_child(marker)
+	_fleet_marker = marker
+	_fleet_instance_specs = instance_specs
 	return instance_layouts
+
+
+func update_interpolated_runtime_positions(space_renderables: Dictionary, day_progress: float) -> void:
+	var records_by_unit_id: Dictionary = {}
+	var records_by_fleet_id: Dictionary = {}
+
+	for unit_variant in space_renderables.get("units", []):
+		var unit_record: Dictionary = unit_variant
+		var unit_id := str(unit_record.get("unit_id", ""))
+		if not unit_id.is_empty():
+			records_by_unit_id[unit_id] = unit_record
+
+	for fleet_variant in space_renderables.get("fleets", []):
+		var fleet_record: Dictionary = fleet_variant
+		var fleet_id := str(fleet_record.get("fleet_id", ""))
+		if not fleet_id.is_empty():
+			records_by_fleet_id[fleet_id] = fleet_record
+
+	_update_station_marker(records_by_unit_id, day_progress)
+	_update_unit_marker(records_by_unit_id, day_progress)
+	_update_fleet_marker(records_by_fleet_id, records_by_unit_id, day_progress)
+
+
+func _reset_interpolation_state() -> void:
+	_station_marker = null
+	_fleet_marker = null
+	_unit_marker = null
+	_station_instance_specs.clear()
+	_fleet_instance_specs.clear()
+	_unit_instance_specs.clear()
+
+
+func _update_station_marker(records_by_unit_id: Dictionary, day_progress: float) -> void:
+	if _station_marker == null or _station_marker.multimesh == null:
+		return
+	for spec in _station_instance_specs:
+		var record: Dictionary = records_by_unit_id.get(str(spec.get("id", "")), {})
+		if record.is_empty():
+			continue
+		var position := _get_interpolated_record_position(record, day_progress)
+		var velocity := _variant_to_vector3(record.get("velocity", Vector3.ZERO))
+		var yaw := atan2(-position.z, position.x)
+		if velocity.length_squared() > 0.0001:
+			yaw = atan2(-velocity.z, velocity.x)
+		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
+		var base_scale: Vector3 = spec.get("base_scale", Vector3.ONE)
+		var damaged_scale: Vector3 = spec.get("damaged_scale", base_scale)
+		var scale_blend: Vector3 = damaged_scale.lerp(base_scale, hull_ratio)
+		_station_marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis(Vector3.UP, yaw).scaled(scale_blend), position))
+
+
+func _update_unit_marker(records_by_unit_id: Dictionary, day_progress: float) -> void:
+	if _unit_marker == null or _unit_marker.multimesh == null:
+		return
+	for spec in _unit_instance_specs:
+		var record: Dictionary = records_by_unit_id.get(str(spec.get("id", "")), {})
+		if record.is_empty():
+			continue
+		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
+		var size_multiplier: float = lerpf(0.84, 1.0, hull_ratio)
+		var position := _get_interpolated_record_position(record, day_progress)
+		_unit_marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier), position))
+
+
+func _update_fleet_marker(records_by_fleet_id: Dictionary, records_by_unit_id: Dictionary, day_progress: float) -> void:
+	if _fleet_marker == null or _fleet_marker.multimesh == null:
+		return
+	for spec in _fleet_instance_specs:
+		var fleet_id := str(spec.get("fleet_id", ""))
+		var fleet_record: Dictionary = records_by_fleet_id.get(fleet_id, {})
+		if fleet_record.is_empty():
+			continue
+		var fleet_center := _get_interpolated_record_position(fleet_record, day_progress)
+		var unit_id := str(spec.get("unit_id", ""))
+		var member_record: Dictionary = records_by_unit_id.get(unit_id, {})
+		var member_position := fleet_center + _resolve_fleet_member_offset(
+			int(spec.get("member_index", 0)),
+			int(spec.get("member_count", 1)),
+			int(spec.get("seed", 0))
+		)
+		var hull_ratio := 1.0
+		if not member_record.is_empty():
+			member_position = _get_interpolated_record_position(member_record, day_progress)
+			hull_ratio = clampf(float(member_record.get("hull_ratio", 1.0)), 0.2, 1.0)
+		var size_multiplier: float = lerpf(0.82, 1.0, hull_ratio)
+		_fleet_marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier), member_position))
+
+
+func _get_interpolated_record_position(record: Dictionary, day_progress: float) -> Vector3:
+	if str(record.get("movement_state", SpaceUnitRuntime.MOVEMENT_IDLE)) != SpaceUnitRuntime.MOVEMENT_MOVING:
+		return _variant_to_vector3(record.get("local_position", Vector3.ZERO))
+	var previous := _variant_to_vector3(record.get("previous_local_position", record.get("local_position", Vector3.ZERO)))
+	var current := _variant_to_vector3(record.get("local_position", previous))
+	return previous.lerp(current, clampf(day_progress, 0.0, 1.0))
 
 
 func _resolve_layout(base_radius: float, index: int, seed_value: int) -> Dictionary:

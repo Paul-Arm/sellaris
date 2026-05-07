@@ -206,6 +206,8 @@ func update_system_panel() -> void:
 	)
 
 	if inspected_system_id.is_empty() or not _state.systems_by_id.has(inspected_system_id):
+		if _try_update_system_panel_for_selected_unit():
+			return
 		_clear_system_panel_preview()
 		_ui.system_panel.visible = false
 		_ui.selected_system_title.text = "No system selected"
@@ -296,6 +298,86 @@ func update_system_panel() -> void:
 	_ui.clear_owner_button.disabled = owner_empire_id.is_empty() or not has_full_intel
 	_ui.survey_system_button.text = "Survey Complete" if has_full_intel else "Survey System"
 	_ui.survey_system_button.disabled = _state.active_empire_id.is_empty() or not can_survey or has_full_intel
+
+
+func _try_update_system_panel_for_selected_unit() -> bool:
+	if _state == null or _ui == null:
+		return false
+	if _state.selected_space_entity_id.is_empty():
+		return false
+	match _state.selected_space_entity_kind:
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			return _update_system_panel_for_selected_unit(_state.selected_space_entity_id)
+		_:
+			return false
+
+
+func _update_system_panel_for_selected_unit(unit_id: String) -> bool:
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+	if unit == null:
+		return false
+
+	var unit_class: SpaceUnitClass = SpaceManager.get_unit_class(unit.class_id)
+	var class_display_name: String = unit.class_id
+	var class_category: String = ""
+	var cruise_speed: float = 0.0
+	var formation_radius: float = 0.0
+	var uses_hyperlanes: bool = false
+	if unit_class != null:
+		class_display_name = unit_class.display_name
+		class_category = _format_runtime_token(str(unit_class.category))
+		cruise_speed = unit_class.get_in_system_speed()
+		formation_radius = unit_class.get_formation_radius()
+		uses_hyperlanes = unit_class.mobility_component != null and unit_class.mobility_component.uses_hyperlanes
+
+	var owner_name: String = _get_empire_display_name(unit.owner_empire_id)
+	var system_name: String = _get_system_display_name(unit.current_system_id)
+	var destination_name: String = _get_system_display_name(unit.destination_system_id)
+	var fleet_name: String = ""
+	if not unit.fleet_id.is_empty():
+		var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(unit.fleet_id)
+		if fleet != null:
+			fleet_name = fleet.display_name
+
+	var tags_text: String = _format_string_list(unit.command_tags, 8)
+	var lines: Array[String] = [
+		"Owner: %s" % owner_name,
+		"Class: %s" % class_display_name,
+		"Category: %s" % class_category,
+		"System: %s" % system_name,
+		"Hull: %.0f / %.0f (%d%%)" % [
+			unit.current_hull_points,
+			unit.max_hull_points,
+			int(round(unit.get_hull_ratio() * 100.0)),
+		],
+	]
+	if not fleet_name.is_empty():
+		lines.append("Fleet: %s" % fleet_name)
+	if not destination_name.is_empty():
+		lines.append("Destination: %s" % destination_name)
+		if unit.eta_days_remaining > 0:
+			lines.append("ETA: %d days" % unit.eta_days_remaining)
+	if not str(unit.ai_role).is_empty():
+		lines.append("Role: %s" % _format_runtime_token(str(unit.ai_role)))
+	if cruise_speed > 0.0:
+		lines.append("In-system Speed: %s u/day" % _format_decimal(cruise_speed))
+	if formation_radius > 0.0:
+		lines.append("Formation Radius: %s u" % _format_decimal(formation_radius))
+	lines.append("Hyperlanes: %s" % ("Yes" if uses_hyperlanes else "No"))
+	if not tags_text.is_empty():
+		lines.append("Tags: %s" % tags_text)
+
+	_clear_system_panel_preview()
+	_set_manage_colony_button_state("", false)
+	_ui.system_preview_image.texture = null
+	_ui.selected_system_title.text = unit.display_name
+	_ui.selected_system_meta.text = "\n".join(lines)
+	_ui.system_panel.visible = not _view_router.is_system_view_open()
+	_ui.claim_system_button.disabled = true
+	_ui.clear_owner_button.disabled = true
+	_ui.survey_system_button.text = "Ship Selected"
+	_ui.survey_system_button.disabled = true
+	return true
 
 
 func get_inspected_system_id() -> String:
@@ -410,6 +492,38 @@ func _format_runtime_token(value: String) -> String:
 	if trimmed_value.is_empty():
 		return "Unassigned"
 	return trimmed_value.replace("_", " ").capitalize()
+
+
+func _format_string_list(values_variant: Variant, max_items: int) -> String:
+	var values: PackedStringArray = PackedStringArray()
+	if values_variant is PackedStringArray:
+		values = values_variant
+	elif values_variant is Array:
+		for value_variant in values_variant:
+			var value_text: String = str(value_variant).strip_edges()
+			if value_text.is_empty():
+				continue
+			values.append(value_text)
+	else:
+		return ""
+
+	if values.is_empty():
+		return ""
+
+	var display_values: Array[String] = []
+	for value_index in range(mini(values.size(), max_items)):
+		display_values.append(_format_runtime_token(values[value_index]))
+	var result: String = ", ".join(display_values)
+	if values.size() > max_items:
+		result += " +%d more" % (values.size() - max_items)
+	return result
+
+
+func _format_decimal(value: float) -> String:
+	var rounded_value: float = snappedf(value, 0.01)
+	if is_equal_approx(rounded_value, round(rounded_value)):
+		return str(int(round(rounded_value)))
+	return str(rounded_value)
 
 
 func invalidate_system_panel_snapshot(system_id: String = "") -> void:

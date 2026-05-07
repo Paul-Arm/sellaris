@@ -1,6 +1,7 @@
 extends RefCounted
 class_name GalaxyGenerator
 
+const SYSTEM_NAME_LIBRARY_SCRIPT: Script = preload("res://scene/galaxy/SystemNameLibrary.gd")
 const SHAPE_SPIRAL := "spiral"
 const SHAPE_RING := "ring"
 const SHAPE_ELLIPTICAL := "elliptical"
@@ -117,6 +118,7 @@ const HYPERLANE_INTERSECTION_EPSILON := 0.001
 var _hyperlane_map_points: Array[Vector2] = []
 var _hyperlane_system_query_grid: Dictionary = {}
 var _hyperlane_system_query_cell_size: float = 0.0
+var _system_name_library = SYSTEM_NAME_LIBRARY_SCRIPT.new()
 
 
 func get_shape_options() -> PackedStringArray:
@@ -139,6 +141,7 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 	var grid: Dictionary = {}
 	var cell_size: float = maxf(min_system_distance / sqrt(2.0), 1.0)
 	var custom_count: int = _append_custom_systems(systems, custom_systems, grid, cell_size, min_system_distance)
+	var used_system_names: Dictionary = _build_used_system_name_map(systems)
 	var procedural_target: int = maxi(0, target_system_count - custom_count)
 	var shape_context: Dictionary = _build_shape_context(rng, shape, galaxy_radius, spiral_arms, min_system_distance)
 	var procedural_positions: Array[Vector3] = _generate_procedural_positions(
@@ -154,9 +157,10 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 	for position in procedural_positions:
 		var index: int = systems.size()
 		var system_id: String = "sys_%04d" % index
+		var system_name: String = _system_name_library.get_system_name(galaxy_seed, index, used_system_names)
 		var record := {
 			"id": system_id,
-			"name": "System %04d" % (index + 1),
+			"name": system_name,
 			"position": position,
 			"is_custom": false,
 			"custom_index": -1,
@@ -278,6 +282,16 @@ func _append_custom_systems(
 		added_count += 1
 
 	return added_count
+
+
+func _build_used_system_name_map(systems: Array[Dictionary]) -> Dictionary:
+	var used_names: Dictionary = {}
+	for system_record in systems:
+		var system_name := str(system_record.get("name", "")).strip_edges()
+		if system_name.is_empty():
+			continue
+		used_names[system_name.to_lower()] = true
+	return used_names
 
 
 func _build_procedural_system_details(galaxy_seed: int, system_record: Dictionary) -> Dictionary:

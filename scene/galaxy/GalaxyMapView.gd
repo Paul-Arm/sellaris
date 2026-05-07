@@ -30,6 +30,10 @@ const BACKGROUND_NEBULA_FAR_HEIGHT: float = -320.0
 const BACKGROUND_NEBULA_NEAR_HEIGHT: float = -170.0
 const BACKGROUND_STAR_HEIGHT: float = -280.0
 const BACKGROUND_RANDOM_SEED: int = 421337
+const SYSTEM_LABEL_FONT_SIZE: int = 12
+const SYSTEM_LABEL_VERTICAL_OFFSET: float = 17.0
+const SYSTEM_LABEL_MAX_WIDTH: float = 148.0
+const SYSTEM_LABEL_COLLISION_PADDING: float = 4.0
 
 @onready var camera_rig: Node3D = $CameraRig
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -58,11 +62,15 @@ var min_system_distance: float = 48.0
 var ownership_bright_rim_enabled: bool = true
 var ownership_core_opacity: float = 0.0
 var pinned_system_id: String = ""
+var active_empire_id: String = ""
+var selected_system_id: String = ""
 var system_intel_by_id: Dictionary = {}
 var debug_reveal_galaxy: bool = false
 var _hovered_system_id: String = ""
 var _selected_space_entity_kind: String = ""
 var _selected_space_entity_id: String = ""
+var _label_layer: Control = null
+var _system_label_pool: Dictionary = {}
 var _space_selection_indicator: MeshInstance3D = null
 var _space_route_indicator: MeshInstance3D = null
 var _map_renderer: RefCounted = GALAXY_MAP_RENDERER_SCRIPT.new()
@@ -74,6 +82,7 @@ var _background_time: float = 0.0
 func _ready() -> void:
 	_map_renderer.bind(self, STAR_CORE_SHADER, STAR_GLOW_SHADER)
 	_runtime_placeholder_renderer.bind(self)
+	_ensure_label_layer()
 	_resize_background(0.0)
 
 
@@ -87,6 +96,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	_background_time += delta
 	_animate_background()
+	_update_system_labels()
 
 
 func sync_state(
@@ -99,7 +109,9 @@ func sync_state(
 	next_ownership_core_opacity: float,
 	next_pinned_system_id: String,
 	next_system_intel_by_id: Dictionary = {},
-	next_debug_reveal_galaxy: bool = false
+	next_debug_reveal_galaxy: bool = false,
+	next_active_empire_id: String = "",
+	next_selected_system_id: String = ""
 ) -> void:
 	system_positions = next_system_positions
 	system_records = next_system_records
@@ -109,16 +121,21 @@ func sync_state(
 	ownership_bright_rim_enabled = next_ownership_bright_rim_enabled
 	ownership_core_opacity = next_ownership_core_opacity
 	pinned_system_id = next_pinned_system_id
+	active_empire_id = next_active_empire_id
+	selected_system_id = next_selected_system_id
 	system_intel_by_id = next_system_intel_by_id.duplicate(true)
 	debug_reveal_galaxy = next_debug_reveal_galaxy
 	_resize_background(0.0)
+	_update_system_labels()
 	_update_space_selection_indicator()
 	_update_space_route_indicator()
 
 
-func sync_interaction_state(hovered_system_id: String, next_pinned_system_id: String) -> void:
+func sync_interaction_state(hovered_system_id: String, next_pinned_system_id: String, next_selected_system_id: String = "") -> void:
 	_hovered_system_id = hovered_system_id
 	pinned_system_id = next_pinned_system_id
+	selected_system_id = next_selected_system_id
+	_update_system_labels()
 
 
 func handle_view_input(event: InputEvent) -> void:
@@ -133,6 +150,7 @@ func handle_view_input(event: InputEvent) -> void:
 			if hovered_system_id != _hovered_system_id:
 				_hovered_system_id = hovered_system_id
 				render_stars()
+				_update_system_labels()
 				hovered_system_changed.emit(_hovered_system_id)
 		return
 
@@ -147,10 +165,14 @@ func handle_view_input(event: InputEvent) -> void:
 
 		var clicked_system_id: String = _pick_system_at_screen_position(event.position)
 		if clicked_system_id.is_empty():
+			selected_system_id = ""
 			_clear_space_entity_selection()
+			_update_system_labels()
 			return
 		_clear_space_entity_selection()
 		_hovered_system_id = clicked_system_id
+		selected_system_id = clicked_system_id
+		_update_system_labels()
 		hovered_system_changed.emit(clicked_system_id)
 		if event.double_click:
 			open_system_requested.emit(clicked_system_id)
@@ -174,13 +196,16 @@ func handle_view_input(event: InputEvent) -> void:
 
 		pinned_system_id = clicked_system_id
 		_hovered_system_id = clicked_system_id
+		selected_system_id = clicked_system_id
 		render_stars()
+		_update_system_labels()
 		hovered_system_changed.emit(clicked_system_id)
 		pinned_system_changed.emit(clicked_system_id)
 
 
 func render_stars() -> void:
 	_map_renderer.render_stars()
+	_update_system_labels()
 
 
 func render_hyperlanes() -> void:
@@ -198,6 +223,7 @@ func clear_rendered_map() -> void:
 	ownership_markers.mesh = null
 	ownership_connectors.mesh = null
 	hyperlanes.mesh = null
+	_clear_system_labels()
 	clear_runtime_placeholders()
 
 
@@ -218,6 +244,253 @@ func set_selected_space_entity(selection_kind: String, record_id: String) -> voi
 	_selected_space_entity_id = record_id
 	_update_space_selection_indicator()
 	_update_space_route_indicator()
+
+
+func _ensure_label_layer() -> void:
+	if _label_layer != null:
+		return
+	_label_layer = Control.new()
+	_label_layer.name = "SystemLabels"
+	_label_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_label_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_label_layer.z_index = 1
+	add_child(_label_layer)
+
+
+func _clear_system_labels() -> void:
+	_ensure_label_layer()
+	for label_variant in _system_label_pool.values():
+		var label: Label = label_variant
+		label.visible = false
+
+
+func _update_system_labels() -> void:
+	_ensure_label_layer()
+	if _label_layer == null:
+		return
+
+	_label_layer.visible = visible
+	if not visible or camera == null:
+		_clear_system_labels()
+		return
+
+	var viewport_rect: Rect2 = get_viewport().get_visible_rect()
+	_label_layer.size = viewport_rect.size
+	if viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
+		_clear_system_labels()
+		return
+
+	var zoom_bucket := _get_label_zoom_bucket()
+	var random_label_budget := _get_random_label_budget(zoom_bucket, viewport_rect.size)
+	var candidates: Array[Dictionary] = []
+	for system_index in range(system_records.size()):
+		var system_record: Dictionary = system_records[system_index]
+		var system_id := str(system_record.get("id", ""))
+		if system_id.is_empty() or not is_system_hint_visible_on_map(system_id):
+			continue
+
+		var world_position: Vector3 = system_record.get("position", Vector3.ZERO)
+		if camera.is_position_behind(world_position):
+			continue
+
+		var screen_position := camera.unproject_position(world_position)
+		if not viewport_rect.grow(80.0).has_point(screen_position):
+			continue
+
+		var system_name := str(system_record.get("name", system_id)).strip_edges()
+		if system_name.is_empty():
+			continue
+
+		candidates.append({
+			"system_id": system_id,
+			"name": system_name,
+			"screen_position": screen_position,
+			"priority": _get_label_priority(system_record, system_id, zoom_bucket),
+			"is_important": _is_important_label_system(system_record, system_id),
+		})
+
+	candidates.sort_custom(_sort_label_candidates)
+
+	var accepted_rects: Array[Rect2] = []
+	var shown_ids: Dictionary = {}
+	var random_label_count := 0
+	for candidate_variant in candidates:
+		var candidate: Dictionary = candidate_variant
+		if not bool(candidate.get("is_important", false)):
+			if random_label_count >= random_label_budget:
+				continue
+
+		var system_id := str(candidate.get("system_id", ""))
+		var label := _get_or_create_system_label(system_id)
+		var system_name := str(candidate.get("name", system_id))
+		label.text = system_name
+		var label_size := _measure_system_label(label, system_name)
+		var screen_position: Vector2 = candidate.get("screen_position", Vector2.ZERO)
+		var label_position := Vector2(
+			screen_position.x - label_size.x * 0.5,
+			screen_position.y + SYSTEM_LABEL_VERTICAL_OFFSET
+		)
+		var label_rect := Rect2(label_position, label_size)
+		if not viewport_rect.intersects(label_rect):
+			continue
+		if _label_rect_collides(label_rect, accepted_rects):
+			continue
+
+		accepted_rects.append(label_rect.grow(SYSTEM_LABEL_COLLISION_PADDING))
+		shown_ids[system_id] = true
+		label.position = label_position
+		label.size = label_size
+		label.visible = true
+		if not bool(candidate.get("is_important", false)):
+			random_label_count += 1
+
+	for system_id_variant in _system_label_pool.keys():
+		var system_id := str(system_id_variant)
+		if shown_ids.has(system_id):
+			continue
+		var label: Label = _system_label_pool[system_id]
+		label.visible = false
+
+
+func _get_or_create_system_label(system_id: String) -> Label:
+	if _system_label_pool.has(system_id):
+		return _system_label_pool[system_id]
+
+	var label := Label.new()
+	label.name = "Label_%s" % system_id
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.clip_text = true
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.add_theme_font_size_override("font_size", SYSTEM_LABEL_FONT_SIZE)
+	label.add_theme_color_override("font_color", Color(0.84, 0.92, 1.0, 0.9))
+	label.add_theme_color_override("font_outline_color", Color(0.02, 0.04, 0.08, 0.94))
+	label.add_theme_constant_override("outline_size", 3)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.72))
+	label.add_theme_constant_override("shadow_offset_x", 0)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.visible = false
+	_label_layer.add_child(label)
+	_system_label_pool[system_id] = label
+	return label
+
+
+func _measure_system_label(label: Label, system_name: String) -> Vector2:
+	var fallback_width := clampf(float(system_name.length()) * 7.2 + 12.0, 28.0, SYSTEM_LABEL_MAX_WIDTH)
+	var fallback_height := float(SYSTEM_LABEL_FONT_SIZE + 8)
+	var font := label.get_theme_font("font")
+	if font == null:
+		return Vector2(fallback_width, fallback_height)
+
+	var measured := font.get_string_size(system_name, HORIZONTAL_ALIGNMENT_LEFT, -1.0, SYSTEM_LABEL_FONT_SIZE)
+	return Vector2(
+		clampf(measured.x + 12.0, 28.0, SYSTEM_LABEL_MAX_WIDTH),
+		maxf(measured.y + 6.0, fallback_height)
+	)
+
+
+func _label_rect_collides(label_rect: Rect2, accepted_rects: Array[Rect2]) -> bool:
+	for accepted_rect in accepted_rects:
+		if label_rect.intersects(accepted_rect):
+			return true
+	return false
+
+
+func _get_label_priority(system_record: Dictionary, system_id: String, zoom_bucket: int) -> int:
+	if system_id == _hovered_system_id:
+		return 100000
+	if system_id == selected_system_id:
+		return 95000
+	if system_id == pinned_system_id:
+		return 94000
+	if _is_active_empire_home_system(system_id):
+		return 90000
+	if _is_empire_home_system(system_id):
+		return 86000
+
+	var owner_empire_id := str(system_record.get("owner_empire_id", ""))
+	if not active_empire_id.is_empty() and owner_empire_id == active_empire_id:
+		return 82000 + _stable_label_score(system_id, zoom_bucket)
+	if not owner_empire_id.is_empty():
+		return 76000 + _stable_label_score(system_id, zoom_bucket)
+
+	var intel_level := get_system_intel_level_on_map(system_id)
+	var intel_bonus := 1800 if intel_level >= GalaxyState.INTEL_EXPLORED else (800 if intel_level >= GalaxyState.INTEL_SENSOR else 0)
+	return intel_bonus + _stable_label_score(system_id, zoom_bucket)
+
+
+func _is_important_label_system(system_record: Dictionary, system_id: String) -> bool:
+	if system_id == _hovered_system_id or system_id == selected_system_id or system_id == pinned_system_id:
+		return true
+	if _is_empire_home_system(system_id):
+		return true
+	var owner_empire_id := str(system_record.get("owner_empire_id", ""))
+	return not active_empire_id.is_empty() and owner_empire_id == active_empire_id
+
+
+func _is_active_empire_home_system(system_id: String) -> bool:
+	if active_empire_id.is_empty() or not empires_by_id.has(active_empire_id):
+		return false
+	var empire_record: Dictionary = empires_by_id[active_empire_id]
+	return str(empire_record.get("home_system_id", "")) == system_id
+
+
+func _is_empire_home_system(system_id: String) -> bool:
+	for empire_variant in empires_by_id.values():
+		var empire_record: Dictionary = empire_variant
+		if str(empire_record.get("home_system_id", "")) == system_id:
+			return true
+	return false
+
+
+func _stable_label_score(system_id: String, zoom_bucket: int) -> int:
+	return absi(("%s:%s" % [system_id, zoom_bucket]).hash()) % 1000
+
+
+func _get_label_zoom_bucket() -> int:
+	var camera_distance := _get_camera_distance()
+	if camera_distance <= 850.0:
+		return 4
+	if camera_distance <= 1400.0:
+		return 3
+	if camera_distance <= 2400.0:
+		return 2
+	if camera_distance <= 3800.0:
+		return 1
+	return 0
+
+
+func _get_random_label_budget(zoom_bucket: int, viewport_size: Vector2) -> int:
+	var base_budget := 24
+	match zoom_bucket:
+		4:
+			base_budget = 260
+		3:
+			base_budget = 112
+		2:
+			base_budget = 67
+		1:
+			base_budget = 35
+		_:
+			base_budget = 17
+
+	var viewport_ratio := clampf((viewport_size.x * viewport_size.y) / (1920.0 * 1080.0), 0.45, 1.25)
+	return maxi(8, int(round(float(base_budget) * viewport_ratio)))
+
+
+func _get_camera_distance() -> float:
+	if camera == null:
+		return 1400.0
+	return camera.transform.origin.length()
+
+
+static func _sort_label_candidates(a: Dictionary, b: Dictionary) -> bool:
+	var priority_a := int(a.get("priority", 0))
+	var priority_b := int(b.get("priority", 0))
+	if priority_a == priority_b:
+		return str(a.get("system_id", "")).naturalnocasecmp_to(str(b.get("system_id", ""))) < 0
+	return priority_a > priority_b
 
 
 func set_camera_input_blocked(blocked: bool) -> void:

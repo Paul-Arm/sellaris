@@ -1126,9 +1126,11 @@ func sync_galaxy_view_state() -> void:
 		_state.ownership_core_opacity,
 		_state.pinned_system_id,
 		_get_active_empire_intel_map(),
-		_state.debug_reveal_galaxy
+		_state.debug_reveal_galaxy,
+		_state.active_empire_id,
+		_state.selected_system_id
 	)
-	galaxy_view.sync_interaction_state(_state.hovered_system_id, _state.pinned_system_id)
+	galaxy_view.sync_interaction_state(_state.hovered_system_id, _state.pinned_system_id, _state.selected_system_id)
 
 
 func clear_galaxy_view() -> void:

@@ -46,6 +46,11 @@ const ORBITAL_TYPE_PLANET := "planet"
 const ORBITAL_TYPE_ASTEROID_BELT := "asteroid_belt"
 const ORBITAL_TYPE_STRUCTURE := "structure"
 const ORBITAL_TYPE_RUIN := "ruin"
+const BODY_TYPE_STAR := "star"
+const BUILD_TAG_ORBITAL_STATION := "orbital_station"
+const BUILD_TAG_STELLAR_STATION := "stellar_station"
+const BUILD_TAG_MINING_STATION := "mining_station"
+const BUILD_TAG_RESEARCH_STATION := "research_station"
 const PLANET_COLOR_PALETTE := [
 	Color(0.52, 0.67, 0.95, 1.0),
 	Color(0.82, 0.61, 0.4, 1.0),
@@ -1727,6 +1732,10 @@ func _normalize_star_entry(star_entry: Dictionary, star_index: int) -> Dictionar
 	result["orbit_angle"] = float(result.get("orbit_angle", 0.0))
 	result["vertical_offset"] = float(result.get("vertical_offset", 0.0))
 	result["metadata"] = result.get("metadata", {}).duplicate(true)
+	result["buildable_component"] = _normalize_body_buildable_component(
+		result.get("buildable_component", {}),
+		BODY_TYPE_STAR
+	)
 	return result
  
  
@@ -1750,6 +1759,55 @@ func _normalize_orbital_entry(orbital_entry: Dictionary, orbital_index: int) -> 
 	result["resource_richness_points"] = resource_richness_points
 	result["resource_richness"] = float(resource_richness_points) / 100.0
 	result["metadata"] = result.get("metadata", {}).duplicate(true)
+	result["buildable_component"] = _normalize_body_buildable_component(
+		result.get("buildable_component", {}),
+		orbital_type
+	)
+	return result
+
+
+static func _normalize_body_buildable_component(value: Variant, body_type: String) -> Dictionary:
+	var source: Dictionary = value.duplicate(true) if value is Dictionary else {}
+	var normalized_type := str(source.get("body_type", body_type)).strip_edges()
+	if normalized_type.is_empty():
+		normalized_type = body_type
+	var allowed_tags := _variant_to_unique_string_array(source.get("allowed_build_tags", _default_build_tags_for_body_type(normalized_type)))
+	if allowed_tags.is_empty():
+		allowed_tags = _default_build_tags_for_body_type(normalized_type)
+	return {
+		"body_type": normalized_type,
+		"allowed_build_tags": allowed_tags,
+		"max_active_projects": maxi(int(source.get("max_active_projects", 1)), 0),
+		"display_metadata": source.get("display_metadata", {}).duplicate(true) if source.get("display_metadata", {}) is Dictionary else {},
+		"placement_metadata": source.get("placement_metadata", {}).duplicate(true) if source.get("placement_metadata", {}) is Dictionary else {},
+	}
+
+
+static func _default_build_tags_for_body_type(body_type: String) -> PackedStringArray:
+	match body_type:
+		BODY_TYPE_STAR:
+			return PackedStringArray([BUILD_TAG_STELLAR_STATION])
+		ORBITAL_TYPE_ASTEROID_BELT:
+			return PackedStringArray([BUILD_TAG_ORBITAL_STATION, BUILD_TAG_MINING_STATION])
+		ORBITAL_TYPE_STRUCTURE, ORBITAL_TYPE_RUIN:
+			return PackedStringArray([BUILD_TAG_ORBITAL_STATION, BUILD_TAG_RESEARCH_STATION])
+		_:
+			return PackedStringArray([BUILD_TAG_ORBITAL_STATION])
+
+
+static func _variant_to_unique_string_array(values: Variant) -> PackedStringArray:
+	var result := PackedStringArray()
+	var seen: Dictionary = {}
+	if values is PackedStringArray:
+		values = Array(values)
+	if values is not Array:
+		return result
+	for value_variant in values:
+		var value := str(value_variant).strip_edges()
+		if value.is_empty() or seen.has(value):
+			continue
+		seen[value] = true
+		result.append(value)
 	return result
 
 

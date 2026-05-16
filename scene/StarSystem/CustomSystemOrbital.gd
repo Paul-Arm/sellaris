@@ -21,6 +21,7 @@ const TYPE_RUIN := "ruin"
 @export_range(0.0, 1.0, 0.01) var resource_richness: float = 0.5
 @export_multiline var notes: String = ""
 @export var metadata: Dictionary = {}
+@export var buildable_component: Dictionary = {}
 
 
 func to_dictionary(index: int) -> Dictionary:
@@ -46,6 +47,7 @@ func to_dictionary(index: int) -> Dictionary:
 		"resource_richness": float(resolved_richness_points) / 100.0,
 		"notes": notes,
 		"metadata": metadata.duplicate(true),
+		"buildable_component": buildable_component.duplicate(true),
 	}
 
 

@@ -11,6 +11,8 @@ const BUILDING_DEFINITION_PATH := "res://core/economy/buildings/buildings.cfg"
 const TRAIT_DEFINITION_PATH := "res://core/empire/species/traits/traits.cfg"
 const STARTING_POP_UNIT_COUNT := 3
 const POP_UNIT_SIZE := 1000
+const HOST_KIND_ORBITAL := "orbital"
+const HOST_KIND_SPACE_UNIT := "space_unit"
 const CAPITAL_BUILDING_IDS := ["capital_hub", "basic_farm", "basic_reactor", "basic_extractor"]
 const BUILDING_GRID_RADIUS := 3
 const STARTER_BUILDING_SLOT_IDS := {
@@ -34,12 +36,13 @@ var _traits_by_id: Dictionary = {}
 var _species_by_id: Dictionary = {}
 var _species_ids_by_empire_id: Dictionary = {}
 var _colonies_by_id: Dictionary = {}
+var _colony_id_by_host_key: Dictionary = {}
 var _colony_ids_by_system_id: Dictionary = {}
 var _colony_ids_by_empire_id: Dictionary = {}
 var _colony_stats_cache: Dictionary = {}
 var _colony_economy_cache: Dictionary = {}
 var _last_build_error_by_colony_id: Dictionary = {}
-var _building_grid_slot_ids_cache: PackedStringArray = PackedStringArray()
+var _building_grid_slot_ids_cache: Dictionary = {}
 
 
 func _ready() -> void:
@@ -68,6 +71,7 @@ func reset_runtime_state(clear_definitions: bool = false) -> void:
 	_species_by_id.clear()
 	_species_ids_by_empire_id.clear()
 	_colonies_by_id.clear()
+	_colony_id_by_host_key.clear()
 	_colony_ids_by_system_id.clear()
 	_colony_ids_by_empire_id.clear()
 	_colony_stats_cache.clear()
@@ -122,6 +126,31 @@ func create_capital_colony(capital_context: Dictionary) -> String:
 	if empire_id.is_empty() or system_id.is_empty() or planet_orbital_id.is_empty():
 		return ""
 
+	return create_colony_for_orbital(empire_id, system_id, planet_record, {
+		"colony_id": _build_colony_id(empire_id, system_id, planet_orbital_id),
+		"colony_name": str(capital_context.get("colony_name", planet_record.get("name", "Capital"))),
+		"is_capital": true,
+		"starter_buildings": PackedStringArray(CAPITAL_BUILDING_IDS),
+		"starter_building_slots": _build_starter_building_slots(),
+		"starting_pop_count": STARTING_POP_UNIT_COUNT,
+	})
+
+
+func create_colony(host_context: Dictionary, owner_empire_id: String, options: Dictionary = {}) -> String:
+	if _jobs_by_id.is_empty() or _buildings_by_id.is_empty() or _traits_by_id.is_empty():
+		load_definitions()
+
+	var empire_id := owner_empire_id.strip_edges()
+	var system_id := str(host_context.get("system_id", "")).strip_edges()
+	var host_kind := _normalize_host_kind(str(host_context.get("host_kind", HOST_KIND_ORBITAL)))
+	var host_id := str(host_context.get("host_id", host_context.get("planet_orbital_id", ""))).strip_edges()
+	if empire_id.is_empty() or system_id.is_empty() or host_id.is_empty():
+		return ""
+
+	var existing_colony_id := get_colony_id_for_host(host_kind, host_id)
+	if not existing_colony_id.is_empty():
+		return existing_colony_id
+
 	var primary_species_id := get_primary_species_id_for_empire(empire_id)
 	if primary_species_id.is_empty():
 		primary_species_id = register_known_species(empire_id, _build_fallback_species_data(empire_id, 0))
@@ -129,17 +158,33 @@ func create_capital_colony(capital_context: Dictionary) -> String:
 		return ""
 
 	var colony = COLONY_RUNTIME_SCRIPT.new()
-	colony.colony_id = _build_colony_id(empire_id, system_id, planet_orbital_id)
+	colony.colony_id = str(options.get("colony_id", "")).strip_edges()
+	if colony.colony_id.is_empty():
+		colony.colony_id = _build_generic_colony_id(empire_id, system_id, host_kind, host_id)
 	colony.empire_id = empire_id
 	colony.system_id = system_id
-	colony.planet_orbital_id = planet_orbital_id
-	colony.name = str(capital_context.get("colony_name", planet_record.get("name", "Capital"))).strip_edges()
-	colony.is_capital = true
-	colony.buildings = PackedStringArray(CAPITAL_BUILDING_IDS)
-	colony.building_slots = _build_starter_building_slots()
-	colony.planet_record = planet_record.duplicate(true)
+	colony.host_kind = host_kind
+	colony.host_id = host_id
+	colony.host_display_name = str(host_context.get("host_display_name", host_context.get("name", host_id))).strip_edges()
+	colony.host_record = _sanitize_dictionary(host_context.get("host_record", {}))
+	colony.habitat_kind = str(host_context.get("habitat_kind", "")).strip_edges()
+	if colony.habitat_kind.is_empty() and not colony.host_record.is_empty():
+		colony.habitat_kind = _get_planet_type(colony.host_record)
+	colony.planet_orbital_id = host_id if host_kind == HOST_KIND_ORBITAL else ""
+	colony.planet_record = colony.host_record.duplicate(true) if host_kind == HOST_KIND_ORBITAL else {}
+	if colony.planet_record.is_empty() and host_context.get("planet", {}) is Dictionary:
+		colony.planet_record = (host_context.get("planet", {}) as Dictionary).duplicate(true)
+	colony.name = str(options.get("colony_name", options.get("name", colony.host_display_name))).strip_edges()
+	colony.is_capital = bool(options.get("is_capital", false))
+	colony.building_grid_radius = clampi(int(options.get("building_grid_radius", host_context.get("building_grid_radius", BUILDING_GRID_RADIUS))), 0, 12)
+	colony.buildings = _variant_to_packed_string_array(options.get("starter_buildings", host_context.get("starter_buildings", [])))
+	colony.building_slots = _sanitize_dictionary(options.get("starter_building_slots", host_context.get("starter_building_slots", {})))
+	if colony.is_capital and colony.buildings.is_empty() and colony.building_slots.is_empty():
+		colony.buildings = PackedStringArray(CAPITAL_BUILDING_IDS)
+		colony.building_slots = _build_starter_building_slots()
 	colony.pop_units = []
-	for pop_index in range(STARTING_POP_UNIT_COUNT):
+	var starting_pop_count := maxi(int(options.get("starting_pop_count", STARTING_POP_UNIT_COUNT)), 0)
+	for pop_index in range(starting_pop_count):
 		var pop_unit = POP_UNIT_RUNTIME_SCRIPT.new()
 		pop_unit.pop_unit_id = "%s:pop_%02d" % [colony.colony_id, pop_index]
 		pop_unit.species_id = primary_species_id
@@ -155,6 +200,50 @@ func create_capital_colony(capital_context: Dictionary) -> String:
 	colony_created.emit(colony.colony_id)
 	colony_updated.emit(colony.colony_id)
 	return colony.colony_id
+
+
+func create_colony_for_orbital(empire_id: String, system_id: String, orbital_record: Dictionary, options: Dictionary = {}) -> String:
+	var orbital_id := str(options.get("planet_orbital_id", orbital_record.get("id", ""))).strip_edges()
+	if orbital_id.is_empty():
+		return ""
+	var host_record := orbital_record.duplicate(true)
+	if str(host_record.get("id", "")).strip_edges().is_empty():
+		host_record["id"] = orbital_id
+	return create_colony({
+		"host_kind": HOST_KIND_ORBITAL,
+		"host_id": orbital_id,
+		"host_display_name": str(host_record.get("name", orbital_id)),
+		"habitat_kind": _get_planet_type(host_record),
+		"system_id": system_id,
+		"host_record": host_record,
+		"planet": host_record,
+		"building_grid_radius": BUILDING_GRID_RADIUS,
+	}, empire_id, options)
+
+
+func create_colony_for_space_unit(unit_id: String, options: Dictionary = {}) -> String:
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+	if unit == null:
+		return ""
+	var unit_class: SpaceUnitClass = SpaceManager.get_unit_class(unit.class_id)
+	if unit_class == null or not unit_class.has_colony_host():
+		return ""
+
+	var component = unit_class.colony_host_component
+	if component != null and component.has_method("ensure_defaults"):
+		component.call("ensure_defaults")
+	var host_record := _build_space_unit_host_record(unit, unit_class, component)
+	return create_colony({
+		"host_kind": HOST_KIND_SPACE_UNIT,
+		"host_id": unit.unit_id,
+		"host_display_name": unit.display_name,
+		"habitat_kind": str(component.get("habitat_kind")),
+		"system_id": unit.current_system_id,
+		"host_record": host_record,
+		"building_grid_radius": int(component.get("building_grid_radius")),
+		"starter_buildings": component.get("starter_buildings"),
+		"starter_building_slots": component.get("starter_building_slots"),
+	}, unit.owner_empire_id, options)
 
 
 func get_primary_species_id_for_empire(empire_id: String) -> String:
@@ -208,6 +297,33 @@ func get_first_manageable_colony_id(system_id: String, empire_id: String) -> Str
 
 func has_colony(colony_id: String) -> bool:
 	return _colonies_by_id.has(colony_id)
+
+
+func get_colony_id_for_host(host_kind: String, host_id: String) -> String:
+	var host_key := _build_host_key(host_kind, host_id)
+	if host_key.is_empty():
+		return ""
+	return str(_colony_id_by_host_key.get(host_key, ""))
+
+
+func remove_colony(colony_id: String) -> bool:
+	var colony = _colonies_by_id.get(colony_id, null)
+	if colony == null:
+		return false
+
+	_remove_colony_from_system_index(colony.colony_id, colony.system_id)
+	_remove_colony_from_empire_index(colony.colony_id, colony.empire_id)
+	var host_key := _build_host_key(colony.host_kind, colony.host_id)
+	if not host_key.is_empty() and str(_colony_id_by_host_key.get(host_key, "")) == colony.colony_id:
+		_colony_id_by_host_key.erase(host_key)
+	_colony_stats_cache.erase(colony.colony_id)
+	_colony_economy_cache.erase(colony.colony_id)
+	_last_build_error_by_colony_id.erase(colony.colony_id)
+	if EconomyManager != null and EconomyManager.has_source(_build_colony_source_id(colony.colony_id)):
+		EconomyManager.remove_source(_build_colony_source_id(colony.colony_id))
+	_colonies_by_id.erase(colony.colony_id)
+	colony_updated.emit(colony_id)
+	return true
 
 
 func get_colony_details(colony_id: String, system_name: String = "") -> Dictionary:
@@ -279,13 +395,19 @@ func get_colony_details(colony_id: String, system_name: String = "") -> Dictiona
 		"empire_id": colony.empire_id,
 		"system_id": colony.system_id,
 		"system_name": system_name,
+		"host_kind": colony.host_kind,
+		"host_id": colony.host_id,
+		"host_display_name": colony.host_display_name,
+		"habitat_kind": colony.habitat_kind,
+		"host_record": colony.host_record.duplicate(true),
 		"planet_orbital_id": colony.planet_orbital_id,
-		"planet_name": str(colony.planet_record.get("name", colony.planet_orbital_id)),
+		"planet_name": str(colony.planet_record.get("name", colony.host_display_name if not colony.host_display_name.is_empty() else colony.planet_orbital_id)),
 		"planet_record": colony.planet_record.duplicate(true),
-		"planet_type": _get_planet_type(colony.planet_record),
+		"planet_type": _get_colony_habitat_type(colony),
 		"habitability_points": int(stats.get("habitability_points", 0)),
 		"name": colony.name,
 		"is_capital": colony.is_capital,
+		"command_revision": colony.command_revision,
 		"total_population": int(stats.get("total_population", 0)),
 		"assigned_pop_count": int(stats.get("assigned_pop_count", 0)),
 		"idle_pop_count": int(stats.get("idle_pop_count", 0)),
@@ -293,6 +415,7 @@ func get_colony_details(colony_id: String, system_name: String = "") -> Dictiona
 		"species_counts": species_count_entries,
 		"buildings": building_entries,
 		"building_slots": colony.building_slots.duplicate(true),
+		"building_grid_radius": colony.building_grid_radius,
 		"building_grid_slots": _build_grid_slot_entries(colony),
 		"building_catalog": _build_building_catalog(colony),
 		"owner_stockpile": EconomyManager.get_stockpile_map(colony.empire_id) if not colony.empire_id.is_empty() else {},
@@ -315,12 +438,17 @@ func get_colony_summary(colony_id: String) -> Dictionary:
 		"id": colony.colony_id,
 		"empire_id": colony.empire_id,
 		"system_id": colony.system_id,
+		"host_kind": colony.host_kind,
+		"host_id": colony.host_id,
+		"host_display_name": colony.host_display_name,
+		"habitat_kind": colony.habitat_kind,
 		"planet_orbital_id": colony.planet_orbital_id,
-		"planet_name": str(colony.planet_record.get("name", colony.planet_orbital_id)),
-		"planet_type": _get_planet_type(colony.planet_record),
+		"planet_name": str(colony.planet_record.get("name", colony.host_display_name if not colony.host_display_name.is_empty() else colony.planet_orbital_id)),
+		"planet_type": _get_colony_habitat_type(colony),
 		"habitability_points": int(stats.get("habitability_points", 0)),
 		"name": colony.name,
 		"is_capital": colony.is_capital,
+		"command_revision": colony.command_revision,
 		"total_population": int(stats.get("total_population", 0)),
 		"assigned_pop_count": int(stats.get("assigned_pop_count", 0)),
 		"idle_pop_count": int(stats.get("idle_pop_count", 0)),
@@ -346,6 +474,7 @@ func assign_pop_to_job(colony_id: String, pop_unit_id: String, job_id: String) -
 		return false
 
 	pop_unit.assigned_job_id = job_id
+	colony.command_revision += 1
 	_refresh_colony_runtime_cache(colony)
 	sync_colony_source(colony.colony_id)
 	colony_updated.emit(colony.colony_id)
@@ -372,6 +501,7 @@ func set_job_cap(colony_id: String, job_id: String, cap: int) -> bool:
 	if not changed:
 		return true
 
+	colony.command_revision += 1
 	sync_colony_source(colony.colony_id)
 	colony_updated.emit(colony.colony_id)
 	return true
@@ -383,7 +513,7 @@ func place_building(colony_id: String, slot_id: String, building_id: String) -> 
 	building_id = building_id.strip_edges()
 	if colony == null:
 		return false
-	if slot_id.is_empty() or not _is_valid_building_slot_id(slot_id):
+	if slot_id.is_empty() or not _is_valid_building_slot_id(slot_id, colony.building_grid_radius):
 		_set_build_error(colony, "Invalid building slot.")
 		return false
 	if building_id.is_empty() or not _buildings_by_id.has(building_id):
@@ -418,6 +548,7 @@ func place_building(colony_id: String, slot_id: String, building_id: String) -> 
 	_sync_flat_buildings_from_slots(colony)
 	_expand_default_job_caps_after_building(colony, building_definition, previous_job_slots)
 	_last_build_error_by_colony_id[colony.colony_id] = ""
+	colony.command_revision += 1
 	_refresh_colony_runtime_cache(colony)
 	sync_colony_source(colony.colony_id)
 	colony_updated.emit(colony.colony_id)
@@ -434,10 +565,27 @@ func unassign_pop_from_job(colony_id: String, pop_unit_id: String) -> bool:
 	if pop_unit.assigned_job_id.is_empty():
 		return true
 	pop_unit.assigned_job_id = ""
+	colony.command_revision += 1
 	_refresh_colony_runtime_cache(colony)
 	sync_colony_source(colony.colony_id)
 	colony_updated.emit(colony.colony_id)
 	return true
+
+
+func request_assign_pop_to_job(colony_id: String, pop_unit_id: String, job_id: String, _controller_peer_id: int = 0) -> bool:
+	return assign_pop_to_job(colony_id, pop_unit_id, job_id)
+
+
+func request_unassign_pop_from_job(colony_id: String, pop_unit_id: String, _controller_peer_id: int = 0) -> bool:
+	return unassign_pop_from_job(colony_id, pop_unit_id)
+
+
+func request_set_job_cap(colony_id: String, job_id: String, cap: int, _controller_peer_id: int = 0) -> bool:
+	return set_job_cap(colony_id, job_id, cap)
+
+
+func request_place_building(colony_id: String, slot_id: String, building_id: String, _controller_peer_id: int = 0) -> bool:
+	return place_building(colony_id, slot_id, building_id)
 
 
 func transfer_colonies_in_system(system_id: String, new_owner_empire_id: String) -> void:
@@ -446,6 +594,8 @@ func transfer_colonies_in_system(system_id: String, new_owner_empire_id: String)
 		var colony = _colonies_by_id.get(colony_id, null)
 		if colony == null:
 			continue
+		if colony.host_kind != HOST_KIND_ORBITAL:
+			continue
 		var previous_owner_id: String = colony.empire_id
 		if previous_owner_id == new_owner_empire_id:
 			continue
@@ -453,6 +603,7 @@ func transfer_colonies_in_system(system_id: String, new_owner_empire_id: String)
 		colony.empire_id = new_owner_empire_id.strip_edges()
 		if not colony.empire_id.is_empty():
 			_add_colony_to_empire_index(colony.colony_id, colony.empire_id)
+		colony.command_revision += 1
 		_refresh_colony_runtime_cache(colony)
 		sync_colony_source(colony.colony_id)
 		colony_updated.emit(colony.colony_id)
@@ -471,9 +622,11 @@ func sync_colony_source(colony_id: String) -> bool:
 		return true
 
 	var economy := _get_cached_colony_economy(colony)
-	var source_tags := PackedStringArray([colony.system_id, colony.colony_id, colony.planet_orbital_id])
+	var source_tags := PackedStringArray([colony.system_id, colony.colony_id, colony.host_kind, colony.host_id])
 	if EconomyManager.has_source(source_id):
 		EconomyManager.transfer_source(source_id, colony.empire_id)
+		if EconomyManager.has_method("update_source_tags"):
+			EconomyManager.update_source_tags(source_id, source_tags)
 		return EconomyManager.update_source(
 			source_id,
 			economy.get("income", []),
@@ -492,6 +645,59 @@ func sync_colony_source(colony_id: String) -> bool:
 	)
 
 
+func sync_colony_host(colony_id: String) -> bool:
+	var colony = _colonies_by_id.get(colony_id, null)
+	if colony == null:
+		return false
+	if colony.host_kind != HOST_KIND_SPACE_UNIT:
+		return false
+
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(colony.host_id)
+	if unit == null:
+		return false
+	var unit_class: SpaceUnitClass = SpaceManager.get_unit_class(unit.class_id)
+	var host_record := _build_space_unit_host_record(unit, unit_class, unit_class.colony_host_component if unit_class != null else null)
+
+	var changed := false
+	if colony.empire_id != unit.owner_empire_id:
+		_remove_colony_from_empire_index(colony.colony_id, colony.empire_id)
+		colony.empire_id = unit.owner_empire_id
+		_add_colony_to_empire_index(colony.colony_id, colony.empire_id)
+		changed = true
+	if colony.system_id != unit.current_system_id:
+		_move_colony_system_index(colony, unit.current_system_id)
+		changed = true
+	if colony.host_display_name != unit.display_name:
+		colony.host_display_name = unit.display_name
+		changed = true
+	if colony.host_record.hash() != host_record.hash():
+		colony.host_record = host_record
+		changed = true
+	if not changed:
+		return true
+
+	colony.command_revision += 1
+	_refresh_colony_runtime_cache(colony)
+	sync_colony_source(colony.colony_id)
+	colony_updated.emit(colony.colony_id)
+	return true
+
+
+func sync_colony_host_for_space_unit(unit_id: String) -> bool:
+	var colony_id := get_colony_id_for_host(HOST_KIND_SPACE_UNIT, unit_id)
+	if colony_id.is_empty():
+		return false
+	return sync_colony_host(colony_id)
+
+
+func sync_all_space_unit_hosts() -> void:
+	var colony_ids := PackedStringArray()
+	for colony_id_variant in _colonies_by_id.keys():
+		colony_ids.append(str(colony_id_variant))
+	for colony_id in colony_ids:
+		sync_colony_host(colony_id)
+
+
 func calculate_colony_habitability_points(colony_id: String) -> int:
 	var colony = _colonies_by_id.get(colony_id, null)
 	if colony == null:
@@ -500,7 +706,7 @@ func calculate_colony_habitability_points(colony_id: String) -> int:
 
 
 func _calculate_colony_habitability_points_uncached(colony, species_counts: Dictionary, representative_pops_by_species_id: Dictionary) -> int:
-	var base_points := clampi(int(colony.planet_record.get("habitability_points", 0)), 0, 100)
+	var base_points := _get_base_habitability_points(colony)
 	var total_population := 0
 	for species_id_variant in species_counts.keys():
 		total_population += int(species_counts[species_id_variant])
@@ -571,12 +777,44 @@ func load_snapshot(snapshot: Dictionary) -> void:
 
 
 func _register_colony(colony) -> void:
+	if colony == null:
+		return
+	colony.ensure_defaults(_colonies_by_id.size())
 	_colonies_by_id[colony.colony_id] = colony
 	var system_colony_ids: PackedStringArray = _colony_ids_by_system_id.get(colony.system_id, PackedStringArray())
 	if not system_colony_ids.has(colony.colony_id):
 		system_colony_ids.append(colony.colony_id)
 	_colony_ids_by_system_id[colony.system_id] = system_colony_ids
 	_add_colony_to_empire_index(colony.colony_id, colony.empire_id)
+	var host_key := _build_host_key(colony.host_kind, colony.host_id)
+	if not host_key.is_empty():
+		_colony_id_by_host_key[host_key] = colony.colony_id
+
+
+func _remove_colony_from_system_index(colony_id: String, system_id: String) -> void:
+	if system_id.is_empty():
+		return
+	var system_colony_ids: PackedStringArray = _colony_ids_by_system_id.get(system_id, PackedStringArray())
+	if not system_colony_ids.has(colony_id):
+		return
+	system_colony_ids.remove_at(system_colony_ids.find(colony_id))
+	if system_colony_ids.is_empty():
+		_colony_ids_by_system_id.erase(system_id)
+	else:
+		_colony_ids_by_system_id[system_id] = system_colony_ids
+
+
+func _move_colony_system_index(colony, new_system_id: String) -> void:
+	if colony == null:
+		return
+	_remove_colony_from_system_index(colony.colony_id, colony.system_id)
+	colony.system_id = new_system_id.strip_edges()
+	if colony.system_id.is_empty():
+		return
+	var system_colony_ids: PackedStringArray = _colony_ids_by_system_id.get(colony.system_id, PackedStringArray())
+	if not system_colony_ids.has(colony.colony_id):
+		system_colony_ids.append(colony.colony_id)
+	_colony_ids_by_system_id[colony.system_id] = system_colony_ids
 
 
 func _add_colony_to_empire_index(colony_id: String, empire_id: String) -> void:
@@ -762,12 +1000,12 @@ func _ensure_building_slots_for_colony(colony) -> void:
 		var building_id := str(source_slots[slot_id_variant]).strip_edges()
 		if slot_id.is_empty() or building_id.is_empty():
 			continue
-		if not _is_valid_building_slot_id(slot_id) or not _buildings_by_id.has(building_id):
+		if not _is_valid_building_slot_id(slot_id, colony.building_grid_radius) or not _buildings_by_id.has(building_id):
 			continue
 		normalized_slots[slot_id] = building_id
 
 	if normalized_slots.is_empty() and not colony.buildings.is_empty():
-		normalized_slots = _migrate_flat_buildings_to_slots(colony.buildings)
+		normalized_slots = _migrate_flat_buildings_to_slots(colony.buildings, colony.building_grid_radius)
 	if normalized_slots.is_empty() and bool(colony.is_capital):
 		normalized_slots = _build_starter_building_slots()
 
@@ -775,15 +1013,15 @@ func _ensure_building_slots_for_colony(colony) -> void:
 	_sync_flat_buildings_from_slots(colony)
 
 
-func _migrate_flat_buildings_to_slots(flat_buildings: PackedStringArray) -> Dictionary:
+func _migrate_flat_buildings_to_slots(flat_buildings: PackedStringArray, grid_radius: int = BUILDING_GRID_RADIUS) -> Dictionary:
 	var result: Dictionary = {}
-	var grid_slot_ids := _build_grid_slot_ids()
+	var grid_slot_ids := _build_grid_slot_ids(grid_radius)
 	for building_id in flat_buildings:
 		if building_id.is_empty() or not _buildings_by_id.has(building_id):
 			continue
 
 		var preferred_slot_id := str(STARTER_BUILDING_SLOT_IDS.get(building_id, "")).strip_edges()
-		if not preferred_slot_id.is_empty() and _is_valid_building_slot_id(preferred_slot_id) and not result.has(preferred_slot_id):
+		if not preferred_slot_id.is_empty() and _is_valid_building_slot_id(preferred_slot_id, grid_radius) and not result.has(preferred_slot_id):
 			result[preferred_slot_id] = building_id
 			continue
 
@@ -799,7 +1037,7 @@ func _sync_flat_buildings_from_slots(colony) -> void:
 	if colony == null:
 		return
 	var buildings := PackedStringArray()
-	var grid_slot_ids := _build_grid_slot_ids()
+	var grid_slot_ids := _build_grid_slot_ids(colony.building_grid_radius)
 	for slot_id in grid_slot_ids:
 		var building_id := str(colony.building_slots.get(slot_id, "")).strip_edges()
 		if building_id.is_empty() or not _buildings_by_id.has(building_id):
@@ -813,7 +1051,7 @@ func _build_colony_building_entries(colony) -> Array[Dictionary]:
 	if colony == null:
 		return result
 	_ensure_building_slots_for_colony(colony)
-	for slot_id in _build_grid_slot_ids():
+	for slot_id in _build_grid_slot_ids(colony.building_grid_radius):
 		var building_id := str(colony.building_slots.get(slot_id, "")).strip_edges()
 		if building_id.is_empty():
 			continue
@@ -829,7 +1067,7 @@ func _build_grid_slot_entries(colony) -> Array[Dictionary]:
 	if colony == null:
 		return result
 	_ensure_building_slots_for_colony(colony)
-	for slot_id in _build_grid_slot_ids():
+	for slot_id in _build_grid_slot_ids(colony.building_grid_radius):
 		var coordinates := _parse_building_slot_id(slot_id)
 		var building_id := str(colony.building_slots.get(slot_id, "")).strip_edges()
 		var building_definition: Dictionary = _buildings_by_id.get(building_id, {}) if not building_id.is_empty() else {}
@@ -914,7 +1152,7 @@ func _has_empty_building_slot(colony) -> bool:
 	if colony == null:
 		return false
 	_ensure_building_slots_for_colony(colony)
-	for slot_id in _build_grid_slot_ids():
+	for slot_id in _build_grid_slot_ids(colony.building_grid_radius):
 		if str(colony.building_slots.get(slot_id, "")).strip_edges().is_empty():
 			return true
 	return false
@@ -925,33 +1163,36 @@ func _count_buildings_on_colony(colony, building_id: String) -> int:
 		return 0
 	_ensure_building_slots_for_colony(colony)
 	var count := 0
-	for slot_id in _build_grid_slot_ids():
+	for slot_id in _build_grid_slot_ids(colony.building_grid_radius):
 		if str(colony.building_slots.get(slot_id, "")).strip_edges() == building_id:
 			count += 1
 	return count
 
 
-func _is_valid_building_slot_id(slot_id: String) -> bool:
+func _is_valid_building_slot_id(slot_id: String, grid_radius: int = BUILDING_GRID_RADIUS) -> bool:
 	var parts := _parse_building_slot_parts(slot_id)
 	if parts.size() != 2:
 		return false
 	var q := int(parts[0])
 	var r := int(parts[1])
 	var s := -q - r
-	return maxi(abs(q), maxi(abs(r), abs(s))) <= BUILDING_GRID_RADIUS
+	return maxi(abs(q), maxi(abs(r), abs(s))) <= clampi(grid_radius, 0, 12)
 
 
-func _build_grid_slot_ids() -> PackedStringArray:
-	if not _building_grid_slot_ids_cache.is_empty():
-		return _building_grid_slot_ids_cache.duplicate()
+func _build_grid_slot_ids(grid_radius: int = BUILDING_GRID_RADIUS) -> PackedStringArray:
+	var radius := clampi(grid_radius, 0, 12)
+	if _building_grid_slot_ids_cache.has(radius):
+		return (_building_grid_slot_ids_cache[radius] as PackedStringArray).duplicate()
 
-	for r in range(-BUILDING_GRID_RADIUS, BUILDING_GRID_RADIUS + 1):
-		for q in range(-BUILDING_GRID_RADIUS, BUILDING_GRID_RADIUS + 1):
+	var slot_ids := PackedStringArray()
+	for r in range(-radius, radius + 1):
+		for q in range(-radius, radius + 1):
 			var s := -q - r
-			if maxi(abs(q), maxi(abs(r), abs(s))) > BUILDING_GRID_RADIUS:
+			if maxi(abs(q), maxi(abs(r), abs(s))) > radius:
 				continue
-			_building_grid_slot_ids_cache.append(_build_slot_id(q, r))
-	return _building_grid_slot_ids_cache.duplicate()
+			slot_ids.append(_build_slot_id(q, r))
+	_building_grid_slot_ids_cache[radius] = slot_ids
+	return slot_ids.duplicate()
 
 
 func _build_slot_id(q: int, r: int) -> String:
@@ -1130,7 +1371,7 @@ func _build_modifier_context(colony, pop_unit, job_id: String) -> Dictionary:
 		"species_id": pop_unit.species_id,
 		"species_archetype_id": species.archetype_id if species != null else "",
 		"job_id": job_id,
-		"planet_type": _get_planet_type(colony.planet_record),
+		"planet_type": _get_colony_habitat_type(colony),
 	}
 
 
@@ -1242,6 +1483,83 @@ func _get_planet_type(planet_record: Dictionary) -> String:
 	if planet_type.is_empty():
 		planet_type = str(planet_record.get("type", "planet"))
 	return planet_type
+
+
+func _get_colony_habitat_type(colony) -> String:
+	if colony == null:
+		return "planet"
+	var habitat_kind := str(colony.habitat_kind).strip_edges()
+	if not habitat_kind.is_empty():
+		return habitat_kind
+	if colony.planet_record is Dictionary and not colony.planet_record.is_empty():
+		return _get_planet_type(colony.planet_record)
+	return str(colony.host_record.get("type", "habitat"))
+
+
+func _get_base_habitability_points(colony) -> int:
+	if colony == null:
+		return 0
+	if colony.host_record is Dictionary and colony.host_record.has("habitability_points"):
+		return clampi(int(colony.host_record.get("habitability_points", 0)), 0, 100)
+	if colony.planet_record is Dictionary and colony.planet_record.has("habitability_points"):
+		return clampi(int(colony.planet_record.get("habitability_points", 0)), 0, 100)
+	return 0
+
+
+func _build_space_unit_host_record(unit: SpaceUnitRuntime, unit_class: SpaceUnitClass, component = null) -> Dictionary:
+	if unit == null:
+		return {}
+	var base_habitability := 50
+	var habitat_kind := "habitat"
+	var display_metadata: Dictionary = {}
+	if component != null:
+		if component.has_method("ensure_defaults"):
+			component.call("ensure_defaults")
+		base_habitability = int(component.get("base_habitability_points"))
+		habitat_kind = str(component.get("habitat_kind"))
+		var metadata_variant: Variant = component.get("display_metadata")
+		display_metadata = metadata_variant.duplicate(true) if metadata_variant is Dictionary else {}
+	return {
+		"id": unit.unit_id,
+		"name": unit.display_name,
+		"display_name": unit.display_name,
+		"type": HOST_KIND_SPACE_UNIT,
+		"unit_id": unit.unit_id,
+		"class_id": unit.class_id,
+		"class_display_name": unit_class.display_name if unit_class != null else unit.class_id,
+		"unit_kind": unit_class.unit_kind if unit_class != null else "",
+		"category": unit_class.category if unit_class != null else "",
+		"system_id": unit.current_system_id,
+		"owner_empire_id": unit.owner_empire_id,
+		"habitability_points": base_habitability,
+		"habitability": float(base_habitability) / 100.0,
+		"habitat_kind": habitat_kind,
+		"metadata": display_metadata,
+	}
+
+
+func _normalize_host_kind(value: String) -> String:
+	match value.strip_edges():
+		HOST_KIND_SPACE_UNIT:
+			return HOST_KIND_SPACE_UNIT
+		HOST_KIND_ORBITAL, "":
+			return HOST_KIND_ORBITAL
+		_:
+			return value.strip_edges()
+
+
+func _build_host_key(host_kind: String, host_id: String) -> String:
+	var normalized_kind := _normalize_host_kind(host_kind)
+	var normalized_id := host_id.strip_edges()
+	if normalized_kind.is_empty() or normalized_id.is_empty():
+		return ""
+	return "%s:%s" % [normalized_kind, normalized_id]
+
+
+func _sanitize_dictionary(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return value.duplicate(true)
+	return {}
 
 
 func _load_job_definitions() -> void:
@@ -1424,6 +1742,15 @@ func _resource_map_to_amount_array(resource_map: Dictionary) -> Array[Dictionary
 
 func _build_colony_id(empire_id: String, system_id: String, planet_orbital_id: String) -> String:
 	return "capital_%s_%s_%s" % [_sanitize_id(empire_id), _sanitize_id(system_id), _sanitize_id(planet_orbital_id)]
+
+
+func _build_generic_colony_id(empire_id: String, system_id: String, host_kind: String, host_id: String) -> String:
+	return "colony_%s_%s_%s_%s" % [
+		_sanitize_id(empire_id),
+		_sanitize_id(system_id),
+		_sanitize_id(host_kind),
+		_sanitize_id(host_id),
+	]
 
 
 func _build_colony_source_id(colony_id: String) -> String:

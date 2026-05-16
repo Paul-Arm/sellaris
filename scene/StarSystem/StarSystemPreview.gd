@@ -3,6 +3,7 @@ class_name StarSystemPreview
 
 signal selection_changed(selection_data: Dictionary)
 signal movement_order_requested(selection_data: Dictionary, target_local_position: Vector3)
+signal build_menu_requested(builder_unit_id: String, body_context: Dictionary, options: Array[Dictionary], screen_position: Vector2)
 
 const SYSTEM_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemRuntimePlaceholderRenderer.gd")
 const SYSTEM_SELECTABLE_COMPONENT_SCRIPT: Script = preload("res://scene/StarSystem/SystemSelectableComponent.gd")
@@ -38,6 +39,7 @@ var _selection_indicator: MeshInstance3D = null
 var _movement_route_indicator: MeshInstance3D = null
 var _runtime_effects_root: Node3D = null
 var _static_outer_radius: float = 22.0
+var _external_selected_builder_unit_id: String = ""
 
 
 func _ready() -> void:
@@ -63,16 +65,22 @@ func _process(_delta: float) -> void:
 	_update_movement_route_indicator(space_renderables, day_progress)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
 	if not _has_content:
 		return
 	if _is_pointer_over_gui():
 		return
 
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		var build_target := _pick_selectable_at_screen_position(event.position)
+		if _try_emit_build_menu(build_target, event.position):
+			_cancel_camera_gestures()
+			get_viewport().set_input_as_handled()
+			return
 		var command_target: Vector3 = _get_command_target_at_screen_position(event.position)
 		if command_target != INVALID_COMMAND_TARGET:
 			movement_order_requested.emit(get_selected_command_entity(), command_target)
+			_cancel_camera_gestures()
 			get_viewport().set_input_as_handled()
 		return
 
@@ -154,6 +162,15 @@ func forward_input(event: InputEvent) -> void:
 		viewport.push_input(event, true)
 
 
+func set_external_selected_builder_unit_id(unit_id: String) -> void:
+	_external_selected_builder_unit_id = unit_id.strip_edges()
+
+
+func set_camera_input_blocked(blocked: bool) -> void:
+	if camera_rig != null and camera_rig.has_method("set_input_blocked"):
+		camera_rig.call("set_input_blocked", blocked)
+
+
 func has_selection() -> bool:
 	return _selected_selectable != null
 
@@ -168,6 +185,18 @@ func clear_selection() -> void:
 	_select_selectable(null)
 
 
+func select_runtime_entity(selection_kind: String, record_id: String) -> bool:
+	var trimmed_record_id := record_id.strip_edges()
+	if trimmed_record_id.is_empty():
+		return false
+
+	for selection_id in _build_runtime_selection_ids(selection_kind, trimmed_record_id):
+		if _select_selectable_by_id(selection_id):
+			return true
+
+	return false
+
+
 func get_selection_popup_state() -> Dictionary:
 	if _selected_selectable == null:
 		return {}
@@ -175,6 +204,13 @@ func get_selection_popup_state() -> Dictionary:
 
 
 func get_selected_command_entity() -> Dictionary:
+	var selectable_entity := _get_selected_selectable_command_entity()
+	if not selectable_entity.is_empty():
+		return selectable_entity
+	return _get_external_builder_command_entity()
+
+
+func _get_selected_selectable_command_entity() -> Dictionary:
 	if _selected_selectable == null:
 		return {}
 	if not _is_commandable_selection_kind(_selected_selectable.selection_kind):
@@ -186,6 +222,21 @@ func get_selected_command_entity() -> Dictionary:
 		"selection_id": _selected_selectable.selection_id,
 		"selection_kind": _selected_selectable.selection_kind,
 		"record_id": str(parts[1]),
+	}
+
+
+func _get_external_builder_command_entity() -> Dictionary:
+	if _external_selected_builder_unit_id.is_empty():
+		return {}
+	var unit := SpaceManager.get_unit(_external_selected_builder_unit_id)
+	if unit == null or not unit.can_build_units():
+		return {}
+	if not _current_system_details.is_empty() and unit.current_system_id != str(_current_system_details.get("id", "")):
+		return {}
+	return {
+		"selection_id": "unit:%s" % unit.unit_id,
+		"selection_kind": SpaceUnitClass.UNIT_KIND_SHIP,
+		"record_id": unit.unit_id,
 	}
 
 
@@ -263,6 +314,40 @@ func _select_selectable(next_selectable: SystemSelectableComponent) -> void:
 	_emit_selection_changed()
 
 
+func _select_selectable_by_id(selection_id: String) -> bool:
+	for selectable in _selectables:
+		if selectable.selection_id != selection_id:
+			continue
+		_select_selectable(selectable)
+		return true
+	return false
+
+
+func _build_runtime_selection_ids(selection_kind: String, record_id: String) -> PackedStringArray:
+	var normalized_kind := selection_kind.strip_edges()
+	var selection_ids := PackedStringArray()
+	match normalized_kind:
+		"fleet":
+			selection_ids.append("fleet:%s" % record_id)
+		SpaceUnitClass.UNIT_KIND_STATION, "station":
+			selection_ids.append("station:%s" % record_id)
+		SpaceUnitClass.UNIT_KIND_SHIP:
+			selection_ids.append("%s:%s" % [SpaceUnitClass.UNIT_KIND_SHIP, record_id])
+			selection_ids.append("unit:%s" % record_id)
+		SpaceUnitClass.UNIT_KIND_CREATURE:
+			selection_ids.append("%s:%s" % [SpaceUnitClass.UNIT_KIND_CREATURE, record_id])
+			selection_ids.append("unit:%s" % record_id)
+		"unit":
+			selection_ids.append("unit:%s" % record_id)
+			selection_ids.append("%s:%s" % [SpaceUnitClass.UNIT_KIND_SHIP, record_id])
+			selection_ids.append("%s:%s" % [SpaceUnitClass.UNIT_KIND_CREATURE, record_id])
+			selection_ids.append("station:%s" % record_id)
+		_:
+			selection_ids.append("%s:%s" % [normalized_kind, record_id])
+			selection_ids.append("unit:%s" % record_id)
+	return selection_ids
+
+
 func _pick_selectable_at_screen_position(screen_position: Vector2) -> SystemSelectableComponent:
 	var best_selectable: SystemSelectableComponent = null
 	var best_score: float = INF
@@ -279,6 +364,42 @@ func _pick_selectable_at_screen_position(screen_position: Vector2) -> SystemSele
 			best_priority = selectable.pick_priority
 
 	return best_selectable
+
+
+func _try_emit_build_menu(target_selectable: SystemSelectableComponent, screen_position: Vector2) -> bool:
+	if target_selectable == null:
+		return false
+	var body_context := target_selectable.context.duplicate(true)
+	if body_context.is_empty() or not body_context.has("buildable_component"):
+		return false
+	var builder_unit_id := _get_active_builder_unit_id()
+	if builder_unit_id.is_empty():
+		return false
+	var system_id := str(_current_system_details.get("id", ""))
+	var options := SpaceManager.get_build_options_for_body(builder_unit_id, system_id, body_context)
+	if options.is_empty():
+		return false
+	build_menu_requested.emit(builder_unit_id, body_context, options, screen_position)
+	return true
+
+
+func _get_active_builder_unit_id() -> String:
+	var selected_entity := _get_selected_selectable_command_entity()
+	var unit_id := str(selected_entity.get("record_id", ""))
+	var unit := SpaceManager.get_unit(unit_id)
+	if unit != null and unit.can_build_units():
+		return unit.unit_id
+	var external_entity := _get_external_builder_command_entity()
+	unit_id = str(external_entity.get("record_id", ""))
+	unit = SpaceManager.get_unit(unit_id)
+	if unit != null and unit.can_build_units():
+		return unit.unit_id
+	return ""
+
+
+func _cancel_camera_gestures() -> void:
+	if camera_rig != null and camera_rig.has_method("cancel_camera_gestures"):
+		camera_rig.call("cancel_camera_gestures")
 
 
 func _register_selectable(selectable: SystemSelectableComponent) -> void:
@@ -354,6 +475,7 @@ func _register_star_selectable(star: Dictionary, star_position: Vector3) -> void
 		"highlight_radius": 3.4 + float(star.get("scale", 1.0)) * 1.6 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER,
 		"highlight_color": Color(star_color.r, star_color.g, star_color.b, 0.95),
 		"pick_priority": 10,
+		"context": _build_body_context(star, "star", star_position),
 	}))
 
 
@@ -389,6 +511,7 @@ func _register_orbital_selectable(orbital: Dictionary, orbital_position: Vector3
 		"highlight_radius": 1.8 + float(orbital.get("size", 1.0)) * 0.9,
 		"highlight_color": Color(orbital_color.r, orbital_color.g, orbital_color.b, 0.95),
 		"pick_priority": 20,
+		"context": _build_body_context(orbital, orbital_type, orbital_position),
 	}
 
 	if orbital_type == ORBITAL_TYPE_ASTEROID_BELT:
@@ -456,6 +579,7 @@ func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vect
 		"highlight_radius": 3.0 if is_station else 2.4,
 		"highlight_color": Color(owner_color.r, owner_color.g, owner_color.b, 0.98),
 		"pick_priority": 30 if is_station else 26,
+		"context": _build_runtime_body_context(record, entity_kind, marker_position, is_station),
 	}))
 
 
@@ -491,6 +615,7 @@ func _register_runtime_fleet_selectable(record: Dictionary, marker_position: Vec
 		"highlight_radius": 3.6 + minf(float(unit_count), 18.0) * 0.14,
 		"highlight_color": Color(owner_color.r, owner_color.g, owner_color.b, 0.98),
 		"pick_priority": 34,
+		"context": _build_runtime_body_context(record, "fleet", marker_position, false),
 	}))
 
 
@@ -511,7 +636,45 @@ func _create_selectable(config: Dictionary) -> SystemSelectableComponent:
 	selectable.ring_center_local = config.get("ring_center_local", Vector3.ZERO)
 	selectable.ring_radius = float(config.get("ring_radius", 0.0))
 	selectable.ring_pick_tolerance = float(config.get("ring_pick_tolerance", 14.0))
+	selectable.context = config.get("context", {}).duplicate(true) if config.get("context", {}) is Dictionary else {}
 	return selectable
+
+
+func _build_body_context(body_record: Dictionary, body_type: String, local_position: Vector3) -> Dictionary:
+	var body_id := str(body_record.get("id", body_record.get("name", body_type))).strip_edges()
+	return {
+		"system_id": str(_current_system_details.get("id", "")),
+		"system_name": str(_current_system_details.get("name", "")),
+		"generated_seed": int(_current_system_details.get("generated_seed", _current_system_details.get("seed", 0))),
+		"body_id": body_id,
+		"body_type": body_type,
+		"body_name": str(body_record.get("name", body_id)),
+		"host_kind": ColonyRuntime.HOST_KIND_ORBITAL,
+		"host_id": body_id,
+		"local_position": local_position,
+		"size": float(body_record.get("size", body_record.get("scale", 1.0))),
+		"body_record": body_record.duplicate(true),
+		"buildable_component": body_record.get("buildable_component", {}).duplicate(true) if body_record.get("buildable_component", {}) is Dictionary else {},
+	}
+
+
+func _build_runtime_body_context(record: Dictionary, body_type: String, local_position: Vector3, is_station: bool) -> Dictionary:
+	var record_id := str(record.get("unit_id", record.get("fleet_id", record.get("display_name", "")))).strip_edges()
+	var host_kind := ColonyRuntime.HOST_KIND_SPACE_UNIT if is_station else ""
+	return {
+		"system_id": str(_current_system_details.get("id", "")),
+		"system_name": str(_current_system_details.get("name", "")),
+		"generated_seed": int(_current_system_details.get("generated_seed", _current_system_details.get("seed", 0))),
+		"body_id": record_id,
+		"body_type": body_type,
+		"body_name": str(record.get("display_name", record.get("class_display_name", record_id))),
+		"host_kind": host_kind,
+		"host_id": record_id if is_station else "",
+		"local_position": local_position,
+		"size": 1.0,
+		"body_record": record.duplicate(true),
+		"buildable_component": {},
+	}
 
 
 func _ensure_selection_indicator() -> void:
@@ -635,8 +798,6 @@ func _build_dotted_line_mesh(start_position: Vector3, end_position: Vector3, das
 
 
 func _get_command_target_at_screen_position(screen_position: Vector2) -> Vector3:
-	if _selected_selectable == null:
-		return INVALID_COMMAND_TARGET
 	if get_selected_command_entity().is_empty():
 		return INVALID_COMMAND_TARGET
 	if camera == null or pivot == null:

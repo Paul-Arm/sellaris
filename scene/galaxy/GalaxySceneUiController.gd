@@ -123,7 +123,7 @@ func update_system_panel() -> void:
 		special_label = "  Special: %s" % special_type
 
 	_host.selected_system_title.text = str(system_record.get("name", inspected_system_id))
-	_host.selected_system_meta.text = "Owner: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nLocal Presence: Fleets %d  Mobile %d  Stations %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%" % [
+	_host.selected_system_meta.text = "Owner: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nLocal Presence: Fleets %d  Mobile %d  Stations %d  Builds %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%" % [
 		owner_name,
 		star_class,
 		star_count_label,
@@ -136,6 +136,7 @@ func update_system_panel() -> void:
 		int(space_presence.get("fleet_count", 0)),
 		int(space_presence.get("mobile_unit_count", 0)),
 		int(space_presence.get("station_count", 0)),
+		int(space_presence.get("construction_project_count", 0)),
 		int(summary.get("habitable_worlds", 0)),
 		int(summary.get("colonizable_worlds", 0)),
 		int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),

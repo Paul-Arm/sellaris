@@ -284,6 +284,11 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Science Ship"
 
+[node name="SpawnBuilderShipButton" type="Button" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Builder Ship"
+
 [node name="SpawnStationButton" type="Button" parent="CanvasLayer/DebugSpawnPanel/MarginContainer/VBoxContainer/ButtonRow" unique_id=507874547]
 layout_mode = 2
 size_flags_horizontal = 3

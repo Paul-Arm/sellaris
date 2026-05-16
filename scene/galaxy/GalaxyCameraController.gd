@@ -38,6 +38,10 @@ func is_middle_dragging() -> bool:
 	return _is_middle_dragging
 
 
+func cancel_camera_gestures() -> void:
+	_stop_camera_gestures()
+
+
 func set_galaxy_radius(radius: float) -> void:
 	_galaxy_radius = maxf(radius, 0.0)
 	_enforce_camera_limits()

@@ -63,6 +63,15 @@ func compile_bundle(value: Variant) -> ResourceBundle:
 	return _registry.compile_bundle(value)
 
 
+func preview_orbital_deposit_income(galaxy_seed: int, system_id: String, orbital: Dictionary) -> Dictionary:
+	if _registry.size() == 0 and not load_registry():
+		return {}
+	var income_bundle := _compile_orbital_income_bundle(galaxy_seed, system_id, orbital)
+	if income_bundle == null or income_bundle.is_empty():
+		return {}
+	return _registry.bundle_to_resource_map(income_bundle)
+
+
 func bootstrap(empire_ids_variant: Variant, galaxy_snapshot: Dictionary) -> void:
 	if _registry.size() == 0 and not load_registry():
 		clear_runtime_state()
@@ -180,6 +189,29 @@ func transfer_source(source_id: String, new_owner_empire_id: String) -> bool:
 	_apply_source_to_owner(record, -1)
 	record.owner_empire_index = new_owner_index
 	_apply_source_to_owner(record, 1)
+	return true
+
+
+func update_source_tags(source_id: String, tags: PackedStringArray) -> bool:
+	var record := _sources.get(source_id, null) as EconomySourceRecord
+	if record == null:
+		return false
+	if record.kind == "orbital_deposit" and record.tags.size() > 0:
+		var old_system_id: String = str(record.tags[0]).strip_edges()
+		if not old_system_id.is_empty() and _source_ids_by_system_id.has(old_system_id):
+			var old_system_source_ids: Dictionary = _source_ids_by_system_id[old_system_id]
+			old_system_source_ids.erase(source_id)
+			if old_system_source_ids.is_empty():
+				_source_ids_by_system_id.erase(old_system_id)
+			else:
+				_source_ids_by_system_id[old_system_id] = old_system_source_ids
+	record.tags = tags.duplicate()
+	if record.kind == "orbital_deposit" and record.tags.size() > 0:
+		var new_system_id: String = str(record.tags[0]).strip_edges()
+		if not new_system_id.is_empty():
+			var new_system_source_ids: Dictionary = _source_ids_by_system_id.get(new_system_id, {})
+			new_system_source_ids[source_id] = true
+			_source_ids_by_system_id[new_system_id] = new_system_source_ids
 	return true
 
 

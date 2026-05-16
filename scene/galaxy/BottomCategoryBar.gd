@@ -255,6 +255,7 @@ func _collect_categories_from_pages() -> void:
 			_configure_runtime_item_list(runtime_item_list)
 			runtime_item_list.set_meta("category_id", page.name.to_snake_case())
 			if not bool(runtime_item_list.get_meta("runtime_signals_bound", false)):
+				runtime_item_list.item_clicked.connect(_on_runtime_item_clicked.bind(runtime_item_list))
 				runtime_item_list.item_activated.connect(_on_runtime_item_activated.bind(runtime_item_list))
 				runtime_item_list.item_selected.connect(_on_runtime_item_selected.bind(runtime_item_list))
 				runtime_item_list.set_meta("runtime_signals_bound", true)
@@ -383,6 +384,7 @@ func _configure_page_command_row(
 
 
 func _configure_runtime_item_list(runtime_item_list: ItemList) -> void:
+	runtime_item_list.mouse_filter = Control.MOUSE_FILTER_STOP
 	runtime_item_list.custom_minimum_size = Vector2(0, 38)
 	runtime_item_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	runtime_item_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -974,6 +976,23 @@ func _on_runtime_item_selected(_index: int, runtime_item_list: ItemList) -> void
 		return
 
 
+func _on_runtime_item_clicked(
+	index: int,
+	_at_position: Vector2,
+	mouse_button_index: int,
+	runtime_item_list: ItemList
+) -> void:
+	if mouse_button_index != MOUSE_BUTTON_LEFT:
+		return
+	var category_id := str(runtime_item_list.get_meta("category_id", ""))
+	if not _activates_runtime_entry_on_click(category_id):
+		return
+	var entry := _get_runtime_entry_at(runtime_item_list, index)
+	if entry.is_empty():
+		return
+	runtime_entry_activated.emit(category_id, entry)
+
+
 func _on_runtime_item_activated(index: int, runtime_item_list: ItemList) -> void:
 	var entry := _get_runtime_entry_at(runtime_item_list, index)
 	if entry.is_empty():
@@ -1023,6 +1042,18 @@ func _set_runtime_action_button_state(category: Dictionary, enabled: bool) -> vo
 	match category_id:
 		"planets":
 			runtime_action_button.text = "Manage Colony"
+		"starbases":
+			runtime_action_button.text = "Open Station"
+		"passive_fleets", "military_fleets":
+			runtime_action_button.text = "Select"
 		_:
 			runtime_action_button.text = "Open"
 	runtime_action_button.disabled = not enabled
+
+
+func _activates_runtime_entry_on_click(category_id: String) -> bool:
+	match category_id:
+		"starbases", "passive_fleets", "military_fleets":
+			return true
+		_:
+			return false

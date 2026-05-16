@@ -171,6 +171,8 @@ func get_system_details(system_id: String) -> Dictionary:
 
 	details["owner_empire_id"] = owner_id
 	details["owner_name"] = owner_name
+	details["active_empire_id"] = _state.active_empire_id
+	details["generated_seed"] = _state.generated_seed
 	details["space_presence"] = get_system_space_presence(system_id)
 	details["space_renderables"] = build_system_renderables(system_id)
 	details["colonies"] = _build_system_colony_summaries(system_id)
@@ -276,6 +278,10 @@ func _build_system_colony_summaries(system_id: String) -> Array[Dictionary]:
 			"name": str(colony_details.get("name", colony_id)),
 			"empire_id": str(colony_details.get("empire_id", "")),
 			"owner_name": str(colony_details.get("owner_name", "")),
+			"host_kind": str(colony_details.get("host_kind", "")),
+			"host_id": str(colony_details.get("host_id", "")),
+			"host_display_name": str(colony_details.get("host_display_name", "")),
+			"habitat_kind": str(colony_details.get("habitat_kind", "")),
 			"planet_name": str(colony_details.get("planet_name", "")),
 			"total_population": int(colony_details.get("total_population", 0)),
 			"idle_pop_count": int(colony_details.get("idle_pop_count", 0)),
@@ -303,12 +309,15 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 		var system_name := _get_system_runtime_name(colony_system_id)
 		var is_local_colony := not inspected_system_id.is_empty() and colony_system_id == inspected_system_id
 		var planet_name := str(colony_details.get("planet_name", "")).strip_edges()
+		var host_name := str(colony_details.get("host_display_name", planet_name)).strip_edges()
 		var colony_name := str(colony_details.get("name", colony_id)).strip_edges()
 		if colony_name.is_empty():
 			colony_name = colony_id
+		if host_name.is_empty():
+			host_name = planet_name if not planet_name.is_empty() else colony_name
 		planet_entries.append({
 			"id": colony_id,
-			"title": planet_name if not planet_name.is_empty() else colony_name,
+			"title": host_name,
 			"summary": "%s pops  Idle %d  Net %s" % [
 				_format_runtime_population(int(colony_details.get("total_population", 0))),
 				int(colony_details.get("idle_pop_count", 0)),
@@ -316,9 +325,9 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 			],
 			"location": system_name,
 			"is_local": is_local_colony,
-			"tooltip": "%s\nPlanet: %s\nSystem: %s\nPopulation: %s\nIdle pops: %d\nMonthly net: %s" % [
+			"tooltip": "%s\nHost: %s\nSystem: %s\nPopulation: %s\nIdle pops: %d\nMonthly net: %s" % [
 				colony_name,
-				planet_name,
+				host_name,
 				system_name,
 				_format_runtime_population(int(colony_details.get("total_population", 0))),
 				int(colony_details.get("idle_pop_count", 0)),
@@ -337,6 +346,8 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 		var is_local: bool = not inspected_system_id.is_empty() and ship.current_system_id == inspected_system_id
 		station_entries.append({
 			"id": ship.unit_id,
+			"entity_kind": "unit",
+			"selection_kind": SpaceUnitClass.UNIT_KIND_STATION,
 			"title": ship.display_name,
 			"summary": "%s  Hull %d%%" % [
 				ship_class.display_name if ship_class != null else ship.class_id,
@@ -507,10 +518,75 @@ func place_colony_building(colony_id: String, slot_id: String, building_id: Stri
 	return changed
 
 
+func request_colonize_orbital(system_id: String, body_context: Dictionary) -> String:
+	if _state == null or _state.active_empire_id.is_empty():
+		return ""
+	system_id = system_id.strip_edges()
+	if system_id.is_empty() or not _state.systems_by_id.has(system_id):
+		return ""
+	if _state.galaxy_state.get_system_owner_id(system_id) != _state.active_empire_id:
+		return ""
+	if not _has_full_intel_for_active_empire(system_id):
+		return ""
+
+	var body_id := str(body_context.get("body_id", body_context.get("host_id", ""))).strip_edges()
+	if body_id.is_empty():
+		return ""
+	var orbital := _find_orbital_record(system_id, body_id)
+	if orbital.is_empty() or not _is_colonizable_orbital_record(orbital):
+		return ""
+	if not ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, body_id).is_empty():
+		return ""
+
+	var colony_id := ColonyManager.create_colony_for_orbital(_state.active_empire_id, system_id, orbital, {
+		"colony_name": str(orbital.get("name", body_id)),
+	})
+	if colony_id.is_empty():
+		return ""
+
+	if _scene_ui_controller != null:
+		_scene_ui_controller.invalidate_system_panel_snapshot(system_id)
+		_scene_ui_controller.update_system_panel()
+		_scene_ui_controller.update_info_label()
+	return colony_id
+
+
 func spawn_runtime_unit(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> SpaceUnitRuntime:
 	if _state == null or system_id.is_empty() or not _state.systems_by_id.has(system_id):
 		return null
 	return SpaceManager.spawn_unit(class_id, owner_empire_id, system_id, spawn_data)
+
+
+func request_build_station_for_unit(builder_unit_id: String) -> bool:
+	if _state == null or builder_unit_id.is_empty():
+		return false
+	var builder: SpaceUnitRuntime = SpaceManager.get_unit(builder_unit_id)
+	if builder == null or not _can_command_owner(builder.owner_empire_id):
+		return false
+	var project_id := SpaceManager.request_build_station(builder_unit_id)
+	return not project_id.is_empty()
+
+
+func request_build_order_for_body(
+	builder_unit_id: String,
+	system_id: String,
+	body_context: Dictionary,
+	build_class_id: String
+) -> bool:
+	if _state == null or builder_unit_id.is_empty() or build_class_id.is_empty():
+		return false
+	var builder: SpaceUnitRuntime = SpaceManager.get_unit(builder_unit_id)
+	if builder == null or not _can_command_owner(builder.owner_empire_id):
+		return false
+	if builder.current_system_id != system_id:
+		return false
+	var project_id := SpaceManager.request_build_order_for_body(
+		builder_unit_id,
+		system_id,
+		body_context,
+		build_class_id
+	)
+	return not project_id.is_empty()
 
 
 func create_runtime_fleet(owner_empire_id: String, system_id: String, unit_ids_variant: Variant = PackedStringArray(), fleet_data: Dictionary = {}) -> SpaceFleetRuntime:
@@ -1083,10 +1159,15 @@ func connect_space_runtime_signals() -> void:
 		SpaceManager.fleet_created,
 		SpaceManager.fleet_removed,
 		SpaceManager.fleet_updated,
+		SpaceManager.construction_started,
+		SpaceManager.construction_updated,
+		SpaceManager.construction_cancelled,
 	]
 	for runtime_signal in runtime_signals:
 		if not runtime_signal.is_connected(_on_space_runtime_changed):
 			runtime_signal.connect(_on_space_runtime_changed)
+	if not SpaceManager.construction_completed.is_connected(_on_space_construction_completed):
+		SpaceManager.construction_completed.connect(_on_space_construction_completed)
 
 
 func disconnect_space_runtime_signals() -> void:
@@ -1097,10 +1178,15 @@ func disconnect_space_runtime_signals() -> void:
 		SpaceManager.fleet_created,
 		SpaceManager.fleet_removed,
 		SpaceManager.fleet_updated,
+		SpaceManager.construction_started,
+		SpaceManager.construction_updated,
+		SpaceManager.construction_cancelled,
 	]
 	for runtime_signal in runtime_signals:
 		if runtime_signal.is_connected(_on_space_runtime_changed):
 			runtime_signal.disconnect(_on_space_runtime_changed)
+	if SpaceManager.construction_completed.is_connected(_on_space_construction_completed):
+		SpaceManager.construction_completed.disconnect(_on_space_construction_completed)
 
 
 func refresh_runtime_visuals() -> void:
@@ -1186,6 +1272,32 @@ func _focus_galaxy_camera_on_system(system_id: String) -> void:
 
 func _can_command_owner(owner_empire_id: String) -> bool:
 	return _state == null or _state.active_empire_id.is_empty() or owner_empire_id == _state.active_empire_id
+
+
+func _find_orbital_record(system_id: String, orbital_id: String) -> Dictionary:
+	if _state == null or system_id.is_empty() or orbital_id.is_empty():
+		return {}
+	var system_details := resolve_system_details(system_id)
+	for orbital_variant in system_details.get("orbitals", []):
+		if orbital_variant is not Dictionary:
+			continue
+		var orbital: Dictionary = orbital_variant
+		if str(orbital.get("id", "")) == orbital_id:
+			return orbital.duplicate(true)
+	return {}
+
+
+func _is_colonizable_orbital_record(orbital: Dictionary) -> bool:
+	if str(orbital.get("type", "")) != "planet":
+		return false
+	if bool(orbital.get("is_colonizable", false)):
+		return true
+	var habitability_points := 0
+	if orbital.has("habitability_points"):
+		habitability_points = int(orbital.get("habitability_points", 0))
+	elif orbital.has("habitability"):
+		habitability_points = int(round(clampf(float(orbital.get("habitability", 0.0)), 0.0, 1.0) * 100.0))
+	return habitability_points >= 45
 
 
 func _find_hyperlane_path(start_system_id: String, destination_system_id: String) -> PackedStringArray:
@@ -1289,6 +1401,8 @@ func _build_unknown_system_hint_details(system_id: String) -> Dictionary:
 		"name": str(system_record.get("name", system_id)),
 		"owner_empire_id": "",
 		"owner_name": "Unknown",
+		"active_empire_id": _state.active_empire_id,
+		"generated_seed": _state.generated_seed,
 		"intel_level": GalaxyState.INTEL_NONE,
 		"intel_label": "Unknown",
 		"has_full_intel": false,
@@ -1325,6 +1439,8 @@ func _build_redacted_system_details(system_id: String, full_details: Dictionary)
 		"name": str(system_record.get("name", system_id)),
 		"owner_empire_id": str(full_details.get("owner_empire_id", "")),
 		"owner_name": str(full_details.get("owner_name", "Unknown")),
+		"active_empire_id": _state.active_empire_id,
+		"generated_seed": _state.generated_seed,
 		"intel_level": int(full_details.get("intel_level", GalaxyState.INTEL_SENSOR)),
 		"intel_label": str(full_details.get("intel_label", "Sensor Contact")),
 		"has_full_intel": false,
@@ -1494,6 +1610,10 @@ func _on_space_runtime_changed(_record_id: String) -> void:
 		return
 	_state.runtime_visual_refresh_queued = true
 	Callable(self, "refresh_runtime_visuals").call_deferred()
+
+
+func _on_space_construction_completed(_project_id: String, unit_id: String) -> void:
+	_on_space_runtime_changed(unit_id)
 
 
 func _reveal_intel_from_space_record(record_id: String) -> void:

@@ -14,6 +14,7 @@ var _fleet_name_line_edit: LineEdit = null
 var _fleet_unit_count_spin_box: SpinBox = null
 var _spawn_fleet_button: Button = null
 var _spawn_science_ship_button: Button = null
+var _spawn_builder_ship_button: Button = null
 var _spawn_station_button: Button = null
 var _status_label: Label = null
 var _visible: bool = false
@@ -48,6 +49,7 @@ func bind(
 	_fleet_unit_count_spin_box = panel.get_node("MarginContainer/VBoxContainer/FleetShipCountSpinBox") as SpinBox
 	_spawn_fleet_button = panel.get_node("MarginContainer/VBoxContainer/ButtonRow/SpawnFleetButton") as Button
 	_spawn_science_ship_button = panel.get_node("MarginContainer/VBoxContainer/ButtonRow/SpawnScienceShipButton") as Button
+	_spawn_builder_ship_button = panel.get_node_or_null("MarginContainer/VBoxContainer/ButtonRow/SpawnBuilderShipButton") as Button
 	_spawn_station_button = panel.get_node("MarginContainer/VBoxContainer/ButtonRow/SpawnStationButton") as Button
 	_status_label = panel.get_node("MarginContainer/VBoxContainer/StatusLabel") as Label
 
@@ -56,6 +58,8 @@ func bind(
 	_use_inspected_system_button.pressed.connect(_on_use_inspected_system_pressed)
 	_spawn_fleet_button.pressed.connect(_on_spawn_fleet_pressed)
 	_spawn_science_ship_button.pressed.connect(_on_spawn_science_ship_pressed)
+	if _spawn_builder_ship_button != null:
+		_spawn_builder_ship_button.pressed.connect(_on_spawn_builder_ship_pressed)
 	_spawn_station_button.pressed.connect(_on_spawn_station_pressed)
 
 	configure()
@@ -72,6 +76,7 @@ func unbind() -> void:
 	_fleet_unit_count_spin_box = null
 	_spawn_fleet_button = null
 	_spawn_science_ship_button = null
+	_spawn_builder_ship_button = null
 	_spawn_station_button = null
 	_status_label = null
 	_get_active_empire_id = Callable()
@@ -182,6 +187,8 @@ func sync_defaults(active_empire_id: String, inspected_system_id: String, empire
 	var controls_disabled: bool = _empire_picker.item_count == 0 or _system_picker.item_count == 0
 	_spawn_fleet_button.disabled = controls_disabled
 	_spawn_science_ship_button.disabled = controls_disabled
+	if _spawn_builder_ship_button != null:
+		_spawn_builder_ship_button.disabled = controls_disabled
 	_spawn_station_button.disabled = controls_disabled
 
 
@@ -317,6 +324,29 @@ func _on_spawn_science_ship_pressed() -> void:
 
 	var systems_by_id: Dictionary = _resolve_systems_by_id()
 	set_status("Spawned %s in %s." % [science_ship.display_name, str(systems_by_id.get(system_id, {}).get("name", system_id))])
+
+
+func _on_spawn_builder_ship_pressed() -> void:
+	if not _spawn_runtime_unit.is_valid():
+		return
+
+	var empire_id: String = _get_selected_empire_id()
+	var system_id: String = _get_selected_system_id()
+	if empire_id.is_empty() or system_id.is_empty():
+		set_status("Choose an empire and a system first.")
+		return
+
+	var builder_ship_count := _count_units_in_system_of_class(system_id, SpaceManager.BUILDER_SHIP_CLASS_ID)
+	var builder_ship: SpaceUnitRuntime = _spawn_runtime_unit.call(SpaceManager.BUILDER_SHIP_CLASS_ID, empire_id, system_id, {
+		"display_name": "Builder Ship %02d" % (builder_ship_count + 1),
+		"ai_role": "construction",
+	})
+	if builder_ship == null:
+		set_status("Failed to spawn builder ship.")
+		return
+
+	var systems_by_id: Dictionary = _resolve_systems_by_id()
+	set_status("Spawned %s in %s." % [builder_ship.display_name, str(systems_by_id.get(system_id, {}).get("name", system_id))])
 
 
 func _on_spawn_station_pressed() -> void:

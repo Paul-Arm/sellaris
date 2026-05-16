@@ -34,6 +34,14 @@ func is_mobile() -> bool:
 	return (capability_mask & SpaceUnitClass.CAPABILITY_MOBILITY) != 0
 
 
+func can_host_colony() -> bool:
+	return (capability_mask & SpaceUnitClass.CAPABILITY_COLONY) != 0
+
+
+func can_build_units() -> bool:
+	return (capability_mask & SpaceUnitClass.CAPABILITY_BUILDER) != 0
+
+
 func is_stationary() -> bool:
 	return not is_mobile()
 

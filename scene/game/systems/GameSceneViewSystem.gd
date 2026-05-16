@@ -113,6 +113,13 @@ func bind_view_signals() -> void:
 
 	if not _view_router.system_close_requested.is_connected(_scene_ui_controller.close_system_view):
 		_view_router.system_close_requested.connect(_scene_ui_controller.close_system_view)
+	var system_view := _view_router.get_system_view()
+	if system_view != null and not system_view.build_order_requested.is_connected(_on_system_view_build_order_requested):
+		system_view.build_order_requested.connect(_on_system_view_build_order_requested)
+	if system_view != null and not system_view.colony_open_requested.is_connected(_on_system_view_colony_open_requested):
+		system_view.colony_open_requested.connect(_on_system_view_colony_open_requested)
+	if system_view != null and not system_view.body_colonize_requested.is_connected(_on_system_view_body_colonize_requested):
+		system_view.body_colonize_requested.connect(_on_system_view_body_colonize_requested)
 
 
 func _unbind_view_signals() -> void:
@@ -136,6 +143,13 @@ func _unbind_view_signals() -> void:
 
 	if _view_router.system_close_requested.is_connected(_scene_ui_controller.close_system_view):
 		_view_router.system_close_requested.disconnect(_scene_ui_controller.close_system_view)
+	var system_view := _view_router.get_system_view()
+	if system_view != null and system_view.build_order_requested.is_connected(_on_system_view_build_order_requested):
+		system_view.build_order_requested.disconnect(_on_system_view_build_order_requested)
+	if system_view != null and system_view.colony_open_requested.is_connected(_on_system_view_colony_open_requested):
+		system_view.colony_open_requested.disconnect(_on_system_view_colony_open_requested)
+	if system_view != null and system_view.body_colonize_requested.is_connected(_on_system_view_body_colonize_requested):
+		system_view.body_colonize_requested.disconnect(_on_system_view_body_colonize_requested)
 
 
 func _on_galaxy_view_hovered_system_changed(system_id: String) -> void:
@@ -149,7 +163,10 @@ func _on_galaxy_view_inspect_system_requested(system_id: String) -> void:
 	_state.hovered_system_id = system_id
 	_state.selected_system_id = system_id
 	_state.selected_system_panel_id = system_id
-	_clear_selected_space_entity()
+	if not _is_selected_space_entity_in_system(system_id):
+		_clear_selected_space_entity()
+	else:
+		_sync_selected_builder_to_system_view()
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
 
@@ -160,7 +177,10 @@ func _on_galaxy_view_open_system_requested(system_id: String) -> void:
 	_state.hovered_system_id = system_id
 	_state.selected_system_id = system_id
 	_state.selected_system_panel_id = system_id
-	_clear_selected_space_entity()
+	if not _is_selected_space_entity_in_system(system_id):
+		_clear_selected_space_entity()
+	else:
+		_sync_selected_builder_to_system_view()
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
 	if not _runtime_system.can_open_system_view(system_id):
@@ -182,6 +202,7 @@ func _on_galaxy_view_space_entity_selected(selection_data: Dictionary) -> void:
 	_state.selected_space_entity_title = str(selection_data.get("title", ""))
 	if not _state.selected_space_entity_id.is_empty():
 		_state.selected_system_panel_id = ""
+	_sync_selected_builder_to_system_view()
 	_scene_ui_controller.update_selection_panel()
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
@@ -217,3 +238,59 @@ func _clear_selected_space_entity() -> void:
 	_state.selected_space_entity_kind = ""
 	_state.selected_space_entity_id = ""
 	_state.selected_space_entity_title = ""
+	_sync_selected_builder_to_system_view()
+
+
+func _on_system_view_build_order_requested(
+	builder_unit_id: String,
+	system_id: String,
+	body_context: Dictionary,
+	build_class_id: String
+) -> void:
+	if _runtime_system.request_build_order_for_body(builder_unit_id, system_id, body_context, build_class_id):
+		_scene_ui_controller.update_system_panel()
+		_scene_ui_controller.update_selection_panel()
+		_scene_ui_controller.update_info_label()
+
+
+func _on_system_view_colony_open_requested(colony_id: String) -> void:
+	_scene_ui_controller.open_colony_modal(colony_id)
+
+
+func _on_system_view_body_colonize_requested(system_id: String, body_context: Dictionary) -> void:
+	var colony_id := _runtime_system.request_colonize_orbital(system_id, body_context)
+	if colony_id.is_empty():
+		return
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_selection_panel()
+	_scene_ui_controller.update_info_label()
+	_scene_ui_controller.open_colony_modal(colony_id)
+
+
+func _sync_selected_builder_to_system_view() -> void:
+	if _view_router == null or _state == null:
+		return
+	var system_view := _view_router.get_system_view()
+	if system_view == null:
+		return
+	var builder_unit_id := ""
+	match _state.selected_space_entity_kind:
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			var unit: SpaceUnitRuntime = SpaceManager.get_unit(_state.selected_space_entity_id)
+			if unit != null and unit.can_build_units():
+				builder_unit_id = unit.unit_id
+	system_view.set_selected_builder_unit_id(builder_unit_id)
+
+
+func _is_selected_space_entity_in_system(system_id: String) -> bool:
+	if _state == null or _state.selected_space_entity_id.is_empty():
+		return false
+	match _state.selected_space_entity_kind:
+		"fleet":
+			var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(_state.selected_space_entity_id)
+			return fleet != null and fleet.current_system_id == system_id
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			var unit: SpaceUnitRuntime = SpaceManager.get_unit(_state.selected_space_entity_id)
+			return unit != null and unit.current_system_id == system_id
+		_:
+			return false

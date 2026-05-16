@@ -21,6 +21,7 @@ var highlight_color: Color = Color(0.92, 0.96, 1.0, 0.95)
 var ring_center_local: Vector3 = Vector3.ZERO
 var ring_radius: float = 0.0
 var ring_pick_tolerance: float = 14.0
+var context: Dictionary = {}
 
 
 func get_anchor_world_position() -> Vector3:
@@ -46,6 +47,7 @@ func build_popup_state(camera: Camera3D, viewport_rect: Rect2) -> Dictionary:
 		"subtitle": subtitle,
 		"body_text": body_text,
 		"screen_position": screen_position,
+		"context": context.duplicate(true),
 	}
 
 

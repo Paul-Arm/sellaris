@@ -436,10 +436,15 @@ func connect_space_runtime_signals() -> void:
 		SpaceManager.fleet_created,
 		SpaceManager.fleet_removed,
 		SpaceManager.fleet_updated,
+		SpaceManager.construction_started,
+		SpaceManager.construction_updated,
+		SpaceManager.construction_cancelled,
 	]
 	for runtime_signal in runtime_signals:
 		if not runtime_signal.is_connected(_on_space_runtime_changed):
 			runtime_signal.connect(_on_space_runtime_changed)
+	if not SpaceManager.construction_completed.is_connected(_on_space_construction_completed):
+		SpaceManager.construction_completed.connect(_on_space_construction_completed)
 
 
 func disconnect_space_runtime_signals() -> void:
@@ -450,10 +455,15 @@ func disconnect_space_runtime_signals() -> void:
 		SpaceManager.fleet_created,
 		SpaceManager.fleet_removed,
 		SpaceManager.fleet_updated,
+		SpaceManager.construction_started,
+		SpaceManager.construction_updated,
+		SpaceManager.construction_cancelled,
 	]
 	for runtime_signal in runtime_signals:
 		if runtime_signal.is_connected(_on_space_runtime_changed):
 			runtime_signal.disconnect(_on_space_runtime_changed)
+	if SpaceManager.construction_completed.is_connected(_on_space_construction_completed):
+		SpaceManager.construction_completed.disconnect(_on_space_construction_completed)
 
 
 func _on_space_runtime_changed(_record_id: String) -> void:
@@ -461,3 +471,7 @@ func _on_space_runtime_changed(_record_id: String) -> void:
 		return
 	_host._render_runtime_placeholders()
 	_host._update_system_panel()
+
+
+func _on_space_construction_completed(_project_id: String, unit_id: String) -> void:
+	_on_space_runtime_changed(unit_id)

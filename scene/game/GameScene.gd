@@ -196,16 +196,74 @@ func _on_bottom_runtime_entry_activated(category_id: String, entry: Dictionary) 
 	match category_id:
 		"planets":
 			_scene_ui_controller.open_colony_modal(str(entry.get("id", "")))
+		"starbases":
+			_open_bottom_station_entry(entry)
 		"passive_fleets", "military_fleets":
-			var record_id := str(entry.get("id", ""))
-			var selection_kind := str(entry.get("selection_kind", "fleet"))
-			var galaxy_view := _view_router.get_galaxy_view()
-			if galaxy_view != null:
-				galaxy_view.set_selected_space_entity(selection_kind, record_id)
-			_state.selected_space_entity_kind = selection_kind
-			_state.selected_space_entity_id = record_id
-			_state.selected_space_entity_title = str(entry.get("title", record_id))
-			_state.selected_system_panel_id = ""
-			_scene_ui_controller.update_selection_panel()
-			_scene_ui_controller.update_system_panel()
-			_scene_ui_controller.update_info_label()
+			_select_bottom_space_entry(entry)
+
+
+func _select_bottom_space_entry(entry: Dictionary) -> void:
+	var record_id := str(entry.get("id", ""))
+	if record_id.is_empty():
+		return
+	var selection_kind := str(entry.get("selection_kind", "fleet"))
+	var galaxy_view := _view_router.get_galaxy_view()
+	if galaxy_view != null:
+		galaxy_view.set_selected_space_entity(selection_kind, record_id)
+	_state.selected_space_entity_kind = selection_kind
+	_state.selected_space_entity_id = record_id
+	_state.selected_space_entity_title = str(entry.get("title", record_id))
+	_state.selected_system_panel_id = ""
+	_scene_ui_controller.update_selection_panel()
+	_scene_ui_controller.update_system_panel()
+	_select_open_system_view_runtime_entity(selection_kind, record_id)
+	_scene_ui_controller.update_info_label()
+
+
+func _open_bottom_station_entry(entry: Dictionary) -> void:
+	var record_id := str(entry.get("id", ""))
+	if record_id.is_empty():
+		return
+	var station: SpaceUnitRuntime = SpaceManager.get_unit(record_id)
+	if station == null or not station.is_stationary():
+		return
+
+	var galaxy_view := _view_router.get_galaxy_view()
+	if galaxy_view != null:
+		galaxy_view.set_selected_space_entity("", "")
+	_state.selected_space_entity_kind = ""
+	_state.selected_space_entity_id = ""
+	_state.selected_space_entity_title = ""
+	_state.selected_system_panel_id = station.current_system_id
+	_scene_ui_controller.update_selection_panel()
+	_scene_ui_controller.open_system_view(station.current_system_id)
+	_scene_ui_controller.update_system_panel()
+	var system_view := _view_router.get_system_view()
+	if system_view != null and system_view.is_open():
+		var selection_kind := str(entry.get("selection_kind", SpaceUnitClass.UNIT_KIND_STATION))
+		system_view.select_runtime_entity(selection_kind, record_id)
+	_scene_ui_controller.update_info_label()
+
+
+func _select_open_system_view_runtime_entity(selection_kind: String, record_id: String) -> void:
+	var system_view := _view_router.get_system_view()
+	if system_view == null or not system_view.is_open():
+		return
+	var entity_system_id := _get_space_entity_system_id(selection_kind, record_id)
+	if entity_system_id.is_empty() or entity_system_id != system_view.get_current_system_id():
+		return
+	system_view.select_runtime_entity(selection_kind, record_id)
+
+
+func _get_space_entity_system_id(selection_kind: String, record_id: String) -> String:
+	if record_id.is_empty():
+		return ""
+	match selection_kind:
+		"fleet":
+			var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(record_id)
+			return fleet.current_system_id if fleet != null else ""
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, SpaceUnitClass.UNIT_KIND_STATION, "unit", "station":
+			var unit: SpaceUnitRuntime = SpaceManager.get_unit(record_id)
+			return unit.current_system_id if unit != null else ""
+		_:
+			return ""

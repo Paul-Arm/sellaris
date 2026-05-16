@@ -23,6 +23,8 @@ var _selection_panel: PanelContainer = null
 var _selection_title_label: Label = null
 var _selection_subtitle_label: Label = null
 var _selection_body_label: Label = null
+var _build_station_button: Button = null
+var _selected_builder_unit_id: String = ""
 
 
 func setup(
@@ -118,6 +120,13 @@ func _ensure_selection_panel() -> void:
 	_selection_body_label = Label.new()
 	_selection_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(_selection_body_label)
+
+	_build_station_button = Button.new()
+	_build_station_button.text = "Build Station"
+	_build_station_button.visible = false
+	_build_station_button.custom_minimum_size = Vector2(132, 30)
+	_build_station_button.pressed.connect(_on_build_station_pressed)
+	vbox.add_child(_build_station_button)
 
 
 func update_info_label() -> void:
@@ -261,7 +270,7 @@ func update_system_panel() -> void:
 			hyperlane_text,
 		]
 	else:
-		_ui.selected_system_meta.text = "Owner: %s\nIntel: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nLocal Presence: Fleets %d  Mobile %d  Stations %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%" % [
+		_ui.selected_system_meta.text = "Owner: %s\nIntel: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nLocal Presence: Fleets %d  Mobile %d  Stations %d  Builds %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%" % [
 			owner_name,
 			intel_label,
 			star_class,
@@ -275,6 +284,7 @@ func update_system_panel() -> void:
 			int(space_presence.get("fleet_count", 0)),
 			int(space_presence.get("mobile_unit_count", 0)),
 			int(space_presence.get("station_count", 0)),
+			int(space_presence.get("construction_project_count", 0)),
 			int(summary.get("habitable_worlds", 0)),
 			int(summary.get("colonizable_worlds", 0)),
 			int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
@@ -288,6 +298,7 @@ func update_system_panel() -> void:
 		update_system_panel_preview(preview_system_id, system_details)
 	if _view_router.is_system_view_open() and _view_router.get_current_system_view_id() == inspected_system_id:
 		_view_router.refresh_system_view(system_details, neighbor_count)
+		_sync_selected_builder_to_system_view()
 
 	var manageable_colony_id := ""
 	if has_full_intel:
@@ -366,9 +377,13 @@ func _update_system_panel_for_selected_unit(unit_id: String) -> bool:
 	lines.append("Hyperlanes: %s" % ("Yes" if uses_hyperlanes else "No"))
 	if not tags_text.is_empty():
 		lines.append("Tags: %s" % tags_text)
+	var hosted_colony_id := ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_SPACE_UNIT, unit.unit_id)
+	if not hosted_colony_id.is_empty():
+		var colony_summary := ColonyManager.get_colony_summary(hosted_colony_id)
+		lines.append("Colony: %s" % str(colony_summary.get("name", hosted_colony_id)))
 
 	_clear_system_panel_preview()
-	_set_manage_colony_button_state("", false)
+	_set_manage_colony_button_state(hosted_colony_id, not hosted_colony_id.is_empty())
 	_ui.system_preview_image.texture = null
 	_ui.selected_system_title.text = unit.display_name
 	_ui.selected_system_meta.text = "\n".join(lines)
@@ -390,10 +405,12 @@ func get_inspected_system_id() -> String:
 
 func update_selection_panel() -> void:
 	_ensure_selection_panel()
+	_sync_selected_builder_to_system_view()
 	if _selection_panel == null or _state == null:
 		return
 
 	if _state.selected_space_entity_id.is_empty():
+		_set_build_station_button_state("", false, false)
 		_selection_panel.visible = false
 		return
 
@@ -403,12 +420,14 @@ func update_selection_panel() -> void:
 		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
 			_update_selection_panel_for_unit(_state.selected_space_entity_id)
 		_:
+			_set_build_station_button_state("", false, false)
 			_selection_panel.visible = false
 
 
 func _update_selection_panel_for_fleet(fleet_id: String) -> void:
 	var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(fleet_id)
 	if fleet == null:
+		_set_build_station_button_state("", false, false)
 		_selection_panel.visible = false
 		return
 
@@ -436,12 +455,14 @@ func _update_selection_panel_for_fleet(fleet_id: String) -> void:
 	if not member_names.is_empty():
 		lines.append("Members: %s" % ", ".join(member_names))
 	_selection_body_label.text = "\n".join(lines)
+	_set_build_station_button_state("", false, false)
 	_selection_panel.visible = true
 
 
 func _update_selection_panel_for_unit(unit_id: String) -> void:
 	var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
 	if unit == null:
+		_set_build_station_button_state("", false, false)
 		_selection_panel.visible = false
 		return
 
@@ -469,8 +490,51 @@ func _update_selection_panel_for_unit(unit_id: String) -> void:
 			lines.append("Fleet: %s" % fleet.display_name)
 	if not str(unit.ai_role).is_empty():
 		lines.append("Role: %s" % _format_runtime_token(str(unit.ai_role)))
+	var construction_project := SpaceManager.get_construction_project_for_builder(unit.unit_id)
+	if not construction_project.is_empty():
+		if str(construction_project.get("construction_state", SpaceManager.CONSTRUCTION_STATE_BUILDING)) == SpaceManager.CONSTRUCTION_STATE_MOVING_TO_SITE:
+			lines.append("Construction: moving to %s" % str(construction_project.get("target_body_name", "build site")))
+		else:
+			lines.append("Construction: %s (%d days)" % [
+				str(construction_project.get("display_name", "Station")),
+				int(construction_project.get("days_remaining", 0)),
+			])
 	_selection_body_label.text = "\n".join(lines)
+	_set_build_station_button_state(unit.unit_id, false, false, not construction_project.is_empty())
 	_selection_panel.visible = true
+
+
+func _set_build_station_button_state(unit_id: String, visible_state: bool, enabled: bool, queued: bool = false) -> void:
+	_selected_builder_unit_id = unit_id if visible_state else ""
+	if _build_station_button == null:
+		return
+	_build_station_button.visible = visible_state
+	_build_station_button.disabled = not enabled
+	_build_station_button.text = "Station Queued" if queued else "Build Station"
+
+
+func _on_build_station_pressed() -> void:
+	if _runtime_system == null or _selected_builder_unit_id.is_empty():
+		return
+	if _runtime_system.request_build_station_for_unit(_selected_builder_unit_id):
+		update_selection_panel()
+		update_system_panel()
+		update_info_label()
+
+
+func _sync_selected_builder_to_system_view() -> void:
+	if _view_router == null or _state == null:
+		return
+	var system_view := _view_router.get_system_view()
+	if system_view == null:
+		return
+	var builder_unit_id := ""
+	match _state.selected_space_entity_kind:
+		SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			var unit: SpaceUnitRuntime = SpaceManager.get_unit(_state.selected_space_entity_id)
+			if unit != null and unit.can_build_units():
+				builder_unit_id = unit.unit_id
+	system_view.set_selected_builder_unit_id(builder_unit_id)
 
 
 func _get_empire_display_name(empire_id: String) -> String:
@@ -681,6 +745,7 @@ func open_system_view(system_id: String) -> void:
 	var neighbor_count: int = _state.galaxy_state.get_neighbor_system_ids(system_id).size()
 	set_galaxy_presentation_visible(false)
 	_view_router.show_system_view(system_details, neighbor_count)
+	_sync_selected_builder_to_system_view()
 	refresh_camera_input_block()
 
 

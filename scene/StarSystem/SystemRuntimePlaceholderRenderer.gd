@@ -14,14 +14,20 @@ const SHIP_MARKER_TINT_STRENGTH: float = 0.1
 const FLEET_MEMBER_SLOTS_PER_RING: int = 6
 const FLEET_MEMBER_RING_STEP: float = 1.9
 const FLEET_MEMBER_BASE_RADIUS: float = 1.4
+const CONSTRUCTION_SITE_RADIUS: float = 2.35
+const CONSTRUCTION_RING_SEGMENTS: int = 52
+const CONSTRUCTION_PARTICLES_PER_PROJECT: int = 14
+const CONSTRUCTION_PARTICLE_SIZE: float = 0.18
 
 var _host: StarSystemPreview = null
 var _station_marker: MultiMeshInstance3D = null
 var _fleet_marker: MultiMeshInstance3D = null
 var _unit_marker: MultiMeshInstance3D = null
+var _construction_particle_marker: MultiMeshInstance3D = null
 var _station_instance_specs: Array[Dictionary] = []
 var _fleet_instance_specs: Array[Dictionary] = []
 var _unit_instance_specs: Array[Dictionary] = []
+var _construction_particle_specs: Array[Dictionary] = []
 
 
 func bind(host: StarSystemPreview) -> void:
@@ -39,6 +45,7 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 		"stations": [],
 		"fleets": [],
 		"units": [],
+		"construction_projects": [],
 	}
 
 	if _host == null:
@@ -48,10 +55,12 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 	if units_variant is not Array:
 		return result
 	var fleets_variant: Variant = space_renderables.get("fleets", [])
+	var construction_variant: Variant = space_renderables.get("construction_projects", [])
 
 	var mobile_units: Array[Dictionary] = []
 	var stations: Array[Dictionary] = []
 	var fleets: Array[Dictionary] = []
+	var construction_projects: Array[Dictionary] = []
 	var fleet_unit_ids: Dictionary = {}
 	var units_by_id: Dictionary = {}
 
@@ -74,7 +83,20 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 		else:
 			mobile_units.append(unit_record)
 
+	if construction_variant is Array:
+		for project_variant in construction_variant:
+			if project_variant is Dictionary:
+				construction_projects.append(project_variant)
+
 	var resolved_outer_radius: float = outer_radius
+	if not construction_projects.is_empty():
+		result["construction_projects"] = _build_construction_group(construction_projects, units_by_id)
+		_build_construction_particle_group(construction_projects, units_by_id)
+		for project_layout_variant in result.get("construction_projects", []):
+			var project_layout: Dictionary = project_layout_variant
+			var project_position: Vector3 = project_layout.get("position", Vector3.ZERO)
+			resolved_outer_radius = maxf(resolved_outer_radius, project_position.length() + 8.0)
+
 	if not stations.is_empty():
 		var station_radius: float = outer_radius + STATION_RING_OFFSET
 		result["stations"] = _build_group(
@@ -300,9 +322,232 @@ func _build_fleet_group(
 	return instance_layouts
 
 
+func _build_construction_group(records: Array[Dictionary], _units_by_id: Dictionary) -> Array[Dictionary]:
+	var instance_layouts: Array[Dictionary] = []
+	for record_index in range(records.size()):
+		var record: Dictionary = records[record_index]
+		var project_id := str(record.get("project_id", "construction_%02d" % record_index)).strip_edges()
+		if project_id.is_empty():
+			project_id = "construction_%02d" % record_index
+		var position := _variant_to_vector3(record.get("local_position", Vector3.ZERO))
+		var progress_ratio := clampf(float(record.get("progress_ratio", 0.0)), 0.0, 1.0)
+		var owner_color := _get_owner_color(record, 1.0)
+
+		var site_root := Node3D.new()
+		site_root.name = "ConstructionSite_%s" % project_id
+		site_root.position = position
+		_host.get_runtime_effects_root().add_child(site_root)
+
+		_add_construction_ring(site_root, progress_ratio, owner_color)
+		_add_construction_scaffold(site_root, progress_ratio, owner_color, project_id.hash())
+		_add_construction_progress_bar(site_root, progress_ratio, owner_color)
+		site_root.add_child(_build_construction_label(record, progress_ratio))
+
+		instance_layouts.append({
+			"record": record.duplicate(true),
+			"position": position,
+			"yaw": 0.0,
+			"ring_radius": CONSTRUCTION_SITE_RADIUS,
+		})
+	return instance_layouts
+
+
+func _add_construction_ring(site_root: Node3D, progress_ratio: float, owner_color: Color) -> void:
+	var base_ring := MeshInstance3D.new()
+	base_ring.name = "ConstructionBaseRing"
+	base_ring.mesh = _build_construction_arc_mesh(CONSTRUCTION_SITE_RADIUS, 1.0, Color(0.48, 0.72, 0.78, 0.28))
+	base_ring.material_override = _build_material(0.32, 0.8)
+	base_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	site_root.add_child(base_ring)
+
+	var progress_ring := MeshInstance3D.new()
+	progress_ring.name = "ConstructionProgressRing"
+	progress_ring.mesh = _build_construction_arc_mesh(CONSTRUCTION_SITE_RADIUS + 0.08, progress_ratio, Color(owner_color.r, owner_color.g, owner_color.b, 0.95))
+	progress_ring.material_override = _build_material(0.95, 1.65)
+	progress_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	site_root.add_child(progress_ring)
+
+
+func _add_construction_scaffold(site_root: Node3D, progress_ratio: float, owner_color: Color, seed_value: int) -> void:
+	var scaffold := MeshInstance3D.new()
+	scaffold.name = "ConstructionScaffold"
+	var box := BoxMesh.new()
+	var scaffold_width := lerpf(0.85, 1.9, progress_ratio)
+	var scaffold_height := lerpf(0.35, 2.2, progress_ratio)
+	box.size = Vector3(scaffold_width, scaffold_height, scaffold_width)
+	scaffold.mesh = box
+	scaffold.position = Vector3(0.0, 0.36 + scaffold_height * 0.5, 0.0)
+	scaffold.rotation = Vector3(0.0, float(abs(seed_value) % 628) / 100.0, 0.0)
+	scaffold.material_override = _build_plain_material(Color(owner_color.r, owner_color.g, owner_color.b, 1.0), 0.28, 0.95)
+	scaffold.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	site_root.add_child(scaffold)
+
+	var core := MeshInstance3D.new()
+	core.name = "ConstructionCore"
+	var core_mesh := SphereMesh.new()
+	core_mesh.radius = lerpf(0.16, 0.42, progress_ratio)
+	core_mesh.height = core_mesh.radius * 2.0
+	core.mesh = core_mesh
+	core.position = Vector3(0.0, 0.72 + progress_ratio * 1.15, 0.0)
+	core.material_override = _build_plain_material(Color(0.76, 0.96, 1.0, 1.0), 0.78, 1.6)
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	site_root.add_child(core)
+
+
+func _add_construction_progress_bar(site_root: Node3D, progress_ratio: float, owner_color: Color) -> void:
+	var frame := MeshInstance3D.new()
+	frame.name = "ConstructionProgressBarFrame"
+	var frame_mesh := BoxMesh.new()
+	frame_mesh.size = Vector3(2.2, 0.05, 0.18)
+	frame.mesh = frame_mesh
+	frame.position = Vector3(0.0, 2.7, 0.0)
+	frame.material_override = _build_plain_material(Color(0.18, 0.26, 0.3, 1.0), 0.72, 0.55)
+	frame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	site_root.add_child(frame)
+
+	var fill := MeshInstance3D.new()
+	fill.name = "ConstructionProgressBarFill"
+	var fill_mesh := BoxMesh.new()
+	var fill_width := maxf(0.06, 2.2 * progress_ratio)
+	fill_mesh.size = Vector3(fill_width, 0.08, 0.22)
+	fill.mesh = fill_mesh
+	fill.position = Vector3(-1.1 + fill_width * 0.5, 2.71, 0.0)
+	fill.material_override = _build_plain_material(Color(owner_color.r, owner_color.g, owner_color.b, 1.0), 0.86, 1.35)
+	fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	site_root.add_child(fill)
+
+
+func _build_construction_label(record: Dictionary, progress_ratio: float) -> Label3D:
+	var project_id := str(record.get("project_id", "construction")).strip_edges()
+	var label := Label3D.new()
+	label.name = "ConstructionLabel_%s" % project_id
+	var percent := int(round(progress_ratio * 100.0))
+	var state := str(record.get("construction_state", "building"))
+	var prefix := "Bau"
+	if state == "moving_to_site":
+		prefix = "Anflug"
+	label.text = "%s %d%%" % [prefix, percent]
+	label.position = Vector3(0.0, 3.12, 0.0)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.font_size = 18
+	label.pixel_size = 0.036
+	label.outline_size = 8
+	label.modulate = Color(0.78, 0.96, 1.0, 0.96)
+	label.outline_modulate = Color(0.02, 0.04, 0.06, 0.94)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return label
+
+
+func _build_construction_particle_group(records: Array[Dictionary], units_by_id: Dictionary) -> void:
+	var instance_count := records.size() * CONSTRUCTION_PARTICLES_PER_PROJECT
+	if instance_count <= 0:
+		return
+
+	var marker := MultiMeshInstance3D.new()
+	marker.name = "ConstructionParticles"
+	var mesh := SphereMesh.new()
+	mesh.radius = CONSTRUCTION_PARTICLE_SIZE
+	mesh.height = CONSTRUCTION_PARTICLE_SIZE * 2.0
+	mesh.radial_segments = 8
+	mesh.rings = 4
+
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_colors = true
+	multimesh.mesh = mesh
+	multimesh.instance_count = instance_count
+
+	var specs: Array[Dictionary] = []
+	var instance_index := 0
+	for record_index in range(records.size()):
+		var record: Dictionary = records[record_index]
+		var project_id := str(record.get("project_id", "construction_%02d" % record_index))
+		var seed_value := project_id.hash()
+		for particle_index in range(CONSTRUCTION_PARTICLES_PER_PROJECT):
+			var spec := _build_construction_particle_spec(instance_index, project_id, particle_index, seed_value)
+			specs.append(spec)
+			multimesh.set_instance_transform(instance_index, _build_construction_particle_transform(record, units_by_id, spec, 1.0))
+			multimesh.set_instance_color(instance_index, _get_construction_particle_color(record, particle_index))
+			instance_index += 1
+
+	marker.multimesh = multimesh
+	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	marker.material_override = _build_material(0.9, 1.9)
+	_host.get_runtime_effects_root().add_child(marker)
+	_construction_particle_marker = marker
+	_construction_particle_specs = specs
+
+
+func _build_construction_particle_spec(instance_index: int, project_id: String, particle_index: int, seed_value: int) -> Dictionary:
+	var seed: int = absi(seed_value + particle_index * 7919)
+	var angle := float(seed % 3600) / 3600.0 * TAU
+	var radius := 2.8 + float(int(seed / 17) % 90) / 100.0
+	var side_angle := angle + PI * 0.5
+	return {
+		"index": instance_index,
+		"project_id": project_id,
+		"phase_offset": float(particle_index) / float(CONSTRUCTION_PARTICLES_PER_PROJECT),
+		"source_offset": Vector3(cos(angle) * radius, 0.45 + float(seed % 5) * 0.08, sin(angle) * radius),
+		"side_offset": Vector3(cos(side_angle), 0.0, sin(side_angle)) * (0.18 + float(seed % 7) * 0.025),
+		"arc_height": 0.7 + float(seed % 80) / 100.0,
+	}
+
+
+func _build_construction_particle_transform(record: Dictionary, units_by_id: Dictionary, spec: Dictionary, day_progress: float) -> Transform3D:
+	var position := _resolve_construction_particle_position(record, units_by_id, spec, day_progress)
+	var time_seconds := float(Time.get_ticks_msec()) / 1000.0
+	var pulse := 0.76 + sin((time_seconds + float(spec.get("phase_offset", 0.0))) * TAU) * 0.18
+	return Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * maxf(pulse, 0.35)), position)
+
+
+func _resolve_construction_particle_position(record: Dictionary, units_by_id: Dictionary, spec: Dictionary, day_progress: float) -> Vector3:
+	var site_position := _variant_to_vector3(record.get("local_position", Vector3.ZERO))
+	var builder_id := str(record.get("builder_unit_id", "")).strip_edges()
+	var start_position := site_position + _variant_to_vector3(spec.get("source_offset", Vector3.ZERO))
+	if not builder_id.is_empty() and units_by_id.has(builder_id):
+		var builder_record: Dictionary = units_by_id.get(builder_id, {})
+		start_position = _get_interpolated_record_position(builder_record, day_progress)
+	if start_position.distance_to(site_position) < 1.25:
+		start_position = site_position + _variant_to_vector3(spec.get("source_offset", Vector3.ZERO))
+
+	var time_seconds := float(Time.get_ticks_msec()) / 1000.0
+	var phase := fmod(time_seconds * 0.44 + float(spec.get("phase_offset", 0.0)), 1.0)
+	if phase < 0.0:
+		phase += 1.0
+	var eased := phase * phase * (3.0 - 2.0 * phase)
+	var position := start_position.lerp(site_position, eased)
+	position += _variant_to_vector3(spec.get("side_offset", Vector3.ZERO)) * sin(phase * TAU) * (1.0 - eased)
+	position.y += sin(phase * PI) * float(spec.get("arc_height", 0.8))
+	return position
+
+
+func _get_construction_particle_color(record: Dictionary, particle_index: int) -> Color:
+	var owner_color := _get_owner_color(record, 1.0)
+	var tint := Color(0.76, 0.96, 1.0, 1.0).lerp(Color(owner_color.r, owner_color.g, owner_color.b, 1.0), 0.42)
+	tint.a = 0.82 if particle_index % 3 != 0 else 0.96
+	return tint
+
+
+func _build_construction_arc_mesh(radius: float, progress_ratio: float, color: Color) -> Mesh:
+	var surface_tool := SurfaceTool.new()
+	surface_tool.begin(Mesh.PRIMITIVE_LINES)
+	var segment_count := maxi(1, int(ceil(float(CONSTRUCTION_RING_SEGMENTS) * clampf(progress_ratio, 0.0, 1.0))))
+	for point_index in range(segment_count):
+		var from_angle: float = float(point_index) * TAU / float(CONSTRUCTION_RING_SEGMENTS)
+		var to_angle: float = float(point_index + 1) * TAU / float(CONSTRUCTION_RING_SEGMENTS)
+		surface_tool.set_color(color)
+		surface_tool.add_vertex(Vector3(cos(from_angle) * radius, 0.18, sin(from_angle) * radius))
+		surface_tool.set_color(color)
+		surface_tool.add_vertex(Vector3(cos(to_angle) * radius, 0.18, sin(to_angle) * radius))
+	return surface_tool.commit()
+
+
 func update_interpolated_runtime_positions(space_renderables: Dictionary, day_progress: float) -> void:
 	var records_by_unit_id: Dictionary = {}
 	var records_by_fleet_id: Dictionary = {}
+	var records_by_project_id: Dictionary = {}
 
 	for unit_variant in space_renderables.get("units", []):
 		var unit_record: Dictionary = unit_variant
@@ -316,18 +561,27 @@ func update_interpolated_runtime_positions(space_renderables: Dictionary, day_pr
 		if not fleet_id.is_empty():
 			records_by_fleet_id[fleet_id] = fleet_record
 
+	for project_variant in space_renderables.get("construction_projects", []):
+		var project_record: Dictionary = project_variant
+		var project_id := str(project_record.get("project_id", ""))
+		if not project_id.is_empty():
+			records_by_project_id[project_id] = project_record
+
 	_update_station_marker(records_by_unit_id, day_progress)
 	_update_unit_marker(records_by_unit_id, day_progress)
 	_update_fleet_marker(records_by_fleet_id, records_by_unit_id, day_progress)
+	_update_construction_particles(records_by_project_id, records_by_unit_id, day_progress)
 
 
 func _reset_interpolation_state() -> void:
 	_station_marker = null
 	_fleet_marker = null
 	_unit_marker = null
+	_construction_particle_marker = null
 	_station_instance_specs.clear()
 	_fleet_instance_specs.clear()
 	_unit_instance_specs.clear()
+	_construction_particle_specs.clear()
 
 
 func _update_station_marker(records_by_unit_id: Dictionary, day_progress: float) -> void:
@@ -384,6 +638,20 @@ func _update_fleet_marker(records_by_fleet_id: Dictionary, records_by_unit_id: D
 			hull_ratio = clampf(float(member_record.get("hull_ratio", 1.0)), 0.2, 1.0)
 		var size_multiplier: float = lerpf(0.82, 1.0, hull_ratio)
 		_fleet_marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier), member_position))
+
+
+func _update_construction_particles(records_by_project_id: Dictionary, records_by_unit_id: Dictionary, day_progress: float) -> void:
+	if _construction_particle_marker == null or _construction_particle_marker.multimesh == null:
+		return
+	for spec in _construction_particle_specs:
+		var project_id := str(spec.get("project_id", ""))
+		var record: Dictionary = records_by_project_id.get(project_id, {})
+		if record.is_empty():
+			continue
+		_construction_particle_marker.multimesh.set_instance_transform(
+			int(spec.get("index", 0)),
+			_build_construction_particle_transform(record, records_by_unit_id, spec, day_progress)
+		)
 
 
 func _get_interpolated_record_position(record: Dictionary, day_progress: float) -> Vector3:
@@ -522,6 +790,21 @@ func _build_ship_material(alpha: float, emission_energy: float) -> StandardMater
 	material.emission = Color.WHITE
 	material.emission_energy_multiplier = emission_energy
 	material.render_priority = 1
+	return material
+
+
+func _build_plain_material(color: Color, alpha: float, emission_energy: float) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var resolved_color := color
+	resolved_color.a = alpha
+	material.albedo_color = resolved_color
+	material.emission_enabled = true
+	material.emission = Color(color.r, color.g, color.b, 1.0)
+	material.emission_energy_multiplier = emission_energy
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.render_priority = 2
 	return material
 
 

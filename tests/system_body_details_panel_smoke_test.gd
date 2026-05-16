@@ -33,12 +33,17 @@ func _run(failures: Array[String]) -> void:
 		"habitability_points": 72,
 		"resource_richness_points": 66,
 		"is_colonizable": true,
+		"resource_deposit_component": {
+			"mode": "fixed",
+			"deposits": [{"resource_id": "matter", "milliunits": 50000}],
+		},
 		"metadata": {"planet_visual": {"kind": "landmass", "has_atmosphere": true}},
 	}
 	var system_details := {
 		"id": "sys_alpha",
 		"name": "Alpha",
 		"generated_seed": 7,
+		"has_full_intel": true,
 		"anomaly_risk": 0.23,
 		"system_summary": {"anomaly_risk": 0.23},
 		"orbitals": [planet_record],
@@ -71,6 +76,20 @@ func _run(failures: Array[String]) -> void:
 	_expect(colonize_button != null and colonize_button.visible and not colonize_button.disabled, "colonize button should be enabled for free habitable planet", failures)
 	var resource_chips := panel.find_child("ResourceChips", true, false) as HFlowContainer
 	_expect(resource_chips != null and resource_chips.get_child_count() > 0, "resource chips should be populated", failures)
+	var resource_chip_texts := _container_label_texts(resource_chips)
+	_expect(resource_chip_texts.has("Matter +50"), "explored body should show fixed deposit chip", failures)
+
+	var redacted_details := system_details.duplicate(true)
+	redacted_details["has_full_intel"] = false
+	panel.open_details(planet_selection, redacted_details, {
+		"show_colonize": true,
+		"can_colonize": true,
+	})
+	await get_tree().process_frame
+	resource_chips = panel.find_child("ResourceChips", true, false) as HFlowContainer
+	resource_chip_texts = _container_label_texts(resource_chips)
+	_expect(resource_chip_texts.has("Vorkommen unbekannt"), "redacted body should hide deposit chips", failures)
+	_expect(not resource_chip_texts.has("Matter +50"), "redacted body should not reveal fixed deposit amount", failures)
 
 	var station_record := {
 		"unit_id": "station_alpha",
@@ -116,6 +135,18 @@ func _label_text(root: Node, label_name: String) -> String:
 	if label == null:
 		return ""
 	return label.text
+
+
+func _container_label_texts(container: Node) -> PackedStringArray:
+	var result := PackedStringArray()
+	if container == null:
+		return result
+	for child in container.get_children():
+		var label := child as Label
+		if label == null:
+			continue
+		result.append(label.text)
+	return result
 
 
 func _expect(condition: bool, message: String, failures: Array[String]) -> void:

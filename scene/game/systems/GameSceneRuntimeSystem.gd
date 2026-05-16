@@ -261,6 +261,24 @@ func build_system_renderables(system_id: String) -> Dictionary:
 			decorated_fleets.append(decorated_fleet)
 		renderables["fleets"] = decorated_fleets
 
+	var construction_variant: Variant = renderables.get("construction_projects", [])
+	if construction_variant is Array:
+		var decorated_projects: Array[Dictionary] = []
+		for project_variant in construction_variant:
+			var project_record: Dictionary = project_variant
+			var decorated_project: Dictionary = project_record.duplicate(true)
+			var owner_empire_id: String = str(decorated_project.get("owner_empire_id", ""))
+			decorated_project["owner_color"] = _get_empire_runtime_color(owner_empire_id)
+			decorated_project["owner_name"] = _get_empire_runtime_name(owner_empire_id)
+			var builder: SpaceUnitRuntime = SpaceManager.get_unit(str(decorated_project.get("builder_unit_id", "")))
+			if builder != null:
+				decorated_project["builder_name"] = builder.display_name
+			var build_class := SpaceManager.get_unit_class(str(decorated_project.get("build_class_id", "")))
+			if build_class != null:
+				decorated_project["class_display_name"] = build_class.display_name
+			decorated_projects.append(decorated_project)
+		renderables["construction_projects"] = decorated_projects
+
 	return renderables
 
 
@@ -1598,14 +1616,38 @@ func _sync_system_economy_sources(system_id: String, resolved_details: Dictionar
 		system_id,
 		_state.galaxy_state.get_system_owner_id(system_id),
 		system_details.get("orbitals", []),
-		_state.generated_seed
+		_state.generated_seed,
+		system_details.get("stars", []),
+		_build_resource_collector_source_units(system_id),
+		EconomyManager.get_resource_collector_output_modifier_bp()
 	)
+
+
+func _build_resource_collector_source_units(system_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if system_id.is_empty():
+		return result
+	for unit_id in SpaceManager.get_unit_ids_in_system(system_id):
+		var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+		if unit == null or unit.class_id != SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID:
+			continue
+		var metadata := unit.metadata.duplicate(true)
+		result.append({
+			"unit_id": unit.unit_id,
+			"class_id": unit.class_id,
+			"owner_empire_id": unit.owner_empire_id,
+			"target_body_id": str(metadata.get("target_body_id", "")),
+			"target_body_type": str(metadata.get("target_body_type", "")),
+			"metadata": metadata,
+		})
+	return result
 
 
 func _on_space_runtime_changed(_record_id: String) -> void:
 	if _state == null:
 		return
 	_reveal_intel_from_space_record(_record_id)
+	_sync_space_record_economy_sources(_record_id)
 	if _state.runtime_visual_refresh_queued:
 		return
 	_state.runtime_visual_refresh_queued = true
@@ -1614,6 +1656,15 @@ func _on_space_runtime_changed(_record_id: String) -> void:
 
 func _on_space_construction_completed(_project_id: String, unit_id: String) -> void:
 	_on_space_runtime_changed(unit_id)
+
+
+func _sync_space_record_economy_sources(record_id: String) -> void:
+	if record_id.is_empty():
+		return
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(record_id)
+	if unit == null:
+		return
+	_sync_system_economy_sources(unit.current_system_id)
 
 
 func _reveal_intel_from_space_record(record_id: String) -> void:

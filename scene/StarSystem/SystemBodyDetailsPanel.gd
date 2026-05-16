@@ -7,8 +7,8 @@ signal colonize_requested(system_id: String, body_context: Dictionary)
 const PROCEDURAL_PLANET_VISUAL_SCRIPT: Script = preload("res://scene/StarSystem/procedural_planets/ProceduralPlanetVisual.gd")
 const BODY_GLYPH_SCRIPT: Script = preload("res://scene/StarSystem/SystemBodyGlyph.gd")
 
-const PANEL_MIN_SIZE := Vector2(560.0, 430.0)
-const PREVIEW_SIZE := Vector2(190.0, 176.0)
+const PANEL_MIN_SIZE := Vector2(660.0, 500.0)
+const PREVIEW_SIZE := Vector2(240.0, 220.0)
 const COLOR_PANEL := Color(0.028, 0.04, 0.052, 0.94)
 const COLOR_PANEL_BORDER := Color(0.44, 0.64, 0.74, 0.56)
 const COLOR_TEXT := Color(0.96, 0.98, 1.0, 0.96)
@@ -264,7 +264,7 @@ func _build_planet_preview() -> void:
 	_visual_slot.add_child(viewport_container)
 
 	var viewport := SubViewport.new()
-	viewport.size = Vector2i(256, 192)
+	viewport.size = Vector2i(320, 260)
 	viewport.transparent_bg = true
 	viewport.own_world_3d = true
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -276,7 +276,7 @@ func _build_planet_preview() -> void:
 
 	var camera := Camera3D.new()
 	camera.name = "PreviewCamera"
-	camera.position = Vector3(0.0, 0.0, 7.2)
+	camera.position = Vector3(0.0, 0.0, 7.6)
 	camera.current = true
 	root.add_child(camera)
 	camera.look_at(Vector3.ZERO, Vector3.UP)
@@ -321,6 +321,10 @@ func _populate_properties() -> void:
 
 func _populate_resources() -> void:
 	_clear_container(_resource_chips)
+	if not _has_deposit_intel():
+		_add_chip(_resource_chips, "Vorkommen unbekannt", COLOR_MUTED)
+		return
+
 	var added := false
 	if _body_record.has("resource_richness") or _body_record.has("resource_richness_points"):
 		_add_chip(_resource_chips, "Reichtum %d%%" % _resolve_points(_body_record, "resource_richness_points", "resource_richness", 50), COLOR_ACCENT)
@@ -461,15 +465,27 @@ func _resolve_body_record() -> Dictionary:
 
 func _build_deposit_preview() -> Dictionary:
 	var body_kind := _get_body_kind()
-	if not body_kind in ["planet", "asteroid_belt", "structure", "ruin"]:
+	if not body_kind in ["star", "planet", "asteroid_belt", "structure", "ruin"]:
 		return {}
-	if _body_record.is_empty() or EconomyManager == null or not EconomyManager.has_method("preview_orbital_deposit_income"):
+	if not _has_deposit_intel():
+		return {}
+	if _body_record.is_empty() or EconomyManager == null:
 		return {}
 	var system_id := str(_body_context.get("system_id", _system_details.get("id", ""))).strip_edges()
 	if system_id.is_empty():
 		return {}
 	var galaxy_seed := int(_system_details.get("generated_seed", _system_details.get("seed", 0)))
-	return EconomyManager.preview_orbital_deposit_income(galaxy_seed, system_id, _body_record)
+	if EconomyManager.has_method("preview_body_deposit_income"):
+		return EconomyManager.preview_body_deposit_income(galaxy_seed, system_id, _body_record)
+	if EconomyManager.has_method("preview_orbital_deposit_income"):
+		return EconomyManager.preview_orbital_deposit_income(galaxy_seed, system_id, _body_record)
+	return {}
+
+
+func _has_deposit_intel() -> bool:
+	if _system_details.has("has_full_intel"):
+		return bool(_system_details.get("has_full_intel", false))
+	return true
 
 
 func _build_subtitle() -> String:

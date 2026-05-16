@@ -16,6 +16,9 @@ const PALETTE_ROSEWOOD := Color("B56576")
 const PALETTE_LIGHT_CORAL := Color("E56B6F")
 const PALETTE_LIGHT_BRONZE := Color("EAAC8B")
 const LIST_ROW_ICON_SIZE := Vector2i(22, 22)
+const RUNTIME_LIST_ROW_COUNT := 2
+const RUNTIME_LIST_ITEM_HEIGHT := 30
+const RUNTIME_LIST_COLUMN_WIDTH := 292
 const DEFAULT_ACCENTS := [
 	PALETTE_DUSTY_LAVENDER,
 	PALETTE_ROSEWOOD,
@@ -32,8 +35,8 @@ const DEFAULT_ACCENTS := [
 @export_range(0.35, 0.95, 0.01) var width_ratio: float = 0.82
 @export_range(460.0, 1400.0, 10.0) var min_bar_width: float = 640.0
 @export_range(600.0, 1800.0, 10.0) var max_bar_width: float = 1260.0
-@export_range(44.0, 100.0, 1.0) var collapsed_height: float = 54.0
-@export_range(120.0, 280.0, 1.0) var expanded_height: float = 132.0
+@export_range(44.0, 100.0, 1.0) var collapsed_height: float = 58.0
+@export_range(120.0, 280.0, 1.0) var expanded_height: float = 180.0
 @export_range(0.05, 0.4, 0.01) var expand_duration: float = 0.16
 
 @onready var dock_panel: PanelContainer = $BottomAnchor/BottomAlign/CenterRow/DockPanel
@@ -193,9 +196,9 @@ func get_selected_category() -> Dictionary:
 
 func _install_chrome_layer() -> void:
 	dock_margin.add_theme_constant_override("margin_left", 18)
-	dock_margin.add_theme_constant_override("margin_top", 10)
+	dock_margin.add_theme_constant_override("margin_top", 12)
 	dock_margin.add_theme_constant_override("margin_right", 18)
-	dock_margin.add_theme_constant_override("margin_bottom", 12)
+	dock_margin.add_theme_constant_override("margin_bottom", 14)
 
 	_chrome_layer = CHROME_SCRIPT.new() as BottomCategoryChrome
 	_chrome_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -280,11 +283,11 @@ func _collect_categories_from_pages() -> void:
 			context_label.clip_text = true
 		if page_margin != null:
 			page_margin.add_theme_constant_override("margin_left", 76)
-			page_margin.add_theme_constant_override("margin_top", 12)
+			page_margin.add_theme_constant_override("margin_top", 18)
 			page_margin.add_theme_constant_override("margin_right", 76)
-			page_margin.add_theme_constant_override("margin_bottom", 14)
+			page_margin.add_theme_constant_override("margin_bottom", 16)
 		if page_vbox != null:
-			page_vbox.add_theme_constant_override("separation", 5)
+			page_vbox.add_theme_constant_override("separation", 7)
 			page_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			page_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		_configure_page_command_row(page_vbox, context_label, runtime_item_list, runtime_action_button)
@@ -362,7 +365,7 @@ func _configure_page_command_row(
 		command_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		command_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		command_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		command_row.add_theme_constant_override("separation", 14)
+		command_row.add_theme_constant_override("separation", 18)
 		page_vbox.add_child(command_row)
 
 	if runtime_item_list.get_parent() != command_row:
@@ -385,15 +388,21 @@ func _configure_page_command_row(
 
 func _configure_runtime_item_list(runtime_item_list: ItemList) -> void:
 	runtime_item_list.mouse_filter = Control.MOUSE_FILTER_STOP
-	runtime_item_list.custom_minimum_size = Vector2(0, 38)
+	runtime_item_list.custom_minimum_size = Vector2(0, RUNTIME_LIST_ROW_COUNT * RUNTIME_LIST_ITEM_HEIGHT + 16)
 	runtime_item_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	runtime_item_list.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	runtime_item_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	runtime_item_list.fixed_icon_size = LIST_ROW_ICON_SIZE
+	runtime_item_list.fixed_column_width = RUNTIME_LIST_COLUMN_WIDTH
 	runtime_item_list.icon_mode = ItemList.ICON_MODE_LEFT
 	runtime_item_list.max_text_lines = 1
-	runtime_item_list.same_column_width = false
+	runtime_item_list.max_columns = 0
+	runtime_item_list.same_column_width = true
 	runtime_item_list.allow_reselect = true
+	runtime_item_list.auto_height = false
 	runtime_item_list.add_theme_font_size_override("font_size", 14)
+	runtime_item_list.add_theme_constant_override("h_separation", 14)
+	runtime_item_list.add_theme_constant_override("v_separation", 4)
+	runtime_item_list.add_theme_constant_override("icon_margin", 7)
 	runtime_item_list.add_theme_color_override("font_color", Color(0.92, 0.96, 0.98, 0.96))
 	runtime_item_list.add_theme_color_override("font_selected_color", Color(0.96, 0.98, 1.0, 1.0))
 	runtime_item_list.add_theme_color_override("font_hovered_color", Color(1.0, 0.98, 0.94, 1.0))

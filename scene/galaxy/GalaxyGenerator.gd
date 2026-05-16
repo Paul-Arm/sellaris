@@ -2,6 +2,7 @@ extends RefCounted
 class_name GalaxyGenerator
 
 const SYSTEM_NAME_LIBRARY_SCRIPT: Script = preload("res://scene/galaxy/SystemNameLibrary.gd")
+const RESOURCE_DEPOSIT_COMPONENT_SCRIPT: Script = preload("res://core/economy/components/ResourceDepositComponent.gd")
 const SHAPE_SPIRAL := "spiral"
 const SHAPE_RING := "ring"
 const SHAPE_ELLIPTICAL := "elliptical"
@@ -1732,6 +1733,9 @@ func _normalize_star_entry(star_entry: Dictionary, star_index: int) -> Dictionar
 	result["orbit_angle"] = float(result.get("orbit_angle", 0.0))
 	result["vertical_offset"] = float(result.get("vertical_offset", 0.0))
 	result["metadata"] = result.get("metadata", {}).duplicate(true)
+	result["resource_deposit_component"] = RESOURCE_DEPOSIT_COMPONENT_SCRIPT.normalize_component(
+		result.get("resource_deposit_component", {})
+	)
 	result["buildable_component"] = _normalize_body_buildable_component(
 		result.get("buildable_component", {}),
 		BODY_TYPE_STAR
@@ -1759,6 +1763,9 @@ func _normalize_orbital_entry(orbital_entry: Dictionary, orbital_index: int) -> 
 	result["resource_richness_points"] = resource_richness_points
 	result["resource_richness"] = float(resource_richness_points) / 100.0
 	result["metadata"] = result.get("metadata", {}).duplicate(true)
+	result["resource_deposit_component"] = RESOURCE_DEPOSIT_COMPONENT_SCRIPT.normalize_component(
+		result.get("resource_deposit_component", {})
+	)
 	result["buildable_component"] = _normalize_body_buildable_component(
 		result.get("buildable_component", {}),
 		orbital_type

@@ -15,17 +15,22 @@ func _ready() -> void:
 
 func _run(failures: Array[String]) -> void:
 	SpaceManager.reset_runtime_state(true)
+	EconomyManager.clear_runtime_state(false)
+	EconomyManager.load_registry()
 
 	_expect(SpaceManager.has_unit_class(SpaceManager.BUILDER_SHIP_CLASS_ID), "builder ship class should be registered", failures)
 	_expect(SpaceManager.has_unit_class(SpaceManager.BASIC_STATION_CLASS_ID), "basic station class should be registered", failures)
 	_expect(SpaceManager.has_unit_class(SpaceManager.STELLAR_STATION_CLASS_ID), "stellar station class should be registered", failures)
+	_expect(SpaceManager.has_unit_class(SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID), "resource collector station class should be registered", failures)
 
 	var builder_class := SpaceManager.get_unit_class(SpaceManager.BUILDER_SHIP_CLASS_ID)
 	var station_class := SpaceManager.get_unit_class(SpaceManager.BASIC_STATION_CLASS_ID)
 	var stellar_station_class := SpaceManager.get_unit_class(SpaceManager.STELLAR_STATION_CLASS_ID)
+	var collector_station_class := SpaceManager.get_unit_class(SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID)
 	_expect(builder_class != null and builder_class.has_builder(), "builder ship class should expose builder component", failures)
 	_expect(station_class != null and station_class.is_buildable(), "station class should expose buildable component", failures)
 	_expect(stellar_station_class != null and stellar_station_class.is_buildable(), "stellar station class should expose buildable component", failures)
+	_expect(collector_station_class != null and collector_station_class.is_buildable(), "resource collector station should expose buildable component", failures)
 	if station_class != null:
 		_expect(station_class.get_build_time_days() == 60, "station should take 60 days to build", failures)
 		var round_trip_class := SpaceUnitClass.from_dict(station_class.to_dict())
@@ -45,15 +50,39 @@ func _run(failures: Array[String]) -> void:
 	var buildable_ids := SpaceManager.get_buildable_class_ids_for_builder(builder.unit_id)
 	_expect(buildable_ids.has(SpaceManager.BASIC_STATION_CLASS_ID), "builder should list station as buildable", failures)
 	_expect(buildable_ids.has(SpaceManager.STELLAR_STATION_CLASS_ID), "builder should list stellar station as buildable", failures)
+	_expect(buildable_ids.has(SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID), "builder should list resource collector station as buildable", failures)
 
 	var planet_context := _build_body_context("planet_00", "planet", "Alpha I", Vector3(18.0, 0.0, 0.0), ["orbital_station"])
 	var star_context := _build_body_context("star_00", "star", "Alpha", Vector3.ZERO, ["stellar_station"])
+	var deposit_context := _build_body_context("planet_deposit", "planet", "Alpha II", Vector3(24.0, 0.0, 0.0), ["orbital_station"])
+	deposit_context["generated_seed"] = 7
+	deposit_context["body_record"] = {
+		"id": "planet_deposit",
+		"name": "Alpha II",
+		"type": "planet",
+		"resource_deposit_component": {
+			"mode": "fixed",
+			"deposits": [{"resource_id": "matter", "milliunits": 50000}],
+		},
+	}
+	var no_deposit_context := _build_body_context("planet_empty", "planet", "Alpha III", Vector3(30.0, 0.0, 0.0), ["orbital_station"])
+	no_deposit_context["generated_seed"] = 7
+	no_deposit_context["body_record"] = {
+		"id": "planet_empty",
+		"name": "Alpha III",
+		"type": "planet",
+		"resource_deposit_component": {"mode": "none"},
+	}
 	var planet_options := SpaceManager.get_build_options_for_body(builder.unit_id, "sys_alpha", planet_context)
 	var star_options := SpaceManager.get_build_options_for_body(builder.unit_id, "sys_alpha", star_context)
+	var deposit_options := SpaceManager.get_build_options_for_body(builder.unit_id, "sys_alpha", deposit_context)
+	var no_deposit_options := SpaceManager.get_build_options_for_body(builder.unit_id, "sys_alpha", no_deposit_context)
 	_expect(_options_have_class(planet_options, SpaceManager.BASIC_STATION_CLASS_ID), "planet should offer basic station", failures)
 	_expect(not _options_have_class(planet_options, SpaceManager.STELLAR_STATION_CLASS_ID), "planet should not offer stellar station", failures)
 	_expect(_options_have_class(star_options, SpaceManager.STELLAR_STATION_CLASS_ID), "star should offer stellar station", failures)
 	_expect(not _options_have_class(star_options, SpaceManager.BASIC_STATION_CLASS_ID), "star should not offer basic station", failures)
+	_expect(_options_have_class(deposit_options, SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID), "body with deposits should offer resource collector station", failures)
+	_expect(not _options_have_class(no_deposit_options, SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID), "body without deposits should not offer resource collector station", failures)
 	_expect(SpaceManager.request_build_order_for_body(builder.unit_id, "sys_alpha", star_context, SpaceManager.BASIC_STATION_CLASS_ID).is_empty(), "nonmatching body tags should reject basic station on star", failures)
 	_expect(SpaceManager.request_build_order_for_body(builder.unit_id, "sys_alpha", planet_context, SpaceManager.STELLAR_STATION_CLASS_ID).is_empty(), "nonmatching body tags should reject stellar station on planet", failures)
 	_test_preview_build_menu_signal(builder.unit_id, planet_context, failures)
@@ -111,6 +140,28 @@ func _run(failures: Array[String]) -> void:
 		_expect(station != null and station.owner_empire_id == "empire_builder", "completed station should inherit builder owner", failures)
 		_expect(station != null and station.current_system_id == "sys_alpha", "completed station should spawn in builder system", failures)
 		_expect(station != null and str(station.metadata.get("target_body_id", "")) == "planet_00", "completed station should keep target body metadata", failures)
+
+	var collector_builder := SpaceManager.spawn_unit(SpaceManager.BUILDER_SHIP_CLASS_ID, "empire_builder", "sys_alpha", {
+		"display_name": "ISS Harvester",
+		"local_position": Vector3(22.0, 0.0, 0.0),
+	})
+	_expect(collector_builder != null, "collector builder should spawn", failures)
+	if collector_builder != null:
+		var collector_project_id := SpaceManager.request_build_order_for_body(
+			collector_builder.unit_id,
+			"sys_alpha",
+			deposit_context,
+			SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID
+		)
+		_expect(not collector_project_id.is_empty(), "body with deposits should accept collector build order", failures)
+		var duplicate_builder := SpaceManager.spawn_unit(SpaceManager.BUILDER_SHIP_CLASS_ID, "empire_builder", "sys_alpha", {
+			"display_name": "ISS Duplicate",
+			"local_position": Vector3(26.0, 0.0, 0.0),
+		})
+		_expect(duplicate_builder != null, "duplicate collector builder should spawn", failures)
+		if duplicate_builder != null:
+			var duplicate_collector_options := SpaceManager.get_build_options_for_body(duplicate_builder.unit_id, "sys_alpha", deposit_context)
+			_expect(not _options_have_class(duplicate_collector_options, SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID), "active collector project should block duplicate collector options", failures)
 
 	SpaceManager.reset_runtime_state(true)
 

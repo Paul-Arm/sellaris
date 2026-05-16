@@ -15,6 +15,7 @@ const SPECIAL_TYPE_BLACK_HOLE := "Black hole"
 @export_range(0.0, 360.0, 0.1) var orbit_angle_degrees: float = 0.0
 @export_range(-12.0, 12.0, 0.1) var vertical_offset: float = 0.0
 @export var is_primary: bool = false
+@export var resource_deposit_component: Dictionary = {}
 @export var buildable_component: Dictionary = {}
 
 
@@ -43,5 +44,6 @@ func to_dictionary(index: int) -> Dictionary:
 		"orbit_radius": orbit_radius,
 		"orbit_angle": deg_to_rad(orbit_angle_degrees),
 		"vertical_offset": vertical_offset,
+		"resource_deposit_component": resource_deposit_component.duplicate(true),
 		"buildable_component": buildable_component.duplicate(true),
 	}

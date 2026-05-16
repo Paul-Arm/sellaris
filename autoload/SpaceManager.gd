@@ -8,6 +8,7 @@ const SCIENCE_SHIP_CLASS_ID := "science_ship"
 const BUILDER_SHIP_CLASS_ID := "builder_ship"
 const BASIC_STATION_CLASS_ID := "basic_station"
 const STELLAR_STATION_CLASS_ID := "stellar_station"
+const RESOURCE_COLLECTOR_STATION_CLASS_ID := "resource_collector_station"
 const STATION_BUILD_TIME_DAYS := 60
 const BUILD_TAG_ORBITAL_STATION := "orbital_station"
 const BUILD_TAG_STELLAR_STATION := "stellar_station"
@@ -202,6 +203,34 @@ func register_builtin_unit_classes(overwrite_existing: bool = false) -> void:
 			"build_time_days": STATION_BUILD_TIME_DAYS,
 			"buildable_by_builder_ships": true,
 			"build_tags": [BUILD_TAG_STELLAR_STATION],
+		},
+	}, overwrite_existing)
+	register_unit_class_from_data({
+		"class_id": RESOURCE_COLLECTOR_STATION_CLASS_ID,
+		"display_name": "Sammelstation",
+		"unit_kind": SpaceUnitClass.UNIT_KIND_STATION,
+		"category": SpaceUnitClass.CATEGORY_STATION,
+		"max_hull_points": 1200.0,
+		"default_ai_role": "resource_collection",
+		"command_tags": ["station", "collector", "buildable"],
+		"upkeep_component": {
+			"build_costs": {
+				"alloys": 180.0,
+				"energy": 80.0,
+			},
+			"monthly_costs": {
+				"energy": 2.0,
+				"alloys": 0.25,
+			},
+			"command_point_cost": 0.0,
+		},
+		"buildable_component": {
+			"build_time_days": STATION_BUILD_TIME_DAYS,
+			"buildable_by_builder_ships": true,
+			"build_tags": [BUILD_TAG_ORBITAL_STATION, BUILD_TAG_STELLAR_STATION],
+		},
+		"metadata": {
+			"requires_resource_deposit": true,
 		},
 	}, overwrite_existing)
 
@@ -525,6 +554,8 @@ func get_build_options_for_body(builder_unit_id: String, system_id: String, body
 		var candidate_tags := candidate.get_build_tags()
 		if not _string_arrays_intersect(candidate_tags, allowed_tags):
 			continue
+		if _is_resource_collector_class(candidate) and not _can_build_resource_collector_for_body(system_id, normalized_body, body_context):
+			continue
 		result.append({
 			"class_id": candidate.class_id,
 			"display_name": candidate.display_name,
@@ -777,6 +808,84 @@ func get_fleet_ids_for_owner(empire_id: String) -> PackedStringArray:
 
 func get_fleet_ids_in_system(system_id: String) -> PackedStringArray:
 	return _get_index_values(_fleet_ids_by_system, system_id)
+
+
+func set_unit_evasion_mode(unit_id: String, active: bool) -> bool:
+	var unit := get_unit(unit_id)
+	if unit == null:
+		return false
+	if bool(unit.metadata.get("evasion_active", false)) == active:
+		return false
+	unit.metadata["evasion_active"] = active
+	unit.command_revision += 1
+	unit_updated.emit(unit_id)
+	return true
+
+
+func set_fleet_evasion_mode(fleet_id: String, active: bool) -> bool:
+	var fleet := get_fleet(fleet_id)
+	if fleet == null or fleet.unit_ids.is_empty():
+		return false
+	var changed := false
+	for unit_id in fleet.unit_ids:
+		if set_unit_evasion_mode(unit_id, active):
+			changed = true
+	if changed:
+		fleet.command_revision += 1
+		fleet_updated.emit(fleet_id)
+	return changed
+
+
+func split_unit_to_new_fleet(unit_id: String) -> SpaceFleetRuntime:
+	var unit := get_unit(unit_id)
+	if unit == null or unit.fleet_id.is_empty() or not unit.can_join_fleet():
+		return null
+	var source_fleet := get_fleet(unit.fleet_id)
+	if source_fleet == null:
+		return null
+	return create_fleet(unit.owner_empire_id, unit.current_system_id, [unit.unit_id], {
+		"display_name": "%s Detachment" % unit.display_name,
+		"controller_kind": source_fleet.controller_kind,
+		"controller_peer_id": source_fleet.controller_peer_id,
+		"ai_role": str(source_fleet.ai_role),
+		"home_system_id": source_fleet.home_system_id,
+		"local_position": unit.local_position,
+	})
+
+
+func debug_reinforce_fleet(fleet_id: String, template_unit_id: String = "") -> SpaceUnitRuntime:
+	var fleet := get_fleet(fleet_id)
+	if fleet == null or fleet.unit_ids.is_empty():
+		return null
+	var template_unit := get_unit(template_unit_id)
+	if template_unit == null or not fleet.unit_ids.has(template_unit_id):
+		for member_id in fleet.unit_ids:
+			template_unit = get_unit(member_id)
+			if template_unit != null:
+				break
+	if template_unit == null:
+		return null
+
+	var template_class := get_unit_class(template_unit.class_id)
+	if template_class == null or not template_unit.can_join_fleet():
+		return null
+
+	var spawn_count := get_unit_ids_of_class(template_unit.class_id).size() + 1
+	var spawn_position := fleet.local_position + Vector3(3.0 + float(fleet.unit_ids.size()), 0.0, 1.5)
+	var reinforcement := spawn_unit(template_unit.class_id, fleet.owner_empire_id, fleet.current_system_id, {
+		"display_name": "%s Reinforcement %02d" % [template_class.display_name, spawn_count],
+		"controller_kind": fleet.controller_kind,
+		"controller_peer_id": fleet.controller_peer_id,
+		"ai_role": str(template_unit.ai_role),
+		"local_position": spawn_position,
+		"metadata": template_unit.metadata.duplicate(true),
+	})
+	if reinforcement == null:
+		return null
+	if not add_unit_to_fleet(reinforcement.unit_id, fleet_id):
+		remove_unit(reinforcement.unit_id)
+		return null
+	return reinforcement
 
 
 func add_unit_to_fleet(unit_id: String, fleet_id: String) -> bool:
@@ -1692,6 +1801,81 @@ func _default_body_allowed_build_tags(body_type: String) -> PackedStringArray:
 			return PackedStringArray([BUILD_TAG_ORBITAL_STATION])
 
 
+func _is_resource_collector_class(unit_class: SpaceUnitClass) -> bool:
+	if unit_class == null:
+		return false
+	return unit_class.class_id == RESOURCE_COLLECTOR_STATION_CLASS_ID or bool(unit_class.metadata.get("requires_resource_deposit", false))
+
+
+func _can_build_resource_collector_for_body(system_id: String, normalized_body: Dictionary, raw_body_context: Dictionary) -> bool:
+	var body_id := str(normalized_body.get("body_id", "")).strip_edges()
+	var body_type := str(normalized_body.get("body_type", "")).strip_edges()
+	if body_id.is_empty() or body_type.is_empty():
+		return false
+	if _body_has_completed_resource_collector(system_id, body_id, body_type):
+		return false
+	if _body_has_active_resource_collector_project(system_id, body_id, body_type):
+		return false
+	return _body_has_resource_deposits(system_id, normalized_body, raw_body_context)
+
+
+func _body_has_resource_deposits(system_id: String, normalized_body: Dictionary, raw_body_context: Dictionary) -> bool:
+	if EconomyManager == null or not EconomyManager.has_method("preview_body_deposit_income"):
+		return false
+	var body_record := _resolve_resource_deposit_body_record(normalized_body, raw_body_context)
+	if body_record.is_empty():
+		return false
+	var galaxy_seed := int(raw_body_context.get("generated_seed", body_record.get("generated_seed", 0)))
+	var preview_map: Dictionary = EconomyManager.preview_body_deposit_income(galaxy_seed, system_id, body_record)
+	return not preview_map.is_empty()
+
+
+func _resolve_resource_deposit_body_record(normalized_body: Dictionary, raw_body_context: Dictionary) -> Dictionary:
+	var context_record: Variant = raw_body_context.get("body_record", {})
+	if context_record is Dictionary and not (context_record as Dictionary).is_empty():
+		return (context_record as Dictionary).duplicate(true)
+
+	var body_record := {
+		"id": str(normalized_body.get("body_id", "")),
+		"name": str(normalized_body.get("body_name", normalized_body.get("body_id", ""))),
+		"type": str(normalized_body.get("body_type", "")),
+		"size": float(normalized_body.get("size", 1.0)),
+	}
+	for key in ["resource_deposit_component", "resource_richness_points", "resource_richness", "habitability_points", "habitability", "is_colonizable", "kind", "special_type"]:
+		if raw_body_context.has(key):
+			body_record[key] = raw_body_context.get(key)
+	return body_record
+
+
+func _body_has_completed_resource_collector(system_id: String, body_id: String, body_type: String) -> bool:
+	for unit_id in get_unit_ids_in_system(system_id):
+		var unit := get_unit(unit_id)
+		if unit == null or unit.class_id != RESOURCE_COLLECTOR_STATION_CLASS_ID:
+			continue
+		if _metadata_targets_body(unit.metadata, body_id, body_type):
+			return true
+	return false
+
+
+func _body_has_active_resource_collector_project(system_id: String, body_id: String, body_type: String) -> bool:
+	for project_variant in _construction_projects.values():
+		var project: Dictionary = project_variant
+		if str(project.get("system_id", "")) != system_id:
+			continue
+		if str(project.get("build_class_id", "")) != RESOURCE_COLLECTOR_STATION_CLASS_ID:
+			continue
+		if str(project.get("target_body_id", "")) != body_id:
+			continue
+		if str(project.get("target_body_type", "")) != body_type:
+			continue
+		return true
+	return false
+
+
+func _metadata_targets_body(metadata: Dictionary, body_id: String, body_type: String) -> bool:
+	return str(metadata.get("target_body_id", "")) == body_id and str(metadata.get("target_body_type", "")) == body_type
+
+
 func _normalize_construction_state(value: Variant) -> String:
 	var state := str(value).strip_edges()
 	match state:
@@ -1756,10 +1940,16 @@ func _construction_project_to_snapshot(project: Dictionary) -> Dictionary:
 func _construction_project_to_renderable(project: Dictionary) -> Dictionary:
 	var days_total := maxi(int(project.get("days_total", 1)), 1)
 	var days_remaining := maxi(int(project.get("days_remaining", days_total)), 0)
+	var progress_ratio := clampf(float(days_total - days_remaining) / float(days_total), 0.0, 1.0)
+	var build_class_id := str(project.get("build_class_id", ""))
+	var build_class := get_unit_class(build_class_id)
+	var builder := get_unit(str(project.get("builder_unit_id", "")))
 	return {
 		"project_id": str(project.get("project_id", "")),
 		"builder_unit_id": str(project.get("builder_unit_id", "")),
-		"build_class_id": str(project.get("build_class_id", "")),
+		"builder_name": builder.display_name if builder != null else str(project.get("builder_unit_id", "")),
+		"build_class_id": build_class_id,
+		"class_display_name": build_class.display_name if build_class != null else build_class_id,
 		"display_name": str(project.get("display_name", "")),
 		"owner_empire_id": str(project.get("owner_empire_id", "")),
 		"system_id": str(project.get("system_id", "")),
@@ -1770,7 +1960,8 @@ func _construction_project_to_renderable(project: Dictionary) -> Dictionary:
 		"days_remaining": days_remaining,
 		"construction_state": _normalize_construction_state(project.get("construction_state", CONSTRUCTION_STATE_BUILDING)),
 		"is_build_timer_active": _normalize_construction_state(project.get("construction_state", CONSTRUCTION_STATE_BUILDING)) == CONSTRUCTION_STATE_BUILDING,
-		"progress_ratio": clampf(float(days_total - days_remaining) / float(days_total), 0.0, 1.0),
+		"progress_ratio": progress_ratio,
+		"progress_percent": int(round(progress_ratio * 100.0)),
 		"local_position": SpaceUnitRuntime._variant_to_vector3(project.get("local_position", Vector3.ZERO)),
 		"started_day_serial": int(project.get("started_day_serial", 0)),
 		"command_revision": int(project.get("command_revision", 0)),
@@ -1922,6 +2113,9 @@ func _remove_unit_economy_source(unit_id: String) -> void:
 	var source_id := _get_unit_source_id(unit_id)
 	if EconomyManager.has_source(source_id):
 		EconomyManager.remove_source(source_id)
+	var collector_source_id := "resource_collector:%s" % unit_id
+	if EconomyManager.has_source(collector_source_id):
+		EconomyManager.remove_source(collector_source_id)
 
 
 func _get_unit_source_id(unit_id: String) -> String:

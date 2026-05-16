@@ -110,6 +110,7 @@ func set_system_details(system_details: Dictionary) -> void:
 		var star_position := _get_orbit_position(star)
 		max_radius = maxf(max_radius, star_position.length() + float(star.get("scale", 1.0)) * 8.0 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER)
 		_build_star_visual(star, star_position)
+		_build_body_deposit_label(star, star_position)
 		_register_star_selectable(star, star_position)
 
 	for orbital_variant in orbitals:
@@ -119,6 +120,7 @@ func set_system_details(system_details: Dictionary) -> void:
 		max_radius = maxf(max_radius, orbital_radius + float(orbital.get("size", 1.0)) * 7.0 + float(orbital.get("orbit_width", 0.0)))
 		_build_orbit_ring(orbital_radius, float(orbital.get("vertical_offset", 0.0)), _get_orbit_color(orbital))
 		_build_orbital_visual(orbital, orbital_position)
+		_build_body_deposit_label(orbital, orbital_position)
 		_register_orbital_selectable(orbital, orbital_position)
 
 	_static_outer_radius = max_radius
@@ -342,6 +344,8 @@ func _build_runtime_selection_ids(selection_kind: String, record_id: String) -> 
 			selection_ids.append("%s:%s" % [SpaceUnitClass.UNIT_KIND_SHIP, record_id])
 			selection_ids.append("%s:%s" % [SpaceUnitClass.UNIT_KIND_CREATURE, record_id])
 			selection_ids.append("station:%s" % record_id)
+		"construction":
+			selection_ids.append("construction:%s" % record_id)
 		_:
 			selection_ids.append("%s:%s" % [normalized_kind, record_id])
 			selection_ids.append("unit:%s" % record_id)
@@ -429,6 +433,11 @@ func _update_runtime_selectable_positions(space_renderables: Dictionary, day_pro
 		var fleet_id := str(fleet_record.get("fleet_id", ""))
 		if not fleet_id.is_empty():
 			records_by_key["fleet:%s" % fleet_id] = fleet_record
+	for project_variant in space_renderables.get("construction_projects", []):
+		var project_record: Dictionary = project_variant
+		var project_id := str(project_record.get("project_id", ""))
+		if not project_id.is_empty():
+			records_by_key["construction:%s" % project_id] = project_record
 
 	var moved_selected := false
 	for selectable in _runtime_selectables:
@@ -526,6 +535,10 @@ func _register_orbital_selectable(orbital: Dictionary, orbital_position: Vector3
 
 
 func _register_runtime_selectables(runtime_layouts: Dictionary) -> void:
+	for project_variant in runtime_layouts.get("construction_projects", []):
+		var project_entry: Dictionary = project_variant
+		_register_runtime_construction_selectable(project_entry.get("record", {}), project_entry.get("position", Vector3.ZERO))
+
 	for station_variant in runtime_layouts.get("stations", []):
 		var station_entry: Dictionary = station_variant
 		_register_runtime_ship_selectable(station_entry.get("record", {}), station_entry.get("position", Vector3.ZERO), true)
@@ -580,6 +593,38 @@ func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vect
 		"highlight_color": Color(owner_color.r, owner_color.g, owner_color.b, 0.98),
 		"pick_priority": 30 if is_station else 26,
 		"context": _build_runtime_body_context(record, entity_kind, marker_position, is_station),
+	}))
+
+
+func _register_runtime_construction_selectable(record: Dictionary, marker_position: Vector3) -> void:
+	var project_id := str(record.get("project_id", "")).strip_edges()
+	if project_id.is_empty():
+		return
+	var owner_name: String = str(record.get("owner_name", "Unclaimed"))
+	var class_display_name: String = str(record.get("class_display_name", record.get("build_class_id", "Station")))
+	var progress_ratio := clampf(float(record.get("progress_ratio", 0.0)), 0.0, 1.0)
+	var lines: Array[String] = []
+	_append_labeled_line(lines, "Owner", owner_name)
+	_append_labeled_line(lines, "Class", class_display_name)
+	_append_labeled_line(lines, "Target", str(record.get("target_body_name", record.get("target_body_id", ""))))
+	_append_labeled_line(lines, "Status", _format_construction_state(str(record.get("construction_state", ""))))
+	_append_labeled_line(lines, "Progress", _format_percentage(progress_ratio))
+	_append_labeled_line(lines, "Remaining", "%d days" % int(record.get("days_remaining", 0)))
+	_append_labeled_line(lines, "Builder", str(record.get("builder_name", record.get("builder_unit_id", ""))))
+
+	var owner_color: Color = record.get("owner_color", Color(0.82, 0.88, 1.0, 1.0))
+	_register_runtime_selectable(_create_selectable({
+		"selection_id": "construction:%s" % project_id,
+		"selection_kind": "construction",
+		"title": str(record.get("display_name", class_display_name)),
+		"subtitle": "Bauprojekt / %s" % owner_name,
+		"body_text": _join_lines(lines),
+		"anchor_local_position": marker_position,
+		"screen_pick_radius": 19.0,
+		"highlight_radius": 3.2,
+		"highlight_color": Color(owner_color.r, owner_color.g, owner_color.b, 0.98),
+		"pick_priority": 28,
+		"context": _build_runtime_body_context(record, "construction", marker_position, false),
 	}))
 
 
@@ -659,7 +704,7 @@ func _build_body_context(body_record: Dictionary, body_type: String, local_posit
 
 
 func _build_runtime_body_context(record: Dictionary, body_type: String, local_position: Vector3, is_station: bool) -> Dictionary:
-	var record_id := str(record.get("unit_id", record.get("fleet_id", record.get("display_name", "")))).strip_edges()
+	var record_id := str(record.get("unit_id", record.get("fleet_id", record.get("project_id", record.get("display_name", ""))))).strip_edges()
 	var host_kind := ColonyRuntime.HOST_KIND_SPACE_UNIT if is_station else ""
 	return {
 		"system_id": str(_current_system_details.get("id", "")),
@@ -876,6 +921,88 @@ func _build_orbital_visual(orbital: Dictionary, orbital_position: Vector3) -> vo
 			_build_ruin(orbital, orbital_position)
 		_:
 			_build_planet(orbital, orbital_position)
+
+
+func _build_body_deposit_label(body_record: Dictionary, body_position: Vector3) -> void:
+	if not _should_show_deposit_labels():
+		return
+	if EconomyManager == null or not EconomyManager.has_method("preview_body_deposit_income"):
+		return
+
+	var system_id := str(_current_system_details.get("id", "")).strip_edges()
+	var galaxy_seed := int(_current_system_details.get("generated_seed", _current_system_details.get("seed", 0)))
+	var deposits: Dictionary = EconomyManager.preview_body_deposit_income(galaxy_seed, system_id, body_record)
+	if deposits.is_empty():
+		return
+
+	var label := Label3D.new()
+	label.name = "DepositLabel_%s" % str(body_record.get("id", body_record.get("name", "body")))
+	label.text = _format_deposit_label(deposits)
+	label.position = body_position + Vector3(0.0, -_get_deposit_label_offset(body_record), 0.0)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.font_size = 18
+	label.pixel_size = 0.036
+	label.outline_size = 8
+	label.modulate = Color(0.76, 0.93, 0.98, 0.95)
+	label.outline_modulate = Color(0.02, 0.04, 0.06, 0.92)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	bodies.add_child(label)
+
+
+func _should_show_deposit_labels() -> bool:
+	if _current_system_details.has("has_full_intel"):
+		return bool(_current_system_details.get("has_full_intel", false))
+	return true
+
+
+func _format_deposit_label(deposits: Dictionary) -> String:
+	var resource_ids: Array[String] = []
+	for resource_id_variant in deposits.keys():
+		var resource_id := str(resource_id_variant).strip_edges()
+		if resource_id.is_empty():
+			continue
+		resource_ids.append(resource_id)
+	resource_ids.sort()
+
+	var parts: Array[String] = []
+	for resource_id in resource_ids:
+		if parts.size() >= 3:
+			break
+		parts.append("%s %s" % [
+			_format_token_label(resource_id),
+			_format_milliunits(int(deposits.get(resource_id, 0))),
+		])
+	if resource_ids.size() > parts.size():
+		parts.append("+%d" % (resource_ids.size() - parts.size()))
+	return "  ".join(parts)
+
+
+func _get_deposit_label_offset(body_record: Dictionary) -> float:
+	var body_type := _resolve_deposit_body_type(body_record)
+	match body_type:
+		"star":
+			return maxf(4.0, float(body_record.get("scale", 1.0)) * 8.0 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER + 2.2)
+		ORBITAL_TYPE_ASTEROID_BELT:
+			return maxf(2.8, float(body_record.get("orbit_width", 1.0)) * 0.18 + 2.0)
+		ORBITAL_TYPE_STRUCTURE, ORBITAL_TYPE_RUIN:
+			return maxf(2.4, float(body_record.get("size", 1.0)) * 1.6 + 1.2)
+		_:
+			return maxf(2.4, float(body_record.get("size", 1.0)) * 1.75 + 1.15)
+
+
+func _resolve_deposit_body_type(body_record: Dictionary) -> String:
+	if body_record.has("type"):
+		return str(body_record.get("type", ORBITAL_TYPE_PLANET))
+	if body_record.has("kind"):
+		var kind := str(body_record.get("kind", ORBITAL_TYPE_PLANET))
+		if kind == "star" or kind == "black_hole":
+			return "star"
+		return kind
+	if body_record.has("star_class") or body_record.has("color_name"):
+		return "star"
+	return ORBITAL_TYPE_PLANET
 
 
 func _build_planet(orbital: Dictionary, orbital_position: Vector3) -> void:
@@ -1133,6 +1260,16 @@ func _format_controller_kind(controller_kind: String) -> String:
 			return _format_token_label(controller_kind)
 
 
+func _format_construction_state(construction_state: String) -> String:
+	match construction_state:
+		SpaceManager.CONSTRUCTION_STATE_MOVING_TO_SITE:
+			return "Anflug zur Baustelle"
+		SpaceManager.CONSTRUCTION_STATE_BUILDING:
+			return "Im Bau"
+		_:
+			return _format_token_label(construction_state)
+
+
 func _format_percentage(value: float) -> String:
 	return "%d%%" % int(round(clampf(value, 0.0, 1.0) * 100.0))
 
@@ -1146,6 +1283,16 @@ func _format_number(value: float, step: float = 0.1) -> String:
 	if is_equal_approx(snapped_value, round(snapped_value)):
 		return str(int(round(snapped_value)))
 	return str(snapped_value)
+
+
+func _format_milliunits(value: int) -> String:
+	var sign := "+" if value >= 0 else "-"
+	var absolute_value := absi(value)
+	var whole_units := absolute_value / 1000
+	var milli_units := absolute_value % 1000
+	if milli_units == 0:
+		return "%s%d" % [sign, whole_units]
+	return "%s%d.%03d" % [sign, whole_units, milli_units]
 
 
 func _format_hull_points(current_points: float, max_points: float) -> String:

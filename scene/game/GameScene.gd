@@ -252,7 +252,7 @@ func _select_open_system_view_runtime_entity(selection_kind: String, record_id: 
 	var entity_system_id := _get_space_entity_system_id(selection_kind, record_id)
 	if entity_system_id.is_empty() or entity_system_id != system_view.get_current_system_id():
 		return
-	system_view.select_runtime_entity(selection_kind, record_id)
+	system_view.select_runtime_entity(selection_kind, record_id, false)
 
 
 func _get_space_entity_system_id(selection_kind: String, record_id: String) -> String:

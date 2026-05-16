@@ -120,6 +120,8 @@ func bind_view_signals() -> void:
 		system_view.colony_open_requested.connect(_on_system_view_colony_open_requested)
 	if system_view != null and not system_view.body_colonize_requested.is_connected(_on_system_view_body_colonize_requested):
 		system_view.body_colonize_requested.connect(_on_system_view_body_colonize_requested)
+	if system_view != null and not system_view.runtime_entity_selected.is_connected(_on_system_view_runtime_entity_selected):
+		system_view.runtime_entity_selected.connect(_on_system_view_runtime_entity_selected)
 
 
 func _unbind_view_signals() -> void:
@@ -150,6 +152,8 @@ func _unbind_view_signals() -> void:
 		system_view.colony_open_requested.disconnect(_on_system_view_colony_open_requested)
 	if system_view != null and system_view.body_colonize_requested.is_connected(_on_system_view_body_colonize_requested):
 		system_view.body_colonize_requested.disconnect(_on_system_view_body_colonize_requested)
+	if system_view != null and system_view.runtime_entity_selected.is_connected(_on_system_view_runtime_entity_selected):
+		system_view.runtime_entity_selected.disconnect(_on_system_view_runtime_entity_selected)
 
 
 func _on_galaxy_view_hovered_system_changed(system_id: String) -> void:
@@ -206,6 +210,10 @@ func _on_galaxy_view_space_entity_selected(selection_data: Dictionary) -> void:
 	_scene_ui_controller.update_selection_panel()
 	_scene_ui_controller.update_system_panel()
 	_scene_ui_controller.update_info_label()
+
+
+func _on_system_view_runtime_entity_selected(selection_data: Dictionary) -> void:
+	_on_galaxy_view_space_entity_selected(selection_data)
 
 
 func _on_galaxy_view_space_entity_move_requested(selection_data: Dictionary, destination_system_id: String) -> void:

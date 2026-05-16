@@ -5,6 +5,7 @@ signal close_requested
 signal build_order_requested(builder_unit_id: String, system_id: String, body_context: Dictionary, build_class_id: String)
 signal colony_open_requested(colony_id: String)
 signal body_colonize_requested(system_id: String, body_context: Dictionary)
+signal runtime_entity_selected(selection_data: Dictionary)
 
 const SPECIAL_TYPE_NONE: String = "none"
 const POPUP_OFFSET: Vector2 = Vector2(18.0, -18.0)
@@ -32,6 +33,7 @@ var _build_menu: PopupMenu = null
 var _build_menu_builder_unit_id: String = ""
 var _build_menu_body_context: Dictionary = {}
 var _build_menu_options: Array[Dictionary] = []
+var _suppress_runtime_entity_selection_signal: bool = false
 
 
 func _ready() -> void:
@@ -103,7 +105,9 @@ func show_system(system_details: Dictionary, neighbor_count: int) -> void:
 		int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
 	])
 	if preview != null:
+		_suppress_runtime_entity_selection_signal = true
 		preview.set_system_details(system_details)
+		_suppress_runtime_entity_selection_signal = false
 
 
 func refresh_runtime(system_details: Dictionary, neighbor_count: int) -> void:
@@ -113,7 +117,9 @@ func refresh_runtime(system_details: Dictionary, neighbor_count: int) -> void:
 	_current_system_details = system_details.duplicate(true)
 	_update_system_labels(system_details, neighbor_count)
 	if preview != null:
+		_suppress_runtime_entity_selection_signal = true
 		preview.refresh_runtime_placeholders(system_details)
+		_suppress_runtime_entity_selection_signal = false
 
 
 func hide_view() -> void:
@@ -194,13 +200,13 @@ func set_selected_builder_unit_id(unit_id: String) -> void:
 		preview.set_external_selected_builder_unit_id(unit_id)
 
 
-func select_runtime_entity(selection_kind: String, record_id: String) -> bool:
+func select_runtime_entity(selection_kind: String, record_id: String, notify_selection: bool = true) -> bool:
 	if preview == null:
 		return false
+	_suppress_runtime_entity_selection_signal = not notify_selection
 	var selected := preview.select_runtime_entity(selection_kind, record_id)
-	if selected:
-		_handle_preview_selection_changed(preview.get_selection_popup_state())
-	else:
+	_suppress_runtime_entity_selection_signal = false
+	if not selected:
 		_hide_body_details_panel()
 	return selected
 
@@ -254,8 +260,18 @@ func _handle_preview_selection_changed(selection_data: Dictionary) -> void:
 	_hide_selection_popup()
 	if selection_data.is_empty():
 		_hide_body_details_panel()
+		if not _suppress_runtime_entity_selection_signal:
+			runtime_entity_selected.emit({})
 		return
 
+	if _is_runtime_space_entity_selection(selection_data):
+		_hide_body_details_panel()
+		if not _suppress_runtime_entity_selection_signal:
+			runtime_entity_selected.emit(_build_runtime_entity_selection_data(selection_data))
+		return
+
+	if not _suppress_runtime_entity_selection_signal:
+		runtime_entity_selected.emit({})
 	var existing_colony_id := _get_existing_colony_id_for_selection(selection_data)
 	if not existing_colony_id.is_empty():
 		_hide_body_details_panel()
@@ -268,6 +284,25 @@ func _handle_preview_selection_changed(selection_data: Dictionary) -> void:
 	if _body_details_panel == null:
 		return
 	_body_details_panel.open_details(selection_data, _current_system_details, _build_body_action_state(selection_data))
+
+
+func _is_runtime_space_entity_selection(selection_data: Dictionary) -> bool:
+	match str(selection_data.get("selection_kind", "")):
+		"fleet", SpaceUnitClass.UNIT_KIND_SHIP, SpaceUnitClass.UNIT_KIND_CREATURE, "unit":
+			return true
+		_:
+			return false
+
+
+func _build_runtime_entity_selection_data(selection_data: Dictionary) -> Dictionary:
+	var result := selection_data.duplicate(true)
+	var context: Dictionary = result.get("context", {}) if result.get("context", {}) is Dictionary else {}
+	var record_id := str(context.get("body_id", context.get("host_id", ""))).strip_edges()
+	if record_id.is_empty():
+		record_id = _record_id_from_selection_id(str(result.get("selection_id", "")))
+	result["record_id"] = record_id
+	result["system_id"] = str(context.get("system_id", _current_system_id))
+	return result
 
 
 func _ensure_body_details_panel() -> void:

@@ -77,6 +77,23 @@ func _run(failures: Array[String]) -> void:
 		_expect(moved_fleet.movement_state == SpaceUnitRuntime.MOVEMENT_IDLE, "fleet should arrive and clear movement state", failures)
 		_expect(moved_fleet.local_position.distance_to(Vector3(19.0, 0.0, 0.0)) < 0.001, "fleet should arrive at target", failures)
 
+	_expect(SpaceManager.set_unit_evasion_mode(science_a.unit_id, true), "unit evasion mode should be settable", failures)
+	_expect(bool(science_a.metadata.get("evasion_active", false)), "unit evasion metadata should be active", failures)
+	_expect(SpaceManager.set_fleet_evasion_mode(fleet.fleet_id, true), "fleet evasion mode should apply to members", failures)
+	_expect(bool(science_b.metadata.get("evasion_active", false)), "fleet evasion should mark member metadata", failures)
+
+	var split_fleet := SpaceManager.split_unit_to_new_fleet(science_a.unit_id)
+	_expect(split_fleet != null and split_fleet.unit_ids.size() == 1, "split should create a single-ship detachment", failures)
+	if split_fleet != null:
+		_expect(science_a.fleet_id == split_fleet.fleet_id, "split ship should belong to the new fleet", failures)
+		var reinforced := SpaceManager.debug_reinforce_fleet(split_fleet.fleet_id, science_a.unit_id)
+		_expect(reinforced != null, "debug reinforce should spawn a fleet member", failures)
+		if reinforced != null:
+			_expect(reinforced.class_id == science_a.class_id, "reinforcement should copy the template class", failures)
+			_expect(reinforced.fleet_id == split_fleet.fleet_id, "reinforcement should join the target fleet", failures)
+			_expect(SpaceManager.remove_unit_from_fleet(reinforced.unit_id), "member removal should detach a reinforced ship", failures)
+			_expect(reinforced.fleet_id.is_empty(), "removed member should have no fleet assignment", failures)
+
 	var snapshot := SpaceManager.build_snapshot()
 	_expect(snapshot.has("space_unit_classes"), "snapshot should emit space_unit_classes", failures)
 	_expect(snapshot.has("space_units"), "snapshot should emit space_units", failures)
@@ -86,6 +103,8 @@ func _run(failures: Array[String]) -> void:
 	SpaceManager.load_snapshot(snapshot, true)
 	_expect(SpaceManager.get_unit(science_a.unit_id) != null, "snapshot load should restore science ship", failures)
 	_expect(SpaceManager.get_fleet(fleet.fleet_id) != null, "snapshot load should restore fleet", failures)
+	var restored_science_a := SpaceManager.get_unit(science_a.unit_id)
+	_expect(restored_science_a != null and bool(restored_science_a.metadata.get("evasion_active", false)), "snapshot load should restore unit evasion metadata", failures)
 
 
 func _register_debug_unit_classes() -> void:

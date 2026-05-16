@@ -337,8 +337,31 @@ func _sync_system_economy_sources(system_id: String, resolved_details: Dictionar
 		system_id,
 		_host.galaxy_state.get_system_owner_id(system_id),
 		system_details.get("orbitals", []),
-		_host.generated_seed
+		_host.generated_seed,
+		system_details.get("stars", []),
+		_build_resource_collector_source_units(system_id),
+		EconomyManager.get_resource_collector_output_modifier_bp()
 	)
+
+
+func _build_resource_collector_source_units(system_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if system_id.is_empty():
+		return result
+	for unit_id in SpaceManager.get_unit_ids_in_system(system_id):
+		var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+		if unit == null or unit.class_id != SpaceManager.RESOURCE_COLLECTOR_STATION_CLASS_ID:
+			continue
+		var metadata := unit.metadata.duplicate(true)
+		result.append({
+			"unit_id": unit.unit_id,
+			"class_id": unit.class_id,
+			"owner_empire_id": unit.owner_empire_id,
+			"target_body_id": str(metadata.get("target_body_id", "")),
+			"target_body_type": str(metadata.get("target_body_type", "")),
+			"metadata": metadata,
+		})
+	return result
 
 
 func initialize_empires() -> void:
@@ -469,9 +492,19 @@ func disconnect_space_runtime_signals() -> void:
 func _on_space_runtime_changed(_record_id: String) -> void:
 	if _host == null:
 		return
+	_sync_space_record_economy_sources(_record_id)
 	_host._render_runtime_placeholders()
 	_host._update_system_panel()
 
 
 func _on_space_construction_completed(_project_id: String, unit_id: String) -> void:
 	_on_space_runtime_changed(unit_id)
+
+
+func _sync_space_record_economy_sources(record_id: String) -> void:
+	if record_id.is_empty():
+		return
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(record_id)
+	if unit == null:
+		return
+	_sync_system_economy_sources(unit.current_system_id)

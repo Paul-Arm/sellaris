@@ -3,6 +3,8 @@ extends Node
 const RESOURCE_REGISTRY_SCRIPT := preload("res://core/economy/ResourceRegistry.gd")
 const RESOURCE_BUNDLE_SCRIPT := preload("res://core/economy/ResourceBundle.gd")
 const ECONOMY_SOURCE_RECORD_SCRIPT := preload("res://core/economy/EconomySourceRecord.gd")
+const RESOURCE_DEPOSIT_COMPONENT_SCRIPT := preload("res://core/economy/components/ResourceDepositComponent.gd")
+const RESOURCE_COLLECTOR_SOURCE_PREFIX := "resource_collector:"
 
 signal registry_loaded(registry_hash: String, resource_ids: PackedStringArray)
 signal economy_bootstrapped(empire_ids: PackedStringArray)
@@ -24,6 +26,7 @@ var _last_shortage: PackedInt64Array = PackedInt64Array()
 var _revision_by_empire: PackedInt64Array = PackedInt64Array()
 var _sources: Dictionary = {}
 var _source_ids_by_system_id: Dictionary = {}
+var _resource_collector_output_modifier_bp: int = 10000
 
 
 func _ready() -> void:
@@ -64,12 +67,28 @@ func compile_bundle(value: Variant) -> ResourceBundle:
 
 
 func preview_orbital_deposit_income(galaxy_seed: int, system_id: String, orbital: Dictionary) -> Dictionary:
+	return preview_body_deposit_income(galaxy_seed, system_id, orbital)
+
+
+func preview_body_deposit_income(galaxy_seed: int, system_id: String, body_record: Dictionary) -> Dictionary:
 	if _registry.size() == 0 and not load_registry():
 		return {}
-	var income_bundle := _compile_orbital_income_bundle(galaxy_seed, system_id, orbital)
+	var income_bundle := _compile_body_deposit_bundle(galaxy_seed, system_id, body_record)
 	if income_bundle == null or income_bundle.is_empty():
 		return {}
 	return _registry.bundle_to_resource_map(income_bundle)
+
+
+func get_resource_collector_source_id(unit_id: String) -> String:
+	return "%s%s" % [RESOURCE_COLLECTOR_SOURCE_PREFIX, unit_id.strip_edges()]
+
+
+func set_resource_collector_output_modifier_bp(value: int) -> void:
+	_resource_collector_output_modifier_bp = maxi(value, 0)
+
+
+func get_resource_collector_output_modifier_bp() -> int:
+	return _resource_collector_output_modifier_bp
 
 
 func bootstrap(empire_ids_variant: Variant, galaxy_snapshot: Dictionary) -> void:
@@ -125,6 +144,7 @@ func clear_runtime_state(clear_registry: bool = false) -> void:
 	_revision_by_empire = PackedInt64Array()
 	_sources.clear()
 	_source_ids_by_system_id.clear()
+	_resource_collector_output_modifier_bp = 10000
 	if clear_registry:
 		_registry = RESOURCE_REGISTRY_SCRIPT.new()
 
@@ -196,7 +216,7 @@ func update_source_tags(source_id: String, tags: PackedStringArray) -> bool:
 	var record := _sources.get(source_id, null) as EconomySourceRecord
 	if record == null:
 		return false
-	if record.kind == "orbital_deposit" and record.tags.size() > 0:
+	if _is_system_tracked_source_kind(record.kind) and record.tags.size() > 0:
 		var old_system_id: String = str(record.tags[0]).strip_edges()
 		if not old_system_id.is_empty() and _source_ids_by_system_id.has(old_system_id):
 			var old_system_source_ids: Dictionary = _source_ids_by_system_id[old_system_id]
@@ -206,7 +226,7 @@ func update_source_tags(source_id: String, tags: PackedStringArray) -> bool:
 			else:
 				_source_ids_by_system_id[old_system_id] = old_system_source_ids
 	record.tags = tags.duplicate()
-	if record.kind == "orbital_deposit" and record.tags.size() > 0:
+	if _is_system_tracked_source_kind(record.kind) and record.tags.size() > 0:
 		var new_system_id: String = str(record.tags[0]).strip_edges()
 		if not new_system_id.is_empty():
 			var new_system_source_ids: Dictionary = _source_ids_by_system_id.get(new_system_id, {})
@@ -221,7 +241,7 @@ func remove_source(source_id: String) -> bool:
 		return false
 
 	_apply_source_to_owner(record, -1)
-	if record.kind == "orbital_deposit" and record.tags.size() > 0:
+	if _is_system_tracked_source_kind(record.kind) and record.tags.size() > 0:
 		var system_id: String = str(record.tags[0]).strip_edges()
 		if not system_id.is_empty() and _source_ids_by_system_id.has(system_id):
 			var system_source_ids: Dictionary = _source_ids_by_system_id[system_id]
@@ -235,53 +255,73 @@ func remove_source(source_id: String) -> bool:
 	return true
 
 
-func sync_system_sources(system_id: String, owner_empire_id: String, orbitals: Array, galaxy_seed: int = 0) -> void:
+func sync_system_sources(
+	system_id: String,
+	_owner_empire_id: String,
+	orbitals: Array,
+	galaxy_seed: int = 0,
+	stars: Array = [],
+	collector_units: Array = [],
+	collector_output_modifier_bp: int = -1
+) -> void:
 	system_id = system_id.strip_edges()
 	if system_id.is_empty():
 		return
 
-	var existing_source_ids: Dictionary = _source_ids_by_system_id.get(system_id, {}).duplicate()
-	if owner_empire_id.strip_edges().is_empty():
-		for source_id_variant in existing_source_ids.keys():
-			remove_source(str(source_id_variant))
-		_source_ids_by_system_id.erase(system_id)
-		return
-
 	var desired_source_ids: Dictionary = {}
-	for orbital_variant in orbitals:
-		if orbital_variant is not Dictionary:
+	var bodies_by_key := _build_deposit_body_lookup(stars, orbitals)
+	var resolved_modifier_bp := _resource_collector_output_modifier_bp if collector_output_modifier_bp < 0 else maxi(collector_output_modifier_bp, 0)
+
+	for collector_variant in collector_units:
+		if collector_variant is not Dictionary:
 			continue
-		var orbital: Dictionary = orbital_variant
-		var orbital_id: String = str(orbital.get("id", "")).strip_edges()
-		if orbital_id.is_empty():
+		var collector: Dictionary = collector_variant
+		var unit_id := str(collector.get("unit_id", collector.get("id", ""))).strip_edges()
+		var owner_empire_id := str(collector.get("owner_empire_id", "")).strip_edges()
+		if unit_id.is_empty() or owner_empire_id.is_empty():
 			continue
 
-		var income_bundle := _compile_orbital_income_bundle(galaxy_seed, system_id, orbital)
+		var metadata: Dictionary = collector.get("metadata", {}) if collector.get("metadata", {}) is Dictionary else {}
+		var body_id := str(collector.get("target_body_id", metadata.get("target_body_id", ""))).strip_edges()
+		var body_type := str(collector.get("target_body_type", metadata.get("target_body_type", ""))).strip_edges()
+		if body_id.is_empty():
+			continue
+
+		var body_record := _find_deposit_body_record(bodies_by_key, body_id, body_type)
+		if body_record.is_empty():
+			continue
+
+		var income_bundle := _compile_body_deposit_bundle(galaxy_seed, system_id, body_record)
+		income_bundle = _apply_resource_collector_modifier(income_bundle, resolved_modifier_bp)
 		if income_bundle.is_empty():
 			continue
 
-		var source_id := _build_orbital_source_id(system_id, orbital_id)
+		var source_id := get_resource_collector_source_id(unit_id)
 		desired_source_ids[source_id] = true
-		var source_tags := PackedStringArray([system_id, orbital_id, str(orbital.get("type", ""))])
+		var resolved_body_type := _resolve_deposit_body_type(body_record, body_type)
+		var source_tags := PackedStringArray([system_id, body_id, resolved_body_type, unit_id])
 		if _sources.has(source_id):
 			var source_record := _sources[source_id] as EconomySourceRecord
-			source_record.kind = "orbital_deposit"
-			source_record.tags = source_tags
+			source_record.kind = "resource_collector"
+			update_source_tags(source_id, source_tags)
 			if source_record.owner_empire_index != _get_empire_index(owner_empire_id):
 				transfer_source(source_id, owner_empire_id)
 			if not source_record.income_bundle.is_equal_to(income_bundle):
 				update_source(source_id, income_bundle, RESOURCE_BUNDLE_SCRIPT.new(), RESOURCE_BUNDLE_SCRIPT.new())
 		else:
-			register_source(source_id, owner_empire_id, income_bundle, RESOURCE_BUNDLE_SCRIPT.new(), RESOURCE_BUNDLE_SCRIPT.new(), "orbital_deposit", source_tags)
+			register_source(source_id, owner_empire_id, income_bundle, RESOURCE_BUNDLE_SCRIPT.new(), RESOURCE_BUNDLE_SCRIPT.new(), "resource_collector", source_tags)
 
-	existing_source_ids = _source_ids_by_system_id.get(system_id, {}).duplicate()
+	var existing_source_ids: Dictionary = _source_ids_by_system_id.get(system_id, {}).duplicate()
 	for source_id_variant in existing_source_ids.keys():
 		var source_id: String = str(source_id_variant)
 		if desired_source_ids.has(source_id):
 			continue
 		remove_source(source_id)
 
-	_source_ids_by_system_id[system_id] = desired_source_ids
+	if desired_source_ids.is_empty():
+		_source_ids_by_system_id.erase(system_id)
+	else:
+		_source_ids_by_system_id[system_id] = desired_source_ids
 
 
 func can_afford(empire_id: String, bundle_variant: Variant) -> bool:
@@ -433,6 +473,7 @@ func build_snapshot() -> Dictionary:
 		"monthly_expense": _packed_int64_to_array(_monthly_expense),
 		"last_shortage": _packed_int64_to_array(_last_shortage),
 		"revision_by_empire": _packed_int64_to_array(_revision_by_empire),
+		"resource_collector_output_modifier_bp": _resource_collector_output_modifier_bp,
 		"sources": source_snapshots,
 	}
 
@@ -457,6 +498,7 @@ func load_snapshot(snapshot: Dictionary) -> void:
 	_monthly_expense = _array_to_packed_int64(snapshot.get("monthly_expense", []), total_cell_count)
 	_last_shortage = _array_to_packed_int64(snapshot.get("last_shortage", []), total_cell_count)
 	_revision_by_empire = _array_to_packed_int64(snapshot.get("revision_by_empire", []), empire_count)
+	_resource_collector_output_modifier_bp = maxi(int(snapshot.get("resource_collector_output_modifier_bp", 10000)), 0)
 	_month_serial = int(snapshot.get("month_serial", 0))
 	_bootstrapped = true
 
@@ -467,7 +509,7 @@ func load_snapshot(snapshot: Dictionary) -> void:
 		if source_record.source_id.is_empty():
 			continue
 		_sources[source_record.source_id] = source_record
-		if source_record.kind == "orbital_deposit" and source_record.tags.size() > 0:
+		if _is_system_tracked_source_kind(source_record.kind) and source_record.tags.size() > 0:
 			var system_id: String = str(source_record.tags[0])
 			if not system_id.is_empty():
 				var system_source_ids: Dictionary = _source_ids_by_system_id.get(system_id, {})
@@ -516,43 +558,95 @@ func _register_galaxy_sources_from_snapshot(galaxy_snapshot: Dictionary) -> void
 
 
 func _compile_orbital_income_bundle(galaxy_seed: int, system_id: String, orbital: Dictionary) -> ResourceBundle:
-	var orbital_type: String = str(orbital.get("type", "")).strip_edges()
-	if orbital_type.is_empty():
+	return _compile_body_deposit_bundle(galaxy_seed, system_id, orbital)
+
+
+func _compile_body_deposit_bundle(galaxy_seed: int, system_id: String, body_record: Dictionary) -> ResourceBundle:
+	if body_record.is_empty():
 		return RESOURCE_BUNDLE_SCRIPT.new()
-
-	var richness_points: int = _resolve_points(orbital, "resource_richness_points", "resource_richness", 50)
-	var habitability_points: int = _resolve_points(orbital, "habitability_points", "habitability", 0)
-	var is_colonizable: bool = bool(orbital.get("is_colonizable", false)) or habitability_points >= 45
-	var amounts: Array[Dictionary] = []
-
-	match orbital_type:
-		"planet":
-			amounts.append({"resource_id": "matter", "milliunits": 20000 + richness_points * 800})
-			amounts.append({"resource_id": "energy", "milliunits": 5000 + richness_points * 250})
-			if is_colonizable:
-				amounts.append({"resource_id": "food", "milliunits": 10000 + maxi(habitability_points, 20) * 500})
-		"asteroid_belt":
-			amounts.append({"resource_id": "matter", "milliunits": 40000 + richness_points * 1200})
-			amounts.append({"resource_id": "alloys", "milliunits": 5000 + richness_points * 300})
-		"structure":
-			amounts.append({"resource_id": "energy", "milliunits": 25000 + richness_points * 600})
-			amounts.append({"resource_id": "alloys", "milliunits": 2500 + richness_points * 120})
-		"ruin":
-			amounts.append({"resource_id": "matter", "milliunits": 10000 + richness_points * 400})
-			amounts.append({"resource_id": "energy", "milliunits": 5000 + richness_points * 300})
-		_:
-			return RESOURCE_BUNDLE_SCRIPT.new()
-
-	var orbital_id: String = str(orbital.get("id", "")).strip_edges()
-	var base_hash: int = _stable_hash("%s:%s:%s:%s" % [galaxy_seed, system_id, orbital_id, orbital_type])
-	if orbital_type in ["planet", "asteroid_belt", "ruin"] and base_hash % 100 < 10:
-		amounts.append({"resource_id": "exotic_gases", "milliunits": 1500 + richness_points * 80})
-	if orbital_type in ["structure", "ruin"] and base_hash % 211 == 0:
-		amounts.append({"resource_id": "living_metal", "milliunits": 800 + richness_points * 35})
-	if orbital_type in ["asteroid_belt", "ruin", "structure"] and base_hash % 257 == 0:
-		amounts.append({"resource_id": "dark_matter", "milliunits": 600 + richness_points * 25})
-
+	var amounts: Array[Dictionary] = RESOURCE_DEPOSIT_COMPONENT_SCRIPT.resolve_deposit_amounts(
+		galaxy_seed,
+		system_id,
+		body_record,
+		_registry.get_resource_ids()
+	)
 	return _registry.compile_bundle(amounts)
+
+
+func _apply_resource_collector_modifier(bundle: ResourceBundle, modifier_bp: int) -> ResourceBundle:
+	if bundle == null or bundle.is_empty():
+		return RESOURCE_BUNDLE_SCRIPT.new()
+	if modifier_bp == 10000:
+		return bundle.duplicate_bundle()
+
+	var amounts: Array[Dictionary] = []
+	for entry_index in range(bundle.resource_indices.size()):
+		var resource_id := _registry.get_resource_id(bundle.resource_indices[entry_index])
+		if resource_id.is_empty():
+			continue
+		var modified_milliunits := int(round(float(bundle.amounts[entry_index]) * float(modifier_bp) / 10000.0))
+		if modified_milliunits == 0:
+			continue
+		amounts.append({
+			"resource_id": resource_id,
+			"milliunits": modified_milliunits,
+		})
+	return _registry.compile_bundle(amounts)
+
+
+func _build_deposit_body_lookup(stars: Array, orbitals: Array) -> Dictionary:
+	var result: Dictionary = {}
+	for star_variant in stars:
+		if star_variant is Dictionary:
+			_add_deposit_body_to_lookup(result, star_variant, "star")
+	for orbital_variant in orbitals:
+		if orbital_variant is Dictionary:
+			_add_deposit_body_to_lookup(result, orbital_variant, "")
+	return result
+
+
+func _add_deposit_body_to_lookup(lookup: Dictionary, body_variant: Variant, fallback_body_type: String) -> void:
+	var body: Dictionary = (body_variant as Dictionary).duplicate(true)
+	var body_id := str(body.get("id", body.get("name", ""))).strip_edges()
+	if body_id.is_empty():
+		return
+	var body_type := _resolve_deposit_body_type(body, fallback_body_type)
+	lookup[_build_deposit_body_lookup_key(body_id, body_type)] = body
+	var fallback_key := _build_deposit_body_lookup_key(body_id, "")
+	if not lookup.has(fallback_key):
+		lookup[fallback_key] = body
+
+
+func _find_deposit_body_record(bodies_by_key: Dictionary, body_id: String, body_type: String) -> Dictionary:
+	var normalized_body_id := body_id.strip_edges()
+	var normalized_body_type := body_type.strip_edges()
+	if normalized_body_id.is_empty():
+		return {}
+	if not normalized_body_type.is_empty():
+		var exact_key := _build_deposit_body_lookup_key(normalized_body_id, normalized_body_type)
+		if bodies_by_key.has(exact_key):
+			return (bodies_by_key[exact_key] as Dictionary).duplicate(true)
+	var fallback_key := _build_deposit_body_lookup_key(normalized_body_id, "")
+	if bodies_by_key.has(fallback_key):
+		return (bodies_by_key[fallback_key] as Dictionary).duplicate(true)
+	return {}
+
+
+func _resolve_deposit_body_type(body_record: Dictionary, fallback_body_type: String = "") -> String:
+	var body_type := str(body_record.get("type", "")).strip_edges()
+	if body_type.is_empty():
+		var kind := str(body_record.get("kind", "")).strip_edges()
+		if kind == "star" or kind == "black_hole":
+			body_type = "star"
+		else:
+			body_type = kind
+	if body_type.is_empty():
+		body_type = fallback_body_type.strip_edges()
+	return body_type
+
+
+func _build_deposit_body_lookup_key(body_id: String, body_type: String) -> String:
+	return "%s:%s" % [body_type.strip_edges(), body_id.strip_edges()]
 
 
 func _apply_source_to_owner(record: EconomySourceRecord, delta_sign: int) -> void:
@@ -644,6 +738,10 @@ func _resolve_points(data: Dictionary, points_key: String, legacy_float_key: Str
 
 func _build_orbital_source_id(system_id: String, orbital_id: String) -> String:
 	return "orbital:%s:%s" % [system_id, orbital_id]
+
+
+func _is_system_tracked_source_kind(kind: String) -> bool:
+	return kind == "orbital_deposit" or kind == "resource_collector"
 
 
 func _stable_hash(value: String) -> int:

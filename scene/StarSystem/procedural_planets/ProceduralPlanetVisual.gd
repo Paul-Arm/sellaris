@@ -133,7 +133,8 @@ static func build_visual_config(
 	var scene_variant: String = _resolve_scene_variant(rng, kind, has_ring, visual_metadata)
 	var scene: PackedScene = _get_scene_for_variant(scene_variant)
 	var base_diameter: float = maxf(float(orbital.get("size", 1.0)) * 2.0, 1.4)
-	var surface_rotation: float = _resolve_float_override(visual_metadata, "rotation", rng.randf_range(-PI, PI))
+	var default_surface_rotation := 0.0 if has_ring else rng.randf_range(-PI, PI)
+	var surface_rotation: float = _resolve_float_override(visual_metadata, "rotation", default_surface_rotation)
 	var ring_yaw: float = _resolve_float_override(visual_metadata, "ring_yaw", wrapf(surface_rotation * 0.6, -PI, PI))
 	var ring_tilt: float = _resolve_float_override(visual_metadata, "ring_tilt", deg_to_rad(rng.randf_range(14.0, 28.0)))
 

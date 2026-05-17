@@ -18,16 +18,21 @@ const CONSTRUCTION_SITE_RADIUS: float = 2.35
 const CONSTRUCTION_RING_SEGMENTS: int = 52
 const CONSTRUCTION_PARTICLES_PER_PROJECT: int = 14
 const CONSTRUCTION_PARTICLE_SIZE: float = 0.18
+const EXPLORATION_SCAN_RING_RADIUS: float = 2.7
+const EXPLORATION_SCAN_PARTICLES_PER_ORDER: int = 18
+const EXPLORATION_SCAN_PARTICLE_SIZE: float = 0.14
 
 var _host: StarSystemPreview = null
 var _station_marker: MultiMeshInstance3D = null
 var _fleet_marker: MultiMeshInstance3D = null
 var _unit_marker: MultiMeshInstance3D = null
 var _construction_particle_marker: MultiMeshInstance3D = null
+var _exploration_particle_marker: MultiMeshInstance3D = null
 var _station_instance_specs: Array[Dictionary] = []
 var _fleet_instance_specs: Array[Dictionary] = []
 var _unit_instance_specs: Array[Dictionary] = []
 var _construction_particle_specs: Array[Dictionary] = []
+var _exploration_particle_specs: Array[Dictionary] = []
 
 
 func bind(host: StarSystemPreview) -> void:
@@ -56,11 +61,13 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 		return result
 	var fleets_variant: Variant = space_renderables.get("fleets", [])
 	var construction_variant: Variant = space_renderables.get("construction_projects", [])
+	var exploration_variant: Variant = space_renderables.get("exploration_orders", [])
 
 	var mobile_units: Array[Dictionary] = []
 	var stations: Array[Dictionary] = []
 	var fleets: Array[Dictionary] = []
 	var construction_projects: Array[Dictionary] = []
+	var exploration_orders: Array[Dictionary] = []
 	var fleet_unit_ids: Dictionary = {}
 	var units_by_id: Dictionary = {}
 
@@ -88,6 +95,11 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 			if project_variant is Dictionary:
 				construction_projects.append(project_variant)
 
+	if exploration_variant is Array:
+		for order_variant in exploration_variant:
+			if order_variant is Dictionary:
+				exploration_orders.append(order_variant)
+
 	var resolved_outer_radius: float = outer_radius
 	if not construction_projects.is_empty():
 		result["construction_projects"] = _build_construction_group(construction_projects, units_by_id)
@@ -96,6 +108,9 @@ func render_runtime_placeholders(space_renderables: Dictionary, outer_radius: fl
 			var project_layout: Dictionary = project_layout_variant
 			var project_position: Vector3 = project_layout.get("position", Vector3.ZERO)
 			resolved_outer_radius = maxf(resolved_outer_radius, project_position.length() + 8.0)
+
+	if not exploration_orders.is_empty():
+		_build_exploration_scan_effects(exploration_orders, units_by_id)
 
 	if not stations.is_empty():
 		var station_radius: float = outer_radius + STATION_RING_OFFSET
@@ -530,6 +545,143 @@ func _get_construction_particle_color(record: Dictionary, particle_index: int) -
 	return tint
 
 
+func _build_exploration_scan_effects(records: Array[Dictionary], units_by_id: Dictionary) -> void:
+	var active_records: Array[Dictionary] = []
+	for record in records:
+		if not bool(record.get("is_scanning", false)):
+			continue
+		active_records.append(record)
+		_add_exploration_scan_ring(record)
+		_add_exploration_scan_label(record)
+	if active_records.is_empty():
+		return
+
+	var marker := MultiMeshInstance3D.new()
+	marker.name = "ExplorationScanParticles"
+	var mesh := SphereMesh.new()
+	mesh.radius = EXPLORATION_SCAN_PARTICLE_SIZE
+	mesh.height = EXPLORATION_SCAN_PARTICLE_SIZE * 2.0
+	mesh.radial_segments = 8
+	mesh.rings = 4
+
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_colors = true
+	multimesh.mesh = mesh
+	multimesh.instance_count = active_records.size() * EXPLORATION_SCAN_PARTICLES_PER_ORDER
+
+	var specs: Array[Dictionary] = []
+	var instance_index := 0
+	for record_index in range(active_records.size()):
+		var record: Dictionary = active_records[record_index]
+		var order_id := str(record.get("order_id", "exploration_%02d" % record_index))
+		var seed_value := order_id.hash()
+		for particle_index in range(EXPLORATION_SCAN_PARTICLES_PER_ORDER):
+			var spec := _build_exploration_particle_spec(instance_index, order_id, particle_index, seed_value)
+			specs.append(spec)
+			multimesh.set_instance_transform(instance_index, _build_exploration_particle_transform(record, units_by_id, spec, 1.0))
+			multimesh.set_instance_color(instance_index, _get_exploration_particle_color(record, particle_index))
+			instance_index += 1
+
+	marker.multimesh = multimesh
+	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	marker.material_override = _build_material(0.92, 2.2)
+	_host.get_runtime_effects_root().add_child(marker)
+	_exploration_particle_marker = marker
+	_exploration_particle_specs = specs
+
+
+func _add_exploration_scan_ring(record: Dictionary) -> void:
+	var ring := MeshInstance3D.new()
+	ring.name = "ExplorationScanRing_%s" % str(record.get("order_id", ""))
+	var progress := clampf(float(record.get("scan_progress_ratio", 0.0)), 0.0, 1.0)
+	var owner_color := _get_owner_color(record, 1.0)
+	ring.mesh = _build_construction_arc_mesh(
+		EXPLORATION_SCAN_RING_RADIUS,
+		maxf(progress, 0.08),
+		Color(owner_color.r, owner_color.g, owner_color.b, 0.95)
+	)
+	ring.position = _variant_to_vector3(record.get("local_position", Vector3.ZERO))
+	ring.material_override = _build_material(0.9, 1.9)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_host.get_runtime_effects_root().add_child(ring)
+
+
+func _add_exploration_scan_label(record: Dictionary) -> void:
+	var label := Label3D.new()
+	label.name = "ExplorationScanLabel_%s" % str(record.get("order_id", ""))
+	label.text = "Scan %d%%" % int(record.get("scan_progress_percent", 0))
+	label.position = _variant_to_vector3(record.get("local_position", Vector3.ZERO)) + Vector3(0.0, 3.35, 0.0)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.font_size = 18
+	label.pixel_size = 0.036
+	label.outline_size = 8
+	label.modulate = Color(0.76, 0.96, 1.0, 0.96)
+	label.outline_modulate = Color(0.02, 0.04, 0.06, 0.94)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_host.get_runtime_effects_root().add_child(label)
+
+
+func _build_exploration_particle_spec(instance_index: int, order_id: String, particle_index: int, seed_value: int) -> Dictionary:
+	var seed: int = absi(seed_value + particle_index * 6151)
+	var angle := float(seed % 3600) / 3600.0 * TAU
+	return {
+		"index": instance_index,
+		"order_id": order_id,
+		"phase_offset": float(particle_index) / float(EXPLORATION_SCAN_PARTICLES_PER_ORDER),
+		"orbit_offset": Vector3(cos(angle), 0.0, sin(angle)) * (1.8 + float(seed % 90) / 100.0),
+		"arc_height": 0.8 + float(seed % 110) / 100.0,
+	}
+
+
+func _build_exploration_particle_transform(record: Dictionary, units_by_id: Dictionary, spec: Dictionary, day_progress: float) -> Transform3D:
+	var position := _resolve_exploration_particle_position(record, units_by_id, spec, day_progress)
+	var time_seconds := float(Time.get_ticks_msec()) / 1000.0
+	var pulse := 0.72 + sin((time_seconds + float(spec.get("phase_offset", 0.0))) * TAU * 1.4) * 0.22
+	return Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * maxf(pulse, 0.3)), position)
+
+
+func _resolve_exploration_particle_position(record: Dictionary, units_by_id: Dictionary, spec: Dictionary, day_progress: float) -> Vector3:
+	var body_position := _variant_to_vector3(record.get("local_position", Vector3.ZERO))
+	var unit_position := _variant_to_vector3(record.get("unit_local_position", record.get("scan_position", body_position)))
+	var unit_id := str(record.get("unit_id", "")).strip_edges()
+	if not unit_id.is_empty() and units_by_id.has(unit_id):
+		var unit_record: Dictionary = units_by_id.get(unit_id, {})
+		unit_position = _get_interpolated_record_position(unit_record, day_progress)
+	var time_seconds := float(Time.get_ticks_msec()) / 1000.0
+	var phase := fmod(time_seconds * 0.62 + float(spec.get("phase_offset", 0.0)), 1.0)
+	if phase < 0.0:
+		phase += 1.0
+	var eased := phase * phase * (3.0 - 2.0 * phase)
+	var orbit_offset := _variant_to_vector3(spec.get("orbit_offset", Vector3.ZERO))
+	var position := unit_position.lerp(body_position + orbit_offset, eased)
+	position.y += sin(phase * PI) * float(spec.get("arc_height", 0.9))
+	return position
+
+
+func _get_exploration_particle_color(record: Dictionary, particle_index: int) -> Color:
+	var owner_color := _get_owner_color(record, 1.0)
+	var tint := Color(0.54, 0.95, 1.0, 1.0).lerp(Color(owner_color.r, owner_color.g, owner_color.b, 1.0), 0.34)
+	tint.a = 0.78 if particle_index % 4 != 0 else 0.96
+	return tint
+
+
+func _update_exploration_particles(records_by_order_id: Dictionary, records_by_unit_id: Dictionary, day_progress: float) -> void:
+	if _exploration_particle_marker == null or _exploration_particle_marker.multimesh == null:
+		return
+	for spec in _exploration_particle_specs:
+		var order_id := str(spec.get("order_id", ""))
+		var record: Dictionary = records_by_order_id.get(order_id, {})
+		if record.is_empty():
+			continue
+		_exploration_particle_marker.multimesh.set_instance_transform(
+			int(spec.get("index", 0)),
+			_build_exploration_particle_transform(record, records_by_unit_id, spec, day_progress)
+		)
+
+
 func _build_construction_arc_mesh(radius: float, progress_ratio: float, color: Color) -> Mesh:
 	var surface_tool := SurfaceTool.new()
 	surface_tool.begin(Mesh.PRIMITIVE_LINES)
@@ -548,6 +700,7 @@ func update_interpolated_runtime_positions(space_renderables: Dictionary, day_pr
 	var records_by_unit_id: Dictionary = {}
 	var records_by_fleet_id: Dictionary = {}
 	var records_by_project_id: Dictionary = {}
+	var records_by_exploration_order_id: Dictionary = {}
 
 	for unit_variant in space_renderables.get("units", []):
 		var unit_record: Dictionary = unit_variant
@@ -567,10 +720,17 @@ func update_interpolated_runtime_positions(space_renderables: Dictionary, day_pr
 		if not project_id.is_empty():
 			records_by_project_id[project_id] = project_record
 
+	for order_variant in space_renderables.get("exploration_orders", []):
+		var order_record: Dictionary = order_variant
+		var order_id := str(order_record.get("order_id", ""))
+		if not order_id.is_empty():
+			records_by_exploration_order_id[order_id] = order_record
+
 	_update_station_marker(records_by_unit_id, day_progress)
 	_update_unit_marker(records_by_unit_id, day_progress)
 	_update_fleet_marker(records_by_fleet_id, records_by_unit_id, day_progress)
 	_update_construction_particles(records_by_project_id, records_by_unit_id, day_progress)
+	_update_exploration_particles(records_by_exploration_order_id, records_by_unit_id, day_progress)
 
 
 func _reset_interpolation_state() -> void:
@@ -578,10 +738,12 @@ func _reset_interpolation_state() -> void:
 	_fleet_marker = null
 	_unit_marker = null
 	_construction_particle_marker = null
+	_exploration_particle_marker = null
 	_station_instance_specs.clear()
 	_fleet_instance_specs.clear()
 	_unit_instance_specs.clear()
 	_construction_particle_specs.clear()
+	_exploration_particle_specs.clear()
 
 
 func _update_station_marker(records_by_unit_id: Dictionary, day_progress: float) -> void:

@@ -147,7 +147,7 @@ func create_colony(host_context: Dictionary, owner_empire_id: String, options: D
 	if empire_id.is_empty() or system_id.is_empty() or host_id.is_empty():
 		return ""
 
-	var existing_colony_id := get_colony_id_for_host(host_kind, host_id)
+	var existing_colony_id := get_colony_id_for_host(host_kind, host_id, system_id)
 	if not existing_colony_id.is_empty():
 		return existing_colony_id
 
@@ -299,8 +299,8 @@ func has_colony(colony_id: String) -> bool:
 	return _colonies_by_id.has(colony_id)
 
 
-func get_colony_id_for_host(host_kind: String, host_id: String) -> String:
-	var host_key := _build_host_key(host_kind, host_id)
+func get_colony_id_for_host(host_kind: String, host_id: String, system_id: String = "") -> String:
+	var host_key := _build_host_key(host_kind, host_id, system_id)
 	if host_key.is_empty():
 		return ""
 	return str(_colony_id_by_host_key.get(host_key, ""))
@@ -313,7 +313,7 @@ func remove_colony(colony_id: String) -> bool:
 
 	_remove_colony_from_system_index(colony.colony_id, colony.system_id)
 	_remove_colony_from_empire_index(colony.colony_id, colony.empire_id)
-	var host_key := _build_host_key(colony.host_kind, colony.host_id)
+	var host_key := _build_host_key(colony.host_kind, colony.host_id, colony.system_id)
 	if not host_key.is_empty() and str(_colony_id_by_host_key.get(host_key, "")) == colony.colony_id:
 		_colony_id_by_host_key.erase(host_key)
 	_colony_stats_cache.erase(colony.colony_id)
@@ -786,7 +786,7 @@ func _register_colony(colony) -> void:
 		system_colony_ids.append(colony.colony_id)
 	_colony_ids_by_system_id[colony.system_id] = system_colony_ids
 	_add_colony_to_empire_index(colony.colony_id, colony.empire_id)
-	var host_key := _build_host_key(colony.host_kind, colony.host_id)
+	var host_key := _build_host_key(colony.host_kind, colony.host_id, colony.system_id)
 	if not host_key.is_empty():
 		_colony_id_by_host_key[host_key] = colony.colony_id
 
@@ -1548,11 +1548,16 @@ func _normalize_host_kind(value: String) -> String:
 			return value.strip_edges()
 
 
-func _build_host_key(host_kind: String, host_id: String) -> String:
+func _build_host_key(host_kind: String, host_id: String, system_id: String = "") -> String:
 	var normalized_kind := _normalize_host_kind(host_kind)
 	var normalized_id := host_id.strip_edges()
 	if normalized_kind.is_empty() or normalized_id.is_empty():
 		return ""
+	if normalized_kind == HOST_KIND_ORBITAL:
+		var normalized_system_id := system_id.strip_edges()
+		if normalized_system_id.is_empty():
+			return ""
+		return "%s:%s:%s" % [normalized_kind, normalized_system_id, normalized_id]
 	return "%s:%s" % [normalized_kind, normalized_id]
 
 

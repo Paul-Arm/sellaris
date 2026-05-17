@@ -120,6 +120,8 @@ func bind_view_signals() -> void:
 		system_view.colony_open_requested.connect(_on_system_view_colony_open_requested)
 	if system_view != null and not system_view.body_colonize_requested.is_connected(_on_system_view_body_colonize_requested):
 		system_view.body_colonize_requested.connect(_on_system_view_body_colonize_requested)
+	if system_view != null and not system_view.anomaly_research_requested.is_connected(_on_system_view_anomaly_research_requested):
+		system_view.anomaly_research_requested.connect(_on_system_view_anomaly_research_requested)
 	if system_view != null and not system_view.runtime_entity_selected.is_connected(_on_system_view_runtime_entity_selected):
 		system_view.runtime_entity_selected.connect(_on_system_view_runtime_entity_selected)
 
@@ -152,6 +154,8 @@ func _unbind_view_signals() -> void:
 		system_view.colony_open_requested.disconnect(_on_system_view_colony_open_requested)
 	if system_view != null and system_view.body_colonize_requested.is_connected(_on_system_view_body_colonize_requested):
 		system_view.body_colonize_requested.disconnect(_on_system_view_body_colonize_requested)
+	if system_view != null and system_view.anomaly_research_requested.is_connected(_on_system_view_anomaly_research_requested):
+		system_view.anomaly_research_requested.disconnect(_on_system_view_anomaly_research_requested)
 	if system_view != null and system_view.runtime_entity_selected.is_connected(_on_system_view_runtime_entity_selected):
 		system_view.runtime_entity_selected.disconnect(_on_system_view_runtime_entity_selected)
 
@@ -273,6 +277,13 @@ func _on_system_view_body_colonize_requested(system_id: String, body_context: Di
 	_scene_ui_controller.update_selection_panel()
 	_scene_ui_controller.update_info_label()
 	_scene_ui_controller.open_colony_modal(colony_id)
+
+
+func _on_system_view_anomaly_research_requested(_system_id: String, anomaly_id: String) -> void:
+	if _runtime_system.research_anomaly_for_active_empire(anomaly_id):
+		_scene_ui_controller.update_system_panel()
+		_scene_ui_controller.update_selection_panel()
+		_scene_ui_controller.update_info_label()
 
 
 func _sync_selected_builder_to_system_view() -> void:

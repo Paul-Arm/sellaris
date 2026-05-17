@@ -202,6 +202,7 @@ func _populate_ship(unit: SpaceUnitRuntime) -> void:
 	_subtitle_label.text = "%s / %s" % [class_display_name, owner_name]
 
 	_add_unit_facts(unit, unit_class)
+	_add_exploration_progress(unit)
 	_add_evasion_action("toggle_unit_evasion", {
 		"unit_id": unit.unit_id,
 		"active": not bool(unit.metadata.get("evasion_active", false)),
@@ -298,11 +299,15 @@ func _add_ship_special_actions(unit: SpaceUnitRuntime) -> void:
 		_actions_box.add_child(build_button)
 
 	if _is_science_ship(unit):
-		var survey_button := _build_action_button("System scannen", "Aktuelles System fuer das aktive Reich scannen.")
-		survey_button.name = "SurveySystemButton"
-		survey_button.disabled = not can_command or not bool(_context.get("can_survey_system", false))
+		var exploration_order: Dictionary = SpaceManager.get_exploration_order_for_unit(unit.unit_id)
+		var survey_button := _build_action_button("System erkunden", "Aktuelles System objektweise erkunden.")
+		survey_button.name = "ExploreSystemButton"
+		survey_button.disabled = not can_command or not bool(_context.get("can_survey_system", false)) or not exploration_order.is_empty()
+		if not exploration_order.is_empty():
+			survey_button.text = "Erkundung laeuft"
+			survey_button.tooltip_text = "Dieses Wissenschaftsschiff erkundet bereits ein System."
 		survey_button.pressed.connect(func() -> void:
-			action_requested.emit("survey_system", {
+			action_requested.emit("explore_system", {
 				"unit_id": unit.unit_id,
 				"system_id": unit.current_system_id,
 			})
@@ -321,6 +326,43 @@ func _add_evasion_action(action_id: String, payload: Dictionary, active: bool, c
 		action_requested.emit(action_id, payload.duplicate(true))
 	)
 	_actions_box.add_child(button)
+
+
+func _add_exploration_progress(unit: SpaceUnitRuntime) -> void:
+	if unit == null:
+		return
+	var order: Dictionary = SpaceManager.get_exploration_order_for_unit(unit.unit_id)
+	if order.is_empty():
+		return
+	_add_fact("Erkundung", "%s %d%%" % [
+		str(order.get("state_label", "Aktiv")),
+		int(order.get("progress_percent", 0)),
+	])
+	_add_fact("Scan-Ziel", str(order.get("current_target_name", order.get("current_target_id", ""))))
+	var days_remaining := int(order.get("scan_days_remaining", 0))
+	if days_remaining > 0:
+		_add_fact("Scan Restzeit", "%d Tage" % days_remaining)
+
+	var progress_box := VBoxContainer.new()
+	progress_box.name = "ExplorationProgressBox"
+	progress_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	progress_box.add_theme_constant_override("separation", 5)
+
+	var label := _build_body_label("ExplorationProgressLabel", COLOR_MUTED)
+	label.text = "Erkundungsfortschritt"
+	progress_box.add_child(label)
+
+	var progress := ProgressBar.new()
+	progress.name = "ExplorationProgressBar"
+	progress.min_value = 0.0
+	progress.max_value = 100.0
+	progress.value = clampf(float(order.get("progress_ratio", 0.0)), 0.0, 1.0) * 100.0
+	progress.custom_minimum_size = Vector2(0.0, 18.0)
+	progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	progress.show_percentage = true
+	progress_box.add_child(progress)
+
+	_actions_box.add_child(progress_box)
 
 
 func _build_member_row(fleet: SpaceFleetRuntime, unit: SpaceUnitRuntime) -> Control:

@@ -3,6 +3,7 @@ class_name SystemBodyDetailsPanel
 
 signal close_requested
 signal colonize_requested(system_id: String, body_context: Dictionary)
+signal anomaly_research_requested(system_id: String, anomaly_id: String)
 
 const PROCEDURAL_PLANET_VISUAL_SCRIPT: Script = preload("res://scene/StarSystem/procedural_planets/ProceduralPlanetVisual.gd")
 const BODY_GLYPH_SCRIPT: Script = preload("res://scene/StarSystem/SystemBodyGlyph.gd")
@@ -30,6 +31,7 @@ var _visual_slot: Control = null
 var _facts_grid: GridContainer = null
 var _resource_chips: HFlowContainer = null
 var _anomaly_label: Label = null
+var _anomaly_actions_box: VBoxContainer = null
 var _notes_label: Label = null
 var _colonize_button: Button = null
 var _action_reason_label: Label = null
@@ -197,6 +199,11 @@ func _build_ui() -> void:
 	_add_section_label(details_box, "Anomalien")
 	_anomaly_label = _build_body_label("AnomalyLabel", COLOR_MUTED)
 	details_box.add_child(_anomaly_label)
+	_anomaly_actions_box = VBoxContainer.new()
+	_anomaly_actions_box.name = "AnomalyActions"
+	_anomaly_actions_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_anomaly_actions_box.add_theme_constant_override("separation", 6)
+	details_box.add_child(_anomaly_actions_box)
 
 	_notes_label = _build_body_label("NotesLabel", COLOR_MUTED)
 	details_box.add_child(_notes_label)
@@ -347,11 +354,21 @@ func _populate_resources() -> void:
 
 
 func _populate_anomalies() -> void:
+	_clear_container(_anomaly_actions_box)
 	var anomaly_risk := _resolve_anomaly_risk()
 	var anomaly_parts: Array[String] = ["Systemrisiko %d%%" % int(round(anomaly_risk * 100.0))]
 	if _get_body_kind() == "ruin":
 		anomaly_parts.append("Ruinenstatus: %s" % _resolve_ruin_status())
+
+	var visible_anomalies := _get_visible_anomalies()
+	if visible_anomalies.is_empty():
+		anomaly_parts.append("Keine entdeckten Anomalien.")
+	else:
+		anomaly_parts.append("%d entdeckt" % visible_anomalies.size())
 	_anomaly_label.text = "  ".join(anomaly_parts)
+
+	for anomaly in visible_anomalies:
+		_add_anomaly_row(anomaly)
 
 	var notes := str(_body_record.get("notes", "")).strip_edges()
 	var metadata_text := _format_metadata_preview(_body_record.get("metadata", {}), 4)
@@ -363,6 +380,70 @@ func _populate_anomalies() -> void:
 		_notes_label.text = notes
 	else:
 		_notes_label.text = "%s\n%s" % [notes, metadata_text]
+
+
+func _get_visible_anomalies() -> Array[Dictionary]:
+	var component: Dictionary = _body_record.get("anomaly_component", {}) if _body_record.get("anomaly_component", {}) is Dictionary else {}
+	var result: Array[Dictionary] = []
+	for anomaly_variant in component.get("anomalies", []):
+		if anomaly_variant is not Dictionary:
+			continue
+		result.append((anomaly_variant as Dictionary).duplicate(true))
+	return result
+
+
+func _add_anomaly_row(anomaly: Dictionary) -> void:
+	if _anomaly_actions_box == null:
+		return
+	var row := PanelContainer.new()
+	row.name = "AnomalyRow"
+	row.add_theme_stylebox_override("panel", _build_style(COLOR_CHIP, COLOR_CHIP_BORDER, 4, 1))
+	_anomaly_actions_box.add_child(row)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	row.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.name = "AnomalyTitle"
+	title.add_theme_color_override("font_color", COLOR_TEXT)
+	title.text = "%s  [%s]" % [
+		str(anomaly.get("title", anomaly.get("definition_id", "Anomalie"))),
+		_format_token_label(str(anomaly.get("status", "discovered"))),
+	]
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(title)
+
+	var lore := str(anomaly.get("lore", "")).strip_edges()
+	if not lore.is_empty():
+		var lore_label := _build_body_label("AnomalyLore", COLOR_MUTED)
+		lore_label.text = lore
+		box.add_child(lore_label)
+
+	var outcome_summary := str(anomaly.get("outcome_summary", "")).strip_edges()
+	if not outcome_summary.is_empty():
+		var outcome_label := _build_body_label("AnomalyOutcome", COLOR_ACCENT)
+		outcome_label.text = outcome_summary
+		box.add_child(outcome_label)
+
+	if str(anomaly.get("status", "")) != "discovered":
+		return
+	var research_button := Button.new()
+	research_button.name = "ResearchAnomalyButton"
+	var research_days := int(anomaly.get("research_days", 0))
+	research_button.text = "Anomalie erforschen" if research_days <= 0 else "Anomalie erforschen (%d T)" % research_days
+	research_button.custom_minimum_size = Vector2(180.0, 30.0)
+	research_button.add_theme_stylebox_override("normal", _build_style(Color(0.1, 0.16, 0.18, 0.96), Color(0.72, 0.9, 1.0, 0.62), 5, 1))
+	research_button.add_theme_stylebox_override("hover", _build_style(Color(0.14, 0.22, 0.25, 1.0), Color(0.92, 0.98, 1.0, 0.88), 5, 1))
+	research_button.pressed.connect(_on_research_anomaly_pressed.bind(str(anomaly.get("anomaly_id", ""))), CONNECT_DEFERRED)
+	box.add_child(research_button)
 
 
 func _populate_actions() -> void:
@@ -380,6 +461,13 @@ func _on_colonize_pressed() -> void:
 	if system_id.is_empty():
 		return
 	colonize_requested.emit(system_id, _body_context.duplicate(true))
+
+
+func _on_research_anomaly_pressed(anomaly_id: String) -> void:
+	var system_id := str(_body_context.get("system_id", _system_details.get("id", ""))).strip_edges()
+	if system_id.is_empty() or anomaly_id.strip_edges().is_empty():
+		return
+	anomaly_research_requested.emit(system_id, anomaly_id.strip_edges())
 
 
 func _add_fact(key: String, value: String) -> void:
@@ -439,7 +527,8 @@ func _clear_container(container: Node) -> void:
 	if container == null:
 		return
 	for child in container.get_children():
-		child.free()
+		container.remove_child(child)
+		child.queue_free()
 
 
 func _resolve_body_record() -> Dictionary:

@@ -5,6 +5,7 @@ signal close_requested
 signal build_order_requested(builder_unit_id: String, system_id: String, body_context: Dictionary, build_class_id: String)
 signal colony_open_requested(colony_id: String)
 signal body_colonize_requested(system_id: String, body_context: Dictionary)
+signal anomaly_research_requested(system_id: String, anomaly_id: String)
 signal runtime_entity_selected(selection_data: Dictionary)
 
 const SPECIAL_TYPE_NONE: String = "none"
@@ -95,7 +96,7 @@ func show_system(system_details: Dictionary, neighbor_count: int) -> void:
 		special_text,
 		neighbor_count,
 	])
-	_set_label_text(detail_label, "Planets: %d\nAsteroid Belts: %d\nStructures: %d\nRuins: %d\nHabitable Worlds: %d\nColonizable Worlds: %d\nAnomaly Risk: %d%%\n\nLeft-click bodies to inspect them while right-drag, middle-drag, and mouse wheel keep controlling the camera." % [
+	_set_label_text(detail_label, "Planets: %d\nAsteroid Belts: %d\nStructures: %d\nRuins: %d\nHabitable Worlds: %d\nColonizable Worlds: %d\nAnomaly Risk: %d%%\nKnown Anomalies: %d\n\nLeft-click bodies to inspect them while right-drag, middle-drag, and mouse wheel keep controlling the camera." % [
 		int(summary.get("planet_count", 0)),
 		int(summary.get("asteroid_belt_count", 0)),
 		int(summary.get("structure_count", 0)),
@@ -103,6 +104,17 @@ func show_system(system_details: Dictionary, neighbor_count: int) -> void:
 		int(summary.get("habitable_worlds", 0)),
 		int(summary.get("colonizable_worlds", 0)),
 		int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
+		int(system_details.get("known_anomaly_count", 0)),
+	])
+	_set_label_text(detail_label, "Planets: %d\nAsteroid Belts: %d\nStructures: %d\nRuins: %d\nHabitable Worlds: %d\nColonizable Worlds: %d\nAnomaly Risk: %d%%\nKnown Anomalies: %d\n\nLeft-click bodies to inspect them while right-drag, middle-drag, and mouse wheel keep controlling the camera." % [
+		int(summary.get("planet_count", 0)),
+		int(summary.get("asteroid_belt_count", 0)),
+		int(summary.get("structure_count", 0)),
+		int(summary.get("ruin_count", 0)),
+		int(summary.get("habitable_worlds", 0)),
+		int(summary.get("colonizable_worlds", 0)),
+		int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
+		int(system_details.get("known_anomaly_count", 0)),
 	])
 	if preview != null:
 		_suppress_runtime_entity_selection_signal = true
@@ -118,7 +130,10 @@ func refresh_runtime(system_details: Dictionary, neighbor_count: int) -> void:
 	_update_system_labels(system_details, neighbor_count)
 	if preview != null:
 		_suppress_runtime_entity_selection_signal = true
-		preview.refresh_runtime_placeholders(system_details)
+		if _body_details_panel != null and _body_details_panel.is_showing():
+			preview.set_system_details(system_details)
+		else:
+			preview.refresh_runtime_placeholders(system_details)
 		_suppress_runtime_entity_selection_signal = false
 
 
@@ -315,6 +330,8 @@ func _ensure_body_details_panel() -> void:
 		_body_details_panel.close_requested.connect(_on_body_details_panel_close_requested)
 	if not _body_details_panel.colonize_requested.is_connected(_on_body_details_panel_colonize_requested):
 		_body_details_panel.colonize_requested.connect(_on_body_details_panel_colonize_requested)
+	if not _body_details_panel.anomaly_research_requested.is_connected(_on_body_details_panel_anomaly_research_requested):
+		_body_details_panel.anomaly_research_requested.connect(_on_body_details_panel_anomaly_research_requested)
 
 
 func _hide_body_details_panel() -> void:
@@ -334,6 +351,10 @@ func _on_body_details_panel_colonize_requested(system_id: String, body_context: 
 		preview.clear_selection()
 	_hide_body_details_panel()
 	body_colonize_requested.emit(system_id, body_context.duplicate(true))
+
+
+func _on_body_details_panel_anomaly_research_requested(system_id: String, anomaly_id: String) -> void:
+	anomaly_research_requested.emit(system_id, anomaly_id)
 
 
 func _build_body_action_state(selection_data: Dictionary) -> Dictionary:
@@ -371,9 +392,10 @@ func _get_existing_colony_id_for_selection(selection_data: Dictionary) -> String
 	var host_context := _resolve_selection_host_context(selection_data)
 	var host_kind := str(host_context.get("host_kind", "")).strip_edges()
 	var host_id := str(host_context.get("host_id", "")).strip_edges()
+	var system_id := str(host_context.get("system_id", "")).strip_edges()
 	if host_kind.is_empty() or host_id.is_empty():
 		return ""
-	return ColonyManager.get_colony_id_for_host(host_kind, host_id)
+	return ColonyManager.get_colony_id_for_host(host_kind, host_id, system_id)
 
 
 func _resolve_selection_host_context(selection_data: Dictionary) -> Dictionary:
@@ -398,6 +420,7 @@ func _resolve_selection_host_context(selection_data: Dictionary) -> Dictionary:
 		host_id = _record_id_from_selection_id(str(selection_data.get("selection_id", "")))
 
 	return {
+		"system_id": str(context.get("system_id", _current_system_id)).strip_edges(),
 		"host_kind": host_kind,
 		"host_id": host_id,
 	}

@@ -49,7 +49,15 @@ func _run(failures: Array[String]) -> void:
 		"starter_building_slots": {"q0_r0": "capital_hub"},
 	})
 	_expect(not capital_colony_id.is_empty(), "planet colony should be created", failures)
-	_expect(ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, "alpha_prime") == capital_colony_id, "planet host index should resolve colony", failures)
+	_expect(ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, "alpha_prime", "sys_alpha") == capital_colony_id, "planet host index should resolve colony in its system", failures)
+	_expect(ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, "alpha_prime").is_empty(), "orbital host lookup should require a system id", failures)
+	var sibling_colony_id := ColonyManager.create_colony_for_orbital("empire_alpha", "sys_beta", planet_record, {
+		"colony_name": "Beta Prime",
+		"starter_buildings": ["capital_hub"],
+		"starter_building_slots": {"q0_r0": "capital_hub"},
+	})
+	_expect(not sibling_colony_id.is_empty() and sibling_colony_id != capital_colony_id, "matching orbital ids in different systems should create distinct colonies", failures)
+	_expect(ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, "alpha_prime", "sys_beta") == sibling_colony_id, "orbital host index should include the system id", failures)
 	var capital_details := ColonyManager.get_colony_details(capital_colony_id)
 	_expect(str(capital_details.get("host_kind", "")) == ColonyRuntime.HOST_KIND_ORBITAL, "planet colony should use orbital host kind", failures)
 	_expect(str(capital_details.get("planet_orbital_id", "")) == "alpha_prime", "planet alias should be preserved", failures)
@@ -121,6 +129,7 @@ func _test_runtime_colonize_orbital(empire_records: Array[Dictionary], failures:
 	var runtime := GameSceneRuntimeSystem.new()
 	var state := GameSceneState.new()
 	var colonizable_planet := _build_runtime_planet("runtime_world", "Runtime World", 70, true)
+	var twin_planet := _build_runtime_planet("runtime_world", "Twin Runtime World", 72, true)
 	var foreign_planet := _build_runtime_planet("foreign_world", "Foreign World", 75, true)
 	var low_intel_planet := _build_runtime_planet("low_intel_world", "Low Intel World", 80, true)
 	var barren_planet := _build_runtime_planet("barren_world", "Barren World", 10, false)
@@ -128,12 +137,14 @@ func _test_runtime_colonize_orbital(empire_records: Array[Dictionary], failures:
 		"seed": 7,
 		"systems": [
 			{"id": "sys_runtime", "name": "Runtime", "position": Vector3.ZERO, "owner_empire_id": "empire_alpha"},
+			{"id": "sys_twin", "name": "Runtime Twin", "position": Vector3(60.0, 0.0, 0.0), "owner_empire_id": "empire_alpha"},
 			{"id": "sys_foreign", "name": "Foreign", "position": Vector3(120.0, 0.0, 0.0), "owner_empire_id": "empire_beta"},
 			{"id": "sys_low_intel", "name": "Low Intel", "position": Vector3(240.0, 0.0, 0.0), "owner_empire_id": "empire_alpha"},
 			{"id": "sys_barren", "name": "Barren", "position": Vector3(360.0, 0.0, 0.0), "owner_empire_id": "empire_alpha"},
 		],
 		"system_detail_overrides": {
 			"sys_runtime": {"orbitals": [colonizable_planet], "anomaly_risk": 0.1},
+			"sys_twin": {"orbitals": [twin_planet], "anomaly_risk": 0.1},
 			"sys_foreign": {"orbitals": [foreign_planet], "anomaly_risk": 0.1},
 			"sys_low_intel": {"orbitals": [low_intel_planet], "anomaly_risk": 0.1},
 			"sys_barren": {"orbitals": [barren_planet], "anomaly_risk": 0.1},
@@ -142,6 +153,7 @@ func _test_runtime_colonize_orbital(empire_records: Array[Dictionary], failures:
 	state.galaxy_state.set_empires(empire_records)
 	state.active_empire_id = "empire_alpha"
 	state.galaxy_state.reveal_system_intel("empire_alpha", "sys_runtime", GalaxyState.INTEL_EXPLORED)
+	state.galaxy_state.reveal_system_intel("empire_alpha", "sys_twin", GalaxyState.INTEL_EXPLORED)
 	state.galaxy_state.reveal_system_intel("empire_alpha", "sys_foreign", GalaxyState.INTEL_EXPLORED)
 	state.galaxy_state.reveal_system_intel("empire_alpha", "sys_low_intel", GalaxyState.INTEL_SENSOR)
 	state.galaxy_state.reveal_system_intel("empire_alpha", "sys_barren", GalaxyState.INTEL_EXPLORED)
@@ -150,7 +162,10 @@ func _test_runtime_colonize_orbital(empire_records: Array[Dictionary], failures:
 
 	var colony_id := runtime.request_colonize_orbital("sys_runtime", {"body_id": "runtime_world"})
 	_expect(not colony_id.is_empty(), "runtime colonization should create colony for owned explored habitable planet", failures)
-	_expect(ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, "runtime_world") == colony_id, "runtime colony should be indexed by orbital host", failures)
+	_expect(ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, "runtime_world", "sys_runtime") == colony_id, "runtime colony should be indexed by orbital host in its system", failures)
+	_expect(ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, "runtime_world", "sys_twin").is_empty(), "same orbital id in another system should not resolve the first colony", failures)
+	var twin_colony_id := runtime.request_colonize_orbital("sys_twin", {"body_id": "runtime_world"})
+	_expect(not twin_colony_id.is_empty() and twin_colony_id != colony_id, "same orbital id in another system should be colonizable separately", failures)
 	_expect(runtime.request_colonize_orbital("sys_runtime", {"body_id": "runtime_world"}).is_empty(), "runtime colonization should reject occupied orbital", failures)
 	_expect(runtime.request_colonize_orbital("sys_foreign", {"body_id": "foreign_world"}).is_empty(), "runtime colonization should reject foreign system", failures)
 	_expect(runtime.request_colonize_orbital("sys_low_intel", {"body_id": "low_intel_world"}).is_empty(), "runtime colonization should reject insufficient intel", failures)

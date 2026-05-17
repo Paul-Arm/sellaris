@@ -66,14 +66,14 @@ func _run(failures: Array[String]) -> void:
 	var card := panel.find_child("EntityDetailsCard", true, false) as PanelContainer
 	_expect(card != null and card.mouse_filter == Control.MOUSE_FILTER_STOP, "panel card should catch only its own mouse input", failures)
 	_expect(_label_text(panel, "TitleLabel") == "ISS Panel Science", "ship panel should show the ship title", failures)
-	_expect(panel.find_child("SurveySystemButton", true, false) != null, "science ship should expose survey action", failures)
+	_expect(panel.find_child("ExploreSystemButton", true, false) != null, "science ship should expose exploration action", failures)
 	_expect(panel.find_child("BuildTargetButton", true, false) == null, "science ship should not expose builder action", failures)
 
 	panel.open_ship(builder_ship.unit_id, context)
 	await get_tree().process_frame
 	_expect(_label_text(panel, "TitleLabel") == "ISS Panel Builder", "builder panel should refresh title", failures)
 	_expect(panel.find_child("BuildTargetButton", true, false) != null, "builder ship should expose build target action", failures)
-	_expect(panel.find_child("SurveySystemButton", true, false) == null, "builder ship should not expose science action", failures)
+	_expect(panel.find_child("ExploreSystemButton", true, false) == null, "builder ship should not expose science action", failures)
 	var action_refresh_state := {"count": 0}
 	var actions_box := panel.find_child("ActionsBox", true, false) as VBoxContainer
 	_expect(actions_box != null, "ship panel should expose actions box", failures)

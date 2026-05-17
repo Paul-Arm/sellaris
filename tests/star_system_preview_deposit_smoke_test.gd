@@ -30,6 +30,13 @@ func _run(failures: Array[String]) -> void:
 	var deposit_label := preview.find_child("DepositLabel_planet_deposit", true, false) as Label3D
 	_expect(deposit_label != null, "explored system preview should render a deposit label", failures)
 	_expect(deposit_label != null and deposit_label.text.find("Matter +50") >= 0, "deposit label should include fixed deposit amount", failures)
+	_expect(preview._select_selectable_by_id("planet:planet_deposit"), "preview should select the deposit planet", failures)
+	preview.set_system_details(_system_details(true))
+	await get_tree().process_frame
+	_expect(preview.get_selected_selection_id() == "planet:planet_deposit", "same-system refresh should preserve selected body", failures)
+	preview.set_system_details(_system_details(true, "sys_beta"))
+	await get_tree().process_frame
+	_expect(preview.get_selected_selection_id().is_empty(), "system switch should not restore a matching local body id", failures)
 
 	preview.set_system_details(_system_details(false))
 	await get_tree().process_frame
@@ -39,10 +46,10 @@ func _run(failures: Array[String]) -> void:
 	preview.free()
 
 
-func _system_details(has_full_intel: bool) -> Dictionary:
+func _system_details(has_full_intel: bool, system_id: String = "sys_alpha") -> Dictionary:
 	return {
-		"id": "sys_alpha",
-		"name": "Alpha",
+		"id": system_id,
+		"name": "Alpha" if system_id == "sys_alpha" else "Beta",
 		"generated_seed": 7,
 		"has_full_intel": has_full_intel,
 		"stars": [],

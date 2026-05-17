@@ -1,6 +1,8 @@
 extends RefCounted
 class_name GalaxyState
 
+const ANOMALY_POOL_SCRIPT: Script = preload("res://core/anomaly/AnomalyPool.gd")
+
 const DEFAULT_STAR_PROFILE := {
 	"system_type": "normal",
 	"star_count": 1,
@@ -48,6 +50,11 @@ var systems_by_id: Dictionary = {}
 var system_indices_by_id: Dictionary = {}
 var system_detail_overrides_by_id: Dictionary = {}
 var ownership_by_system_id: Dictionary = {}
+var anomaly_records: Array[Dictionary] = []
+var anomalies_by_id: Dictionary = {}
+var anomaly_indices_by_id: Dictionary = {}
+var anomaly_ids_by_system_id: Dictionary = {}
+var anomaly_ids_by_body_key: Dictionary = {}
 var empires: Array[Dictionary] = []
 var empires_by_id: Dictionary = {}
 var empire_ids: PackedStringArray = PackedStringArray()
@@ -65,6 +72,11 @@ func reset() -> void:
 	system_indices_by_id.clear()
 	system_detail_overrides_by_id.clear()
 	ownership_by_system_id.clear()
+	anomaly_records.clear()
+	anomalies_by_id.clear()
+	anomaly_indices_by_id.clear()
+	anomaly_ids_by_system_id.clear()
+	anomaly_ids_by_body_key.clear()
 	empires.clear()
 	empires_by_id.clear()
 	empire_ids = PackedStringArray()
@@ -90,7 +102,10 @@ func load_from_layout(layout: Dictionary) -> void:
 
 	hyperlane_graph = layout.get("hyperlane_graph", {}).duplicate(true)
 	intel_by_empire_id = _normalize_intel_map(layout.get("intel_by_empire_id", {}))
+	for anomaly_variant in layout.get("anomalies", []):
+		anomaly_records.append(ANOMALY_POOL_SCRIPT.normalize_anomaly_record(anomaly_variant))
 	_rebuild_system_indexes()
+	_rebuild_anomaly_indexes()
 	_rebuild_ownership_index()
 	_rebuild_hyperlane_graph()
 
@@ -188,6 +203,154 @@ func has_full_system_intel(empire_id: String, system_id: String) -> bool:
 
 func get_system_intel_for_empire(empire_id: String) -> Dictionary:
 	return intel_by_empire_id.get(empire_id, {}).duplicate(true)
+
+
+func get_anomaly(anomaly_id: String) -> Dictionary:
+	return anomalies_by_id.get(anomaly_id, {}).duplicate(true)
+
+
+func get_system_anomalies(system_id: String, empire_id: String = "", visible_only: bool = false) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for anomaly_id in _get_anomaly_index_values(anomaly_ids_by_system_id, system_id):
+		var anomaly_record: Dictionary = anomalies_by_id.get(anomaly_id, {})
+		if anomaly_record.is_empty():
+			continue
+		if visible_only:
+			var visible_record: Dictionary = ANOMALY_POOL_SCRIPT.get_visible_anomaly_record(anomaly_record, empire_id)
+			if visible_record.is_empty():
+				continue
+			result.append(visible_record)
+		else:
+			result.append(anomaly_record.duplicate(true))
+	return result
+
+
+func get_body_anomalies(system_id: String, body_id: String, empire_id: String = "", visible_only: bool = false) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var body_key: String = ANOMALY_POOL_SCRIPT.build_body_key(system_id, body_id)
+	for anomaly_id in _get_anomaly_index_values(anomaly_ids_by_body_key, body_key):
+		var anomaly_record: Dictionary = anomalies_by_id.get(anomaly_id, {})
+		if anomaly_record.is_empty():
+			continue
+		if visible_only:
+			var visible_record: Dictionary = ANOMALY_POOL_SCRIPT.get_visible_anomaly_record(anomaly_record, empire_id)
+			if visible_record.is_empty():
+				continue
+			result.append(visible_record)
+		else:
+			result.append(anomaly_record.duplicate(true))
+	return result
+
+
+func add_anomaly(anomaly_record: Dictionary) -> String:
+	var normalized_record: Dictionary = ANOMALY_POOL_SCRIPT.normalize_anomaly_record(anomaly_record)
+	var anomaly_id := str(normalized_record.get("anomaly_id", "")).strip_edges()
+	if anomaly_id.is_empty() or anomalies_by_id.has(anomaly_id):
+		return ""
+	var system_id := str(normalized_record.get("system_id", "")).strip_edges()
+	var body_id := str(normalized_record.get("body_id", "")).strip_edges()
+	if system_id.is_empty() or body_id.is_empty():
+		return ""
+	anomaly_records.append(normalized_record)
+	_rebuild_anomaly_indexes()
+	return anomaly_id
+
+
+func discover_anomalies_for_empire(
+	system_id: String,
+	empire_id: String,
+	day_serial: int = 0,
+	source: String = "survey",
+	discoverer_unit_id: String = ""
+) -> Array[Dictionary]:
+	var discovered: Array[Dictionary] = []
+	for anomaly_id in _get_anomaly_index_values(anomaly_ids_by_system_id, system_id):
+		if discover_anomaly_for_empire(anomaly_id, empire_id, day_serial, source, discoverer_unit_id):
+			discovered.append(get_anomaly(anomaly_id))
+	return discovered
+
+
+func discover_body_anomalies_for_empire(
+	system_id: String,
+	body_id: String,
+	empire_id: String,
+	day_serial: int = 0,
+	source: String = "exploration_scan",
+	discoverer_unit_id: String = ""
+) -> Array[Dictionary]:
+	var discovered: Array[Dictionary] = []
+	var body_key: String = ANOMALY_POOL_SCRIPT.build_body_key(system_id, body_id)
+	for anomaly_id in _get_anomaly_index_values(anomaly_ids_by_body_key, body_key):
+		if discover_anomaly_for_empire(anomaly_id, empire_id, day_serial, source, discoverer_unit_id):
+			discovered.append(get_anomaly(anomaly_id))
+	return discovered
+
+
+func discover_anomaly_for_empire(
+	anomaly_id: String,
+	empire_id: String,
+	day_serial: int = 0,
+	source: String = "survey",
+	discoverer_unit_id: String = ""
+) -> bool:
+	if anomaly_id.is_empty() or empire_id.is_empty() or not anomalies_by_id.has(anomaly_id):
+		return false
+	var anomaly_record: Dictionary = anomalies_by_id[anomaly_id].duplicate(true)
+	var definition_id := str(anomaly_record.get("definition_id", ""))
+	var current_state: Dictionary = ANOMALY_POOL_SCRIPT.get_empire_state(anomaly_record, empire_id)
+	if str(current_state.get("status", ANOMALY_POOL_SCRIPT.STATUS_HIDDEN)) != ANOMALY_POOL_SCRIPT.STATUS_HIDDEN:
+		return false
+	if ANOMALY_POOL_SCRIPT.get_definition_frequency(definition_id) == ANOMALY_POOL_SCRIPT.FREQUENCY_ONCE_PER_PLAYER:
+		if _empire_has_seen_anomaly_definition(empire_id, definition_id):
+			return false
+
+	var state_by_empire_id: Dictionary = anomaly_record.get("state_by_empire_id", {}).duplicate(true) if anomaly_record.get("state_by_empire_id", {}) is Dictionary else {}
+	state_by_empire_id[empire_id] = ANOMALY_POOL_SCRIPT.build_discovery_state(
+		anomaly_record,
+		empire_id,
+		day_serial,
+		source,
+		discoverer_unit_id
+	)
+	anomaly_record["state_by_empire_id"] = state_by_empire_id
+	return _set_anomaly_record(anomaly_id, anomaly_record)
+
+
+func get_anomaly_empire_state(anomaly_id: String, empire_id: String) -> Dictionary:
+	var anomaly_record: Dictionary = get_anomaly(anomaly_id)
+	if anomaly_record.is_empty():
+		return {}
+	return ANOMALY_POOL_SCRIPT.get_empire_state(anomaly_record, empire_id)
+
+
+func can_research_anomaly(anomaly_id: String, empire_id: String) -> bool:
+	if anomaly_id.is_empty() or empire_id.is_empty() or not anomalies_by_id.has(anomaly_id):
+		return false
+	var anomaly_record: Dictionary = anomalies_by_id[anomaly_id]
+	var state: Dictionary = ANOMALY_POOL_SCRIPT.get_empire_state(anomaly_record, empire_id)
+	return str(state.get("status", ANOMALY_POOL_SCRIPT.STATUS_HIDDEN)) == ANOMALY_POOL_SCRIPT.STATUS_DISCOVERED
+
+
+func mark_anomaly_researched(
+	anomaly_id: String,
+	empire_id: String,
+	outcome: Dictionary,
+	outcome_summary: String,
+	day_serial: int = 0
+) -> bool:
+	if not can_research_anomaly(anomaly_id, empire_id):
+		return false
+	var anomaly_record: Dictionary = anomalies_by_id[anomaly_id].duplicate(true)
+	var state_by_empire_id: Dictionary = anomaly_record.get("state_by_empire_id", {}).duplicate(true) if anomaly_record.get("state_by_empire_id", {}) is Dictionary else {}
+	var previous_state: Dictionary = state_by_empire_id.get(empire_id, {})
+	state_by_empire_id[empire_id] = ANOMALY_POOL_SCRIPT.build_researched_state(
+		previous_state,
+		outcome,
+		outcome_summary,
+		day_serial
+	)
+	anomaly_record["state_by_empire_id"] = state_by_empire_id
+	return _set_anomaly_record(anomaly_id, anomaly_record)
 
 
 func clear_empire_intel(empire_id: String) -> bool:
@@ -433,6 +596,7 @@ func build_snapshot() -> Dictionary:
 		"links": hyperlane_links.duplicate(),
 		"hyperlane_graph": hyperlane_graph.duplicate(true),
 		"system_detail_overrides": system_detail_overrides_by_id.duplicate(true),
+		"anomalies": anomaly_records.duplicate(true),
 		"empires": empires.duplicate(true),
 		"ownership_by_system_id": ownership_by_system_id.duplicate(true),
 		"intel_by_empire_id": intel_by_empire_id.duplicate(true),
@@ -615,6 +779,73 @@ func _rebuild_system_indexes() -> void:
 		systems_by_id[system_id] = system_record
 		system_indices_by_id[system_id] = system_index
 		system_positions.append(system_record.get("position", Vector3.ZERO))
+
+
+func _rebuild_anomaly_indexes() -> void:
+	anomalies_by_id.clear()
+	anomaly_indices_by_id.clear()
+	anomaly_ids_by_system_id.clear()
+	anomaly_ids_by_body_key.clear()
+
+	for anomaly_index in range(anomaly_records.size()):
+		var anomaly_record: Dictionary = ANOMALY_POOL_SCRIPT.normalize_anomaly_record(anomaly_records[anomaly_index])
+		var anomaly_id := str(anomaly_record.get("anomaly_id", "")).strip_edges()
+		if anomaly_id.is_empty():
+			continue
+		anomaly_records[anomaly_index] = anomaly_record
+		anomalies_by_id[anomaly_id] = anomaly_record
+		anomaly_indices_by_id[anomaly_id] = anomaly_index
+
+		var system_id := str(anomaly_record.get("system_id", "")).strip_edges()
+		if not system_id.is_empty():
+			var system_bucket: Dictionary = anomaly_ids_by_system_id.get(system_id, {})
+			system_bucket[anomaly_id] = true
+			anomaly_ids_by_system_id[system_id] = system_bucket
+
+		var body_id := str(anomaly_record.get("body_id", "")).strip_edges()
+		if not system_id.is_empty() and not body_id.is_empty():
+			var body_key: String = ANOMALY_POOL_SCRIPT.build_body_key(system_id, body_id)
+			var body_bucket: Dictionary = anomaly_ids_by_body_key.get(body_key, {})
+			body_bucket[anomaly_id] = true
+			anomaly_ids_by_body_key[body_key] = body_bucket
+
+
+func _set_anomaly_record(anomaly_id: String, anomaly_record: Dictionary) -> bool:
+	if not anomaly_indices_by_id.has(anomaly_id):
+		return false
+	var anomaly_index := int(anomaly_indices_by_id[anomaly_id])
+	if anomaly_index < 0 or anomaly_index >= anomaly_records.size():
+		return false
+	var normalized_record: Dictionary = ANOMALY_POOL_SCRIPT.normalize_anomaly_record(anomaly_record)
+	if str(normalized_record.get("anomaly_id", "")) != anomaly_id:
+		return false
+	anomaly_records[anomaly_index] = normalized_record
+	anomalies_by_id[anomaly_id] = normalized_record
+	return true
+
+
+func _empire_has_seen_anomaly_definition(empire_id: String, definition_id: String) -> bool:
+	if empire_id.is_empty() or definition_id.is_empty():
+		return false
+	for anomaly_record_variant in anomaly_records:
+		var anomaly_record: Dictionary = anomaly_record_variant
+		if str(anomaly_record.get("definition_id", "")) != definition_id:
+			continue
+		var state: Dictionary = ANOMALY_POOL_SCRIPT.get_empire_state(anomaly_record, empire_id)
+		if str(state.get("status", ANOMALY_POOL_SCRIPT.STATUS_HIDDEN)) != ANOMALY_POOL_SCRIPT.STATUS_HIDDEN:
+			return true
+	return false
+
+
+func _get_anomaly_index_values(index: Dictionary, key: String) -> PackedStringArray:
+	var result := PackedStringArray()
+	if key.is_empty() or not index.has(key):
+		return result
+	var bucket: Dictionary = index[key]
+	for value_variant in bucket.keys():
+		result.append(str(value_variant))
+	result.sort()
+	return result
 
 
 func _rebuild_ownership_index() -> void:

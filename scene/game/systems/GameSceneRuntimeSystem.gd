@@ -1,6 +1,7 @@
 extends Node
 class_name GameSceneRuntimeSystem
 
+const ANOMALY_POOL_SCRIPT: Script = preload("res://core/anomaly/AnomalyPool.gd")
 const DEFAULT_EMPIRE_COUNT: int = 6
 const STARTING_SENSOR_JUMP_DEPTH: int = 2
 
@@ -183,7 +184,7 @@ func get_system_details(system_id: String) -> Dictionary:
 	details["show_hyperlane_count"] = true
 	if not bool(details.get("has_full_intel", false)):
 		return _build_redacted_system_details(system_id, details)
-	return details
+	return _decorate_system_details_with_anomalies(details)
 
 
 func resolve_system_details(system_id: String) -> Dictionary:
@@ -197,6 +198,83 @@ func resolve_system_details(system_id: String) -> Dictionary:
 		_state.custom_systems,
 		detail_override
 	)
+
+
+func spawn_anomaly_for_body(
+	definition_id: String,
+	system_id: String,
+	body_id: String,
+	reveal_to_empire_id: String = "",
+	spawn_source: String = "event"
+) -> String:
+	if _state == null or definition_id.is_empty() or system_id.is_empty() or body_id.is_empty():
+		return ""
+	if not _state.systems_by_id.has(system_id):
+		return ""
+	var system_details: Dictionary = resolve_system_details(system_id)
+	var body_record: Dictionary = _find_body_record(system_details, body_id)
+	if body_record.is_empty():
+		return ""
+	var anomaly_record: Dictionary = ANOMALY_POOL_SCRIPT.build_manual_anomaly_record(
+		_state.generated_seed,
+		definition_id,
+		system_details,
+		body_record,
+		spawn_source,
+		_get_current_day_serial()
+	)
+	var anomaly_id: String = _state.galaxy_state.add_anomaly(anomaly_record)
+	if anomaly_id.is_empty():
+		return ""
+	if not reveal_to_empire_id.is_empty():
+		_state.galaxy_state.discover_anomaly_for_empire(
+			anomaly_id,
+			reveal_to_empire_id,
+			_get_current_day_serial(),
+			spawn_source
+		)
+	_scene_ui_controller.invalidate_system_panel_snapshot(system_id)
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_info_label()
+	return anomaly_id
+
+
+func research_anomaly_for_active_empire(anomaly_id: String) -> bool:
+	if _state == null or _state.active_empire_id.is_empty() or anomaly_id.is_empty():
+		return false
+	var anomaly_record: Dictionary = _state.galaxy_state.get_anomaly(anomaly_id)
+	if anomaly_record.is_empty():
+		return false
+	var system_id := str(anomaly_record.get("system_id", ""))
+	if system_id.is_empty() or not _has_full_intel_for_active_empire(system_id):
+		return false
+	if not _state.galaxy_state.can_research_anomaly(anomaly_id, _state.active_empire_id):
+		return false
+
+	var outcome: Dictionary = ANOMALY_POOL_SCRIPT.pick_outcome(
+		str(anomaly_record.get("definition_id", "")),
+		anomaly_id,
+		_state.active_empire_id,
+		int(anomaly_record.get("spawn_seed", 0))
+	)
+	var result: Dictionary = _execute_anomaly_outcome(anomaly_record, outcome, _state.active_empire_id)
+	if not bool(result.get("success", false)):
+		return false
+	var summary := str(result.get("summary", outcome.get("summary", "Anomalie erforscht.")))
+	if not _state.galaxy_state.mark_anomaly_researched(
+		anomaly_id,
+		_state.active_empire_id,
+		outcome,
+		summary,
+		_get_current_day_serial()
+	):
+		return false
+
+	_scene_ui_controller.invalidate_system_panel_snapshot(system_id)
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_selection_panel()
+	_scene_ui_controller.update_info_label()
+	return true
 
 
 func get_galaxy_state_snapshot() -> Dictionary:
@@ -279,7 +357,67 @@ func build_system_renderables(system_id: String) -> Dictionary:
 			decorated_projects.append(decorated_project)
 		renderables["construction_projects"] = decorated_projects
 
+	var exploration_variant: Variant = renderables.get("exploration_orders", [])
+	if exploration_variant is Array:
+		var decorated_orders: Array[Dictionary] = []
+		for order_variant in exploration_variant:
+			var order_record: Dictionary = order_variant
+			var decorated_order: Dictionary = order_record.duplicate(true)
+			var owner_empire_id: String = str(decorated_order.get("owner_empire_id", ""))
+			decorated_order["owner_color"] = _get_empire_runtime_color(owner_empire_id)
+			decorated_order["owner_name"] = _get_empire_runtime_name(owner_empire_id)
+			decorated_order["system_name"] = _get_system_runtime_name(str(decorated_order.get("system_id", "")))
+			decorated_orders.append(decorated_order)
+		renderables["exploration_orders"] = decorated_orders
+
 	return renderables
+
+
+func _decorate_system_details_with_anomalies(system_details: Dictionary) -> Dictionary:
+	if _state == null:
+		return system_details
+	var details := system_details.duplicate(true)
+	var system_id := str(details.get("id", ""))
+	if system_id.is_empty():
+		return details
+
+	var visible_anomalies: Array[Dictionary] = _state.galaxy_state.get_system_anomalies(
+		system_id,
+		_state.active_empire_id,
+		true
+	)
+	details["anomalies"] = visible_anomalies
+	details["known_anomaly_count"] = visible_anomalies.size()
+
+	var anomalies_by_body_id: Dictionary = {}
+	for anomaly_variant in visible_anomalies:
+		var anomaly: Dictionary = anomaly_variant
+		var body_id := str(anomaly.get("body_id", ""))
+		if body_id.is_empty():
+			continue
+		var body_anomalies: Array = anomalies_by_body_id.get(body_id, [])
+		body_anomalies.append(anomaly)
+		anomalies_by_body_id[body_id] = body_anomalies
+
+	details["stars"] = _attach_anomaly_components_to_bodies(details.get("stars", []), anomalies_by_body_id)
+	details["orbitals"] = _attach_anomaly_components_to_bodies(details.get("orbitals", []), anomalies_by_body_id)
+	return details
+
+
+func _attach_anomaly_components_to_bodies(bodies_variant: Variant, anomalies_by_body_id: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if bodies_variant is not Array:
+		return result
+	for body_variant in bodies_variant:
+		if body_variant is not Dictionary:
+			continue
+		var body: Dictionary = (body_variant as Dictionary).duplicate(true)
+		var body_id := str(body.get("id", body.get("name", "")))
+		var component: Dictionary = body.get("anomaly_component", {}).duplicate(true) if body.get("anomaly_component", {}) is Dictionary else {}
+		component["anomalies"] = (anomalies_by_body_id.get(body_id, []) as Array).duplicate(true) if anomalies_by_body_id.has(body_id) else []
+		body["anomaly_component"] = component
+		result.append(body)
+	return result
 
 
 func _build_system_colony_summaries(system_id: String) -> Array[Dictionary]:
@@ -553,7 +691,7 @@ func request_colonize_orbital(system_id: String, body_context: Dictionary) -> St
 	var orbital := _find_orbital_record(system_id, body_id)
 	if orbital.is_empty() or not _is_colonizable_orbital_record(orbital):
 		return ""
-	if not ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, body_id).is_empty():
+	if not ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_ORBITAL, body_id, system_id).is_empty():
 		return ""
 
 	var colony_id := ColonyManager.create_colony_for_orbital(_state.active_empire_id, system_id, orbital, {
@@ -607,6 +745,52 @@ func request_build_order_for_body(
 	return not project_id.is_empty()
 
 
+func request_explore_system_for_unit(unit_id: String, destination_system_id: String) -> bool:
+	if _state == null or unit_id.is_empty() or destination_system_id.is_empty():
+		return false
+	if not _state.systems_by_id.has(destination_system_id):
+		return false
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+	if unit == null or not _can_command_owner(unit.owner_empire_id):
+		return false
+	if not _can_space_unit_explore(unit):
+		return false
+	if not unit.fleet_id.is_empty():
+		return false
+	var path := _find_hyperlane_path(unit.current_system_id, destination_system_id)
+	if unit.current_system_id != destination_system_id and path.size() < 2:
+		return false
+	var system_details: Dictionary = resolve_system_details(destination_system_id)
+	if system_details.is_empty():
+		return false
+	system_details["id"] = destination_system_id
+	system_details["generated_seed"] = _state.generated_seed
+	var order_id := SpaceManager.request_explore_system(
+		unit.unit_id,
+		destination_system_id,
+		system_details,
+		_estimate_hyperlane_eta_days(path),
+		{
+			"galaxy_seed": _state.generated_seed,
+			"metadata": {
+				"source": "right_click_explore",
+			},
+		}
+	)
+	if order_id.is_empty():
+		return false
+	_state.galaxy_state.reveal_system_intel(unit.owner_empire_id, destination_system_id, GalaxyState.INTEL_SENSOR)
+	sync_cached_state()
+	render_stars()
+	render_hyperlanes()
+	render_runtime_placeholders()
+	_scene_ui_controller.invalidate_system_panel_snapshot(destination_system_id)
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_selection_panel()
+	_scene_ui_controller.update_info_label()
+	return true
+
+
 func create_runtime_fleet(owner_empire_id: String, system_id: String, unit_ids_variant: Variant = PackedStringArray(), fleet_data: Dictionary = {}) -> SpaceFleetRuntime:
 	if _state == null or system_id.is_empty() or not _state.systems_by_id.has(system_id):
 		return null
@@ -642,6 +826,8 @@ func issue_space_entity_hyperlane_move(selection_kind: String, record_id: String
 				return issue_space_entity_hyperlane_move("fleet", unit.fleet_id, destination_system_id)
 			if not _can_command_owner(unit.owner_empire_id):
 				return false
+			if _can_space_unit_explore(unit):
+				return request_explore_system_for_unit(unit.unit_id, destination_system_id)
 			var unit_path := _find_hyperlane_path(unit.current_system_id, destination_system_id)
 			if unit_path.size() < 2:
 				return false
@@ -716,7 +902,13 @@ func survey_system_for_active_empire(system_id: String) -> bool:
 		GalaxyState.INTEL_SURVEYED,
 		GalaxyState.INTEL_SENSOR
 	)
-	if not changed:
+	var discovered_anomalies: Array[Dictionary] = _state.galaxy_state.discover_anomalies_for_empire(
+		system_id,
+		_state.active_empire_id,
+		_get_current_day_serial(),
+		"survey"
+	)
+	if not changed and discovered_anomalies.is_empty():
 		return false
 
 	sync_cached_state()
@@ -1180,12 +1372,19 @@ func connect_space_runtime_signals() -> void:
 		SpaceManager.construction_started,
 		SpaceManager.construction_updated,
 		SpaceManager.construction_cancelled,
+		SpaceManager.exploration_started,
+		SpaceManager.exploration_updated,
+		SpaceManager.exploration_cancelled,
 	]
 	for runtime_signal in runtime_signals:
 		if not runtime_signal.is_connected(_on_space_runtime_changed):
 			runtime_signal.connect(_on_space_runtime_changed)
 	if not SpaceManager.construction_completed.is_connected(_on_space_construction_completed):
 		SpaceManager.construction_completed.connect(_on_space_construction_completed)
+	if not SpaceManager.exploration_scan_completed.is_connected(_on_space_exploration_scan_completed):
+		SpaceManager.exploration_scan_completed.connect(_on_space_exploration_scan_completed)
+	if not SpaceManager.exploration_completed.is_connected(_on_space_exploration_completed):
+		SpaceManager.exploration_completed.connect(_on_space_exploration_completed)
 
 
 func disconnect_space_runtime_signals() -> void:
@@ -1199,12 +1398,19 @@ func disconnect_space_runtime_signals() -> void:
 		SpaceManager.construction_started,
 		SpaceManager.construction_updated,
 		SpaceManager.construction_cancelled,
+		SpaceManager.exploration_started,
+		SpaceManager.exploration_updated,
+		SpaceManager.exploration_cancelled,
 	]
 	for runtime_signal in runtime_signals:
 		if runtime_signal.is_connected(_on_space_runtime_changed):
 			runtime_signal.disconnect(_on_space_runtime_changed)
 	if SpaceManager.construction_completed.is_connected(_on_space_construction_completed):
 		SpaceManager.construction_completed.disconnect(_on_space_construction_completed)
+	if SpaceManager.exploration_scan_completed.is_connected(_on_space_exploration_scan_completed):
+		SpaceManager.exploration_scan_completed.disconnect(_on_space_exploration_scan_completed)
+	if SpaceManager.exploration_completed.is_connected(_on_space_exploration_completed):
+		SpaceManager.exploration_completed.disconnect(_on_space_exploration_completed)
 
 
 func refresh_runtime_visuals() -> void:
@@ -1292,6 +1498,148 @@ func _can_command_owner(owner_empire_id: String) -> bool:
 	return _state == null or _state.active_empire_id.is_empty() or owner_empire_id == _state.active_empire_id
 
 
+func _can_space_unit_explore(unit: SpaceUnitRuntime) -> bool:
+	if unit == null or not unit.can_explore_systems():
+		return false
+	if unit.class_id == SpaceManager.SCIENCE_SHIP_CLASS_ID:
+		return true
+	for tag in unit.command_tags:
+		if str(tag) in ["science", "survey", "explore"]:
+			return true
+	return false
+
+
+func _execute_anomaly_outcome(anomaly_record: Dictionary, outcome: Dictionary, empire_id: String) -> Dictionary:
+	var outcome_type := str(outcome.get("type", ""))
+	match outcome_type:
+		ANOMALY_POOL_SCRIPT.OUTCOME_GRANT_RESOURCES:
+			return _execute_anomaly_grant_resources(anomaly_record, outcome, empire_id)
+		ANOMALY_POOL_SCRIPT.OUTCOME_MONTHLY_RESOURCES:
+			return _execute_anomaly_monthly_resources(anomaly_record, outcome, empire_id)
+		ANOMALY_POOL_SCRIPT.OUTCOME_SPAWN_UNIT:
+			return _execute_anomaly_spawn_unit(anomaly_record, outcome, empire_id)
+		ANOMALY_POOL_SCRIPT.OUTCOME_RUNTIME_METHOD:
+			return _execute_anomaly_runtime_method(anomaly_record, outcome, empire_id)
+		_:
+			return {"success": false, "summary": "Unbekannter Anomalie-Ausgang."}
+
+
+func _execute_anomaly_grant_resources(anomaly_record: Dictionary, outcome: Dictionary, empire_id: String) -> Dictionary:
+	var amounts: Array[Dictionary] = ANOMALY_POOL_SCRIPT.resolve_outcome_resources(outcome, anomaly_record, empire_id)
+	if amounts.is_empty() or EconomyManager == null:
+		return {"success": false, "summary": "Keine Ressourcen geborgen."}
+	if not EconomyManager.grant_resources(empire_id, amounts):
+		return {"success": false, "summary": "Ressourcen konnten nicht geborgen werden."}
+	return {
+		"success": true,
+		"summary": "Gewonnen: %s" % _format_runtime_resource_net(_amounts_to_resource_map(amounts)),
+	}
+
+
+func _execute_anomaly_monthly_resources(anomaly_record: Dictionary, outcome: Dictionary, empire_id: String) -> Dictionary:
+	var amounts: Array[Dictionary] = ANOMALY_POOL_SCRIPT.resolve_outcome_resources(outcome, anomaly_record, empire_id)
+	if amounts.is_empty() or EconomyManager == null or not EconomyManager.is_bootstrapped():
+		return {"success": false, "summary": "Keine dauerhafte Quelle erschlossen."}
+	var anomaly_id := str(anomaly_record.get("anomaly_id", ""))
+	var source_id := "anomaly:%s:%s" % [anomaly_id, empire_id]
+	var source_tags := PackedStringArray([
+		str(anomaly_record.get("system_id", "")),
+		str(anomaly_record.get("body_id", "")),
+		anomaly_id,
+	])
+	if EconomyManager.has_source(source_id):
+		EconomyManager.update_source(source_id, amounts, [], [])
+		EconomyManager.update_source_tags(source_id, source_tags)
+	else:
+		if not EconomyManager.register_source(source_id, empire_id, amounts, [], [], "anomaly_monthly", source_tags):
+			return {"success": false, "summary": "Dauerhafte Quelle konnte nicht registriert werden."}
+	return {
+		"success": true,
+		"summary": "Monatlich: %s" % _format_runtime_resource_net(_amounts_to_resource_map(amounts)),
+	}
+
+
+func _execute_anomaly_spawn_unit(anomaly_record: Dictionary, outcome: Dictionary, empire_id: String) -> Dictionary:
+	if SpaceManager == null:
+		return {"success": false, "summary": "Schiff konnte nicht geborgen werden."}
+	var system_id := str(anomaly_record.get("system_id", ""))
+	var class_id := str(outcome.get("class_id", SpaceManager.SCIENCE_SHIP_CLASS_ID)).strip_edges()
+	var anomaly_id := str(anomaly_record.get("anomaly_id", ""))
+	if system_id.is_empty() or class_id.is_empty():
+		return {"success": false, "summary": "Schiff konnte nicht geborgen werden."}
+	var system_details := resolve_system_details(system_id)
+	var body_record := _find_body_record(system_details, str(anomaly_record.get("body_id", "")))
+	var spawn_position := _get_body_orbit_position(body_record)
+	var display_name := str(outcome.get("display_name", "Geborgenes Schiff")).strip_edges()
+	var unit_id := _slugify_runtime_id("anomaly_ship_%s_%s" % [anomaly_id, empire_id])
+	var unit := SpaceManager.spawn_unit(class_id, empire_id, system_id, {
+		"unit_id": unit_id,
+		"display_name": display_name,
+		"local_position": spawn_position + Vector3(4.0, 0.0, 3.0),
+		"metadata": {
+			"anomaly_id": anomaly_id,
+			"source": "anomaly_outcome",
+		},
+	})
+	if unit == null:
+		return {"success": false, "summary": "Schiff konnte nicht geborgen werden."}
+	return {
+		"success": true,
+		"summary": "Schiff geborgen: %s" % unit.display_name,
+	}
+
+
+func _execute_anomaly_runtime_method(anomaly_record: Dictionary, outcome: Dictionary, empire_id: String) -> Dictionary:
+	var method_name := str(outcome.get("method", "")).strip_edges()
+	if method_name.is_empty() or not method_name.begins_with("_anomaly_outcome_") or not has_method(method_name):
+		return {"success": false, "summary": "Anomalie-Skript nicht gefunden."}
+	var result: Variant = call(method_name, anomaly_record.duplicate(true), outcome.duplicate(true), empire_id)
+	if result is Dictionary:
+		return result
+	return {"success": true, "summary": str(result)}
+
+
+func _amounts_to_resource_map(amounts: Array[Dictionary]) -> Dictionary:
+	var result: Dictionary = {}
+	for amount in amounts:
+		var resource_id := str(amount.get("resource_id", "")).strip_edges()
+		if resource_id.is_empty():
+			continue
+		result[resource_id] = int(result.get(resource_id, 0)) + int(amount.get("milliunits", 0))
+	return result
+
+
+func _find_body_record(system_details: Dictionary, body_id: String) -> Dictionary:
+	var normalized_body_id := body_id.strip_edges()
+	if normalized_body_id.is_empty():
+		return {}
+	for star_variant in system_details.get("stars", []):
+		if star_variant is not Dictionary:
+			continue
+		var star: Dictionary = star_variant
+		if str(star.get("id", star.get("name", ""))) == normalized_body_id:
+			return star.duplicate(true)
+	for orbital_variant in system_details.get("orbitals", []):
+		if orbital_variant is not Dictionary:
+			continue
+		var orbital: Dictionary = orbital_variant
+		if str(orbital.get("id", orbital.get("name", ""))) == normalized_body_id:
+			return orbital.duplicate(true)
+	return {}
+
+
+func _get_body_orbit_position(body_record: Dictionary) -> Vector3:
+	if body_record.is_empty():
+		return Vector3.ZERO
+	var radius := float(body_record.get("orbit_radius", 0.0))
+	var angle := float(body_record.get("orbit_angle", 0.0))
+	return Vector3(
+		cos(angle) * radius,
+		float(body_record.get("vertical_offset", 0.0)),
+		sin(angle) * radius
+	)
+
+
 func _find_orbital_record(system_id: String, orbital_id: String) -> Dictionary:
 	if _state == null or system_id.is_empty() or orbital_id.is_empty():
 		return {}
@@ -1374,6 +1722,10 @@ func _get_system_position(system_id: String) -> Vector3:
 		return Vector3.ZERO
 	var system_record: Dictionary = _state.systems_by_id[system_id]
 	return system_record.get("position", Vector3.ZERO)
+
+
+func _get_current_day_serial() -> int:
+	return SimClock.get_current_day_serial() if SimClock != null and SimClock.has_method("get_current_day_serial") else 0
 
 
 func _get_active_empire_intel_map() -> Dictionary:
@@ -1582,6 +1934,26 @@ func _format_runtime_resource_net(resource_net_variant: Variant) -> String:
 	return ", ".join(parts)
 
 
+func _slugify_runtime_id(value: String) -> String:
+	var source := value.to_lower().strip_edges()
+	if source.is_empty():
+		return "runtime_id"
+	var result := ""
+	for index in range(source.length()):
+		var character := source.substr(index, 1)
+		var is_letter := character >= "a" and character <= "z"
+		var is_number := character >= "0" and character <= "9"
+		if is_letter or is_number:
+			result += character
+			continue
+		if result.is_empty() or result.ends_with("_"):
+			continue
+		result += "_"
+	if result.is_empty():
+		return "runtime_id"
+	return result
+
+
 func _apply_system_detail_state(system_id: String, resolved_details: Dictionary, store_override: bool) -> bool:
 	if store_override:
 		if not _state.galaxy_state.set_system_detail_override(system_id, resolved_details):
@@ -1658,6 +2030,65 @@ func _on_space_construction_completed(_project_id: String, unit_id: String) -> v
 	_on_space_runtime_changed(unit_id)
 
 
+func _on_space_exploration_scan_completed(order_id: String, unit_id: String, system_id: String, body_id: String) -> void:
+	if _state == null:
+		return
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+	if unit == null:
+		return
+	var changed: bool = _state.galaxy_state.reveal_system_intel(unit.owner_empire_id, system_id, GalaxyState.INTEL_SENSOR)
+	var discovered_anomalies: Array[Dictionary] = _state.galaxy_state.discover_body_anomalies_for_empire(
+		system_id,
+		body_id,
+		unit.owner_empire_id,
+		_get_current_day_serial(),
+		"exploration_scan",
+		unit_id
+	)
+	if changed or not discovered_anomalies.is_empty():
+		sync_cached_state()
+		render_stars()
+		render_hyperlanes()
+		render_ownership_markers()
+	_scene_ui_controller.invalidate_system_panel_snapshot(system_id)
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_selection_panel()
+	_scene_ui_controller.update_info_label()
+	_on_space_runtime_changed(order_id)
+
+
+func _on_space_exploration_completed(_order_id: String, unit_id: String, system_id: String) -> void:
+	if _state == null:
+		return
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+	if unit == null:
+		return
+	var changed: bool = _state.galaxy_state.reveal_system_radius(
+		unit.owner_empire_id,
+		system_id,
+		STARTING_SENSOR_JUMP_DEPTH,
+		GalaxyState.INTEL_SURVEYED,
+		GalaxyState.INTEL_SENSOR
+	)
+	var discovered_anomalies: Array[Dictionary] = _state.galaxy_state.discover_anomalies_for_empire(
+		system_id,
+		unit.owner_empire_id,
+		_get_current_day_serial(),
+		"exploration_complete",
+		unit_id
+	)
+	if changed or not discovered_anomalies.is_empty():
+		sync_cached_state()
+		render_stars()
+		render_hyperlanes()
+		render_ownership_markers()
+	_scene_ui_controller.invalidate_system_panel_snapshot(system_id)
+	_scene_ui_controller.update_system_panel()
+	_scene_ui_controller.update_selection_panel()
+	_scene_ui_controller.update_info_label()
+	_on_space_runtime_changed(unit_id)
+
+
 func _sync_space_record_economy_sources(record_id: String) -> void:
 	if record_id.is_empty():
 		return
@@ -1678,7 +2109,17 @@ func _reveal_intel_from_space_record(record_id: String) -> void:
 
 	var ship: SpaceUnitRuntime = SpaceManager.get_unit(record_id)
 	if ship != null:
-		changed = _reveal_intel_from_presence(ship.owner_empire_id, ship.current_system_id) or changed
+		var exploration_order: Dictionary = SpaceManager.get_exploration_order_for_unit(ship.unit_id)
+		if not exploration_order.is_empty() and str(exploration_order.get("system_id", "")) == ship.current_system_id:
+			changed = _state.galaxy_state.reveal_system_radius(
+				ship.owner_empire_id,
+				ship.current_system_id,
+				STARTING_SENSOR_JUMP_DEPTH,
+				GalaxyState.INTEL_SENSOR,
+				GalaxyState.INTEL_SENSOR
+			) or changed
+		else:
+			changed = _reveal_intel_from_presence(ship.owner_empire_id, ship.current_system_id) or changed
 
 	if changed:
 		sync_cached_state()

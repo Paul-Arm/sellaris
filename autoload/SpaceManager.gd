@@ -17,6 +17,10 @@ const BUILD_TAG_RESEARCH_STATION := "research_station"
 const CONSTRUCTION_STATE_MOVING_TO_SITE := "moving_to_site"
 const CONSTRUCTION_STATE_BUILDING := "building"
 const CONSTRUCTION_SITE_ARRIVAL_DISTANCE := 0.35
+const EXPLORATION_STATE_TRAVELLING := "travelling_to_system"
+const EXPLORATION_STATE_MOVING_TO_BODY := "moving_to_body"
+const EXPLORATION_STATE_SCANNING_BODY := "scanning_body"
+const EXPLORATION_STATE_COMPLETED := "completed"
 
 signal unit_class_registered(class_id: String)
 signal unit_spawned(unit_id: String)
@@ -29,15 +33,22 @@ signal construction_started(project_id: String)
 signal construction_updated(project_id: String)
 signal construction_completed(project_id: String, unit_id: String)
 signal construction_cancelled(project_id: String)
+signal exploration_started(order_id: String)
+signal exploration_updated(order_id: String)
+signal exploration_scan_completed(order_id: String, unit_id: String, system_id: String, body_id: String)
+signal exploration_completed(order_id: String, unit_id: String, system_id: String)
+signal exploration_cancelled(order_id: String)
 
 var _next_unit_id: int = 1
 var _next_fleet_id: int = 1
 var _next_movement_order_id: int = 1
 var _next_construction_project_id: int = 1
+var _next_exploration_order_id: int = 1
 var _unit_classes: Dictionary = {}
 var _units: Dictionary = {}
 var _fleets: Dictionary = {}
 var _construction_projects: Dictionary = {}
+var _exploration_orders: Dictionary = {}
 var _unit_ids_by_owner: Dictionary = {}
 var _unit_ids_by_system: Dictionary = {}
 var _unit_ids_by_class: Dictionary = {}
@@ -45,6 +56,8 @@ var _fleet_ids_by_owner: Dictionary = {}
 var _fleet_ids_by_system: Dictionary = {}
 var _construction_project_ids_by_builder_unit_id: Dictionary = {}
 var _construction_project_ids_by_system: Dictionary = {}
+var _exploration_order_ids_by_unit_id: Dictionary = {}
+var _exploration_order_ids_by_system: Dictionary = {}
 
 
 func _ready() -> void:
@@ -61,9 +74,11 @@ func reset_runtime_state(clear_unit_classes: bool = false) -> void:
 	_next_fleet_id = 1
 	_next_movement_order_id = 1
 	_next_construction_project_id = 1
+	_next_exploration_order_id = 1
 	_units.clear()
 	_fleets.clear()
 	_construction_projects.clear()
+	_exploration_orders.clear()
 	_unit_ids_by_owner.clear()
 	_unit_ids_by_system.clear()
 	_unit_ids_by_class.clear()
@@ -71,6 +86,8 @@ func reset_runtime_state(clear_unit_classes: bool = false) -> void:
 	_fleet_ids_by_system.clear()
 	_construction_project_ids_by_builder_unit_id.clear()
 	_construction_project_ids_by_system.clear()
+	_exploration_order_ids_by_unit_id.clear()
+	_exploration_order_ids_by_system.clear()
 	if clear_unit_classes:
 		_unit_classes.clear()
 		register_builtin_unit_classes(true)
@@ -109,6 +126,15 @@ func register_builtin_unit_classes(overwrite_existing: bool = false) -> void:
 			"uses_hyperlanes": true,
 			"can_orbit_system_objects": true,
 			"can_move_in_system": true,
+		},
+		"explorer_component": {
+			"scan_min_days": 5,
+			"scan_max_days": 15,
+			"scan_offset_radius": 4.0,
+			"arrival_distance": 0.45,
+			"scan_body_types": ["star", "planet", "asteroid_belt", "structure", "ruin"],
+			"discover_anomalies_per_body": true,
+			"grants_full_system_intel": true,
 		},
 	}, overwrite_existing)
 	register_unit_class_from_data({
@@ -343,6 +369,7 @@ func remove_unit(unit_id: String) -> bool:
 	if unit == null:
 		return false
 
+	cancel_exploration_order_for_unit(unit_id)
 	cancel_build_order_for_builder(unit_id)
 	if not unit.fleet_id.is_empty():
 		remove_unit_from_fleet(unit_id)
@@ -508,6 +535,118 @@ func get_all_construction_projects() -> Array[Dictionary]:
 
 func is_unit_constructing(unit_id: String) -> bool:
 	return not _get_index_values(_construction_project_ids_by_builder_unit_id, unit_id).is_empty()
+
+
+func request_explore_system(
+	unit_id: String,
+	destination_system_id: String,
+	system_details: Dictionary,
+	eta_days: int = 1,
+	options: Dictionary = {}
+) -> String:
+	var unit := get_unit(unit_id)
+	if unit == null or not unit.can_explore_systems() or not unit.is_mobile():
+		return ""
+	if unit.fleet_id != "" or is_unit_constructing(unit_id):
+		return ""
+	if destination_system_id.is_empty() or system_details.is_empty():
+		return ""
+	if str(system_details.get("id", destination_system_id)) != destination_system_id:
+		system_details = system_details.duplicate(true)
+		system_details["id"] = destination_system_id
+
+	var unit_class := get_unit_class(unit.class_id)
+	if unit_class == null or unit_class.explorer_component == null:
+		return ""
+	var explorer_component = unit_class.explorer_component
+	if explorer_component == null:
+		return ""
+	explorer_component.ensure_defaults()
+
+	var targets: Array[Dictionary] = _build_exploration_targets(unit, destination_system_id, system_details, explorer_component, options)
+	if targets.is_empty():
+		return ""
+
+	cancel_exploration_order_for_unit(unit_id)
+
+	var order_id: String = str(options.get("order_id", "")).strip_edges()
+	if order_id.is_empty():
+		order_id = _generate_exploration_order_id()
+	if _exploration_orders.has(order_id):
+		return ""
+
+	var order := {
+		"order_id": order_id,
+		"unit_id": unit.unit_id,
+		"owner_empire_id": unit.owner_empire_id,
+		"system_id": destination_system_id,
+		"state": EXPLORATION_STATE_TRAVELLING if unit.current_system_id != destination_system_id else EXPLORATION_STATE_MOVING_TO_BODY,
+		"target_index": 0,
+		"targets": targets,
+		"started_day_serial": _get_current_day_serial(),
+		"updated_day_serial": _get_current_day_serial(),
+		"completed_day_serial": 0,
+		"command_revision": 0,
+		"metadata": _sanitize_dictionary(options.get("metadata", {})),
+	}
+
+	_exploration_orders[order_id] = order
+	_add_to_index(_exploration_order_ids_by_unit_id, unit.unit_id, order_id)
+	_add_to_index(_exploration_order_ids_by_system, destination_system_id, order_id)
+	_set_unit_exploration_metadata(unit, order_id)
+	unit.command_revision += 1
+
+	if unit.current_system_id != destination_system_id:
+		if not _issue_unit_hyperlane_move(unit.unit_id, destination_system_id, maxi(eta_days, 1), false):
+			_remove_exploration_order(order_id, true)
+			return ""
+	else:
+		_start_exploration_target_move(order_id)
+
+	unit_updated.emit(unit.unit_id)
+	exploration_started.emit(order_id)
+	return order_id
+
+
+func cancel_exploration_order_for_unit(unit_id: String) -> bool:
+	var order_id: String = _get_active_exploration_order_id(unit_id)
+	if order_id.is_empty():
+		return false
+	return cancel_exploration_order(order_id)
+
+
+func cancel_exploration_order(order_id: String) -> bool:
+	return _remove_exploration_order(order_id, true)
+
+
+func get_exploration_order(order_id: String) -> Dictionary:
+	var order: Dictionary = _exploration_orders.get(order_id, {})
+	if order.is_empty():
+		return {}
+	return _exploration_order_to_public(order)
+
+
+func get_exploration_order_for_unit(unit_id: String) -> Dictionary:
+	var order_id: String = _get_active_exploration_order_id(unit_id)
+	if order_id.is_empty():
+		return {}
+	return get_exploration_order(order_id)
+
+
+func get_exploration_order_ids_in_system(system_id: String) -> PackedStringArray:
+	return _get_index_values(_exploration_order_ids_by_system, system_id)
+
+
+func get_all_exploration_orders() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for order_variant in _exploration_orders.values():
+		var order: Dictionary = order_variant
+		result.append(_exploration_order_to_public(order))
+	return result
+
+
+func is_unit_exploring(unit_id: String) -> bool:
+	return not _get_active_exploration_order_id(unit_id).is_empty()
 
 
 func get_buildable_class_ids_for_builder(builder_unit_id: String) -> PackedStringArray:
@@ -684,6 +823,10 @@ func set_unit_system(unit_id: String, system_id: String) -> bool:
 
 
 func issue_unit_hyperlane_move(unit_id: String, destination_system_id: String, eta_days: int = 1) -> bool:
+	return _issue_unit_hyperlane_move(unit_id, destination_system_id, eta_days, true)
+
+
+func _issue_unit_hyperlane_move(unit_id: String, destination_system_id: String, eta_days: int = 1, cancel_active_exploration: bool = true) -> bool:
 	var unit := get_unit(unit_id)
 	if unit == null or not unit.fleet_id.is_empty() or not unit.is_mobile():
 		return false
@@ -695,6 +838,8 @@ func issue_unit_hyperlane_move(unit_id: String, destination_system_id: String, e
 		return false
 	if unit.current_system_id == destination_system_id:
 		return clear_unit_hyperlane_move(unit_id)
+	if cancel_active_exploration:
+		cancel_exploration_order_for_unit(unit_id)
 
 	unit.previous_local_position = unit.local_position
 	unit.target_local_position = unit.local_position
@@ -711,6 +856,7 @@ func clear_unit_hyperlane_move(unit_id: String) -> bool:
 	var unit := get_unit(unit_id)
 	if unit == null:
 		return false
+	cancel_exploration_order_for_unit(unit_id)
 	var changed := not unit.destination_system_id.is_empty() or unit.eta_days_remaining > 0
 	unit.destination_system_id = ""
 	unit.eta_days_remaining = 0
@@ -721,6 +867,10 @@ func clear_unit_hyperlane_move(unit_id: String) -> bool:
 
 
 func issue_unit_move(unit_id: String, target_position: Vector3) -> bool:
+	return _issue_unit_move(unit_id, target_position, true)
+
+
+func _issue_unit_move(unit_id: String, target_position: Vector3, cancel_active_exploration: bool = true) -> bool:
 	var unit := get_unit(unit_id)
 	if unit == null or not unit.fleet_id.is_empty() or not unit.is_mobile():
 		return false
@@ -731,6 +881,8 @@ func issue_unit_move(unit_id: String, target_position: Vector3) -> bool:
 		return false
 	if unit.local_position.is_equal_approx(target_position):
 		return clear_unit_move(unit_id)
+	if cancel_active_exploration:
+		cancel_exploration_order_for_unit(unit_id)
 
 	unit.previous_local_position = unit.local_position
 	unit.target_local_position = target_position
@@ -747,6 +899,7 @@ func clear_unit_move(unit_id: String) -> bool:
 	var unit := get_unit(unit_id)
 	if unit == null:
 		return false
+	cancel_exploration_order_for_unit(unit_id)
 	var changed := unit.has_active_movement() or unit.velocity.length_squared() > 0.0
 	unit.previous_local_position = unit.local_position
 	unit.target_local_position = unit.local_position
@@ -903,6 +1056,7 @@ func add_unit_to_fleet(unit_id: String, fleet_id: String) -> bool:
 		return false
 	if unit.fleet_id == fleet_id:
 		return false
+	cancel_exploration_order_for_unit(unit_id)
 
 	if not unit.fleet_id.is_empty():
 		remove_unit_from_fleet(unit_id)
@@ -1227,10 +1381,12 @@ func build_system_renderables(system_id: String) -> Dictionary:
 		"units": [],
 		"fleets": [],
 		"construction_projects": [],
+		"exploration_orders": [],
 	}
 	var unit_entries: Array[Dictionary] = []
 	var fleet_entries: Array[Dictionary] = []
 	var construction_entries: Array[Dictionary] = []
+	var exploration_entries: Array[Dictionary] = []
 	var day_progress := SimClock.get_day_progress() if SimClock != null and SimClock.has_method("get_day_progress") else 1.0
 
 	for unit_id in get_unit_ids_in_system(system_id):
@@ -1238,6 +1394,7 @@ func build_system_renderables(system_id: String) -> Dictionary:
 		if unit == null:
 			continue
 		var unit_class := get_unit_class(unit.class_id)
+		var exploration_order_id: String = _get_active_exploration_order_id(unit.unit_id)
 		unit_entries.append({
 			"unit_id": unit.unit_id,
 			"display_name": unit.display_name,
@@ -1249,7 +1406,11 @@ func build_system_renderables(system_id: String) -> Dictionary:
 			"can_host_colony": unit.can_host_colony(),
 			"hosted_colony_id": ColonyManager.get_colony_id_for_host(ColonyRuntime.HOST_KIND_SPACE_UNIT, unit.unit_id) if unit.can_host_colony() else "",
 			"can_build_units": unit.can_build_units(),
+			"can_explore_systems": unit.can_explore_systems(),
 			"construction_project_id": _get_active_construction_project_id(unit.unit_id),
+			"exploration_order_id": exploration_order_id,
+			"is_exploring": not exploration_order_id.is_empty(),
+			"exploration_order": get_exploration_order(exploration_order_id) if not exploration_order_id.is_empty() else {},
 			"fleet_id": unit.fleet_id,
 			"ai_role": str(unit.ai_role),
 			"is_mobile": unit.is_mobile(),
@@ -1280,6 +1441,12 @@ func build_system_renderables(system_id: String) -> Dictionary:
 		if project.is_empty():
 			continue
 		construction_entries.append(_construction_project_to_renderable(project))
+
+	for order_id in get_exploration_order_ids_in_system(system_id):
+		var exploration_order: Dictionary = _exploration_orders.get(order_id, {})
+		if exploration_order.is_empty():
+			continue
+		exploration_entries.append(_exploration_order_to_renderable(exploration_order))
 
 	for fleet_id in get_fleet_ids_in_system(system_id):
 		var fleet := get_fleet(fleet_id)
@@ -1318,6 +1485,7 @@ func build_system_renderables(system_id: String) -> Dictionary:
 	renderables["units"] = unit_entries
 	renderables["fleets"] = fleet_entries
 	renderables["construction_projects"] = construction_entries
+	renderables["exploration_orders"] = exploration_entries
 	return renderables
 
 
@@ -1399,6 +1567,7 @@ func build_snapshot() -> Dictionary:
 	var unit_snapshots: Array[Dictionary] = []
 	var fleet_snapshots: Array[Dictionary] = []
 	var construction_project_snapshots: Array[Dictionary] = []
+	var exploration_order_snapshots: Array[Dictionary] = []
 
 	for unit_class_variant in _unit_classes.values():
 		var unit_class: SpaceUnitClass = unit_class_variant
@@ -1416,15 +1585,21 @@ func build_snapshot() -> Dictionary:
 		var project: Dictionary = project_variant
 		construction_project_snapshots.append(_construction_project_to_snapshot(project))
 
+	for order_variant in _exploration_orders.values():
+		var order: Dictionary = order_variant
+		exploration_order_snapshots.append(_exploration_order_to_snapshot(order))
+
 	return {
 		"next_unit_id": _next_unit_id,
 		"next_fleet_id": _next_fleet_id,
 		"next_movement_order_id": _next_movement_order_id,
 		"next_construction_project_id": _next_construction_project_id,
+		"next_exploration_order_id": _next_exploration_order_id,
 		"space_unit_classes": unit_class_snapshots,
 		"space_units": unit_snapshots,
 		"fleets": fleet_snapshots,
 		"construction_projects": construction_project_snapshots,
+		"exploration_orders": exploration_order_snapshots,
 	}
 
 
@@ -1436,6 +1611,7 @@ func load_snapshot(snapshot: Dictionary, clear_existing_state: bool = true) -> v
 	_next_fleet_id = maxi(int(snapshot.get("next_fleet_id", 1)), 1)
 	_next_movement_order_id = maxi(int(snapshot.get("next_movement_order_id", 1)), 1)
 	_next_construction_project_id = maxi(int(snapshot.get("next_construction_project_id", 1)), 1)
+	_next_exploration_order_id = maxi(int(snapshot.get("next_exploration_order_id", 1)), 1)
 
 	for class_variant in snapshot.get("space_unit_classes", snapshot.get("ship_classes", [])):
 		var class_data: Dictionary = class_variant
@@ -1466,6 +1642,14 @@ func load_snapshot(snapshot: Dictionary, clear_existing_state: bool = true) -> v
 			continue
 		_construction_projects[project_id] = project
 
+	for order_variant in snapshot.get("exploration_orders", []):
+		var order_data: Dictionary = order_variant
+		var order: Dictionary = _exploration_order_from_snapshot(order_data)
+		var order_id := str(order.get("order_id", ""))
+		if order_id.is_empty():
+			continue
+		_exploration_orders[order_id] = order
+
 	_rebuild_indexes_and_economy_sources()
 
 
@@ -1475,6 +1659,7 @@ func _on_sim_day_tick(_date: Dictionary) -> void:
 	_tick_unit_hyperlane_travel()
 	_tick_fleet_in_system_movement(day_serial)
 	_tick_independent_unit_movement(day_serial)
+	_tick_exploration_orders()
 	_tick_construction_projects()
 
 
@@ -1622,6 +1807,195 @@ func _complete_construction_project(project_id: String) -> void:
 	construction_completed.emit(project_id, unit.unit_id)
 
 
+func _tick_exploration_orders() -> void:
+	var order_ids := PackedStringArray()
+	for order_id_variant in _exploration_orders.keys():
+		order_ids.append(str(order_id_variant))
+
+	for order_id in order_ids:
+		_tick_exploration_order(order_id)
+
+
+func _tick_exploration_order(order_id: String) -> void:
+	var order: Dictionary = _exploration_orders.get(order_id, {})
+	if order.is_empty():
+		return
+	var unit_id := str(order.get("unit_id", ""))
+	var unit := get_unit(unit_id)
+	if unit == null or unit.fleet_id != "":
+		_remove_exploration_order(order_id, true)
+		return
+
+	var target_system_id := str(order.get("system_id", ""))
+	var state := _normalize_exploration_state(order.get("state", EXPLORATION_STATE_TRAVELLING))
+	match state:
+		EXPLORATION_STATE_TRAVELLING:
+			if unit.current_system_id != target_system_id or not unit.destination_system_id.is_empty():
+				return
+			_start_exploration_target_move(order_id)
+		EXPLORATION_STATE_MOVING_TO_BODY:
+			if unit.current_system_id != target_system_id:
+				_remove_exploration_order(order_id, true)
+				return
+			if unit.has_active_movement():
+				return
+			if _is_unit_at_current_exploration_target(unit, order):
+				_start_exploration_target_scan(order_id)
+		EXPLORATION_STATE_SCANNING_BODY:
+			if unit.current_system_id != target_system_id:
+				_remove_exploration_order(order_id, true)
+				return
+			_tick_exploration_target_scan(order_id)
+		_:
+			_remove_exploration_order(order_id, false)
+
+
+func _start_exploration_target_move(order_id: String) -> bool:
+	var order: Dictionary = _exploration_orders.get(order_id, {})
+	if order.is_empty():
+		return false
+	var unit_id := str(order.get("unit_id", ""))
+	var unit := get_unit(unit_id)
+	if unit == null:
+		return false
+	var target: Dictionary = _get_current_exploration_target(order)
+	if target.is_empty():
+		_complete_exploration_order(order_id)
+		return true
+
+	order["state"] = EXPLORATION_STATE_MOVING_TO_BODY
+	order["updated_day_serial"] = _get_current_day_serial()
+	order["command_revision"] = int(order.get("command_revision", 0)) + 1
+	_exploration_orders[order_id] = order
+
+	var scan_position := SpaceUnitRuntime._variant_to_vector3(target.get("scan_position", target.get("local_position", Vector3.ZERO)))
+	if unit.local_position.distance_to(scan_position) <= _get_exploration_arrival_distance(unit):
+		_start_exploration_target_scan(order_id)
+		return true
+
+	if not _issue_unit_move(unit.unit_id, scan_position, false):
+		_start_exploration_target_scan(order_id)
+		return true
+	exploration_updated.emit(order_id)
+	return true
+
+
+func _start_exploration_target_scan(order_id: String) -> bool:
+	var order: Dictionary = _exploration_orders.get(order_id, {})
+	if order.is_empty():
+		return false
+	var unit := get_unit(str(order.get("unit_id", "")))
+	if unit == null:
+		return false
+	var target_index := int(order.get("target_index", 0))
+	var targets: Array[Dictionary] = _get_exploration_targets(order)
+	if target_index < 0 or target_index >= targets.size():
+		_complete_exploration_order(order_id)
+		return true
+
+	var target: Dictionary = targets[target_index]
+	unit.previous_local_position = unit.local_position
+	unit.local_position = SpaceUnitRuntime._variant_to_vector3(target.get("scan_position", target.get("local_position", unit.local_position)))
+	unit.target_local_position = unit.local_position
+	unit.velocity = Vector3.ZERO
+	unit.movement_state = SpaceUnitRuntime.MOVEMENT_IDLE
+	unit.movement_order_id = 0
+	unit.destination_system_id = ""
+	unit.eta_days_remaining = 0
+	unit.last_movement_day_serial = _get_current_day_serial()
+	unit.command_revision += 1
+
+	target["scan_started_day_serial"] = _get_current_day_serial()
+	target["scan_days_remaining"] = maxi(int(target.get("scan_days_remaining", target.get("scan_days_total", 1))), 1)
+	target["scanned"] = false
+	targets[target_index] = target
+	order["targets"] = targets
+	order["state"] = EXPLORATION_STATE_SCANNING_BODY
+	order["updated_day_serial"] = _get_current_day_serial()
+	order["command_revision"] = int(order.get("command_revision", 0)) + 1
+	_exploration_orders[order_id] = order
+	unit_updated.emit(unit.unit_id)
+	exploration_updated.emit(order_id)
+	return true
+
+
+func _tick_exploration_target_scan(order_id: String) -> void:
+	var order: Dictionary = _exploration_orders.get(order_id, {})
+	if order.is_empty():
+		return
+	var target_index := int(order.get("target_index", 0))
+	var targets: Array[Dictionary] = _get_exploration_targets(order)
+	if target_index < 0 or target_index >= targets.size():
+		_complete_exploration_order(order_id)
+		return
+
+	var target: Dictionary = targets[target_index]
+	target["scan_days_remaining"] = maxi(int(target.get("scan_days_remaining", 0)) - 1, 0)
+	targets[target_index] = target
+	order["targets"] = targets
+	order["updated_day_serial"] = _get_current_day_serial()
+	order["command_revision"] = int(order.get("command_revision", 0)) + 1
+	_exploration_orders[order_id] = order
+	exploration_updated.emit(order_id)
+
+	var unit := get_unit(str(order.get("unit_id", "")))
+	if unit != null:
+		unit.command_revision += 1
+		unit_updated.emit(unit.unit_id)
+
+	if int(target.get("scan_days_remaining", 0)) <= 0:
+		_complete_exploration_target_scan(order_id)
+
+
+func _complete_exploration_target_scan(order_id: String) -> void:
+	var order: Dictionary = _exploration_orders.get(order_id, {})
+	if order.is_empty():
+		return
+	var unit_id := str(order.get("unit_id", ""))
+	var target_index := int(order.get("target_index", 0))
+	var targets: Array[Dictionary] = _get_exploration_targets(order)
+	if target_index < 0 or target_index >= targets.size():
+		_complete_exploration_order(order_id)
+		return
+
+	var target: Dictionary = targets[target_index]
+	target["scanned"] = true
+	target["scan_days_remaining"] = 0
+	target["scan_completed_day_serial"] = _get_current_day_serial()
+	targets[target_index] = target
+	order["targets"] = targets
+	order["target_index"] = target_index + 1
+	order["updated_day_serial"] = _get_current_day_serial()
+	order["command_revision"] = int(order.get("command_revision", 0)) + 1
+	_exploration_orders[order_id] = order
+
+	exploration_scan_completed.emit(
+		order_id,
+		unit_id,
+		str(order.get("system_id", "")),
+		str(target.get("body_id", ""))
+	)
+
+	if target_index + 1 >= targets.size():
+		_complete_exploration_order(order_id)
+		return
+	_start_exploration_target_move(order_id)
+
+
+func _complete_exploration_order(order_id: String) -> void:
+	var order: Dictionary = _exploration_orders.get(order_id, {})
+	if order.is_empty():
+		return
+	var unit_id := str(order.get("unit_id", ""))
+	var system_id := str(order.get("system_id", ""))
+	order["state"] = EXPLORATION_STATE_COMPLETED
+	order["completed_day_serial"] = _get_current_day_serial()
+	order["updated_day_serial"] = _get_current_day_serial()
+	_exploration_orders[order_id] = order
+	_remove_exploration_order(order_id, false)
+	exploration_completed.emit(order_id, unit_id, system_id)
+
+
 func _remove_construction_project(project_id: String, emit_cancelled: bool) -> bool:
 	var project: Dictionary = _construction_projects.get(project_id, {})
 	if project.is_empty():
@@ -1641,6 +2015,29 @@ func _remove_construction_project(project_id: String, emit_cancelled: bool) -> b
 		unit_updated.emit(builder.unit_id)
 	if emit_cancelled:
 		construction_cancelled.emit(project_id)
+	return true
+
+
+func _remove_exploration_order(order_id: String, emit_cancelled: bool) -> bool:
+	var order: Dictionary = _exploration_orders.get(order_id, {})
+	if order.is_empty():
+		return false
+
+	var unit_id := str(order.get("unit_id", ""))
+	var system_id := str(order.get("system_id", ""))
+	_remove_from_index(_exploration_order_ids_by_unit_id, unit_id, order_id)
+	_remove_from_index(_exploration_order_ids_by_system, system_id, order_id)
+	_exploration_orders.erase(order_id)
+
+	var unit := get_unit(unit_id)
+	if unit != null:
+		_clear_unit_exploration_metadata(unit, order_id)
+		if emit_cancelled:
+			_stop_unit_for_exploration(unit)
+		unit.command_revision += 1
+		unit_updated.emit(unit.unit_id)
+	if emit_cancelled:
+		exploration_cancelled.emit(order_id)
 	return true
 
 
@@ -1706,6 +2103,19 @@ func _move_builder_to_construction_site(builder: SpaceUnitRuntime, build_positio
 
 
 func _stop_unit_for_construction(unit: SpaceUnitRuntime) -> void:
+	if unit == null:
+		return
+	unit.previous_local_position = unit.local_position
+	unit.target_local_position = unit.local_position
+	unit.velocity = Vector3.ZERO
+	unit.movement_state = SpaceUnitRuntime.MOVEMENT_IDLE
+	unit.movement_order_id = 0
+	unit.destination_system_id = ""
+	unit.eta_days_remaining = 0
+	unit.last_movement_day_serial = _get_current_day_serial()
+
+
+func _stop_unit_for_exploration(unit: SpaceUnitRuntime) -> void:
 	if unit == null:
 		return
 	unit.previous_local_position = unit.local_position
@@ -1995,11 +2405,335 @@ func _construction_project_from_snapshot(data: Dictionary) -> Dictionary:
 	}
 
 
+func _build_exploration_targets(
+	unit: SpaceUnitRuntime,
+	system_id: String,
+	system_details: Dictionary,
+	explorer_component,
+	options: Dictionary
+) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	if unit == null or explorer_component == null:
+		return targets
+	var galaxy_seed := int(options.get("galaxy_seed", system_details.get("generated_seed", system_details.get("seed", 0))))
+
+	for star_variant in system_details.get("stars", []):
+		if star_variant is not Dictionary:
+			continue
+		var star_target: Dictionary = _normalize_exploration_body_record(star_variant, "star")
+		if star_target.is_empty() or not explorer_component.supports_body_type(str(star_target.get("body_type", ""))):
+			continue
+		targets.append(_build_exploration_target(unit, system_id, star_target, explorer_component, galaxy_seed))
+
+	for orbital_variant in system_details.get("orbitals", []):
+		if orbital_variant is not Dictionary:
+			continue
+		var orbital: Dictionary = orbital_variant
+		var orbital_target: Dictionary = _normalize_exploration_body_record(orbital, str(orbital.get("type", "planet")))
+		if orbital_target.is_empty() or not explorer_component.supports_body_type(str(orbital_target.get("body_type", ""))):
+			continue
+		targets.append(_build_exploration_target(unit, system_id, orbital_target, explorer_component, galaxy_seed))
+
+	return _sort_exploration_targets_by_route(targets, unit.local_position)
+
+
+func _build_exploration_target(
+	unit: SpaceUnitRuntime,
+	system_id: String,
+	body_record: Dictionary,
+	explorer_component,
+	galaxy_seed: int
+) -> Dictionary:
+	var body_id := str(body_record.get("body_id", "")).strip_edges()
+	var scan_days: int = int(explorer_component.get_scan_days(unit.unit_id, system_id, body_id, galaxy_seed))
+	var body_position := _get_body_orbit_position(body_record)
+	var scan_position := _resolve_exploration_scan_position(unit.unit_id, system_id, body_record, explorer_component, galaxy_seed)
+	return {
+		"body_id": body_id,
+		"body_name": str(body_record.get("body_name", body_id)),
+		"body_type": str(body_record.get("body_type", "")),
+		"body_position": body_position,
+		"scan_position": scan_position,
+		"local_position": scan_position,
+		"scan_days_total": scan_days,
+		"scan_days_remaining": scan_days,
+		"scan_started_day_serial": 0,
+		"scan_completed_day_serial": 0,
+		"scanned": false,
+	}
+
+
+func _normalize_exploration_body_record(body_variant: Variant, fallback_body_type: String) -> Dictionary:
+	if body_variant is not Dictionary:
+		return {}
+	var body: Dictionary = body_variant
+	var body_type := str(body.get("type", fallback_body_type)).strip_edges()
+	if body_type.is_empty():
+		body_type = fallback_body_type
+	var body_id := str(body.get("id", body.get("name", body_type))).strip_edges()
+	if body_id.is_empty() or body_type.is_empty():
+		return {}
+	var normalized := body.duplicate(true)
+	normalized["body_id"] = body_id
+	normalized["body_name"] = str(body.get("name", body_id))
+	normalized["body_type"] = body_type
+	return normalized
+
+
+func _sort_exploration_targets_by_route(targets: Array[Dictionary], start_position: Vector3) -> Array[Dictionary]:
+	var remaining: Array[Dictionary] = targets.duplicate(true)
+	var ordered: Array[Dictionary] = []
+	var cursor := start_position
+	while not remaining.is_empty():
+		var best_index := 0
+		var best_distance := INF
+		var best_id := ""
+		for index in range(remaining.size()):
+			var candidate: Dictionary = remaining[index]
+			var candidate_position := SpaceUnitRuntime._variant_to_vector3(candidate.get("scan_position", candidate.get("local_position", Vector3.ZERO)))
+			var candidate_distance := cursor.distance_to(candidate_position)
+			var candidate_id := str(candidate.get("body_id", ""))
+			if candidate_distance < best_distance or (is_equal_approx(candidate_distance, best_distance) and (best_id.is_empty() or candidate_id < best_id)):
+				best_index = index
+				best_distance = candidate_distance
+				best_id = candidate_id
+		var selected: Dictionary = remaining[best_index]
+		ordered.append(selected)
+		cursor = SpaceUnitRuntime._variant_to_vector3(selected.get("scan_position", selected.get("local_position", cursor)))
+		remaining.remove_at(best_index)
+	return ordered
+
+
+func _resolve_exploration_scan_position(
+	unit_id: String,
+	system_id: String,
+	body_record: Dictionary,
+	explorer_component,
+	galaxy_seed: int
+) -> Vector3:
+	var body_position := _get_body_orbit_position(body_record)
+	var body_size := maxf(float(body_record.get("size", body_record.get("scale", 1.0))), 1.0)
+	var radius := maxf(explorer_component.scan_offset_radius, body_size * 2.0 + 2.0)
+	if str(body_record.get("body_type", "")) == "asteroid_belt":
+		radius = maxf(radius, float(body_record.get("orbit_width", 0.0)) * 0.18 + 3.0)
+	var hash_value := _stable_hash("%d:%s:%s:%s:scan_position" % [
+		galaxy_seed,
+		unit_id,
+		system_id,
+		str(body_record.get("body_id", "")),
+	])
+	var angle := float(absi(hash_value) % 3600) / 3600.0 * TAU
+	return body_position + Vector3(cos(angle) * radius, 0.35, sin(angle) * radius)
+
+
+func _get_body_orbit_position(body_record: Dictionary) -> Vector3:
+	if body_record.has("local_position"):
+		return SpaceUnitRuntime._variant_to_vector3(body_record.get("local_position", Vector3.ZERO))
+	if body_record.has("body_position"):
+		return SpaceUnitRuntime._variant_to_vector3(body_record.get("body_position", Vector3.ZERO))
+	var radius := float(body_record.get("orbit_radius", 0.0))
+	var angle := float(body_record.get("orbit_angle", 0.0))
+	var vertical_offset := float(body_record.get("vertical_offset", 0.0))
+	return Vector3(cos(angle) * radius, vertical_offset, sin(angle) * radius)
+
+
+func _get_current_exploration_target(order: Dictionary) -> Dictionary:
+	var target_index := int(order.get("target_index", 0))
+	var targets: Array[Dictionary] = _get_exploration_targets(order)
+	if target_index < 0 or target_index >= targets.size():
+		return {}
+	return targets[target_index].duplicate(true)
+
+
+func _get_exploration_targets(order: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var targets_variant: Variant = order.get("targets", [])
+	if targets_variant is not Array:
+		return result
+	for target_variant in targets_variant:
+		if target_variant is not Dictionary:
+			continue
+		result.append((target_variant as Dictionary).duplicate(true))
+	return result
+
+
+func _is_unit_at_current_exploration_target(unit: SpaceUnitRuntime, order: Dictionary) -> bool:
+	if unit == null:
+		return false
+	var target: Dictionary = _get_current_exploration_target(order)
+	if target.is_empty():
+		return true
+	var scan_position := SpaceUnitRuntime._variant_to_vector3(target.get("scan_position", target.get("local_position", Vector3.ZERO)))
+	return unit.local_position.distance_to(scan_position) <= _get_exploration_arrival_distance(unit)
+
+
+func _get_exploration_arrival_distance(unit: SpaceUnitRuntime) -> float:
+	var unit_class := get_unit_class(unit.class_id) if unit != null else null
+	if unit_class == null or unit_class.explorer_component == null:
+		return 0.45
+	var explorer_component = unit_class.explorer_component
+	if explorer_component == null:
+		return 0.45
+	explorer_component.ensure_defaults()
+	return explorer_component.arrival_distance
+
+
+func _exploration_order_to_public(order: Dictionary) -> Dictionary:
+	return _exploration_order_to_renderable(order)
+
+
+func _exploration_order_to_renderable(order: Dictionary) -> Dictionary:
+	var targets: Array[Dictionary] = _get_exploration_targets(order)
+	var target_index := clampi(int(order.get("target_index", 0)), 0, maxi(targets.size(), 1))
+	var current_target: Dictionary = {}
+	if target_index >= 0 and target_index < targets.size():
+		current_target = targets[target_index]
+	var unit := get_unit(str(order.get("unit_id", "")))
+	var progress_ratio := _get_exploration_progress_ratio(order)
+	var scan_progress_ratio := _get_exploration_current_scan_progress_ratio(order)
+	return {
+		"order_id": str(order.get("order_id", "")),
+		"unit_id": str(order.get("unit_id", "")),
+		"unit_name": unit.display_name if unit != null else str(order.get("unit_id", "")),
+		"owner_empire_id": str(order.get("owner_empire_id", "")),
+		"system_id": str(order.get("system_id", "")),
+		"state": _normalize_exploration_state(order.get("state", EXPLORATION_STATE_TRAVELLING)),
+		"state_label": _format_exploration_state(order.get("state", EXPLORATION_STATE_TRAVELLING)),
+		"target_index": target_index,
+		"target_count": targets.size(),
+		"current_target_id": str(current_target.get("body_id", "")),
+		"current_target_name": str(current_target.get("body_name", "")),
+		"current_target_type": str(current_target.get("body_type", "")),
+		"scan_days_total": int(current_target.get("scan_days_total", 0)),
+		"scan_days_remaining": int(current_target.get("scan_days_remaining", 0)),
+		"is_scanning": _normalize_exploration_state(order.get("state", "")) == EXPLORATION_STATE_SCANNING_BODY,
+		"progress_ratio": progress_ratio,
+		"progress_percent": int(round(progress_ratio * 100.0)),
+		"scan_progress_ratio": scan_progress_ratio,
+		"scan_progress_percent": int(round(scan_progress_ratio * 100.0)),
+		"local_position": SpaceUnitRuntime._variant_to_vector3(current_target.get("body_position", current_target.get("local_position", Vector3.ZERO))) if not current_target.is_empty() else Vector3.ZERO,
+		"scan_position": SpaceUnitRuntime._variant_to_vector3(current_target.get("scan_position", current_target.get("local_position", Vector3.ZERO))) if not current_target.is_empty() else Vector3.ZERO,
+		"unit_local_position": unit.local_position if unit != null else Vector3.ZERO,
+		"targets": targets,
+		"started_day_serial": int(order.get("started_day_serial", 0)),
+		"updated_day_serial": int(order.get("updated_day_serial", 0)),
+		"command_revision": int(order.get("command_revision", 0)),
+		"metadata": order.get("metadata", {}).duplicate(true) if order.get("metadata", {}) is Dictionary else {},
+	}
+
+
+func _get_exploration_progress_ratio(order: Dictionary) -> float:
+	var targets: Array[Dictionary] = _get_exploration_targets(order)
+	if targets.is_empty():
+		return 0.0
+	var completed := 0.0
+	for target_index in range(targets.size()):
+		var target: Dictionary = targets[target_index]
+		if bool(target.get("scanned", false)):
+			completed += 1.0
+			continue
+		if target_index == int(order.get("target_index", 0)):
+			completed += _get_target_scan_progress_ratio(target, _normalize_exploration_state(order.get("state", "")))
+	return clampf(completed / float(targets.size()), 0.0, 1.0)
+
+
+func _get_exploration_current_scan_progress_ratio(order: Dictionary) -> float:
+	var current_target: Dictionary = _get_current_exploration_target(order)
+	if current_target.is_empty():
+		return 0.0
+	return _get_target_scan_progress_ratio(current_target, _normalize_exploration_state(order.get("state", "")))
+
+
+func _get_target_scan_progress_ratio(target: Dictionary, state: String) -> float:
+	if bool(target.get("scanned", false)):
+		return 1.0
+	if state != EXPLORATION_STATE_SCANNING_BODY:
+		return 0.0
+	var total := maxi(int(target.get("scan_days_total", 1)), 1)
+	var remaining := clampi(int(target.get("scan_days_remaining", total)), 0, total)
+	return clampf(float(total - remaining) / float(total), 0.0, 1.0)
+
+
+func _exploration_order_to_snapshot(order: Dictionary) -> Dictionary:
+	var snapshot := order.duplicate(true)
+	var snapshot_targets: Array[Dictionary] = []
+	for target in _get_exploration_targets(order):
+		var snapshot_target := target.duplicate(true)
+		snapshot_target["body_position"] = SpaceUnitRuntime._vector3_to_dict(SpaceUnitRuntime._variant_to_vector3(target.get("body_position", Vector3.ZERO)))
+		snapshot_target["scan_position"] = SpaceUnitRuntime._vector3_to_dict(SpaceUnitRuntime._variant_to_vector3(target.get("scan_position", Vector3.ZERO)))
+		snapshot_target["local_position"] = SpaceUnitRuntime._vector3_to_dict(SpaceUnitRuntime._variant_to_vector3(target.get("local_position", target.get("scan_position", Vector3.ZERO))))
+		snapshot_targets.append(snapshot_target)
+	snapshot["targets"] = snapshot_targets
+	snapshot["metadata"] = order.get("metadata", {}).duplicate(true) if order.get("metadata", {}) is Dictionary else {}
+	return snapshot
+
+
+func _exploration_order_from_snapshot(data: Dictionary) -> Dictionary:
+	var order_id := str(data.get("order_id", "")).strip_edges()
+	if order_id.is_empty():
+		return {}
+	var targets: Array[Dictionary] = []
+	var targets_variant: Variant = data.get("targets", [])
+	if targets_variant is Array:
+		for target_variant in targets_variant:
+			if target_variant is not Dictionary:
+				continue
+			var target: Dictionary = (target_variant as Dictionary).duplicate(true)
+			target["body_position"] = SpaceUnitRuntime._variant_to_vector3(target.get("body_position", Vector3.ZERO))
+			target["scan_position"] = SpaceUnitRuntime._variant_to_vector3(target.get("scan_position", target.get("local_position", Vector3.ZERO)))
+			target["local_position"] = SpaceUnitRuntime._variant_to_vector3(target.get("local_position", target.get("scan_position", Vector3.ZERO)))
+			targets.append(target)
+	return {
+		"order_id": order_id,
+		"unit_id": str(data.get("unit_id", "")),
+		"owner_empire_id": str(data.get("owner_empire_id", "")),
+		"system_id": str(data.get("system_id", "")),
+		"state": _normalize_exploration_state(data.get("state", EXPLORATION_STATE_TRAVELLING)),
+		"target_index": clampi(int(data.get("target_index", 0)), 0, maxi(targets.size(), 1)),
+		"targets": targets,
+		"started_day_serial": maxi(int(data.get("started_day_serial", 0)), 0),
+		"updated_day_serial": maxi(int(data.get("updated_day_serial", 0)), 0),
+		"completed_day_serial": maxi(int(data.get("completed_day_serial", 0)), 0),
+		"command_revision": maxi(int(data.get("command_revision", 0)), 0),
+		"metadata": _sanitize_dictionary(data.get("metadata", {})),
+	}
+
+
+func _normalize_exploration_state(value: Variant) -> String:
+	var state := str(value).strip_edges()
+	match state:
+		EXPLORATION_STATE_TRAVELLING, EXPLORATION_STATE_MOVING_TO_BODY, EXPLORATION_STATE_SCANNING_BODY, EXPLORATION_STATE_COMPLETED:
+			return state
+		_:
+			return EXPLORATION_STATE_TRAVELLING
+
+
+func _format_exploration_state(value: Variant) -> String:
+	match _normalize_exploration_state(value):
+		EXPLORATION_STATE_TRAVELLING:
+			return "Anflug"
+		EXPLORATION_STATE_MOVING_TO_BODY:
+			return "Positioniert"
+		EXPLORATION_STATE_SCANNING_BODY:
+			return "Scannt"
+		EXPLORATION_STATE_COMPLETED:
+			return "Abgeschlossen"
+		_:
+			return "Erkundet"
+
+
 func _get_active_construction_project_id(builder_unit_id: String) -> String:
 	var project_ids := _get_index_values(_construction_project_ids_by_builder_unit_id, builder_unit_id)
 	if project_ids.is_empty():
 		return ""
 	return project_ids[0]
+
+
+func _get_active_exploration_order_id(unit_id: String) -> String:
+	var order_ids := _get_index_values(_exploration_order_ids_by_unit_id, unit_id)
+	if order_ids.is_empty():
+		return ""
+	return order_ids[0]
 
 
 func _set_builder_project_metadata(builder: SpaceUnitRuntime, project_id: String) -> void:
@@ -2018,6 +2752,26 @@ func _clear_builder_project_metadata(builder: SpaceUnitRuntime, project_id: Stri
 	var metadata := builder.metadata.duplicate(true)
 	metadata.erase("active_construction_project_id")
 	builder.metadata = metadata
+
+
+func _set_unit_exploration_metadata(unit: SpaceUnitRuntime, order_id: String) -> void:
+	if unit == null:
+		return
+	var metadata := unit.metadata.duplicate(true)
+	metadata["active_exploration_order_id"] = order_id
+	metadata["exploration_active"] = true
+	unit.metadata = metadata
+
+
+func _clear_unit_exploration_metadata(unit: SpaceUnitRuntime, order_id: String) -> void:
+	if unit == null:
+		return
+	if str(unit.metadata.get("active_exploration_order_id", "")) != order_id:
+		return
+	var metadata := unit.metadata.duplicate(true)
+	metadata.erase("active_exploration_order_id")
+	metadata["exploration_active"] = false
+	unit.metadata = metadata
 
 
 func _generate_unit_id() -> String:
@@ -2044,12 +2798,29 @@ func _generate_construction_project_id() -> String:
 	return project_id
 
 
+func _generate_exploration_order_id() -> String:
+	var order_id := "exploration_%06d" % _next_exploration_order_id
+	_next_exploration_order_id += 1
+	return order_id
+
+
+func _stable_hash(value: String) -> int:
+	var hash_value := 2166136261
+	for index in range(value.length()):
+		hash_value = int((hash_value ^ value.unicode_at(index)) * 16777619) & 0x7fffffff
+	return hash_value
+
+
 func _rebuild_indexes_and_economy_sources() -> void:
 	_unit_ids_by_owner.clear()
 	_unit_ids_by_system.clear()
 	_unit_ids_by_class.clear()
 	_fleet_ids_by_owner.clear()
 	_fleet_ids_by_system.clear()
+	_construction_project_ids_by_builder_unit_id.clear()
+	_construction_project_ids_by_system.clear()
+	_exploration_order_ids_by_unit_id.clear()
+	_exploration_order_ids_by_system.clear()
 
 	for unit_variant in _units.values():
 		var unit: SpaceUnitRuntime = unit_variant
@@ -2075,6 +2846,19 @@ func _rebuild_indexes_and_economy_sources() -> void:
 		var builder := get_unit(builder_unit_id)
 		if builder != null:
 			_set_builder_project_metadata(builder, project_id)
+
+	for order_variant in _exploration_orders.values():
+		var order: Dictionary = order_variant
+		var order_id := str(order.get("order_id", ""))
+		var unit_id := str(order.get("unit_id", ""))
+		var system_id := str(order.get("system_id", ""))
+		if order_id.is_empty() or unit_id.is_empty() or system_id.is_empty():
+			continue
+		_add_to_index(_exploration_order_ids_by_unit_id, unit_id, order_id)
+		_add_to_index(_exploration_order_ids_by_system, system_id, order_id)
+		var explorer := get_unit(unit_id)
+		if explorer != null:
+			_set_unit_exploration_metadata(explorer, order_id)
 
 
 func _sync_unit_economy_source(unit: SpaceUnitRuntime) -> void:

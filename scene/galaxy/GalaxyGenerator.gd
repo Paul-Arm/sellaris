@@ -3,6 +3,8 @@ class_name GalaxyGenerator
 
 const SYSTEM_NAME_LIBRARY_SCRIPT: Script = preload("res://scene/galaxy/SystemNameLibrary.gd")
 const RESOURCE_DEPOSIT_COMPONENT_SCRIPT: Script = preload("res://core/economy/components/ResourceDepositComponent.gd")
+const ANOMALY_COMPONENT_SCRIPT: Script = preload("res://core/anomaly/AnomalyComponent.gd")
+const ANOMALY_POOL_SCRIPT: Script = preload("res://core/anomaly/AnomalyPool.gd")
 const SHAPE_SPIRAL := "spiral"
 const SHAPE_RING := "ring"
 const SHAPE_ELLIPTICAL := "elliptical"
@@ -184,11 +186,13 @@ func build_layout(config: Dictionary, custom_systems: Array[Resource]) -> Dictio
 		)
 
 	var hyperlane_graph := build_hyperlane_graph(systems, hyperlane_density, min_system_distance, galaxy_seed)
+	var anomaly_records := _build_initial_anomaly_records(galaxy_seed, systems, custom_systems)
 	return {
 		"seed": galaxy_seed,
 		"systems": systems,
 		"links": hyperlane_graph["links"],
 		"hyperlane_graph": hyperlane_graph,
+		"anomalies": anomaly_records,
 		"galaxy_radius": galaxy_radius,
 		"min_system_distance": min_system_distance,
 		"shape": shape,
@@ -242,6 +246,17 @@ func _build_custom_system_details(system_record: Dictionary, custom_system: Reso
 		"notes": custom_system.notes,
 	}
 	return _finalize_system_details(details)
+
+
+func _build_initial_anomaly_records(galaxy_seed: int, systems: Array[Dictionary], custom_systems: Array[Resource]) -> Array[Dictionary]:
+	var system_details_list: Array[Dictionary] = []
+	for system_record_variant in systems:
+		var system_record: Dictionary = system_record_variant
+		var system_details := generate_system_details(galaxy_seed, system_record, custom_systems)
+		if system_details.is_empty():
+			continue
+		system_details_list.append(system_details)
+	return ANOMALY_POOL_SCRIPT.build_spawn_records(galaxy_seed, system_details_list)
 
 
 func _resolve_seed(seed_text: String) -> int:
@@ -1736,6 +1751,9 @@ func _normalize_star_entry(star_entry: Dictionary, star_index: int) -> Dictionar
 	result["resource_deposit_component"] = RESOURCE_DEPOSIT_COMPONENT_SCRIPT.normalize_component(
 		result.get("resource_deposit_component", {})
 	)
+	result["anomaly_component"] = ANOMALY_COMPONENT_SCRIPT.normalize_component(
+		result.get("anomaly_component", {})
+	)
 	result["buildable_component"] = _normalize_body_buildable_component(
 		result.get("buildable_component", {}),
 		BODY_TYPE_STAR
@@ -1765,6 +1783,9 @@ func _normalize_orbital_entry(orbital_entry: Dictionary, orbital_index: int) -> 
 	result["metadata"] = result.get("metadata", {}).duplicate(true)
 	result["resource_deposit_component"] = RESOURCE_DEPOSIT_COMPONENT_SCRIPT.normalize_component(
 		result.get("resource_deposit_component", {})
+	)
+	result["anomaly_component"] = ANOMALY_COMPONENT_SCRIPT.normalize_component(
+		result.get("anomaly_component", {})
 	)
 	result["buildable_component"] = _normalize_body_buildable_component(
 		result.get("buildable_component", {}),

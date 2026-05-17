@@ -4,6 +4,7 @@ class_name SpaceUnitClass
 const COLONY_HOST_COMPONENT_SCRIPT := preload("res://core/economy/components/ColonyHostComponent.gd")
 const BUILDABLE_COMPONENT_SCRIPT := preload("res://core/space/components/SpaceUnitBuildableComponent.gd")
 const BUILDER_COMPONENT_SCRIPT := preload("res://core/space/components/SpaceUnitBuilderComponent.gd")
+const EXPLORER_COMPONENT_SCRIPT := preload("res://core/space/components/SpaceUnitExplorerComponent.gd")
 
 const UNIT_KIND_SHIP := "ship"
 const UNIT_KIND_STATION := "station"
@@ -21,6 +22,7 @@ const CAPABILITY_MOBILITY := 4
 const CAPABILITY_COLONY := 8
 const CAPABILITY_BUILDER := 16
 const CAPABILITY_BUILDABLE := 32
+const CAPABILITY_EXPLORER := 64
 
 @export var class_id: String = ""
 @export var display_name: String = ""
@@ -35,6 +37,7 @@ const CAPABILITY_BUILDABLE := 32
 @export var colony_host_component: Resource
 @export var builder_component: Resource
 @export var buildable_component: Resource
+@export var explorer_component: Resource
 @export var component_slots: Array[Dictionary] = []
 @export var loadout_components: Array[SpaceUnitComponent] = []
 @export var metadata: Dictionary = {}
@@ -59,6 +62,8 @@ func ensure_defaults() -> void:
 		builder_component.call("ensure_defaults")
 	if buildable_component != null and buildable_component.has_method("ensure_defaults"):
 		buildable_component.call("ensure_defaults")
+	if explorer_component != null and explorer_component.has_method("ensure_defaults"):
+		explorer_component.call("ensure_defaults")
 	command_tags = _normalize_tags(command_tags)
 	unit_kind = _normalize_unit_kind(unit_kind)
 	category = _normalize_category(category)
@@ -85,6 +90,10 @@ func has_colony_host() -> bool:
 
 func has_builder() -> bool:
 	return builder_component != null
+
+
+func has_explorer() -> bool:
+	return explorer_component != null
 
 
 func is_buildable() -> bool:
@@ -127,6 +136,8 @@ func get_capability_mask() -> int:
 		mask |= CAPABILITY_BUILDER
 	if buildable_component != null:
 		mask |= CAPABILITY_BUILDABLE
+	if explorer_component != null:
+		mask |= CAPABILITY_EXPLORER
 	return mask
 
 
@@ -170,6 +181,7 @@ func to_dict() -> Dictionary:
 		"colony_host_component": colony_host_component.call("to_dict") if colony_host_component != null and colony_host_component.has_method("to_dict") else {},
 		"builder_component": builder_component.call("to_dict") if builder_component != null and builder_component.has_method("to_dict") else {},
 		"buildable_component": buildable_component.call("to_dict") if buildable_component != null and buildable_component.has_method("to_dict") else {},
+		"explorer_component": explorer_component.call("to_dict") if explorer_component != null and explorer_component.has_method("to_dict") else {},
 		"component_slots": component_slots.duplicate(true),
 		"loadout_components": _loadout_components_to_dict_array(loadout_components),
 		"metadata": metadata.duplicate(true),
@@ -205,6 +217,9 @@ static func from_dict(data: Dictionary) -> SpaceUnitClass:
 	var buildable_data: Dictionary = data.get("buildable_component", {})
 	if not buildable_data.is_empty():
 		unit_class.buildable_component = BUILDABLE_COMPONENT_SCRIPT.from_dict(buildable_data)
+	var explorer_data: Dictionary = data.get("explorer_component", {})
+	if not explorer_data.is_empty():
+		unit_class.explorer_component = EXPLORER_COMPONENT_SCRIPT.from_dict(explorer_data)
 	unit_class.loadout_components = _variant_to_loadout_components(data.get("loadout_components", []))
 	unit_class.ensure_defaults()
 	return unit_class

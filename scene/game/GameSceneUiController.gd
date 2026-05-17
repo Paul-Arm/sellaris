@@ -117,7 +117,11 @@ func update_info_label() -> void:
 		var command_title := _state.selected_space_entity_title
 		if command_title.is_empty():
 			command_title = _state.selected_space_entity_id
-		command_summary = "Command: %s  |  Right-click a hyperlane-reachable system to move" % command_title
+		var right_click_order := "move"
+		var selected_unit: SpaceUnitRuntime = SpaceManager.get_unit(_state.selected_space_entity_id)
+		if selected_unit != null and selected_unit.can_explore_systems():
+			right_click_order = "explore"
+		command_summary = "Command: %s  |  Right-click a hyperlane-reachable system to %s" % [command_title, right_click_order]
 
 	_ui.info_label.text = "Seed %s\nSystems %d  Shape %s  Lanes %d  Empires %d\nEmpire %s\n%s\n%s\nWASD/Arrows pan  RMB orbit  Wheel zoom\nE empire  R regenerate  Click inspect  Esc back" % [
 		displayed_seed,
@@ -229,7 +233,7 @@ func update_system_panel() -> void:
 			hyperlane_text,
 		]
 	else:
-		_ui.selected_system_meta.text = "Owner: %s\nIntel: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nLocal Presence: Fleets %d  Mobile %d  Stations %d  Builds %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%" % [
+		_ui.selected_system_meta.text = "Owner: %s\nIntel: %s\nStar Class: %s  Stars: %d%s\nHyperlane Connections: %d\nPlanets: %d  Belts: %d  Structures: %d  Ruins: %d\nLocal Presence: Fleets %d  Mobile %d  Stations %d  Builds %d\nHabitable: %d  Colonizable: %d  Anomaly Risk: %d%%  Known: %d" % [
 			owner_name,
 			intel_label,
 			star_class,
@@ -247,6 +251,7 @@ func update_system_panel() -> void:
 			int(summary.get("habitable_worlds", 0)),
 			int(summary.get("colonizable_worlds", 0)),
 			int(round(float(summary.get("anomaly_risk", 0.0)) * 100.0)),
+			int(system_details.get("known_anomaly_count", 0)),
 		]
 	_refresh_hover_preview_tracking(inspected_system_id)
 	var preview_system_id: String = _resolve_preview_target_system_id(inspected_system_id)
@@ -405,6 +410,11 @@ func _on_space_entity_panel_action_requested(action_id: String, payload: Diction
 			var survey_system_id := str(payload.get("system_id", ""))
 			if _runtime_system != null and not survey_system_id.is_empty():
 				_runtime_system.survey_system_for_active_empire(survey_system_id)
+		"explore_system":
+			var explore_unit_id := str(payload.get("unit_id", ""))
+			var explore_system_id := str(payload.get("system_id", ""))
+			if _runtime_system != null and not explore_unit_id.is_empty() and not explore_system_id.is_empty():
+				_runtime_system.request_explore_system_for_unit(explore_unit_id, explore_system_id)
 		"split_member":
 			var split_unit_id := str(payload.get("unit_id", ""))
 			var new_fleet := SpaceManager.split_unit_to_new_fleet(split_unit_id)

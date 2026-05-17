@@ -37,6 +37,16 @@ func _run(failures: Array[String]) -> void:
 			"mode": "fixed",
 			"deposits": [{"resource_id": "matter", "milliunits": 50000}],
 		},
+		"anomaly_component": {
+			"anomalies": [{
+				"anomaly_id": "alpha_prime_echo",
+				"definition_id": "quiet_vault",
+				"title": "Echo im Gestein",
+				"status": "discovered",
+				"lore": "Ein schwaches Signal liegt unter der Oberflaeche.",
+				"research_days": 0,
+			}],
+		},
 		"metadata": {"planet_visual": {"kind": "landmass", "has_atmosphere": true}},
 	}
 	var system_details := {
@@ -78,6 +88,38 @@ func _run(failures: Array[String]) -> void:
 	_expect(resource_chips != null and resource_chips.get_child_count() > 0, "resource chips should be populated", failures)
 	var resource_chip_texts := _container_label_texts(resource_chips)
 	_expect(resource_chip_texts.has("Matter +50"), "explored body should show fixed deposit chip", failures)
+	var research_button := panel.find_child("ResearchAnomalyButton", true, false) as Button
+	_expect(research_button != null, "discovered anomaly should expose research button", failures)
+
+	var research_refresh_state := {"count": 0}
+	if research_button != null:
+		panel.anomaly_research_requested.connect(func(_system_id: String, _anomaly_id: String) -> void:
+			research_refresh_state["count"] = int(research_refresh_state.get("count", 0)) + 1
+			var researched_planet := planet_record.duplicate(true)
+			researched_planet["anomaly_component"] = {
+				"anomalies": [{
+					"anomaly_id": "alpha_prime_echo",
+					"definition_id": "quiet_vault",
+					"title": "Echo im Gestein",
+					"status": "researched",
+					"lore": "Das Signal war ein alter Speicherrest.",
+					"outcome_summary": "Gewonnen: Matter +50",
+				}],
+			}
+			var researched_selection := planet_selection.duplicate(true)
+			var researched_context: Dictionary = researched_selection.get("context", {}).duplicate(true)
+			researched_context["body_record"] = researched_planet
+			researched_selection["context"] = researched_context
+			panel.open_details(researched_selection, system_details, {
+				"show_colonize": true,
+				"can_colonize": true,
+			})
+		, CONNECT_ONE_SHOT)
+		research_button.emit_signal("pressed")
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_expect(int(research_refresh_state.get("count", 0)) == 1, "anomaly research signal should allow safe immediate panel refresh", failures)
+		_expect(panel.find_child("ResearchAnomalyButton", true, false) == null, "researched anomaly should no longer show research button after refresh", failures)
 
 	var redacted_details := system_details.duplicate(true)
 	redacted_details["has_full_intel"] = false

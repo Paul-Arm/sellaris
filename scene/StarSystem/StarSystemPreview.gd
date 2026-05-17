@@ -91,7 +91,9 @@ func _input(event: InputEvent) -> void:
 
 
 func set_system_details(system_details: Dictionary) -> void:
-	var previous_selection_id: String = get_selected_selection_id()
+	var previous_system_id := str(_current_system_details.get("id", "")).strip_edges()
+	var next_system_id := str(system_details.get("id", "")).strip_edges()
+	var previous_selection_id: String = get_selected_selection_id() if previous_system_id == next_system_id else ""
 	_current_system_details = system_details.duplicate(true)
 	_clear_preview_nodes()
 	_clear_selectables(false)
@@ -575,6 +577,13 @@ func _register_runtime_ship_selectable(record: Dictionary, marker_position: Vect
 	_append_labeled_line(lines, "Destination", str(record.get("destination_system_name", "")))
 	if int(record.get("eta_days_remaining", 0)) > 0:
 		_append_labeled_line(lines, "ETA", "%d days" % int(record.get("eta_days_remaining", 0)))
+	if bool(record.get("is_exploring", false)):
+		var exploration_order: Dictionary = record.get("exploration_order", {}) if record.get("exploration_order", {}) is Dictionary else {}
+		_append_labeled_line(lines, "Exploration", "%s %d%%" % [
+			str(exploration_order.get("state_label", "Active")),
+			int(exploration_order.get("progress_percent", 0)),
+		])
+		_append_labeled_line(lines, "Scan Target", str(exploration_order.get("current_target_name", "")))
 	if not is_station:
 		_append_labeled_line(lines, "Orders", "Right-click empty space to move")
 	_append_labeled_line(lines, "Tags", _format_string_list(record.get("command_tags", PackedStringArray()), 6))

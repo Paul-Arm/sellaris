@@ -42,6 +42,10 @@ func can_build_units() -> bool:
 	return (capability_mask & SpaceUnitClass.CAPABILITY_BUILDER) != 0
 
 
+func can_explore_systems() -> bool:
+	return (capability_mask & SpaceUnitClass.CAPABILITY_EXPLORER) != 0
+
+
 func is_stationary() -> bool:
 	return not is_mobile()
 

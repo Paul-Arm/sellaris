@@ -1,0 +1,205 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_nr5d8"]
+resource_name = "Hull gunmetal"
+albedo_color = Color(0.23, 0.28, 0.3, 1)
+metallic = 0.62
+roughness = 0.36
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_8a35q"]
+top_radius = 1.05
+bottom_radius = 1.05
+height = 1.28
+radial_segments = 16
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ej1t2"]
+resource_name = "Hull worn alloy"
+albedo_color = Color(0.46, 0.5, 0.49, 1)
+metallic = 0.55
+roughness = 0.31
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_4ggie"]
+top_radius = 0.42
+bottom_radius = 0.42
+height = 0.5
+radial_segments = 18
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_36gn7"]
+top_radius = 0.42
+bottom_radius = 0.42
+height = 0.5
+radial_segments = 18
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1ysaj"]
+resource_name = "Hull dark graphite"
+albedo_color = Color(0.1, 0.13, 0.15, 1)
+metallic = 0.7
+roughness = 0.42
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_6par8"]
+top_radius = 0.42
+bottom_radius = 0.42
+height = 0.22
+radial_segments = 18
+rings = 1
+
+[sub_resource type="BoxMesh" id="BoxMesh_ivjen"]
+size = Vector3(0.74, 0.28, 0.46)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_54skg"]
+top_radius = 0.055
+bottom_radius = 0.055
+height = 1.04
+radial_segments = 12
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_2fot5"]
+top_radius = 0.055
+bottom_radius = 0.055
+height = 1.04
+radial_segments = 12
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3ct8p"]
+resource_name = "Cyan emissive trim"
+albedo_color = Color(0.02, 0.72, 0.9, 1)
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.05, 0.95, 1, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_6q4vh"]
+top_radius = 0.07
+bottom_radius = 0.07
+height = 0.05
+radial_segments = 12
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_n65rq"]
+top_radius = 0.07
+bottom_radius = 0.07
+height = 0.05
+radial_segments = 12
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7qqec"]
+resource_name = "Cyan window glass"
+albedo_color = Color(0.08, 0.75, 0.88, 1)
+metallic = 0.1
+roughness = 0.14
+emission_enabled = true
+emission = Color(0.05, 0.9, 1, 1)
+emission_energy_multiplier = 1.35
+
+[sub_resource type="BoxMesh" id="BoxMesh_lbhmi"]
+size = Vector3(0.22, 0.12, 0.04)
+
+[sub_resource type="BoxMesh" id="BoxMesh_epmpi"]
+size = Vector3(0.22, 0.12, 0.04)
+
+[sub_resource type="BoxMesh" id="BoxMesh_bhjsb"]
+size = Vector3(0.22, 0.12, 0.04)
+
+[sub_resource type="BoxMesh" id="BoxMesh_yl8j2"]
+size = Vector3(0.22, 0.12, 0.04)
+
+[sub_resource type="BoxMesh" id="BoxMesh_jea4b"]
+size = Vector3(0.22, 0.12, 0.04)
+
+[sub_resource type="BoxMesh" id="BoxMesh_8nogy"]
+size = Vector3(0.22, 0.12, 0.04)
+
+[sub_resource type="BoxMesh" id="BoxMesh_yknwt"]
+size = Vector3(0.22, 0.12, 0.04)
+
+[sub_resource type="BoxMesh" id="BoxMesh_h8ld3"]
+size = Vector3(0.22, 0.12, 0.04)
+
+[node name="DefenseTurretModule" type="Node3D" unique_id=1584122293]
+
+[node name="compact_bastion_hull" type="MeshInstance3D" parent="." unique_id=1253627302]
+material_override = SubResource("StandardMaterial3D_nr5d8")
+mesh = SubResource("CylinderMesh_8a35q")
+
+[node name="port_socket_left" type="MeshInstance3D" parent="." unique_id=951597884]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, -1.15, -0.08, 0)
+material_override = SubResource("StandardMaterial3D_ej1t2")
+mesh = SubResource("CylinderMesh_4ggie")
+
+[node name="port_socket_right" type="MeshInstance3D" parent="." unique_id=324849406]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 1.15, -0.08, 0)
+material_override = SubResource("StandardMaterial3D_ej1t2")
+mesh = SubResource("CylinderMesh_36gn7")
+
+[node name="turret_turntable" type="MeshInstance3D" parent="." unique_id=411828341]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.78, 0)
+material_override = SubResource("StandardMaterial3D_1ysaj")
+mesh = SubResource("CylinderMesh_6par8")
+
+[node name="turret_body" type="MeshInstance3D" parent="." unique_id=486760201]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = SubResource("StandardMaterial3D_ej1t2")
+mesh = SubResource("BoxMesh_ivjen")
+
+[node name="upper_barrel" type="MeshInstance3D" parent="." unique_id=686978646]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 0.62, 1.06, 0.12)
+material_override = SubResource("StandardMaterial3D_ej1t2")
+mesh = SubResource("CylinderMesh_54skg")
+
+[node name="lower_barrel" type="MeshInstance3D" parent="." unique_id=1559009773]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 0.62, 0.94, -0.12)
+material_override = SubResource("StandardMaterial3D_ej1t2")
+mesh = SubResource("CylinderMesh_2fot5")
+
+[node name="muzzle_glow_upper" type="MeshInstance3D" parent="." unique_id=1148900094]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 1.18, 1.06, 0.12)
+material_override = SubResource("StandardMaterial3D_3ct8p")
+mesh = SubResource("CylinderMesh_6q4vh")
+
+[node name="muzzle_glow_lower" type="MeshInstance3D" parent="." unique_id=2002205282]
+transform = Transform3D(-4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0, 1, 1.18, 0.94, -0.12)
+material_override = SubResource("StandardMaterial3D_3ct8p")
+mesh = SubResource("CylinderMesh_n65rq")
+
+[node name="bastion_window_00" type="MeshInstance3D" parent="." unique_id=995451746]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 1.07, 0.06, 0)
+material_override = SubResource("StandardMaterial3D_7qqec")
+mesh = SubResource("BoxMesh_lbhmi")
+
+[node name="bastion_window_01" type="MeshInstance3D" parent="." unique_id=1365829681]
+transform = Transform3D(0.70710677, 0, 0.70710677, 0, 1, 0, -0.70710677, 0, 0.70710677, 0.75660425, 0.06, 0.75660425)
+material_override = SubResource("StandardMaterial3D_7qqec")
+mesh = SubResource("BoxMesh_epmpi")
+
+[node name="bastion_window_02" type="MeshInstance3D" parent="." unique_id=317328073]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.551644e-17, 0.06, 1.07)
+material_override = SubResource("StandardMaterial3D_7qqec")
+mesh = SubResource("BoxMesh_bhjsb")
+
+[node name="bastion_window_03" type="MeshInstance3D" parent="." unique_id=1676420024]
+transform = Transform3D(0.70710677, 0, -0.70710677, 0, 1, 0, 0.70710677, 0, 0.70710677, -0.75660425, 0.06, 0.75660425)
+material_override = SubResource("StandardMaterial3D_7qqec")
+mesh = SubResource("BoxMesh_yl8j2")
+
+[node name="bastion_window_04" type="MeshInstance3D" parent="." unique_id=658589233]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, -1.07, 0.06, 1.3103287e-16)
+material_override = SubResource("StandardMaterial3D_7qqec")
+mesh = SubResource("BoxMesh_jea4b")
+
+[node name="bastion_window_05" type="MeshInstance3D" parent="." unique_id=816229042]
+transform = Transform3D(-0.70710677, 0, -0.70710677, 0, 1, 0, 0.70710677, 0, -0.70710677, -0.75660425, 0.06, -0.75660425)
+material_override = SubResource("StandardMaterial3D_7qqec")
+mesh = SubResource("BoxMesh_8nogy")
+
+[node name="bastion_window_06" type="MeshInstance3D" parent="." unique_id=1835517164]
+transform = Transform3D(-1, 0, 8.742278e-08, 0, 1, 0, -8.742278e-08, 0, -1, -1.9654932e-16, 0.06, -1.07)
+material_override = SubResource("StandardMaterial3D_7qqec")
+mesh = SubResource("BoxMesh_yknwt")
+
+[node name="bastion_window_07" type="MeshInstance3D" parent="." unique_id=1832808152]
+transform = Transform3D(-0.7071068, 0, 0.7071067, 0, 1, 0, -0.7071067, 0, -0.7071068, 0.75660425, 0.06, -0.75660425)
+material_override = SubResource("StandardMaterial3D_7qqec")
+mesh = SubResource("BoxMesh_h8ld3")

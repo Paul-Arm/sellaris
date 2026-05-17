@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scene/game/systems/GameSceneViewSystem.gd" id="8"]
 [ext_resource type="Script" path="res://scene/game/systems/GameSceneSimulationSystem.gd" id="9"]
 [ext_resource type="Script" path="res://scene/UI/GalaxyDebugInfoPanel.gd" id="10"]
+[ext_resource type="Script" path="res://scene/UI/EmpireCommandDrawer.gd" id="11"]
 
 [node name="GameScene" type="Node"]
 script = ExtResource("1")
@@ -44,6 +45,10 @@ visible = false
 text = "Debug telemetry pending..."
 
 [node name="BottomCategoryBar" parent="CanvasLayer" instance=ExtResource("2")]
+
+[node name="EmpireCommandDrawer" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+script = ExtResource("11")
 
 [node name="LoadingOverlay" type="Control" parent="CanvasLayer"]
 visible = false

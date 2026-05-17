@@ -41,6 +41,7 @@ func setup(
 	if not ColonyManager.colony_updated.is_connected(_on_colony_updated):
 		ColonyManager.colony_updated.connect(_on_colony_updated)
 	update_debug_reveal_button()
+	refresh_empire_command_drawer()
 
 
 func teardown() -> void:
@@ -178,6 +179,7 @@ func update_system_panel() -> void:
 		bottom_drawer_entries.get("military_fleets", []),
 		bottom_drawer_entries.get("planets", [])
 	)
+	refresh_empire_command_drawer()
 
 	if inspected_system_id.is_empty() or not _state.systems_by_id.has(inspected_system_id):
 		_clear_system_panel_preview()
@@ -667,6 +669,8 @@ func refresh_camera_input_block() -> void:
 	_view_router.set_galaxy_camera_input_blocked(block_galaxy_camera)
 	var block_shared_ui: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or modal_visible
 	_ui.bottom_category_bar.set_interaction_enabled(not block_shared_ui)
+	if _ui.empire_command_drawer != null:
+		_ui.empire_command_drawer.call("set_interaction_enabled", not block_shared_ui)
 
 
 func set_galaxy_presentation_visible(visible_state: bool) -> void:
@@ -722,6 +726,12 @@ func close_system_view() -> void:
 func update_bottom_category_bar_context(active_empire_name: String, selected_system_name: String, selected_owner_name: String) -> void:
 	if _ui != null:
 		_ui.bottom_category_bar.set_context(active_empire_name, selected_system_name, selected_owner_name)
+
+
+func refresh_empire_command_drawer() -> void:
+	if _ui == null or _runtime_system == null or _ui.empire_command_drawer == null:
+		return
+	_ui.empire_command_drawer.call("set_anomaly_entries", _runtime_system.build_empire_anomaly_entries())
 
 
 func is_colony_modal_visible() -> bool:

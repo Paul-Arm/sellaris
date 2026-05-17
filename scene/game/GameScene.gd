@@ -179,6 +179,8 @@ func _connect_scene_signals() -> void:
 	_ui.empire_picker_list.item_activated.connect(_on_empire_picker_item_activated)
 	_ui.bottom_category_bar.runtime_entry_activated.connect(_on_bottom_runtime_entry_activated)
 	_ui.bottom_category_bar.runtime_action_requested.connect(_on_bottom_runtime_entry_activated)
+	if _ui.empire_command_drawer != null:
+		_ui.empire_command_drawer.connect("anomaly_open_requested", Callable(self, "_on_empire_anomaly_open_requested"))
 	SimClock.day_tick.connect(_simulation_system.on_sim_day_tick)
 	SimClock.month_tick.connect(_simulation_system.on_sim_month_tick)
 	SimClock.year_tick.connect(_simulation_system.on_sim_year_tick)
@@ -200,6 +202,15 @@ func _on_bottom_runtime_entry_activated(category_id: String, entry: Dictionary) 
 			_open_bottom_station_entry(entry)
 		"passive_fleets", "military_fleets":
 			_select_bottom_space_entry(entry)
+
+
+func _on_empire_anomaly_open_requested(entry: Dictionary) -> void:
+	var system_id := str(entry.get("system_id", "")).strip_edges()
+	if system_id.is_empty() or not _runtime_system.can_open_system_view(system_id):
+		return
+	_scene_ui_controller.close_colony_modal()
+	_scene_ui_controller.open_system_view(system_id)
+	_scene_ui_controller.update_info_label()
 
 
 func _select_bottom_space_entry(entry: Dictionary) -> void:

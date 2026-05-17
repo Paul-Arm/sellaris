@@ -27,6 +27,7 @@ var debug_spawn_toggle_button: Button = null
 var debug_reveal_toggle_button: Button = null
 var debug_spawn_panel: PanelContainer = null
 var galaxy_hud: Control = null
+var empire_command_drawer: Control = null
 
 
 static func from_root(root: Node) -> GameSceneRefs:
@@ -57,4 +58,5 @@ static func from_root(root: Node) -> GameSceneRefs:
 	refs.debug_reveal_toggle_button = refs.canvas_layer.find_child("DebugRevealToggleButton", true, false) as Button
 	refs.debug_spawn_panel = root.get_node("CanvasLayer/DebugSpawnPanel") as PanelContainer
 	refs.galaxy_hud = root.get_node("CanvasLayer/GalaxyHud") as Control
+	refs.empire_command_drawer = root.get_node("CanvasLayer/EmpireCommandDrawer") as Control
 	return refs

@@ -242,6 +242,24 @@ func get_body_anomalies(system_id: String, body_id: String, empire_id: String = 
 	return result
 
 
+func get_visible_anomalies_for_empire(empire_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if empire_id.strip_edges().is_empty():
+		return result
+
+	for anomaly_record_variant in anomaly_records:
+		var anomaly_record: Dictionary = anomaly_record_variant
+		var visible_record: Dictionary = ANOMALY_POOL_SCRIPT.get_visible_anomaly_record(
+			anomaly_record,
+			empire_id
+		)
+		if visible_record.is_empty():
+			continue
+		result.append(visible_record)
+
+	return result
+
+
 func add_anomaly(anomaly_record: Dictionary) -> String:
 	var normalized_record: Dictionary = ANOMALY_POOL_SCRIPT.normalize_anomaly_record(anomaly_record)
 	var anomaly_id := str(normalized_record.get("anomaly_id", "")).strip_edges()

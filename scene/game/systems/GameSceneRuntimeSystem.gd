@@ -608,6 +608,53 @@ func build_bottom_drawer_runtime_entries(inspected_system_id: String = "") -> Di
 	return result
 
 
+func build_empire_anomaly_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	if _state == null or _state.active_empire_id.is_empty():
+		return entries
+
+	for anomaly in _state.galaxy_state.get_visible_anomalies_for_empire(_state.active_empire_id):
+		var system_id := str(anomaly.get("system_id", "")).strip_edges()
+		var body_name := str(anomaly.get("body_name", anomaly.get("body_id", ""))).strip_edges()
+		var system_name := _get_system_runtime_name(system_id)
+		var status := str(anomaly.get("status", "")).strip_edges()
+		var detail_text := ""
+		if status == ANOMALY_POOL_SCRIPT.STATUS_RESEARCHED:
+			detail_text = str(anomaly.get("outcome_summary", "")).strip_edges()
+		else:
+			var research_days := int(anomaly.get("research_days", 0))
+			if research_days > 0:
+				detail_text = "%d Tage Forschung" % research_days
+		var meta_parts: Array[String] = []
+		if not system_name.is_empty():
+			meta_parts.append(system_name)
+		if not body_name.is_empty():
+			meta_parts.append(body_name)
+		if not detail_text.is_empty():
+			meta_parts.append(detail_text)
+
+		var can_open := can_open_system_view(system_id)
+		entries.append({
+			"id": str(anomaly.get("anomaly_id", "")),
+			"anomaly_id": str(anomaly.get("anomaly_id", "")),
+			"system_id": system_id,
+			"body_id": str(anomaly.get("body_id", "")),
+			"title": str(anomaly.get("title", anomaly.get("definition_id", "Anomalie"))),
+			"status": status,
+			"meta": "  |  ".join(meta_parts),
+			"action_label": "Oeffnen",
+			"action_enabled": can_open,
+			"sort_status": 0 if status == ANOMALY_POOL_SCRIPT.STATUS_DISCOVERED else 1,
+			"sort_system": system_name.to_lower(),
+			"sort_body": body_name.to_lower(),
+			"sort_title": str(anomaly.get("title", "")).to_lower(),
+			"tooltip": _build_empire_anomaly_tooltip(anomaly, system_name, can_open),
+		})
+
+	entries.sort_custom(_sort_empire_anomaly_entries)
+	return entries
+
+
 func get_manageable_colony_id_for_system(system_id: String) -> String:
 	if _state == null or system_id.is_empty() or _state.active_empire_id.is_empty():
 		return ""
@@ -1862,6 +1909,26 @@ func _get_system_runtime_name(system_id: String) -> String:
 	return system_id
 
 
+func _build_empire_anomaly_tooltip(anomaly: Dictionary, system_name: String, can_open: bool) -> String:
+	var lines := PackedStringArray()
+	lines.append(str(anomaly.get("title", anomaly.get("definition_id", "Anomalie"))))
+	lines.append("Status: %s" % _format_runtime_token(str(anomaly.get("status", ""))))
+	if not system_name.is_empty():
+		lines.append("System: %s" % system_name)
+	var body_name := str(anomaly.get("body_name", "")).strip_edges()
+	if not body_name.is_empty():
+		lines.append("Ort: %s" % body_name)
+	var lore := str(anomaly.get("lore", "")).strip_edges()
+	if not lore.is_empty():
+		lines.append(lore)
+	var outcome_summary := str(anomaly.get("outcome_summary", "")).strip_edges()
+	if not outcome_summary.is_empty():
+		lines.append(outcome_summary)
+	if not can_open:
+		lines.append("Systemansicht ist fuer dieses Empire noch nicht verfuegbar.")
+	return "\n".join(lines)
+
+
 func _is_military_fleet_runtime(fleet: SpaceFleetRuntime) -> bool:
 	for unit_id in fleet.unit_ids:
 		var ship: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
@@ -2154,6 +2221,22 @@ func _sync_debug_spawner_panel() -> void:
 
 static func _sort_bottom_drawer_entries_by_title(a: Dictionary, b: Dictionary) -> bool:
 	return str(a.get("title", "")).nocasecmp_to(str(b.get("title", ""))) < 0
+
+
+static func _sort_empire_anomaly_entries(a: Dictionary, b: Dictionary) -> bool:
+	var a_status := int(a.get("sort_status", 0))
+	var b_status := int(b.get("sort_status", 0))
+	if a_status != b_status:
+		return a_status < b_status
+	var a_system := str(a.get("sort_system", ""))
+	var b_system := str(b.get("sort_system", ""))
+	if a_system != b_system:
+		return a_system < b_system
+	var a_body := str(a.get("sort_body", ""))
+	var b_body := str(b.get("sort_body", ""))
+	if a_body != b_body:
+		return a_body < b_body
+	return str(a.get("sort_title", "")) < str(b.get("sort_title", ""))
 
 
 static func _variant_to_packed_string_array(values: Variant) -> PackedStringArray:

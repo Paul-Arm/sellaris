@@ -6,9 +6,11 @@ const FLEET_RING_OFFSET: float = 22.0
 const SHIP_RING_OFFSET: float = 31.0
 const RING_STEP: float = 5.5
 const SLOTS_PER_RING: int = 8
-const SHIP_MARKER_TEXTURE: Texture2D = preload("res://assets/ships/spaceship.png")
 const FLEET_MEMBER_MARKER_SIZE: float = 2.35
 const SHIP_MARKER_SIZE: float = 2.8
+const SHIP_MODEL_SCALE: float = 1.0
+const FLEET_MEMBER_MODEL_SCALE: float = 0.85
+const STATION_MODEL_SCALE: float = 1.15
 const FLEET_MARKER_TINT_STRENGTH: float = 0.18
 const SHIP_MARKER_TINT_STRENGTH: float = 0.1
 const FLEET_MEMBER_SLOTS_PER_RING: int = 6
@@ -23,9 +25,9 @@ const EXPLORATION_SCAN_PARTICLES_PER_ORDER: int = 18
 const EXPLORATION_SCAN_PARTICLE_SIZE: float = 0.14
 
 var _host: StarSystemPreview = null
-var _station_marker: MultiMeshInstance3D = null
-var _fleet_marker: MultiMeshInstance3D = null
-var _unit_marker: MultiMeshInstance3D = null
+var _station_markers_by_key: Dictionary = {}
+var _fleet_markers_by_key: Dictionary = {}
+var _unit_markers_by_key: Dictionary = {}
 var _construction_particle_marker: MultiMeshInstance3D = null
 var _exploration_particle_marker: MultiMeshInstance3D = null
 var _station_instance_specs: Array[Dictionary] = []
@@ -162,56 +164,80 @@ func _build_group(
 	records: Array[Dictionary],
 	id_key: String,
 	base_radius: float,
-	base_scale: Vector3,
-	damaged_scale: Vector3,
+	_base_scale: Vector3,
+	_damaged_scale: Vector3,
 	alpha: float,
 	emission_energy: float
 ) -> Array[Dictionary]:
-	var marker: MultiMeshInstance3D = MultiMeshInstance3D.new()
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = base_scale
-
-	var multimesh: MultiMesh = MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.use_colors = true
-	multimesh.mesh = mesh
-	multimesh.instance_count = records.size()
 	var instance_layouts: Array[Dictionary] = []
 	var instance_specs: Array[Dictionary] = []
+	var entries_by_visual_key: Dictionary = {}
 
 	for record_index in range(records.size()):
 		var record: Dictionary = records[record_index]
 		var entity_id: String = str(record.get(id_key, "%s_%02d" % [id_key, record_index]))
 		var seed_value := entity_id.hash()
 		var layout: Dictionary = _resolve_record_layout(record, base_radius, record_index, seed_value)
-		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
-		var scale_blend: Vector3 = damaged_scale.lerp(base_scale, hull_ratio)
-		var instance_basis: Basis = Basis(Vector3.UP, float(layout.get("yaw", 0.0))).scaled(scale_blend)
 		var position: Vector3 = layout.get("position", Vector3.ZERO)
-		multimesh.set_instance_transform(record_index, Transform3D(instance_basis, position))
-		multimesh.set_instance_color(record_index, _get_owner_color(record, alpha))
+		var visual_key := ShipSetRegistry.resolve_visual_key_for_unit_id(entity_id)
 		instance_layouts.append({
 			"record": record.duplicate(true),
 			"position": position,
 			"yaw": float(layout.get("yaw", 0.0)),
 			"ring_radius": float(layout.get("radius", base_radius)),
 		})
-		instance_specs.append({
+		var entries: Array = entries_by_visual_key.get(visual_key, [])
+		entries.append({
 			"id": entity_id,
-			"index": record_index,
-			"base_scale": base_scale,
-			"damaged_scale": damaged_scale,
+			"record": record,
+			"position": position,
+			"yaw": float(layout.get("yaw", 0.0)),
 			"seed": seed_value,
 			"fallback_index": record_index,
 			"fallback_radius": base_radius,
 		})
+		entries_by_visual_key[visual_key] = entries
 
-	marker.multimesh = multimesh
-	marker.material_override = _build_material(alpha, emission_energy)
-	_host.get_runtime_effects_root().add_child(marker)
-	_station_marker = marker
+	for visual_key_variant in entries_by_visual_key.keys():
+		var visual_key := str(visual_key_variant)
+		var entries: Array = entries_by_visual_key[visual_key]
+		var marker := _create_model_marker(visual_key, entries.size(), alpha, emission_energy)
+		for entry_index in range(entries.size()):
+			var entry: Dictionary = entries[entry_index]
+			var record: Dictionary = entry.get("record", {})
+			var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
+			var size_multiplier: float = STATION_MODEL_SCALE * lerpf(0.86, 1.0, hull_ratio)
+			var instance_basis: Basis = Basis(Vector3.UP, float(entry.get("yaw", 0.0))).scaled(Vector3.ONE * size_multiplier)
+			marker.multimesh.set_instance_transform(entry_index, Transform3D(instance_basis, entry.get("position", Vector3.ZERO)))
+			marker.multimesh.set_instance_color(entry_index, _get_owner_color(record, alpha))
+			instance_specs.append({
+				"id": str(entry.get("id", "")),
+				"index": entry_index,
+				"visual_key": visual_key,
+				"model_scale": STATION_MODEL_SCALE,
+				"seed": int(entry.get("seed", 0)),
+				"fallback_index": int(entry.get("fallback_index", 0)),
+				"fallback_radius": base_radius,
+			})
+		_station_markers_by_key[visual_key] = marker
+
 	_station_instance_specs = instance_specs
 	return instance_layouts
+
+
+func _create_model_marker(visual_key: String, instance_count: int, alpha: float, emission_energy: float) -> MultiMeshInstance3D:
+	var marker := MultiMeshInstance3D.new()
+	marker.name = "ModelMarker_%s_%d" % [visual_key, _host.get_runtime_effects_root().get_child_count()]
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.use_colors = true
+	multimesh.mesh = ShipSetRegistry.get_mesh(visual_key)
+	multimesh.instance_count = instance_count
+	marker.multimesh = multimesh
+	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	marker.material_override = _build_material(alpha, emission_energy)
+	_host.get_runtime_effects_root().add_child(marker)
+	return marker
 
 
 func _build_sprite_group(
@@ -220,55 +246,72 @@ func _build_sprite_group(
 	base_radius: float,
 	alpha: float,
 	emission_energy: float,
-	base_size: float,
+	_base_size: float,
 	tint_strength: float
 ) -> Array[Dictionary]:
-	var marker := MultiMeshInstance3D.new()
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2.ONE * base_size
-
-	var multimesh := MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.use_colors = true
-	multimesh.mesh = mesh
-	multimesh.instance_count = records.size()
 	var instance_layouts: Array[Dictionary] = []
 	var instance_specs: Array[Dictionary] = []
+	var entries_by_visual_key: Dictionary = {}
 
 	for record_index in range(records.size()):
 		var record: Dictionary = records[record_index]
 		var entity_id: String = str(record.get(id_key, "%s_%02d" % [id_key, record_index]))
 		var seed_value := entity_id.hash()
 		var layout: Dictionary = _resolve_record_layout(record, base_radius, record_index, seed_value)
-		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
-		var size_multiplier: float = lerpf(0.84, 1.0, hull_ratio)
-
-		var instance_basis: Basis = Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier)
 		var position: Vector3 = layout.get("position", Vector3.ZERO)
-		multimesh.set_instance_transform(record_index, Transform3D(instance_basis, position))
-		multimesh.set_instance_color(record_index, _get_marker_tint(record, alpha, tint_strength))
+		var visual_key := ShipSetRegistry.resolve_visual_key_for_unit_id(entity_id)
 		instance_layouts.append({
 			"record": record.duplicate(true),
 			"position": position,
 			"yaw": 0.0,
 			"ring_radius": float(layout.get("radius", base_radius)),
 		})
-		instance_specs.append({
+		var entries: Array = entries_by_visual_key.get(visual_key, [])
+		entries.append({
 			"id": entity_id,
-			"index": record_index,
-			"base_size": base_size,
+			"record": record,
+			"position": position,
+			"yaw": float(layout.get("yaw", 0.0)),
 			"seed": seed_value,
 			"fallback_index": record_index,
-			"fallback_radius": base_radius,
 		})
+		entries_by_visual_key[visual_key] = entries
 
-	marker.multimesh = multimesh
-	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	marker.material_override = _build_ship_material(alpha, emission_energy)
-	_host.get_runtime_effects_root().add_child(marker)
-	_unit_marker = marker
+	for visual_key_variant in entries_by_visual_key.keys():
+		var visual_key := str(visual_key_variant)
+		var entries: Array = entries_by_visual_key[visual_key]
+		var marker := _create_model_marker(visual_key, entries.size(), alpha, maxf(emission_energy, 0.9))
+		for entry_index in range(entries.size()):
+			var entry: Dictionary = entries[entry_index]
+			var record: Dictionary = entry.get("record", {})
+			var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
+			var size_multiplier: float = SHIP_MODEL_SCALE * lerpf(0.84, 1.0, hull_ratio)
+			var yaw := _resolve_record_yaw(record, entry.get("position", Vector3.ZERO), float(entry.get("yaw", 0.0)))
+			var instance_basis: Basis = Basis(Vector3.UP, yaw).scaled(Vector3.ONE * size_multiplier)
+			marker.multimesh.set_instance_transform(entry_index, Transform3D(instance_basis, entry.get("position", Vector3.ZERO)))
+			marker.multimesh.set_instance_color(entry_index, _get_marker_tint(record, alpha, tint_strength))
+			instance_specs.append({
+				"id": str(entry.get("id", "")),
+				"index": entry_index,
+				"visual_key": visual_key,
+				"model_scale": SHIP_MODEL_SCALE,
+				"seed": int(entry.get("seed", 0)),
+				"fallback_index": int(entry.get("fallback_index", 0)),
+				"fallback_radius": base_radius,
+			})
+		_unit_markers_by_key[visual_key] = marker
+
 	_unit_instance_specs = instance_specs
 	return instance_layouts
+
+
+func _resolve_record_yaw(record: Dictionary, position: Vector3, fallback_yaw: float) -> float:
+	var velocity := _variant_to_vector3(record.get("velocity", Vector3.ZERO))
+	if velocity.length_squared() > 0.0001:
+		return atan2(-velocity.z, velocity.x)
+	if position.length_squared() > 0.0001:
+		return atan2(-position.z, position.x) + PI * 0.5
+	return fallback_yaw
 
 
 func _build_fleet_group(
@@ -277,21 +320,12 @@ func _build_fleet_group(
 	base_radius: float,
 	alpha: float,
 	emission_energy: float,
-	base_size: float,
+	_base_size: float,
 	tint_strength: float
 ) -> Array[Dictionary]:
-	var marker := MultiMeshInstance3D.new()
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2.ONE * base_size
-
-	var multimesh := MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.use_colors = true
-	multimesh.mesh = mesh
-	multimesh.instance_count = _count_fleet_visual_instances(fleet_records, units_by_id)
 	var instance_layouts: Array[Dictionary] = []
 	var instance_specs: Array[Dictionary] = []
-	var instance_index: int = 0
+	var entries_by_visual_key: Dictionary = {}
 
 	for fleet_index in range(fleet_records.size()):
 		var fleet_record: Dictionary = fleet_records[fleet_index]
@@ -304,22 +338,20 @@ func _build_fleet_group(
 
 		for member_index in range(member_records.size()):
 			var member_record: Dictionary = member_records[member_index]
-			var hull_ratio: float = clampf(float(member_record.get("hull_ratio", 1.0)), 0.2, 1.0)
-			var size_multiplier: float = lerpf(0.82, 1.0, hull_ratio)
+			var member_unit_id := str(member_record.get("unit_id", ""))
 			var member_position: Vector3 = _get_record_position(member_record, fleet_center + _resolve_fleet_member_offset(member_index, member_records.size(), fleet_id.hash()))
-			var instance_basis: Basis = Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier)
-			multimesh.set_instance_transform(instance_index, Transform3D(instance_basis, member_position))
-			multimesh.set_instance_color(instance_index, _get_marker_tint(member_record, alpha, tint_strength))
-			instance_specs.append({
-				"index": instance_index,
+			var visual_key := ShipSetRegistry.resolve_visual_key_for_unit_id(member_unit_id)
+			var entries: Array = entries_by_visual_key.get(visual_key, [])
+			entries.append({
 				"fleet_id": fleet_id,
-				"unit_id": str(member_record.get("unit_id", "")),
+				"unit_id": member_unit_id,
+				"record": member_record,
+				"position": member_position,
 				"member_index": member_index,
 				"member_count": member_records.size(),
-				"base_size": base_size,
 				"seed": fleet_id.hash(),
 			})
-			instance_index += 1
+			entries_by_visual_key[visual_key] = entries
 
 		instance_layouts.append({
 			"record": fleet_record.duplicate(true),
@@ -328,11 +360,32 @@ func _build_fleet_group(
 			"ring_radius": float(fleet_layout.get("radius", base_radius)),
 		})
 
-	marker.multimesh = multimesh
-	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	marker.material_override = _build_ship_material(alpha, emission_energy)
-	_host.get_runtime_effects_root().add_child(marker)
-	_fleet_marker = marker
+	for visual_key_variant in entries_by_visual_key.keys():
+		var visual_key := str(visual_key_variant)
+		var entries: Array = entries_by_visual_key[visual_key]
+		var marker := _create_model_marker(visual_key, entries.size(), alpha, maxf(emission_energy, 0.9))
+		for entry_index in range(entries.size()):
+			var entry: Dictionary = entries[entry_index]
+			var member_record: Dictionary = entry.get("record", {})
+			var hull_ratio: float = clampf(float(member_record.get("hull_ratio", 1.0)), 0.2, 1.0)
+			var size_multiplier: float = FLEET_MEMBER_MODEL_SCALE * lerpf(0.82, 1.0, hull_ratio)
+			var member_position: Vector3 = entry.get("position", Vector3.ZERO)
+			var yaw := _resolve_record_yaw(member_record, member_position, 0.0)
+			var instance_basis: Basis = Basis(Vector3.UP, yaw).scaled(Vector3.ONE * size_multiplier)
+			marker.multimesh.set_instance_transform(entry_index, Transform3D(instance_basis, member_position))
+			marker.multimesh.set_instance_color(entry_index, _get_marker_tint(member_record, alpha, tint_strength))
+			instance_specs.append({
+				"index": entry_index,
+				"visual_key": visual_key,
+				"fleet_id": str(entry.get("fleet_id", "")),
+				"unit_id": str(entry.get("unit_id", "")),
+				"member_index": int(entry.get("member_index", 0)),
+				"member_count": int(entry.get("member_count", 1)),
+				"model_scale": FLEET_MEMBER_MODEL_SCALE,
+				"seed": int(entry.get("seed", 0)),
+			})
+		_fleet_markers_by_key[visual_key] = marker
+
 	_fleet_instance_specs = instance_specs
 	return instance_layouts
 
@@ -734,9 +787,9 @@ func update_interpolated_runtime_positions(space_renderables: Dictionary, day_pr
 
 
 func _reset_interpolation_state() -> void:
-	_station_marker = null
-	_fleet_marker = null
-	_unit_marker = null
+	_station_markers_by_key.clear()
+	_fleet_markers_by_key.clear()
+	_unit_markers_by_key.clear()
 	_construction_particle_marker = null
 	_exploration_particle_marker = null
 	_station_instance_specs.clear()
@@ -746,10 +799,18 @@ func _reset_interpolation_state() -> void:
 	_exploration_particle_specs.clear()
 
 
+func _get_marker_for_spec(markers_by_key: Dictionary, spec: Dictionary) -> MultiMeshInstance3D:
+	var marker := markers_by_key.get(str(spec.get("visual_key", "")), null) as MultiMeshInstance3D
+	if marker == null or not is_instance_valid(marker) or marker.multimesh == null:
+		return null
+	return marker
+
+
 func _update_station_marker(records_by_unit_id: Dictionary, day_progress: float) -> void:
-	if _station_marker == null or _station_marker.multimesh == null:
-		return
 	for spec in _station_instance_specs:
+		var marker := _get_marker_for_spec(_station_markers_by_key, spec)
+		if marker == null:
+			continue
 		var record: Dictionary = records_by_unit_id.get(str(spec.get("id", "")), {})
 		if record.is_empty():
 			continue
@@ -759,29 +820,30 @@ func _update_station_marker(records_by_unit_id: Dictionary, day_progress: float)
 		if velocity.length_squared() > 0.0001:
 			yaw = atan2(-velocity.z, velocity.x)
 		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
-		var base_scale: Vector3 = spec.get("base_scale", Vector3.ONE)
-		var damaged_scale: Vector3 = spec.get("damaged_scale", base_scale)
-		var scale_blend: Vector3 = damaged_scale.lerp(base_scale, hull_ratio)
-		_station_marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis(Vector3.UP, yaw).scaled(scale_blend), position))
+		var size_multiplier: float = float(spec.get("model_scale", STATION_MODEL_SCALE)) * lerpf(0.86, 1.0, hull_ratio)
+		marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * size_multiplier), position))
 
 
 func _update_unit_marker(records_by_unit_id: Dictionary, day_progress: float) -> void:
-	if _unit_marker == null or _unit_marker.multimesh == null:
-		return
 	for spec in _unit_instance_specs:
+		var marker := _get_marker_for_spec(_unit_markers_by_key, spec)
+		if marker == null:
+			continue
 		var record: Dictionary = records_by_unit_id.get(str(spec.get("id", "")), {})
 		if record.is_empty():
 			continue
 		var hull_ratio: float = clampf(float(record.get("hull_ratio", 1.0)), 0.2, 1.0)
-		var size_multiplier: float = lerpf(0.84, 1.0, hull_ratio)
+		var size_multiplier: float = float(spec.get("model_scale", SHIP_MODEL_SCALE)) * lerpf(0.84, 1.0, hull_ratio)
 		var position := _get_interpolated_record_position(record, day_progress)
-		_unit_marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier), position))
+		var yaw := _resolve_record_yaw(record, position, 0.0)
+		marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * size_multiplier), position))
 
 
 func _update_fleet_marker(records_by_fleet_id: Dictionary, records_by_unit_id: Dictionary, day_progress: float) -> void:
-	if _fleet_marker == null or _fleet_marker.multimesh == null:
-		return
 	for spec in _fleet_instance_specs:
+		var marker := _get_marker_for_spec(_fleet_markers_by_key, spec)
+		if marker == null:
+			continue
 		var fleet_id := str(spec.get("fleet_id", ""))
 		var fleet_record: Dictionary = records_by_fleet_id.get(fleet_id, {})
 		if fleet_record.is_empty():
@@ -798,8 +860,9 @@ func _update_fleet_marker(records_by_fleet_id: Dictionary, records_by_unit_id: D
 		if not member_record.is_empty():
 			member_position = _get_interpolated_record_position(member_record, day_progress)
 			hull_ratio = clampf(float(member_record.get("hull_ratio", 1.0)), 0.2, 1.0)
-		var size_multiplier: float = lerpf(0.82, 1.0, hull_ratio)
-		_fleet_marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * size_multiplier), member_position))
+		var size_multiplier: float = float(spec.get("model_scale", FLEET_MEMBER_MODEL_SCALE)) * lerpf(0.82, 1.0, hull_ratio)
+		var yaw := _resolve_record_yaw(member_record, member_position, 0.0) if not member_record.is_empty() else 0.0
+		marker.multimesh.set_instance_transform(int(spec.get("index", 0)), Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * size_multiplier), member_position))
 
 
 func _update_construction_particles(records_by_project_id: Dictionary, records_by_unit_id: Dictionary, day_progress: float) -> void:
@@ -935,23 +998,6 @@ func _build_material(alpha: float, emission_energy: float) -> StandardMaterial3D
 	material.emission_enabled = true
 	material.emission = Color.WHITE
 	material.emission_energy_multiplier = emission_energy
-	return material
-
-
-func _build_ship_material(alpha: float, emission_energy: float) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.vertex_color_use_as_albedo = true
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	material.albedo_color = Color(1.0, 1.0, 1.0, alpha)
-	material.albedo_texture = SHIP_MARKER_TEXTURE
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	material.emission_enabled = true
-	material.emission = Color.WHITE
-	material.emission_energy_multiplier = emission_energy
-	material.render_priority = 1
 	return material
 
 

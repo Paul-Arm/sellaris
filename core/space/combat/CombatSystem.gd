@@ -318,6 +318,7 @@ func _resolve_battle_round(battle_id: String, day_serial: int) -> void:
 			"system_id": unit.current_system_id,
 			"unit_id": unit_id,
 			"class_id": unit.class_id,
+			"display_name": unit.display_name,
 			"owner_empire_id": unit.owner_empire_id,
 			"position": SpaceUnitRuntime._vector3_to_dict(unit.local_position),
 		}, battle_id)

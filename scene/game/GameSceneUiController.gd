@@ -4,6 +4,7 @@ class_name GameSceneUiController
 const COLONY_MODAL_SCRIPT := preload("res://scene/game/ColonyModal.gd")
 const SHIP_DESIGNER_MODAL_SCRIPT := preload("res://scene/game/ShipDesignerModal.gd")
 const RESEARCH_MODAL_SCRIPT := preload("res://scene/game/ResearchModal.gd")
+const NOTIFICATION_CENTER_SCRIPT := preload("res://scene/UI/NotificationCenter.gd")
 const DEBUG_INFO_PANEL_SCRIPT := preload("res://scene/UI/GalaxyDebugInfoPanel.gd")
 const SPACE_ENTITY_DETAILS_PANEL_SCRIPT := preload("res://scene/game/SpaceEntityDetailsPanel.gd")
 const HOVER_PREVIEW_DELAY_SEC: float = 1.0
@@ -20,6 +21,7 @@ var _active_preview_system_id: String = ""
 var _colony_modal: Control = null
 var _ship_designer_modal: Control = null
 var _research_modal: Control = null
+var _notification_center: Control = null
 var _manage_colony_button: Button = null
 var _manage_colony_id: String = ""
 var _open_colony_id: String = ""
@@ -58,11 +60,14 @@ func teardown() -> void:
 		_ship_designer_modal.queue_free()
 	if _research_modal != null:
 		_research_modal.queue_free()
+	if _notification_center != null:
+		_notification_center.queue_free()
 	if _space_entity_panel != null:
 		_space_entity_panel.queue_free()
 	_colony_modal = null
 	_ship_designer_modal = null
 	_research_modal = null
+	_notification_center = null
 	_manage_colony_button = null
 	_debug_info_panel = null
 	_space_entity_panel = null
@@ -842,6 +847,49 @@ func _on_research_modal_close_requested() -> void:
 	refresh_empire_command_drawer()
 	update_system_panel()
 	update_selection_panel()
+
+
+func post_notification(data: Dictionary) -> String:
+	_ensure_notification_center()
+	if _notification_center == null:
+		return ""
+	return _notification_center.post_notification(data)
+
+
+func _ensure_notification_center() -> void:
+	if _notification_center != null or _ui == null or _ui.canvas_layer == null:
+		return
+	_notification_center = NOTIFICATION_CENTER_SCRIPT.new() as Control
+	_notification_center.name = "NotificationCenter"
+	_ui.canvas_layer.add_child(_notification_center)
+	_notification_center.notification_activated.connect(_on_notification_activated)
+
+
+func _on_notification_activated(_notification_id: String, action: Dictionary) -> void:
+	match str(action.get("type", "")):
+		"open_system":
+			var system_id := str(action.get("system_id", ""))
+			if not system_id.is_empty():
+				close_colony_modal()
+				close_ship_designer_modal()
+				open_system_view(system_id)
+		"select_space_entity":
+			var selection_kind := str(action.get("selection_kind", ""))
+			var selection_id := str(action.get("selection_id", ""))
+			var system_id := str(action.get("system_id", ""))
+			if selection_kind.is_empty() or selection_id.is_empty():
+				return
+			close_colony_modal()
+			close_ship_designer_modal()
+			if not system_id.is_empty():
+				open_system_view(system_id)
+			_state.selected_space_entity_kind = selection_kind
+			_state.selected_space_entity_id = selection_id
+			_state.selected_system_panel_id = ""
+			_sync_galaxy_space_selection(selection_kind, selection_id)
+			_select_open_system_view_runtime_entity(selection_kind, selection_id)
+			update_selection_panel()
+			update_info_label()
 
 
 func close_colony_modal() -> void:

@@ -7,6 +7,11 @@ Phase A deviations from the original plan:
 - Per-unit upkeep economy sources already existed (`unit:<unit_id>`, kind `space_unit_upkeep`); Phase A switched their amounts to compiled design upkeep instead of adding a new aggregated source.
 - Ship production runs through `SpaceManager.get_ship_build_options()` / `request_build_ship()` on shipyard stations (basic + stellar station carry a `builder_component` with build tag `ship`); ship build orders commit design costs by default.
 
+Follow-up additions (post Phase D):
+- **Notification system** (`scene/UI/NotificationCenter.gd`): reusable right-edge stack with importance levels 1–4 (1–3 auto-expire after configurable real-time lifetimes, 4 persists until dismissed), per-card dismiss, optional embedded custom Controls, and click actions routed by `GameSceneUiController._on_notification_activated` (`open_system`, `select_space_entity`). Combat events post notifications for the active empire in `GameSceneRuntimeSystem._post_combat_notifications` (battle started lvl 3, own ship lost lvl 4, enemy kill lvl 2, battle ended lvl 2).
+- **Fleet combat menu** (`scene/UI/BattleOverviewPanel.gd`): reusable battle view (aggregated per-empire hull/shield bars, member list, event-log tail) embedded by `SpaceEntityDetailsPanel` whenever the clicked unit/fleet is in a battle; refreshes with the existing per-tick selection panel refresh.
+- Debug spawner gained a "Spawn Enemy Fleet" button that spawns armed corvettes (default designs via `bootstrap_empires`) for a non-player empire.
+
 Phase D notes:
 - The designer edits a draft (`compile_ship_design_draft`/`validate_ship_design_draft` on `SpaceManager`) and only persists through `create_ship_design`/`update_ship_design`, so invalid loadouts can never be saved.
 - Default designs cannot be deleted; designs referenced by live units cannot be deleted either (`remove_ship_design` refuses both).

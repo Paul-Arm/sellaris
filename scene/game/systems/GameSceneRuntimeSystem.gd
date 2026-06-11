@@ -70,6 +70,7 @@ func generate_async() -> void:
 	_state.systems_by_id.clear()
 	_state.system_indices_by_id.clear()
 	_state.empires_by_id.clear()
+	_state.notified_battle_ids.clear()
 	_state.galaxy_state.reset()
 	_scene_ui_controller.set_galaxy_presentation_visible(true)
 	_ui.system_preview_image.texture = null
@@ -2136,10 +2137,76 @@ func _on_space_combat_events(events: Array[Dictionary]) -> void:
 	var system_view: SystemView = _view_router.get_system_view()
 	if system_view != null and system_view.is_open():
 		system_view.play_combat_events(events)
+	_post_combat_notifications(events)
 	if _state.runtime_visual_refresh_queued:
 		return
 	_state.runtime_visual_refresh_queued = true
 	Callable(self, "refresh_runtime_visuals").call_deferred()
+
+
+func _post_combat_notifications(events: Array[Dictionary]) -> void:
+	if _scene_ui_controller == null or _state.active_empire_id.is_empty():
+		return
+	for event in events:
+		var battle_id := str(event.get("battle_id", ""))
+		var system_id := str(event.get("system_id", ""))
+		match str(event.get("type", "")):
+			"battle_started":
+				if not _battle_involves_active_empire(battle_id):
+					continue
+				_state.notified_battle_ids[battle_id] = true
+				_scene_ui_controller.post_notification({
+					"title": "Gefecht bei %s" % _get_system_display_name_for_notification(system_id),
+					"message": "Eine Flotte des Imperiums ist in einen Kampf verwickelt.",
+					"importance": 3,
+					"action": {"type": "open_system", "system_id": system_id},
+				})
+			"kill":
+				var victim_owner := str(event.get("owner_empire_id", ""))
+				var victim_name := str(event.get("display_name", event.get("unit_id", "")))
+				if victim_owner == _state.active_empire_id:
+					_scene_ui_controller.post_notification({
+						"title": "Schiff verloren: %s" % victim_name,
+						"message": "Zerstoert im Gefecht bei %s." % _get_system_display_name_for_notification(system_id),
+						"importance": 4,
+						"action": {"type": "open_system", "system_id": system_id},
+					})
+				elif _state.notified_battle_ids.has(battle_id):
+					_scene_ui_controller.post_notification({
+						"title": "Feindschiff zerstoert: %s" % victim_name,
+						"message": "Gefecht bei %s." % _get_system_display_name_for_notification(system_id),
+						"importance": 2,
+						"action": {"type": "open_system", "system_id": system_id},
+					})
+			"battle_ended":
+				if not _state.notified_battle_ids.has(battle_id):
+					continue
+				_state.notified_battle_ids.erase(battle_id)
+				_scene_ui_controller.post_notification({
+					"title": "Gefecht beendet bei %s" % _get_system_display_name_for_notification(system_id),
+					"importance": 2,
+					"action": {"type": "open_system", "system_id": system_id},
+				})
+
+
+func _battle_involves_active_empire(battle_id: String) -> bool:
+	if battle_id.is_empty():
+		return false
+	var battle: Dictionary = SpaceManager.get_battle(battle_id)
+	var members_variant: Variant = battle.get("member_unit_ids", {})
+	if members_variant is not Dictionary:
+		return false
+	for unit_id_variant in (members_variant as Dictionary).keys():
+		var unit: SpaceUnitRuntime = SpaceManager.get_unit(str(unit_id_variant))
+		if unit != null and unit.owner_empire_id == _state.active_empire_id:
+			return true
+	return false
+
+
+func _get_system_display_name_for_notification(system_id: String) -> String:
+	if system_id.is_empty():
+		return "Unbekanntes System"
+	return str(_state.systems_by_id.get(system_id, {}).get("name", system_id))
 
 
 func _on_space_exploration_scan_completed(order_id: String, unit_id: String, system_id: String, body_id: String) -> void:

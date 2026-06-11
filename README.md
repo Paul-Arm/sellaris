@@ -28,11 +28,13 @@ The folder names `MainMenue` and `GennerateMenue` keep their historical spelling
 - `scene/game/`: Active game scene, view router, UI controller, runtime system, simulation system, colony modal, ship designer modal, and space entity panel.
 - `scene/galaxy/`: Galaxy generator, state container, map view, map renderers, territory rendering, system names, and the older `galaxy.tscn` path.
 - `scene/StarSystem/`: Full system view, preview renderer, selectable components, procedural planets, custom system resource types, and body detail panels.
-- `scene/UI/`: Shared galaxy HUD, bottom category bar, debug panels, music controller, and command drawer UI.
+- `scene/StarSystem/procedural_planets/`: Real-3D celestial body pipeline — shared sphere/annulus/rock meshes (`CelestialMeshLibrary`), seeded cosine palettes (`CelestialBodyPalette`), and live spatial shaders (in-shader 3D noise, seed as uniform, pastel toon lighting) for planets, stars, neutron stars, black holes (doppler accretion disk), and `MultiMesh`-instanced asteroid belts. Deterministic per system/orbital seed; no texture baking, no SubViewports.
+- `scene/StarSystem/shipsets/`: Ship visual sets — `ShipSetRegistry` (visual-key resolution per unit class, runtime set switching for future ship sets) and the procedural low-poly `DefaultShipSet` (corvette, science, builder, stations), instanced via one MultiMesh per model type for large fleets.
+- `scene/UI/`: Shared galaxy HUD, bottom category bar, debug panels, music controller, command drawer UI, the reusable right-edge `NotificationCenter` (importance levels 1-4, auto-expiry, click actions, custom content), and the reusable `BattleOverviewPanel` (fleet combat menu content).
 - `assets/stations/modular_space_station/`: Generated modular station kit and showcase scene.
 - `tests/`: Headless SceneTree tests and smoke-test scenes.
-- `tools/`: Godot scripts for generating and validating modular station assets.
-- `Planets/` and `PixelPlanets-main/`: Planet shader assets and the vendored PixelPlanets source used as visual reference/material.
+- `tools/`: Godot scripts for generating and validating modular station assets, plus the celestial visual screenshot harness.
+- `PixelPlanets-main/`: Vendored PixelPlanets source, kept as visual reference only. The formerly derived `Planets/` folder was removed when celestial bodies moved to the 3D shader pipeline.
 
 ## Runtime Surface
 

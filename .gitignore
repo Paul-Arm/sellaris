@@ -2,3 +2,6 @@
 .godot/
 /android/
 /music/
+
+# Dev screenshot harness output
+/tools/screenshots/

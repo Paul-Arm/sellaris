@@ -46,6 +46,7 @@ var sim_speed_actual_steps: Array[float] = [0.25, 0.5, 1.0, 2.0]
 var sim_speed_index: int = 0
 var sim_paused: bool = false
 var runtime_visual_refresh_queued: bool = false
+var notified_battle_ids: Dictionary = {}
 var generator: RefCounted = GALAXY_GENERATOR_SCRIPT.new()
 var galaxy_state: RefCounted = GALAXY_STATE_SCRIPT.new()
 var empire_factory: RefCounted = EMPIRE_FACTORY_SCRIPT.new()

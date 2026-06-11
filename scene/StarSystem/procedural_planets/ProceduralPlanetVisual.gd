@@ -1,15 +1,22 @@
 extends Node3D
 class_name ProceduralPlanetVisual
 
-const LANDMASSES_SCENE: PackedScene = preload("res://Planets/LandMasses/LandMasses.tscn")
-const RIVERS_SCENE: PackedScene = preload("res://Planets/Rivers/Rivers.tscn")
-const DRY_TERRAN_SCENE: PackedScene = preload("res://Planets/DryTerran/DryTerran.tscn")
-const NO_ATMOSPHERE_SCENE: PackedScene = preload("res://Planets/NoAtmosphere/NoAtmosphere.tscn")
-const ICE_WORLD_SCENE: PackedScene = preload("res://Planets/IceWorld/IceWorld.tscn")
-const LAVA_WORLD_SCENE: PackedScene = preload("res://Planets/LavaWorld/LavaWorld.tscn")
-const GAS_PLANET_SCENE: PackedScene = preload("res://Planets/GasPlanet/GasPlanet.tscn")
-const GAS_PLANET_LAYERS_SCENE: PackedScene = preload("res://Planets/GasPlanetLayers/GasPlanetLayers.tscn")
-const ATMOSPHERE_HALO_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/AtmosphereHalo.gdshader")
+## Real 3D procedural planet: shared sphere mesh + seeded live spatial shader
+## per world kind (no texture baking, no SubViewports). Deterministic via the
+## system/orbital seed chain; all randomness flows through one local RNG in
+## build_visual_config(). Consumed by StarSystemPreview, SystemBodyDetailsPanel
+## and ColonyModal — entry points (configure / build_visual_config /
+## describe_planet) are stable API.
+
+const TERRAN_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/PlanetTerran.gdshader")
+const CLOUDS_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/PlanetClouds.gdshader")
+const DESERT_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/PlanetDesert.gdshader")
+const BARREN_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/PlanetBarren.gdshader")
+const ICE_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/PlanetIce.gdshader")
+const LAVA_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/PlanetLava.gdshader")
+const GAS_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/GasGiant.gdshader")
+const ATMOSPHERE_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/PlanetAtmosphere.gdshader")
+const RING_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/PlanetRing.gdshader")
 
 const WORLD_KIND_LANDMASS := "landmass"
 const WORLD_KIND_DRY := "dry_terran"
@@ -18,11 +25,14 @@ const WORLD_KIND_ICE := "ice_world"
 const WORLD_KIND_LAVA := "lava_world"
 const WORLD_KIND_GAS := "gas_planet"
 
-const VIEWPORT_TARGET_SIZE := 768.0
+# Legacy texture-resolution field from GalaxyGenerator metadata; remapped to
+# the surface noise frequency so its deterministic influence survives.
 const DEFAULT_PIXELS := 2200.0
 const MIN_PIXELS := 1500.0
 const MAX_PIXELS := 3200.0
 const GAS_GIANT_FORCE_RING := true
+const CLOUD_SHELL_SCALE := 1.025
+const RING_SCALE := 1.15
 
 const WORLD_KIND_LABELS := {
 	WORLD_KIND_LANDMASS: "Terran World",
@@ -74,7 +84,10 @@ var _system_details: Dictionary = {}
 var _orbital: Dictionary = {}
 var _orbital_index: int = -1
 var _visual_config: Dictionary = {}
-var _camera_facing_nodes: Array[Node3D] = []
+var _surface_node: MeshInstance3D = null
+var _clouds_node: MeshInstance3D = null
+var _sun_world_position := Vector3.ZERO
+var _has_sun_position := false
 
 
 func configure(system_details: Dictionary, orbital: Dictionary, orbital_index: int = -1) -> void:
@@ -91,8 +104,21 @@ func _ready() -> void:
 		_rebuild()
 
 
-func _process(_delta: float) -> void:
-	_update_camera_facing_nodes()
+func _process(delta: float) -> void:
+	if _surface_node == null:
+		return
+	var spin_speed: float = float(_visual_config.get("spin_speed", 0.04))
+	_surface_node.rotate_y(spin_speed * delta)
+	if _clouds_node != null:
+		_clouds_node.rotate_y(spin_speed * 1.4 * delta)
+
+
+## Lights the planet from a point source (the system's primary star) instead
+## of the fixed default direction used by the own-world panel previews.
+func set_sun_world_position(sun_position: Vector3) -> void:
+	_sun_world_position = sun_position
+	_has_sun_position = true
+	_apply_sun_to_materials(self)
 
 
 static func describe_planet(system_details: Dictionary, orbital: Dictionary, orbital_index: int = -1) -> Dictionary:
@@ -103,6 +129,14 @@ static func describe_planet(system_details: Dictionary, orbital: Dictionary, orb
 	}
 
 
+# Returns a pure-data dict (floats/ints/bools/Strings/Colors/Vector3 — no
+# Resources) so determinism tests can deep-compare two builds.
+#
+# RNG draw order (append only, never reorder — same seed must keep producing
+# the same body): kind rolls -> default ring roll -> ocean-variant roll
+# (landmass without metadata variant_index only) -> surface rotation (ringless
+# only) -> ring tilt -> axial tilt -> spin speed -> phase offset -> noise
+# offset (3) -> palette (7) -> per-kind extras.
 static func build_visual_config(
 	system_details: Dictionary,
 	orbital: Dictionary,
@@ -130,203 +164,295 @@ static func build_visual_config(
 		"has_atmosphere",
 		_resolve_default_atmosphere(kind, orbital, visual_metadata)
 	)
-	var scene_variant: String = _resolve_scene_variant(rng, kind, has_ring, visual_metadata)
-	var scene: PackedScene = _get_scene_for_variant(scene_variant)
+	var is_ocean_variant := false
+	if kind == WORLD_KIND_LANDMASS:
+		if visual_metadata.has("variant_index"):
+			is_ocean_variant = int(visual_metadata.get("variant_index", 0)) % 2 == 1
+		else:
+			is_ocean_variant = rng.randf() < 0.38
 	var base_diameter: float = maxf(float(orbital.get("size", 1.0)) * 2.0, 1.4)
 	var default_surface_rotation := 0.0 if has_ring else rng.randf_range(-PI, PI)
 	var surface_rotation: float = _resolve_float_override(visual_metadata, "rotation", default_surface_rotation)
 	var ring_yaw: float = _resolve_float_override(visual_metadata, "ring_yaw", wrapf(surface_rotation * 0.6, -PI, PI))
 	var ring_tilt: float = _resolve_float_override(visual_metadata, "ring_tilt", deg_to_rad(rng.randf_range(14.0, 28.0)))
 
-	return {
+	var pixels: float = clampf(_resolve_float_override(visual_metadata, "pixels", DEFAULT_PIXELS), MIN_PIXELS, MAX_PIXELS)
+	var noise_frequency: float = remap(pixels, MIN_PIXELS, MAX_PIXELS, 2.2, 4.8)
+	var axial_tilt: float = rng.randf_range(0.0, 0.35)
+	var spin_speed: float = rng.randf_range(0.06, 0.18)
+	var phase_offset: float = rng.randf_range(0.0, 1000.0)
+	var noise_offset := Vector3(
+		rng.randf_range(0.0, 512.0),
+		rng.randf_range(0.0, 512.0),
+		rng.randf_range(0.0, 512.0)
+	)
+	var palette_params: Dictionary = _get_palette_params(kind)
+	var palette: Dictionary = CelestialBodyPalette.generate_palette(
+		rng,
+		float(palette_params.get("hue_diff", 0.5)),
+		float(palette_params.get("saturation", 0.45))
+	)
+	var anchor_color: Color = orbital.get("color", Color(0.58, 0.68, 0.94, 1.0))
+	if kind == WORLD_KIND_LAVA:
+		# Lava crusts must stay warm and dark regardless of the accent color.
+		anchor_color = anchor_color.lerp(Color(0.42, 0.27, 0.22), 0.65)
+	palette = CelestialBodyPalette.anchor_palette(palette, anchor_color, float(palette_params.get("anchor_strength", 0.45)))
+
+	var config := {
 		"kind": kind,
 		"label": WORLD_KIND_LABELS.get(kind, "Planet"),
-		"scene": scene,
-		"scene_variant": scene_variant,
 		"seed": orbital_seed,
-		"pixels": clampf(_resolve_float_override(visual_metadata, "pixels", DEFAULT_PIXELS), MIN_PIXELS, MAX_PIXELS),
 		"rotation": surface_rotation,
-		"light_origin": _resolve_light_origin(scene_variant, visual_metadata),
 		"base_diameter": base_diameter,
 		"has_ring": has_ring,
-		"split_ring": has_ring and scene_variant == "gas_planet_layers",
 		"ring_yaw": ring_yaw,
 		"ring_tilt": ring_tilt,
 		"has_atmosphere": has_atmosphere,
-		"atmosphere_color": _get_atmosphere_color(scene_variant),
+		"atmosphere_color": _get_atmosphere_color(kind),
 		"atmosphere_alpha": _get_atmosphere_alpha(kind, has_atmosphere),
 		"atmosphere_scale": _get_atmosphere_scale(kind),
 		"emission_energy": _get_emission_energy(kind),
+		"noise_offset": noise_offset,
+		"noise_frequency": noise_frequency,
+		"palette": palette,
+		"axial_tilt": axial_tilt,
+		"spin_speed": spin_speed,
+		"phase_offset": phase_offset,
 	}
+	_append_kind_config(config, rng, kind, is_ocean_variant)
+	return config
+
+
+static func _append_kind_config(config: Dictionary, rng: RandomNumberGenerator, kind: String, is_ocean_variant: bool) -> void:
+	match kind:
+		WORLD_KIND_LANDMASS:
+			config["is_ocean_variant"] = is_ocean_variant
+			config["ocean_level"] = rng.randf_range(0.56, 0.66) if is_ocean_variant else rng.randf_range(0.46, 0.56)
+			config["cap_extent"] = rng.randf_range(0.62, 0.78)
+			config["continent_warp"] = rng.randf_range(0.12, 0.25)
+			config["glint_strength"] = rng.randf_range(0.4, 0.8)
+			config["cloud_cover"] = rng.randf_range(0.42, 0.62)
+			config["cloud_frequency"] = rng.randf_range(2.6, 3.6)
+			config["cloud_density"] = rng.randf_range(0.7, 0.95)
+		WORLD_KIND_DRY:
+			config["band_frequency"] = rng.randf_range(3.0, 6.0)
+			config["warp_amount"] = rng.randf_range(0.6, 1.6)
+			var crater_roll := rng.randf()
+			config["crater_strength"] = rng.randf_range(0.08, 0.2) if crater_roll < 0.4 else 0.0
+			config["crater_frequency"] = rng.randf_range(4.0, 7.0)
+		WORLD_KIND_BARREN:
+			config["crater_frequency"] = rng.randf_range(5.0, 9.0)
+			config["crater_depth"] = rng.randf_range(0.12, 0.25)
+		WORLD_KIND_ICE:
+			config["crack_frequency"] = rng.randf_range(5.0, 8.0)
+			config["crack_strength"] = rng.randf_range(0.3, 0.6)
+			var lake_roll := rng.randf()
+			config["lake_amount"] = rng.randf_range(0.3, 0.5) if lake_roll < 0.45 else 0.0
+		WORLD_KIND_LAVA:
+			config["vein_frequency"] = rng.randf_range(3.5, 6.0)
+			config["pulse_speed"] = rng.randf_range(0.4, 0.9)
+			# Capped low: tonemapping washes hot HDR colors toward white.
+			config["vein_emission"] = clampf(float(config.get("emission_energy", 0.36)) * 4.5, 1.3, 1.8)
+			var hot := CelestialBodyPalette.evaluate(config.get("palette", {}), 0.95)
+			config["vein_color"] = hot.lerp(Color(1.0, 0.45, 0.2), 0.85)
+		WORLD_KIND_GAS:
+			config["band_count"] = rng.randi_range(4, 9)
+			config["band_warp"] = rng.randf_range(0.15, 0.45)
+			config["turb_frequency"] = rng.randf_range(2.0, 4.0)
+			config["band_drift"] = rng.randf_range(0.01, 0.025)
+			var spot_roll := rng.randf()
+			var spot_lat := rng.randf_range(0.15, 0.5) * (1.0 if rng.randf() < 0.5 else -1.0)
+			var spot_lon := rng.randf_range(0.0, TAU)
+			config["has_spot"] = spot_roll < 0.5
+			var cos_lat := cos(asin(clampf(spot_lat, -1.0, 1.0)))
+			config["spot_dir"] = Vector3(cos_lat * cos(spot_lon), spot_lat, cos_lat * sin(spot_lon)).normalized()
+			config["spot_radius"] = rng.randf_range(0.12, 0.22)
+			var spot_base := CelestialBodyPalette.evaluate(config.get("palette", {}), 0.95)
+			config["spot_tint"] = spot_base.lerp(Color(0.9, 0.55, 0.5), 0.5)
+
+
+## Single config -> shader/uniform mapping point. Also the seam for a future
+## colony-view equirect baker, which renders the same surface function
+## through a UV -> direction wrapper using this exact material setup.
+static func build_surface_material(visual_config: Dictionary) -> ShaderMaterial:
+	var kind: String = str(visual_config.get("kind", WORLD_KIND_BARREN))
+	var material := ShaderMaterial.new()
+	match kind:
+		WORLD_KIND_LANDMASS:
+			material.shader = TERRAN_SHADER
+		WORLD_KIND_DRY:
+			material.shader = DESERT_SHADER
+		WORLD_KIND_ICE:
+			material.shader = ICE_SHADER
+		WORLD_KIND_LAVA:
+			material.shader = LAVA_SHADER
+		WORLD_KIND_GAS:
+			material.shader = GAS_SHADER
+		_:
+			material.shader = BARREN_SHADER
+
+	_apply_palette(material, visual_config.get("palette", {}))
+	material.set_shader_parameter("noise_offset", visual_config.get("noise_offset", Vector3.ZERO))
+	if kind != WORLD_KIND_GAS:
+		material.set_shader_parameter("noise_frequency", float(visual_config.get("noise_frequency", 3.0)))
+
+	match kind:
+		WORLD_KIND_LANDMASS:
+			material.set_shader_parameter("ocean_level", float(visual_config.get("ocean_level", 0.52)))
+			material.set_shader_parameter("cap_extent", float(visual_config.get("cap_extent", 0.7)))
+			material.set_shader_parameter("continent_warp", float(visual_config.get("continent_warp", 0.18)))
+			material.set_shader_parameter("glint_strength", float(visual_config.get("glint_strength", 0.6)))
+		WORLD_KIND_DRY:
+			material.set_shader_parameter("band_frequency", float(visual_config.get("band_frequency", 4.5)))
+			material.set_shader_parameter("warp_amount", float(visual_config.get("warp_amount", 1.1)))
+			material.set_shader_parameter("crater_strength", float(visual_config.get("crater_strength", 0.0)))
+			material.set_shader_parameter("crater_frequency", float(visual_config.get("crater_frequency", 5.0)))
+		WORLD_KIND_BARREN:
+			material.set_shader_parameter("crater_frequency", float(visual_config.get("crater_frequency", 6.0)))
+			material.set_shader_parameter("crater_depth", float(visual_config.get("crater_depth", 0.18)))
+		WORLD_KIND_ICE:
+			material.set_shader_parameter("crack_frequency", float(visual_config.get("crack_frequency", 6.0)))
+			material.set_shader_parameter("crack_strength", float(visual_config.get("crack_strength", 0.45)))
+			material.set_shader_parameter("lake_amount", float(visual_config.get("lake_amount", 0.0)))
+		WORLD_KIND_LAVA:
+			material.set_shader_parameter("vein_frequency", float(visual_config.get("vein_frequency", 4.5)))
+			material.set_shader_parameter("vein_emission", float(visual_config.get("vein_emission", 2.4)))
+			material.set_shader_parameter("vein_color", visual_config.get("vein_color", Color(1.0, 0.62, 0.35)))
+			material.set_shader_parameter("pulse_speed", float(visual_config.get("pulse_speed", 0.6)))
+			material.set_shader_parameter("phase_offset", float(visual_config.get("phase_offset", 0.0)))
+		WORLD_KIND_GAS:
+			material.set_shader_parameter("band_count", float(visual_config.get("band_count", 6)))
+			material.set_shader_parameter("band_warp", float(visual_config.get("band_warp", 0.3)))
+			material.set_shader_parameter("turb_frequency", float(visual_config.get("turb_frequency", 3.0)))
+			material.set_shader_parameter("band_drift", float(visual_config.get("band_drift", 0.004)))
+			material.set_shader_parameter("phase_offset", float(visual_config.get("phase_offset", 0.0)))
+			material.set_shader_parameter("has_spot", 1.0 if bool(visual_config.get("has_spot", false)) else 0.0)
+			material.set_shader_parameter("spot_dir", visual_config.get("spot_dir", Vector3(0.8, 0.3, 0.5)))
+			material.set_shader_parameter("spot_radius", float(visual_config.get("spot_radius", 0.16)))
+			material.set_shader_parameter("spot_tint", visual_config.get("spot_tint", Color(0.9, 0.6, 0.55)))
+	return material
 
 
 func _rebuild() -> void:
 	for child in get_children():
 		child.free()
-	_camera_facing_nodes.clear()
+	_surface_node = null
+	_clouds_node = null
 
 	if _visual_config.is_empty():
 		return
 
-	var scene_variant: Variant = _visual_config.get("scene", null)
-	var scene: PackedScene = scene_variant as PackedScene
-	if scene == null:
-		return
-
-	var body_layer: Dictionary = {}
-	var ring_layer: Dictionary = {}
-	if bool(_visual_config.get("split_ring", false)):
-		body_layer = _build_planet_texture_layer(scene, PackedStringArray(["Ring"]), 1.0)
-		ring_layer = _build_planet_texture_layer(scene, PackedStringArray(["GasLayers"]), 3.0)
-	else:
-		body_layer = _build_planet_texture_layer(scene)
-	if body_layer.is_empty():
-		return
-
+	var kind: String = str(_visual_config.get("kind", WORLD_KIND_BARREN))
 	var base_diameter: float = float(_visual_config.get("base_diameter", 2.0))
-	if _visual_config.get("atmosphere_alpha", 0.0) > 0.001:
+
+	var planet_root := Node3D.new()
+	planet_root.name = "PlanetRoot"
+	planet_root.rotation.z = float(_visual_config.get("axial_tilt", 0.0))
+	add_child(planet_root)
+
+	var surface := MeshInstance3D.new()
+	surface.name = "Surface"
+	surface.mesh = CelestialMeshLibrary.get_body_sphere()
+	surface.scale = Vector3.ONE * base_diameter
+	surface.rotation.y = float(_visual_config.get("rotation", 0.0))
+	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	surface.material_override = build_surface_material(_visual_config)
+	planet_root.add_child(surface)
+	_surface_node = surface
+
+	if kind == WORLD_KIND_LANDMASS:
+		var clouds := MeshInstance3D.new()
+		clouds.name = "Clouds"
+		clouds.mesh = CelestialMeshLibrary.get_body_sphere()
+		clouds.scale = Vector3.ONE * base_diameter * CLOUD_SHELL_SCALE
+		clouds.rotation.y = float(_visual_config.get("rotation", 0.0)) * 0.7
+		clouds.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		clouds.material_override = _build_clouds_material(_visual_config)
+		planet_root.add_child(clouds)
+		_clouds_node = clouds
+
+	if bool(_visual_config.get("has_atmosphere", false)) and float(_visual_config.get("atmosphere_alpha", 0.0)) > 0.001:
 		var atmosphere := MeshInstance3D.new()
-		var atmosphere_mesh := QuadMesh.new()
-		atmosphere_mesh.size = Vector2.ONE * base_diameter * float(_visual_config.get("atmosphere_scale", 1.16))
-		atmosphere.mesh = atmosphere_mesh
+		atmosphere.name = "Atmosphere"
+		atmosphere.mesh = CelestialMeshLibrary.get_body_sphere()
+		var atmosphere_scale: float = float(_visual_config.get("atmosphere_scale", 1.12))
+		atmosphere.scale = Vector3.ONE * base_diameter * atmosphere_scale
 		atmosphere.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		atmosphere.material_override = _build_halo_material(
-			_visual_config.get("atmosphere_color", Color(0.7, 0.86, 1.0, 1.0)),
-			float(_visual_config.get("atmosphere_alpha", 0.14))
+		atmosphere.material_override = _build_atmosphere_material(_visual_config)
+		planet_root.add_child(atmosphere)
+
+	if bool(_visual_config.get("has_ring", false)):
+		var ring := MeshInstance3D.new()
+		ring.name = "Ring"
+		ring.mesh = CelestialMeshLibrary.get_annulus_mesh()
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ring.transform = Transform3D(
+			_build_ring_basis(
+				float(_visual_config.get("ring_tilt", deg_to_rad(20.0))),
+				float(_visual_config.get("ring_yaw", 0.0))
+			).scaled(Vector3.ONE * base_diameter * RING_SCALE),
+			Vector3.ZERO
 		)
-		add_child(atmosphere)
-		_register_camera_facing_node(atmosphere)
+		ring.material_override = _build_ring_material(_visual_config)
+		add_child(ring)
 
-	if not ring_layer.is_empty():
-		var ring_texture: Texture2D = ring_layer.get("texture", null) as Texture2D
-		if ring_texture != null:
-			var ring_quad := MeshInstance3D.new()
-			var ring_mesh := QuadMesh.new()
-			ring_mesh.size = Vector2.ONE * base_diameter * float(ring_layer.get("relative_scale", 3.0))
-			ring_quad.mesh = ring_mesh
-			ring_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			ring_quad.transform = Transform3D(
-				_build_ring_basis(
-					float(_visual_config.get("ring_tilt", deg_to_rad(20.0))),
-					float(_visual_config.get("ring_yaw", 0.0))
-				),
-				Vector3.ZERO
-			)
-			ring_quad.material_override = _build_planet_material(
-				ring_texture,
-				_visual_config.get("atmosphere_color", Color.WHITE),
-				0.1,
-				BaseMaterial3D.BILLBOARD_DISABLED,
-				1
-			)
-			add_child(ring_quad)
-
-	var body_texture: Texture2D = body_layer.get("texture", null) as Texture2D
-	if body_texture == null:
-		return
-
-	var quad := MeshInstance3D.new()
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2.ONE * base_diameter * float(body_layer.get("relative_scale", 1.0))
-	quad.mesh = mesh
-	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	quad.material_override = _build_planet_material(
-		body_texture,
-		_visual_config.get("atmosphere_color", Color.WHITE),
-		float(_visual_config.get("emission_energy", 0.18)),
-		BaseMaterial3D.BILLBOARD_ENABLED,
-		0
-	)
-	add_child(quad)
-	_update_camera_facing_nodes()
+	if _has_sun_position:
+		_apply_sun_to_materials(self)
 
 
-func _build_planet_texture_layer(
-	scene: PackedScene,
-	hidden_nodes: PackedStringArray = PackedStringArray(),
-	relative_scale_override: float = -1.0
-) -> Dictionary:
-	if scene == null:
-		return {}
-
-	var viewport := SubViewport.new()
-	viewport.disable_3d = true
-	viewport.transparent_bg = true
-	viewport.size = Vector2i(int(VIEWPORT_TARGET_SIZE), int(VIEWPORT_TARGET_SIZE))
-	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	add_child(viewport)
-
-	var holder := Control.new()
-	holder.position = Vector2.ZERO
-	holder.size = Vector2.ONE * VIEWPORT_TARGET_SIZE
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	viewport.add_child(holder)
-
-	var planet_canvas: Node = scene.instantiate()
-	holder.add_child(planet_canvas)
-	_set_canvas_nodes_visible(planet_canvas, hidden_nodes, false)
-
-	var pixels: float = float(_visual_config.get("pixels", DEFAULT_PIXELS))
-	if planet_canvas.has_method("set_pixels"):
-		planet_canvas.call("set_pixels", pixels)
-
-	var relative_scale := 1.0
-	if relative_scale_override > 0.0:
-		relative_scale = relative_scale_override
-	else:
-		var relative_scale_variant: Variant = planet_canvas.get("relative_scale")
-		if relative_scale_variant != null:
-			relative_scale = maxf(float(relative_scale_variant), 1.0)
-	var content_extent: float = maxf(pixels * relative_scale, 1.0)
-	holder.scale = Vector2.ONE * (VIEWPORT_TARGET_SIZE / content_extent)
-
-	if planet_canvas is Control:
-		var planet_control: Control = planet_canvas as Control
-		planet_control.position = Vector2.ONE * pixels * 0.5 * (relative_scale - 1.0)
-
-	var seed_value: int = int(_visual_config.get("seed", 0))
-	seed(seed_value)
-	if planet_canvas.has_method("set_seed"):
-		planet_canvas.call("set_seed", seed_value)
-	if planet_canvas.has_method("set_rotates"):
-		planet_canvas.call("set_rotates", float(_visual_config.get("rotation", 0.0)))
-	if planet_canvas.has_method("set_light"):
-		planet_canvas.call("set_light", _visual_config.get("light_origin", Vector2(0.39, 0.39)))
-	if planet_canvas.has_method("set_dither"):
-		planet_canvas.call("set_dither", true)
-
-	return {
-		"texture": viewport.get_texture(),
-		"relative_scale": relative_scale,
-	}
+static func _apply_palette(material: ShaderMaterial, palette: Dictionary) -> void:
+	material.set_shader_parameter("palette_a", palette.get("a", Vector3(0.5, 0.5, 0.5)))
+	material.set_shader_parameter("palette_b", palette.get("b", Vector3(0.25, 0.25, 0.25)))
+	material.set_shader_parameter("palette_c", palette.get("c", Vector3.ONE))
+	material.set_shader_parameter("palette_d", palette.get("d", Vector3.ZERO))
 
 
-func _set_canvas_nodes_visible(planet_canvas: Node, node_names: PackedStringArray, is_visible: bool) -> void:
-	for node_name in node_names:
-		var canvas_item: CanvasItem = planet_canvas.find_child(node_name, true, false) as CanvasItem
-		if canvas_item != null:
-			canvas_item.visible = is_visible
-
-
-func _build_planet_material(
-	texture: Texture2D,
-	emission_color: Color,
-	emission_energy: float,
-	billboard_mode: BaseMaterial3D.BillboardMode,
-	render_priority: int = 0
-) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.billboard_mode = billboard_mode
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	material.albedo_texture = texture
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	material.emission_enabled = true
-	material.emission = emission_color
-	material.emission_energy_multiplier = emission_energy
-	material.render_priority = render_priority
+static func _build_clouds_material(visual_config: Dictionary) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = CLOUDS_SHADER
+	material.render_priority = 1
+	material.set_shader_parameter("noise_offset", visual_config.get("noise_offset", Vector3.ZERO) + Vector3(101.3, 57.1, 211.7))
+	material.set_shader_parameter("cloud_frequency", float(visual_config.get("cloud_frequency", 3.0)))
+	material.set_shader_parameter("cloud_cover", float(visual_config.get("cloud_cover", 0.52)))
+	material.set_shader_parameter("cloud_density", float(visual_config.get("cloud_density", 0.85)))
+	var cloud_tint := CelestialBodyPalette.evaluate(visual_config.get("palette", {}), 0.85)
+	material.set_shader_parameter("cloud_tint", Color.WHITE.lerp(cloud_tint, 0.1))
 	return material
+
+
+static func _build_atmosphere_material(visual_config: Dictionary) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = ATMOSPHERE_SHADER
+	material.render_priority = 2
+	var atmosphere_color: Color = visual_config.get("atmosphere_color", Color(0.72, 0.9, 1.0, 1.0))
+	atmosphere_color.a = float(visual_config.get("atmosphere_alpha", 0.14)) * 4.0
+	material.set_shader_parameter("atmosphere_color", atmosphere_color)
+	material.set_shader_parameter("intensity", 1.3)
+	material.set_shader_parameter("limb_ratio", 1.0 / maxf(float(visual_config.get("atmosphere_scale", 1.12)), 1.001))
+	return material
+
+
+static func _build_ring_material(visual_config: Dictionary) -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = RING_SHADER
+	material.render_priority = 3
+	_apply_palette(material, visual_config.get("palette", {}))
+	var seed_value: int = int(visual_config.get("seed", 0))
+	material.set_shader_parameter("band_seed", float(absi(seed_value) % 1000) / 1000.0)
+	material.set_shader_parameter("band_frequency", 6.0 + float(absi(seed_value) % 7))
+	material.set_shader_parameter("gap_position", 0.35 + float(absi(seed_value) % 35) / 100.0)
+	material.set_shader_parameter("planet_radius", float(visual_config.get("base_diameter", 2.0)) * 0.5)
+	return material
+
+
+func _apply_sun_to_materials(node: Node) -> void:
+	if node is GeometryInstance3D:
+		var material := (node as GeometryInstance3D).material_override as ShaderMaterial
+		if material != null:
+			material.set_shader_parameter("sun_mode", 1.0)
+			material.set_shader_parameter("sun_position", _sun_world_position)
+	for child in node.get_children():
+		_apply_sun_to_materials(child)
 
 
 func _build_ring_basis(ring_tilt: float, ring_yaw: float) -> Basis:
@@ -339,120 +465,32 @@ func _build_ring_basis(ring_tilt: float, ring_yaw: float) -> Basis:
 	return Basis(x_axis, y_axis, ring_normal)
 
 
-func _register_camera_facing_node(node: Node3D) -> void:
-	if node == null:
-		return
-	_camera_facing_nodes.append(node)
-
-
-func _update_camera_facing_nodes() -> void:
-	if _camera_facing_nodes.is_empty():
-		return
-	var camera: Camera3D = get_viewport().get_camera_3d()
-	if camera == null:
-		return
-	var camera_basis: Basis = camera.global_transform.basis.orthonormalized()
-	for node in _camera_facing_nodes:
-		if not is_instance_valid(node):
-			continue
-		var node_transform: Transform3D = node.global_transform
-		node_transform.basis = camera_basis
-		node.global_transform = node_transform
-
-
-func _build_halo_material(color: Color, alpha: float) -> ShaderMaterial:
-	var material := ShaderMaterial.new()
-	material.shader = ATMOSPHERE_HALO_SHADER
-	material.render_priority = 2
-	var halo_color: Color = color
-	halo_color.a = alpha
-	material.set_shader_parameter("halo_color", halo_color)
-	material.set_shader_parameter("inner_radius", 0.3)
-	material.set_shader_parameter("outer_radius", 0.5)
-	material.set_shader_parameter("softness", 0.2)
-	return material
-
-
-static func _resolve_scene_variant(
-	rng: RandomNumberGenerator,
-	kind: String,
-	_has_ring: bool,
-	visual_metadata: Dictionary
-) -> String:
-	var explicit_variant: String = str(visual_metadata.get("scene_variant", "")).strip_edges().to_lower()
-	if not explicit_variant.is_empty():
-		return explicit_variant
-
+static func _get_palette_params(kind: String) -> Dictionary:
 	match kind:
 		WORLD_KIND_LANDMASS:
-			if visual_metadata.has("variant_index"):
-				return "rivers" if int(visual_metadata.get("variant_index", 0)) % 2 == 1 else "landmass"
-			return "rivers" if rng.randf() < 0.38 else "landmass"
+			return {"hue_diff": 0.6, "saturation": 0.55, "anchor_strength": 0.35}
 		WORLD_KIND_DRY:
-			return "dry_terran"
+			return {"hue_diff": 0.4, "saturation": 0.5, "anchor_strength": 0.45}
 		WORLD_KIND_ICE:
-			return "ice_world"
+			return {"hue_diff": 0.35, "saturation": 0.3, "anchor_strength": 0.45}
 		WORLD_KIND_LAVA:
-			return "lava_world"
+			return {"hue_diff": 0.25, "saturation": 0.5, "anchor_strength": 0.6}
 		WORLD_KIND_GAS:
-			return "gas_planet_layers"
+			return {"hue_diff": 0.5, "saturation": 0.45, "anchor_strength": 0.5}
 		_:
-			return "no_atmosphere"
+			return {"hue_diff": 0.3, "saturation": 0.25, "anchor_strength": 0.5}
 
 
-static func _get_scene_for_variant(scene_variant: String) -> PackedScene:
-	match scene_variant:
-		"rivers":
-			return RIVERS_SCENE
-		"dry_terran":
-			return DRY_TERRAN_SCENE
-		"ice_world":
-			return ICE_WORLD_SCENE
-		"lava_world":
-			return LAVA_WORLD_SCENE
-		"gas_planet":
-			return GAS_PLANET_SCENE
-		"gas_planet_layers":
-			return GAS_PLANET_LAYERS_SCENE
-		"no_atmosphere":
-			return NO_ATMOSPHERE_SCENE
-		_:
-			return LANDMASSES_SCENE
-
-
-static func _resolve_light_origin(scene_variant: String, visual_metadata: Dictionary) -> Vector2:
-	if visual_metadata.has("light_origin") and visual_metadata["light_origin"] is Vector2:
-		return visual_metadata["light_origin"]
-
-	match scene_variant:
-		"dry_terran":
-			return Vector2(0.4, 0.3)
-		"ice_world":
-			return Vector2(0.3, 0.3)
-		"lava_world":
-			return Vector2(0.3, 0.3)
-		"no_atmosphere":
-			return Vector2(0.25, 0.25)
-		"gas_planet":
-			return Vector2(0.25, 0.25)
-		"gas_planet_layers":
-			return Vector2(-0.1, 0.3)
-		_:
-			return Vector2(0.39, 0.39)
-
-
-static func _get_atmosphere_color(scene_variant: String) -> Color:
-	match scene_variant:
-		"ice_world":
+static func _get_atmosphere_color(kind: String) -> Color:
+	match kind:
+		WORLD_KIND_ICE:
 			return Color(0.78, 0.9, 1.0, 1.0)
-		"dry_terran":
+		WORLD_KIND_DRY:
 			return Color(0.98, 0.84, 0.72, 1.0)
-		"lava_world":
+		WORLD_KIND_LAVA:
 			return Color(1.0, 0.62, 0.42, 1.0)
-		"gas_planet":
+		WORLD_KIND_GAS:
 			return Color(0.96, 0.84, 0.66, 1.0)
-		"gas_planet_layers":
-			return Color(0.96, 0.82, 0.68, 1.0)
 		_:
 			return Color(0.72, 0.9, 1.0, 1.0)
 

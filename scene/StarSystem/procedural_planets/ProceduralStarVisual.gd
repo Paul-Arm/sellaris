@@ -1,19 +1,41 @@
 extends Node3D
 class_name ProceduralStarVisual
 
-const STAR_SCENE: PackedScene = preload("res://Planets/Star/Star.tscn")
-const BLACK_HOLE_SCENE: PackedScene = preload("res://Planets/BlackHole/BlackHole.tscn")
-const HALO_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/AtmosphereHalo.gdshader")
+## Real 3D procedural star: emissive sphere with live granulation shader plus
+## an additive corona billboard (billboarded shader-side). Special types:
+## neutron star (small pulsing core + sweeping lighthouse beam cones) and
+## black hole (dark core with photon ring + doppler accretion disk).
+## Deterministic via _get_star_seed; entry points (configure /
+## build_visual_config) are stable API.
 
-const VIEWPORT_TARGET_SIZE := 768.0
-const DEFAULT_PIXELS := 2400.0
-const MIN_PIXELS := 1600.0
-const MAX_PIXELS := 3400.0
+const STAR_SURFACE_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/StarSurface.gdshader")
+const STAR_CORONA_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/StarCorona.gdshader")
+const STAR_PLASMA_ARMS_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/StarPlasmaArms.gdshader")
+const BLACK_HOLE_CORE_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/BlackHoleCore.gdshader")
+const ACCRETION_DISK_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/AccretionDisk.gdshader")
+const NEUTRON_BEAMS_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/NeutronBeams.gdshader")
+
 const STAR_SCALE_MULTIPLIER := 3.2
+const STAR_KIND_NORMAL := "star"
+const STAR_KIND_NEUTRON := "neutron"
+const STAR_KIND_BLACK_HOLE := "black_hole"
+
+# Per-class look table M -> O. The generator currently emits M/K/G/B plus
+# specials; the full table keeps custom systems working.
+const STAR_CLASS_PARAMS := {
+	"M": {"cell_frequency": 4.0, "core_energy": 1.6},
+	"K": {"cell_frequency": 5.0, "core_energy": 1.7},
+	"G": {"cell_frequency": 6.0, "core_energy": 1.8},
+	"F": {"cell_frequency": 7.0, "core_energy": 1.9},
+	"A": {"cell_frequency": 8.0, "core_energy": 2.0},
+	"B": {"cell_frequency": 9.0, "core_energy": 2.2},
+	"O": {"cell_frequency": 10.0, "core_energy": 2.4},
+}
 
 var _star: Dictionary = {}
 var _visual_config: Dictionary = {}
-var _camera_facing_nodes: Array[Node3D] = []
+var _beams_pivot: Node3D = null
+var _plasma_arms_root: Node3D = null
 
 
 func configure(star: Dictionary) -> void:
@@ -28,10 +50,16 @@ func _ready() -> void:
 		_rebuild()
 
 
-func _process(_delta: float) -> void:
-	_update_camera_facing_nodes()
+func _process(delta: float) -> void:
+	if _beams_pivot != null:
+		_beams_pivot.rotate_y(float(_visual_config.get("beam_spin", 0.45)) * delta)
+	if _plasma_arms_root != null:
+		_plasma_arms_root.rotate_y(0.035 * delta)
 
 
+# Pure-data dict (no Resources). RNG draw order (append only, never reorder):
+# surface rotation -> disk tilt -> phase offset -> noise offset (3) ->
+# kind-specific draws (neutron: pulse speed, beam spin, beam tilt).
 static func build_visual_config(star: Dictionary) -> Dictionary:
 	var metadata_variant: Variant = star.get("metadata", {})
 	var metadata: Dictionary = metadata_variant if metadata_variant is Dictionary else {}
@@ -43,206 +71,322 @@ static func build_visual_config(star: Dictionary) -> Dictionary:
 
 	var special_type: String = str(star.get("special_type", "none"))
 	var is_black_hole: bool = special_type == "Black hole"
-	var scene: PackedScene = BLACK_HOLE_SCENE if is_black_hole else STAR_SCENE
+	var is_neutron: bool = special_type == "Neutron star"
 	var base_color: Color = star.get("color", Color(1.0, 0.9, 0.7, 1.0))
 	var star_scale: float = float(star.get("scale", 1.0))
+	var star_class: String = _resolve_star_class(star, special_type)
+	var class_params: Dictionary = STAR_CLASS_PARAMS.get(star_class, STAR_CLASS_PARAMS["G"])
+
 	var halo_color: Color = base_color
-	var halo_alpha := 0.18
-	var halo_scale := 1.26
-	var emission_color: Color = base_color
-	var emission_energy := 0.64
+	var halo_alpha := 0.22
+	# Tight glow fringe: the cloud reaches only ~15% of the diameter past
+	# the limb, hugging the star.
+	var halo_scale := 1.3
 	var surface_rotation: float = float(visual.get("rotation", rng.randf_range(-PI, PI)))
 	var disk_yaw: float = wrapf(surface_rotation * 0.55 + 0.7, -PI, PI)
 	var disk_tilt: float = deg_to_rad(rng.randf_range(18.0, 30.0))
+	var phase_offset: float = rng.randf_range(0.0, 1000.0)
+	var noise_offset := Vector3(
+		rng.randf_range(0.0, 512.0),
+		rng.randf_range(0.0, 512.0),
+		rng.randf_range(0.0, 512.0)
+	)
 
-	if is_black_hole:
+	var color_hot: Color = _soften_color(base_color.lightened(0.45), 0.18).lerp(Color.WHITE, 0.25)
+	var color_cool: Color = _soften_color(base_color.darkened(0.2), 0.12)
+	var cell_frequency: float = float(class_params.get("cell_frequency", 6.0))
+	var core_energy: float = float(class_params.get("core_energy", 1.8))
+	var kind := STAR_KIND_NORMAL
+	var pulse_speed := 0.0
+	var beam_spin := 0.0
+	var beam_tilt := 0.0
+
+	if special_type == "O class star":
+		halo_scale = 1.4
+		halo_alpha = 0.26
+		cell_frequency = 10.0
+		core_energy = 2.4
+		color_hot = Color(0.78, 0.86, 1.0).lerp(Color.WHITE, 0.3)
+		color_cool = Color(0.52, 0.62, 0.95)
+	elif is_neutron:
+		kind = STAR_KIND_NEUTRON
+		halo_color = Color(0.78, 0.88, 1.0, 1.0)
+		halo_alpha = 0.3
+		halo_scale = 1.5
+		color_hot = Color(0.94, 0.97, 1.0)
+		color_cool = Color(0.7, 0.82, 1.0)
+		core_energy = 3.0
+		cell_frequency = 9.0
+		pulse_speed = rng.randf_range(4.0, 8.0)
+		beam_spin = rng.randf_range(0.08, 0.18)
+		beam_tilt = rng.randf_range(0.15, 0.4)
+	elif is_black_hole:
+		kind = STAR_KIND_BLACK_HOLE
 		halo_color = Color(0.52, 0.72, 1.0, 1.0)
 		halo_alpha = 0.08
 		halo_scale = 1.34
-		emission_color = Color(0.86, 0.78, 0.66, 1.0)
-		emission_energy = 0.42
 
 	return {
-		"scene": scene,
+		"kind": kind,
 		"seed": seed_value,
-		"pixels": clampf(float(visual.get("pixels", DEFAULT_PIXELS)), MIN_PIXELS, MAX_PIXELS),
 		"rotation": surface_rotation,
 		"base_diameter": (5.0 if is_black_hole else 4.0) * star_scale * STAR_SCALE_MULTIPLIER,
 		"halo_color": halo_color,
 		"halo_alpha": halo_alpha,
 		"halo_scale": halo_scale,
-		"emission_color": emission_color,
-		"emission_energy": emission_energy,
+		"color_cool": color_cool,
+		"color_hot": color_hot,
+		"cell_frequency": cell_frequency,
+		"core_energy": core_energy,
+		"pulse_speed": pulse_speed,
+		"beam_spin": beam_spin,
+		"beam_tilt": beam_tilt,
+		"phase_offset": phase_offset,
+		"noise_offset": noise_offset,
 		"is_black_hole": is_black_hole,
-		"split_disk": false,
 		"disk_yaw": float(visual.get("disk_yaw", disk_yaw)),
 		"disk_tilt": float(visual.get("disk_tilt", disk_tilt)),
-		"scene_colors": PackedColorArray() if is_black_hole else _build_star_scene_colors(base_color),
 	}
 
 
 func _rebuild() -> void:
 	for child in get_children():
 		child.free()
-	_camera_facing_nodes.clear()
+	_beams_pivot = null
+	_plasma_arms_root = null
 
-	var scene_variant: Variant = _visual_config.get("scene", null)
-	var scene: PackedScene = scene_variant as PackedScene
-	if scene == null:
+	if _visual_config.is_empty():
 		return
 
-	var body_layer: Dictionary = {}
-	var disk_layer: Dictionary = {}
-	if bool(_visual_config.get("split_disk", false)):
-		body_layer = _build_star_texture_layer(scene, PackedStringArray(["Disk"]), 1.0)
-		disk_layer = _build_star_texture_layer(scene, PackedStringArray(["BlackHole"]), 3.0)
-	else:
-		body_layer = _build_star_texture_layer(scene)
-	if body_layer.is_empty():
-		return
+	var kind: String = str(_visual_config.get("kind", STAR_KIND_NORMAL))
+	var base_diameter: float = float(_visual_config.get("base_diameter", 12.8))
 
-	if _visual_config.get("halo_alpha", 0.0) > 0.001:
-		var halo := MeshInstance3D.new()
-		var halo_mesh := QuadMesh.new()
-		var halo_size: float = float(_visual_config.get("base_diameter", 4.0)) * float(_visual_config.get("halo_scale", 1.26))
-		halo_mesh.size = Vector2.ONE * halo_size
-		halo.mesh = halo_mesh
-		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		halo.material_override = _build_halo_material(
-			_visual_config.get("halo_color", Color.WHITE),
-			float(_visual_config.get("halo_alpha", 0.18))
-		)
-		add_child(halo)
-		_register_camera_facing_node(halo)
-
-	if not disk_layer.is_empty():
-		var disk_texture: Texture2D = disk_layer.get("texture", null) as Texture2D
-		if disk_texture != null:
-			var disk_quad := MeshInstance3D.new()
-			var disk_mesh := QuadMesh.new()
-			disk_mesh.size = Vector2.ONE * float(_visual_config.get("base_diameter", 4.0)) * float(disk_layer.get("relative_scale", 3.0))
-			disk_quad.mesh = disk_mesh
-			disk_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			disk_quad.transform = Transform3D(
-				_build_disk_basis(
-					float(_visual_config.get("disk_tilt", deg_to_rad(24.0))),
-					float(_visual_config.get("disk_yaw", 0.0))
-				),
-				Vector3.ZERO
-			)
-			disk_quad.material_override = _build_body_material(
-				disk_texture,
-				_visual_config.get("emission_color", Color.WHITE),
-				0.16,
-				BaseMaterial3D.BILLBOARD_DISABLED,
-				1
-			)
-			add_child(disk_quad)
-
-	var body_texture: Texture2D = body_layer.get("texture", null) as Texture2D
-	if body_texture == null:
-		return
-
-	var body := MeshInstance3D.new()
-	var body_mesh := QuadMesh.new()
-	body_mesh.size = Vector2.ONE * float(_visual_config.get("base_diameter", 4.0)) * float(body_layer.get("relative_scale", 1.0))
-	body.mesh = body_mesh
-	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	body.material_override = _build_body_material(
-		body_texture,
-		_visual_config.get("emission_color", Color.WHITE),
-		float(_visual_config.get("emission_energy", 0.64)),
-		BaseMaterial3D.BILLBOARD_ENABLED,
-		0
-	)
-	add_child(body)
-	_update_camera_facing_nodes()
+	match kind:
+		STAR_KIND_BLACK_HOLE:
+			_build_black_hole(base_diameter)
+		STAR_KIND_NEUTRON:
+			_build_star_body(base_diameter, base_diameter * 0.35)
+			_build_neutron_beams(base_diameter)
+		_:
+			_build_star_body(base_diameter, base_diameter)
 
 
-func _build_star_texture_layer(
-	scene: PackedScene,
-	hidden_nodes: PackedStringArray = PackedStringArray(),
-	relative_scale_override: float = -1.0
-) -> Dictionary:
-	if scene == null:
-		return {}
+func _build_star_body(base_diameter: float, sphere_diameter: float) -> void:
+	var surface := MeshInstance3D.new()
+	surface.name = "Surface"
+	surface.mesh = CelestialMeshLibrary.get_body_sphere()
+	surface.scale = Vector3.ONE * sphere_diameter
+	surface.rotation.y = float(_visual_config.get("rotation", 0.0))
+	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	surface.material_override = _build_surface_material()
+	add_child(surface)
+	_build_corona(base_diameter)
+	if str(_visual_config.get("kind", STAR_KIND_NORMAL)) == STAR_KIND_NORMAL:
+		_build_plasma_arms(sphere_diameter)
 
-	var viewport := SubViewport.new()
-	viewport.disable_3d = true
-	viewport.transparent_bg = true
-	viewport.size = Vector2i(int(VIEWPORT_TARGET_SIZE), int(VIEWPORT_TARGET_SIZE))
-	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	add_child(viewport)
 
-	var holder := Control.new()
-	holder.position = Vector2.ZERO
-	holder.size = Vector2.ONE * VIEWPORT_TARGET_SIZE
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	viewport.add_child(holder)
-
-	var star_canvas: Node = scene.instantiate()
-	holder.add_child(star_canvas)
-	_set_canvas_nodes_visible(star_canvas, hidden_nodes, false)
-
-	var pixels: float = float(_visual_config.get("pixels", DEFAULT_PIXELS))
-	if star_canvas.has_method("set_pixels"):
-		star_canvas.call("set_pixels", pixels)
-
-	var relative_scale := 1.0
-	if relative_scale_override > 0.0:
-		relative_scale = relative_scale_override
-	else:
-		var relative_scale_variant: Variant = star_canvas.get("relative_scale")
-		if relative_scale_variant != null:
-			relative_scale = maxf(float(relative_scale_variant), 1.0)
-	var content_extent: float = maxf(pixels * relative_scale, 1.0)
-	holder.scale = Vector2.ONE * (VIEWPORT_TARGET_SIZE / content_extent)
-
-	if star_canvas is Control:
-		var star_control: Control = star_canvas as Control
-		star_control.position = Vector2.ONE * pixels * 0.5 * (relative_scale - 1.0)
-
+## True-3D solar prominences: half-torus arc tubes anchored on the star
+## sphere, randomly oriented in 3D (seeded hash — no extra RNG draws), each
+## with its own lifecycle phase. The whole arm group rotates slowly so the
+## arcs parallax with the camera and travel across the surface.
+func _build_plasma_arms(sphere_diameter: float) -> void:
+	var star_radius: float = sphere_diameter * 0.5
 	var seed_value: int = int(_visual_config.get("seed", 0))
-	if star_canvas.has_method("set_seed"):
-		star_canvas.call("set_seed", seed_value)
-	if star_canvas.has_method("set_rotates"):
-		star_canvas.call("set_rotates", float(_visual_config.get("rotation", 0.0)))
+	var arm_count: int = 5 + absi(seed_value * 2654435761) % 3
 
-	var scene_colors: PackedColorArray = _visual_config.get("scene_colors", PackedColorArray())
-	if not scene_colors.is_empty() and star_canvas.has_method("set_colors"):
-		star_canvas.call("set_colors", scene_colors)
+	# Thin pale streamers in the star's own tint (Stellaris artwork wisps).
+	var base: Color = _visual_config.get("halo_color", Color(1.0, 0.85, 0.6))
+	var plasma: Color = base.lerp(Color.WHITE, 0.35)
+	plasma.a = 0.55
+	var tip: Color = base.lerp(Color.WHITE, 0.15)
+	var phase_base: float = float(_visual_config.get("phase_offset", 0.0))
 
-	return {
-		"texture": viewport.get_texture(),
-		"relative_scale": relative_scale,
-	}
+	_plasma_arms_root = Node3D.new()
+	_plasma_arms_root.name = "PlasmaArms"
+	# Seeded global tilt so the stratified pattern differs per star.
+	_plasma_arms_root.basis = Basis.from_euler(Vector3(
+		_hash01(seed_value, 901) * TAU,
+		_hash01(seed_value, 902) * TAU,
+		0.0
+	))
+	add_child(_plasma_arms_root)
+
+	var golden_angle := PI * (3.0 - sqrt(5.0))
+	for arm_index in range(arm_count):
+		var h1 := _hash01(seed_value, arm_index * 3 + 1)
+		var h2 := _hash01(seed_value, arm_index * 3 + 2)
+		var h3 := _hash01(seed_value, arm_index * 3 + 3)
+
+		# Arc chord on the sphere; feet pushed slightly below the surface.
+		var arc_scale: float = star_radius * lerpf(0.85, 1.3, h2)
+		var foot_half_span: float = arc_scale * 0.5
+		var lift: float = sqrt(maxf(star_radius * star_radius - foot_half_span * foot_half_span, 0.0)) * 0.97
+
+		# Stratified placement: fibonacci-sphere apex directions with seeded
+		# jitter — evenly spread, never clumped on one hemisphere.
+		var apex_y: float = 1.0 - 2.0 * (float(arm_index) + 0.5) / float(arm_count)
+		apex_y = clampf(apex_y + (h3 - 0.5) * 0.3, -0.98, 0.98)
+		var apex_theta: float = golden_angle * float(arm_index) + (h1 - 0.5) * 1.2
+		var ring_radius: float = sqrt(maxf(1.0 - apex_y * apex_y, 0.0))
+		var apex_dir := Vector3(cos(apex_theta) * ring_radius, apex_y, sin(apex_theta) * ring_radius)
+
+		var helper := Vector3.RIGHT if absf(apex_dir.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD
+		var x_axis := helper.cross(apex_dir).normalized()
+		var arc_basis := Basis(x_axis, apex_dir, x_axis.cross(apex_dir)).rotated(apex_dir, h2 * TAU)
+
+		var pivot := Node3D.new()
+		pivot.name = "ArmPivot%d" % arm_index
+		pivot.basis = arc_basis
+		_plasma_arms_root.add_child(pivot)
+
+		var arm := MeshInstance3D.new()
+		arm.name = "Arc"
+		arm.mesh = CelestialMeshLibrary.get_prominence_arc()
+		arm.position = Vector3(0.0, lift, 0.0)
+		# Varied arch heights: stretch only the rise direction.
+		arm.scale = Vector3(arc_scale, arc_scale * lerpf(0.8, 1.3, h3), arc_scale)
+		arm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+		var material := ShaderMaterial.new()
+		material.shader = STAR_PLASMA_ARMS_SHADER
+		material.render_priority = 1
+		material.set_shader_parameter("plasma_color", plasma)
+		material.set_shader_parameter("plasma_tip_color", tip)
+		material.set_shader_parameter("phase_offset", phase_base + float(arm_index) * 17.3)
+		material.set_shader_parameter("life_speed", lerpf(0.05, 0.12, h3))
+		material.set_shader_parameter("flow_speed", lerpf(0.7, 1.3, h1))
+		arm.material_override = material
+		pivot.add_child(arm)
 
 
-func _set_canvas_nodes_visible(star_canvas: Node, node_names: PackedStringArray, is_visible: bool) -> void:
-	for node_name in node_names:
-		var canvas_item: CanvasItem = star_canvas.find_child(node_name, true, false) as CanvasItem
-		if canvas_item != null:
-			canvas_item.visible = is_visible
+# Well-mixed integer hash: consecutive salts must decorrelate, otherwise the
+# prominence arcs cluster on one hemisphere.
+static func _hash01(seed_value: int, salt: int) -> float:
+	var hashed: int = seed_value * 2654435761 + salt * 0x9E3779B9
+	hashed = (hashed ^ (hashed >> 16)) * 73856093
+	hashed = hashed ^ (hashed >> 13)
+	hashed = hashed * 0x85EBCA6B
+	hashed = hashed ^ (hashed >> 16)
+	return float(absi(hashed) % 1048576) / 1048576.0
 
 
-func _build_body_material(
-	texture: Texture2D,
-	emission_color: Color,
-	emission_energy: float,
-	billboard_mode: BaseMaterial3D.BillboardMode,
-	render_priority: int = 0
-) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.billboard_mode = billboard_mode
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	material.albedo_texture = texture
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	material.emission_enabled = true
-	material.emission = emission_color
-	material.emission_energy_multiplier = emission_energy
-	material.render_priority = render_priority
+func _build_black_hole(base_diameter: float) -> void:
+	var core := MeshInstance3D.new()
+	core.name = "Core"
+	core.mesh = CelestialMeshLibrary.get_body_sphere()
+	core.scale = Vector3.ONE * base_diameter * 0.5
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var core_material := ShaderMaterial.new()
+	core_material.shader = BLACK_HOLE_CORE_SHADER
+	core.material_override = core_material
+	add_child(core)
+
+	var disk := MeshInstance3D.new()
+	disk.name = "AccretionDisk"
+	disk.mesh = CelestialMeshLibrary.get_annulus_mesh()
+	disk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	disk.transform = Transform3D(
+		_build_disk_basis(
+			float(_visual_config.get("disk_tilt", deg_to_rad(24.0))),
+			float(_visual_config.get("disk_yaw", 0.0))
+		).scaled(Vector3.ONE * base_diameter * 0.7),
+		Vector3.ZERO
+	)
+	var disk_material := ShaderMaterial.new()
+	disk_material.shader = ACCRETION_DISK_SHADER
+	disk_material.render_priority = 1
+	var seed_value: int = int(_visual_config.get("seed", 0))
+	disk_material.set_shader_parameter("band_seed", float(absi(seed_value) % 1000) / 1000.0)
+	disk.material_override = disk_material
+	add_child(disk)
+
+	_build_corona(base_diameter)
+
+
+# Long thin polar jets tapering to a point far from the star, plus a flat
+# equatorial glow disk — the classic pulsar look. Both live under the tilted
+# pivot so they precess together.
+func _build_neutron_beams(base_diameter: float) -> void:
+	_beams_pivot = Node3D.new()
+	_beams_pivot.name = "BeamsPivot"
+	add_child(_beams_pivot)
+
+	var beams_tilt := Node3D.new()
+	beams_tilt.name = "BeamsTilt"
+	beams_tilt.rotation.z = float(_visual_config.get("beam_tilt", 0.3))
+	_beams_pivot.add_child(beams_tilt)
+
+	var beam_material := ShaderMaterial.new()
+	beam_material.shader = NEUTRON_BEAMS_SHADER
+	beam_material.render_priority = 1
+	beam_material.set_shader_parameter("pulse_speed", float(_visual_config.get("pulse_speed", 5.0)))
+	beam_material.set_shader_parameter("phase_offset", float(_visual_config.get("phase_offset", 0.0)))
+
+	# One tall quad spans both jets (y = 0 at the star, tips at +/-2.6
+	# diameters); the shader billboards it around the jet axis.
+	var beam := MeshInstance3D.new()
+	beam.name = "Beam0"
+	var beam_quad := QuadMesh.new()
+	beam_quad.size = Vector2(base_diameter * 0.55, base_diameter * 5.2)
+	beam.mesh = beam_quad
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	beam.material_override = beam_material
+	beams_tilt.add_child(beam)
+
+	var disk := MeshInstance3D.new()
+	disk.name = "EquatorialDisk"
+	disk.mesh = CelestialMeshLibrary.get_annulus_mesh()
+	disk.scale = Vector3.ONE * base_diameter * 1.4
+	disk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var disk_material := ShaderMaterial.new()
+	disk_material.shader = ACCRETION_DISK_SHADER
+	disk_material.render_priority = 1
+	disk_material.set_shader_parameter("inner_color", Color(0.88, 0.94, 1.0))
+	disk_material.set_shader_parameter("mid_color", Color(0.6, 0.76, 1.0))
+	disk_material.set_shader_parameter("outer_color", Color(0.34, 0.5, 0.9))
+	disk_material.set_shader_parameter("disk_emission", 1.1)
+	disk_material.set_shader_parameter("doppler_strength", 0.0)
+	disk_material.set_shader_parameter("scroll_speed", 0.05)
+	disk_material.set_shader_parameter("spiral_shear", 2.0)
+	disk_material.set_shader_parameter("disk_alpha", 0.4)
+	disk_material.set_shader_parameter("band_seed", float(absi(int(_visual_config.get("seed", 0))) % 1000) / 1000.0)
+	disk.material_override = disk_material
+	beams_tilt.add_child(disk)
+
+
+func _build_corona(base_diameter: float) -> void:
+	if float(_visual_config.get("halo_alpha", 0.0)) <= 0.001:
+		return
+	var corona := MeshInstance3D.new()
+	corona.name = "Corona"
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE * base_diameter * float(_visual_config.get("halo_scale", 1.26))
+	corona.mesh = quad
+	corona.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := ShaderMaterial.new()
+	material.shader = STAR_CORONA_SHADER
+	material.render_priority = 2
+	var corona_color: Color = _visual_config.get("halo_color", Color.WHITE)
+	corona_color.a = clampf(float(_visual_config.get("halo_alpha", 0.18)) * 2.2, 0.0, 1.0)
+	material.set_shader_parameter("corona_color", corona_color)
+	material.set_shader_parameter("phase_offset", float(_visual_config.get("phase_offset", 0.0)))
+	# The cloud starts at the star limb (quad spans halo_scale diameters).
+	var halo_scale: float = maxf(float(_visual_config.get("halo_scale", 1.9)), 1.05)
+	material.set_shader_parameter("core_radius", 0.98 / halo_scale)
+	corona.material_override = material
+	add_child(corona)
+
+
+func _build_surface_material() -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = STAR_SURFACE_SHADER
+	material.set_shader_parameter("noise_offset", _visual_config.get("noise_offset", Vector3.ZERO))
+	material.set_shader_parameter("cell_frequency", float(_visual_config.get("cell_frequency", 6.0)))
+	material.set_shader_parameter("color_cool", _visual_config.get("color_cool", Color(0.95, 0.62, 0.35)))
+	material.set_shader_parameter("color_hot", _visual_config.get("color_hot", Color(1.0, 0.94, 0.78)))
+	material.set_shader_parameter("core_energy", float(_visual_config.get("core_energy", 1.8)))
+	material.set_shader_parameter("pulse_speed", float(_visual_config.get("pulse_speed", 0.0)))
+	material.set_shader_parameter("phase_offset", float(_visual_config.get("phase_offset", 0.0)))
 	return material
 
 
@@ -256,58 +400,17 @@ func _build_disk_basis(disk_tilt: float, disk_yaw: float) -> Basis:
 	return Basis(x_axis, y_axis, disk_normal)
 
 
-func _register_camera_facing_node(node: Node3D) -> void:
-	if node == null:
-		return
-	_camera_facing_nodes.append(node)
-
-
-func _update_camera_facing_nodes() -> void:
-	if _camera_facing_nodes.is_empty():
-		return
-	var camera: Camera3D = get_viewport().get_camera_3d()
-	if camera == null:
-		return
-	var camera_basis: Basis = camera.global_transform.basis.orthonormalized()
-	for node in _camera_facing_nodes:
-		if not is_instance_valid(node):
-			continue
-		var node_transform: Transform3D = node.global_transform
-		node_transform.basis = camera_basis
-		node.global_transform = node_transform
-
-
-func _build_halo_material(color: Color, alpha: float) -> ShaderMaterial:
-	var material := ShaderMaterial.new()
-	material.shader = HALO_SHADER
-	material.render_priority = 2
-	var halo_color: Color = color
-	halo_color.a = alpha
-	material.set_shader_parameter("halo_color", halo_color)
-	material.set_shader_parameter("inner_radius", 0.18)
-	material.set_shader_parameter("outer_radius", 0.55)
-	material.set_shader_parameter("softness", 0.18)
-	return material
+static func _resolve_star_class(star: Dictionary, special_type: String) -> String:
+	if special_type == "O class star":
+		return "O"
+	var star_class := str(star.get("star_class", "")).strip_edges().to_upper()
+	if STAR_CLASS_PARAMS.has(star_class):
+		return star_class
+	return "G"
 
 
 static func _get_star_seed(star: Dictionary) -> int:
 	return str(star.get("id", star.get("name", "star"))).hash() * 131 + int(round(float(star.get("scale", 1.0)) * 100.0))
-
-
-static func _build_star_scene_colors(base_color: Color) -> PackedColorArray:
-	var warm_high := _soften_color(base_color.lightened(0.45), 0.18)
-	var mid := _soften_color(base_color.lightened(0.14), 0.1)
-	var low := _soften_color(base_color.darkened(0.18), 0.12)
-	var shadow := _soften_color(base_color.darkened(0.52), 0.22)
-	return PackedColorArray([
-		warm_high.lightened(0.18),
-		warm_high,
-		mid,
-		low,
-		shadow,
-		mid.lightened(0.24),
-		warm_high.lightened(0.32),
-	])
 
 
 static func _soften_color(color: Color, desaturate_amount: float) -> Color:

@@ -1,15 +1,20 @@
 extends Node3D
 class_name ProceduralAsteroidBelt
 
-const ASTEROID_SCENE: PackedScene = preload("res://Planets/Asteroids/Asteroid.tscn")
+## Asteroid belt as instanced low-poly 3D rocks: one MultiMeshInstance3D per
+## globally cached rock variant (~6 draw calls per belt instead of dozens of
+## SubViewport billboards). Placement is deterministic: a single RNG seeded
+## from _get_belt_seed fills all instances in index order.
 
-const VIEWPORT_TARGET_SIZE := 256.0
-const DEFAULT_PIXELS := 2100.0
-const MIN_PIXELS := 1500.0
-const MAX_PIXELS := 2800.0
+const ROCK_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/AsteroidRock.gdshader")
+
 const ASTEROID_SCALE_MULTIPLIER := 2.0
+const BELT_BASE_COLOR := Color(0.6, 0.58, 0.54, 1.0)
 
 var _orbital: Dictionary = {}
+var _sun_world_position := Vector3.ZERO
+var _has_sun_position := false
+var _rock_material: ShaderMaterial = null
 
 
 func configure(orbital: Dictionary) -> void:
@@ -23,9 +28,19 @@ func _ready() -> void:
 		_rebuild()
 
 
+func set_sun_world_position(sun_position: Vector3) -> void:
+	_sun_world_position = sun_position
+	_has_sun_position = true
+	_apply_sun_to_material()
+
+
 func _rebuild() -> void:
 	for child in get_children():
 		child.free()
+	_rock_material = null
+
+	if _orbital.is_empty():
+		return
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _get_belt_seed(_orbital)
@@ -33,91 +48,87 @@ func _rebuild() -> void:
 	var belt_radius: float = float(_orbital.get("orbit_radius", 0.0))
 	var belt_width: float = maxf(float(_orbital.get("orbit_width", 8.0)), 6.0)
 	var belt_height: float = float(_orbital.get("vertical_offset", 0.0))
-	var asteroid_count: int = clampi(int(visual_metadata.get("density", clampi(int(round(belt_width * 2.1)) + 24, 28, 72))), 24, 84)
+	var density: int = int(visual_metadata.get("density", clampi(int(round(belt_width * 2.1)) + 24, 28, 72)))
+	var rock_count: int = clampi(density * 4, 96, 320)
 	var base_diameter: float = maxf(float(_orbital.get("size", 1.0)) * 0.72, 0.5) * ASTEROID_SCALE_MULTIPLIER
 
-	for asteroid_index in range(asteroid_count):
-		var asteroid_rng := RandomNumberGenerator.new()
-		asteroid_rng.seed = _get_belt_seed(_orbital) + asteroid_index * 977
-		var texture: Texture2D = _build_asteroid_texture(asteroid_rng, asteroid_index, visual_metadata)
-		var asteroid := MeshInstance3D.new()
-		var mesh := QuadMesh.new()
-		var diameter: float = base_diameter * rng.randf_range(0.45, 1.95)
-		var aspect := Vector2(rng.randf_range(0.78, 1.32), rng.randf_range(0.78, 1.32))
-		mesh.size = Vector2(diameter * aspect.x, diameter * aspect.y)
-		asteroid.mesh = mesh
-		asteroid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		asteroid.material_override = _build_asteroid_material(texture)
+	_rock_material = _build_rock_material()
 
-		var angle: float = float(asteroid_index) * TAU / float(maxi(asteroid_count, 1)) + rng.randf_range(-0.1, 0.1)
-		var radius: float = belt_radius + rng.randf_range(-belt_width * 0.5, belt_width * 0.5)
-		asteroid.position = Vector3(
-			cos(angle) * radius,
-			belt_height + rng.randf_range(-0.35, 0.35),
-			sin(angle) * radius
+	var variant_count: int = CelestialMeshLibrary.ROCK_VARIANT_COUNT
+	var instances_per_variant := PackedInt32Array()
+	instances_per_variant.resize(variant_count)
+	for rock_index in range(rock_count):
+		instances_per_variant[rock_index % variant_count] += 1
+
+	var multimeshes: Array[MultiMesh] = []
+	for variant_index in range(variant_count):
+		var multimesh := MultiMesh.new()
+		multimesh.transform_format = MultiMesh.TRANSFORM_3D
+		multimesh.use_custom_data = true
+		multimesh.mesh = CelestialMeshLibrary.get_rock_mesh(variant_index)
+		multimesh.instance_count = instances_per_variant[variant_index]
+		multimeshes.append(multimesh)
+
+	# Placement: one RNG, fixed draw order per rock (angle jitter, radius x2
+	# for a triangular spread, height, 3 Euler angles, scale, tint, tumble
+	# phase, tumble speed) — append new draws only, never reorder.
+	var variant_cursor := PackedInt32Array()
+	variant_cursor.resize(variant_count)
+	for rock_index in range(rock_count):
+		var angle: float = float(rock_index) * TAU / float(maxi(rock_count, 1)) + rng.randf_range(-0.12, 0.12)
+		var radius: float = belt_radius + (rng.randf() + rng.randf() - 1.0) * belt_width * 0.5
+		var height: float = belt_height + rng.randf_range(-0.5, 0.5)
+		var euler := Vector3(
+			rng.randf_range(0.0, TAU),
+			rng.randf_range(0.0, TAU),
+			rng.randf_range(0.0, TAU)
 		)
-		add_child(asteroid)
+		var rock_scale: float = base_diameter * rng.randf_range(0.4, 1.9)
+		var tint: float = rng.randf()
+		var tumble_phase: float = rng.randf_range(0.0, TAU)
+		var tumble_speed: float = rng.randf_range(0.05, 0.3)
+
+		var variant_index: int = rock_index % variant_count
+		var instance_index: int = variant_cursor[variant_index]
+		variant_cursor[variant_index] += 1
+		var basis := Basis.from_euler(euler).scaled(Vector3.ONE * rock_scale)
+		var origin := Vector3(cos(angle) * radius, height, sin(angle) * radius)
+		multimeshes[variant_index].set_instance_transform(instance_index, Transform3D(basis, origin))
+		multimeshes[variant_index].set_instance_custom_data(
+			instance_index,
+			Color(tint, tumble_phase, tumble_speed, 0.0)
+		)
+
+	for variant_index in range(variant_count):
+		if multimeshes[variant_index].instance_count <= 0:
+			continue
+		var instance := MultiMeshInstance3D.new()
+		instance.name = "Rocks%d" % variant_index
+		instance.multimesh = multimeshes[variant_index]
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		instance.material_override = _rock_material
+		add_child(instance)
+
+	if _has_sun_position:
+		_apply_sun_to_material()
 
 
-func _build_asteroid_texture(rng: RandomNumberGenerator, variant_index: int, visual_metadata: Dictionary) -> Texture2D:
-	var viewport := SubViewport.new()
-	viewport.disable_3d = true
-	viewport.transparent_bg = true
-	viewport.size = Vector2i(int(VIEWPORT_TARGET_SIZE), int(VIEWPORT_TARGET_SIZE))
-	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
-	add_child(viewport)
-
-	var holder := Control.new()
-	holder.position = Vector2.ZERO
-	holder.size = Vector2.ONE * VIEWPORT_TARGET_SIZE
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	viewport.add_child(holder)
-
-	var asteroid_canvas := ASTEROID_SCENE.instantiate()
-	holder.add_child(asteroid_canvas)
-	_ensure_unique_asteroid_material(asteroid_canvas)
-
-	var pixels: float = clampf(float(visual_metadata.get("pixels", DEFAULT_PIXELS)) * rng.randf_range(0.9, 1.1), MIN_PIXELS, MAX_PIXELS)
-	if asteroid_canvas != null and asteroid_canvas.has_method("set_pixels"):
-		asteroid_canvas.call("set_pixels", pixels)
-
-	var relative_scale := 1.0
-	if asteroid_canvas != null:
-		var relative_scale_variant: Variant = asteroid_canvas.get("relative_scale")
-		if relative_scale_variant != null:
-			relative_scale = maxf(float(relative_scale_variant), 1.0)
-		var content_extent: float = maxf(pixels * relative_scale, 1.0)
-		holder.scale = Vector2.ONE * (VIEWPORT_TARGET_SIZE / content_extent)
-	if asteroid_canvas is Control:
-		var asteroid_control: Control = asteroid_canvas as Control
-		asteroid_control.position = Vector2.ONE * pixels * 0.5 * (relative_scale - 1.0)
-
-	var asteroid_seed: int = _get_belt_seed(_orbital) + variant_index * 73
-	if asteroid_canvas != null and asteroid_canvas.has_method("set_seed"):
-		asteroid_canvas.call("set_seed", asteroid_seed)
-	if asteroid_canvas != null and asteroid_canvas.has_method("set_rotates"):
-		asteroid_canvas.call("set_rotates", rng.randf_range(-PI, PI))
-	if asteroid_canvas != null and asteroid_canvas.has_method("set_light"):
-		asteroid_canvas.call("set_light", Vector2(rng.randf_range(-0.18, 0.18), rng.randf_range(-0.12, 0.12)))
-	if asteroid_canvas != null and asteroid_canvas.has_method("set_dither"):
-		asteroid_canvas.call("set_dither", true)
-	_randomize_asteroid_shape(asteroid_canvas, rng, variant_index)
-
-	return viewport.get_texture()
-
-
-func _build_asteroid_material(texture: Texture2D) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	material.albedo_texture = texture
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	material.emission_enabled = true
-	material.emission = Color(0.92, 0.92, 0.96, 1.0)
-	material.emission_energy_multiplier = 0.12
+func _build_rock_material() -> ShaderMaterial:
+	var material := ShaderMaterial.new()
+	material.shader = ROCK_SHADER
+	var anchor: Color = _orbital.get("color", BELT_BASE_COLOR)
+	var color_a := CelestialBodyPalette.pastelize(anchor.lerp(Color(0.72, 0.62, 0.5), 0.5), 0.25, 0.4, 0.9)
+	var color_b := CelestialBodyPalette.pastelize(anchor.lerp(Color(0.52, 0.56, 0.68), 0.5), 0.25, 0.4, 0.9)
+	material.set_shader_parameter("belt_color_a", color_a)
+	material.set_shader_parameter("belt_color_b", color_b)
 	return material
+
+
+func _apply_sun_to_material() -> void:
+	if _rock_material == null:
+		return
+	_rock_material.set_shader_parameter("sun_mode", 1.0)
+	_rock_material.set_shader_parameter("sun_position", _sun_world_position)
 
 
 static func _get_belt_seed(orbital: Dictionary) -> int:
@@ -132,26 +143,3 @@ static func _get_belt_visual_metadata(orbital: Dictionary) -> Dictionary:
 		if belt_variant is Dictionary:
 			return belt_variant
 	return {}
-
-
-func _randomize_asteroid_shape(asteroid_canvas: Node, rng: RandomNumberGenerator, variant_index: int) -> void:
-	if asteroid_canvas == null:
-		return
-	var asteroid_rect := asteroid_canvas.get_node_or_null("Asteroid") as ColorRect
-	if asteroid_rect == null:
-		return
-	var material := asteroid_rect.material as ShaderMaterial
-	if material == null:
-		return
-
-	material.set_shader_parameter("size", rng.randf_range(3.2, 8.8) + float(variant_index % 3) * 0.25)
-	material.set_shader_parameter("octaves", rng.randi_range(1, 4))
-
-
-func _ensure_unique_asteroid_material(asteroid_canvas: Node) -> void:
-	if asteroid_canvas == null:
-		return
-	var asteroid_rect := asteroid_canvas.get_node_or_null("Asteroid") as ColorRect
-	if asteroid_rect == null or asteroid_rect.material == null:
-		return
-	asteroid_rect.material = asteroid_rect.material.duplicate()

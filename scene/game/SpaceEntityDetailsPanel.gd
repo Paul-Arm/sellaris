@@ -203,6 +203,7 @@ func _populate_ship(unit: SpaceUnitRuntime) -> void:
 
 	_add_unit_facts(unit, unit_class)
 	_add_exploration_progress(unit)
+	_add_battle_overview(unit.battle_id)
 	_add_combat_actions(unit)
 	_add_evasion_action("toggle_unit_evasion", {
 		"unit_id": unit.unit_id,
@@ -230,6 +231,8 @@ func _populate_fleet(fleet: SpaceFleetRuntime) -> void:
 			_add_fact("ETA", "%d Tage" % fleet.eta_days_remaining)
 	if not str(fleet.ai_role).is_empty():
 		_add_fact("Rolle", _format_token(str(fleet.ai_role)))
+
+	_add_battle_overview(_resolve_fleet_battle_id(fleet))
 
 	var fleet_aggressive := _is_fleet_aggressive(fleet)
 	_add_fact("Haltung", "Aggressiv" if fleet_aggressive else "Passiv")
@@ -399,6 +402,31 @@ func _format_cost_summary(costs_variant: Variant) -> String:
 		var amount: Dictionary = amount_variant
 		parts.append("%d %s" % [int(round(float(int(amount.get("milliunits", 0))) / 1000.0)), str(amount.get("resource_id", ""))])
 	return ", ".join(parts) if not parts.is_empty() else "-"
+
+
+func _add_battle_overview(battle_id: String) -> void:
+	if battle_id.is_empty():
+		return
+	var battle_panel := BattleOverviewPanel.new()
+	battle_panel.name = "BattleOverviewSection"
+	battle_panel.set_owner_names(_get_owner_names())
+	_actions_box.add_child(battle_panel)
+	battle_panel.show_battle(battle_id)
+
+
+func _resolve_fleet_battle_id(fleet: SpaceFleetRuntime) -> String:
+	if fleet == null:
+		return ""
+	for unit_id in fleet.unit_ids:
+		var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+		if unit != null and unit.is_in_battle():
+			return unit.battle_id
+	return ""
+
+
+func _get_owner_names() -> Dictionary:
+	var owner_names_variant: Variant = _context.get("owner_names", {})
+	return owner_names_variant if owner_names_variant is Dictionary else {}
 
 
 func _add_combat_actions(unit: SpaceUnitRuntime) -> void:

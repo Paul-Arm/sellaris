@@ -1,0 +1,115 @@
+extends RefCounted
+class_name ShipSetRegistry
+
+## Registry for ship visual sets. A ship set maps visual keys (corvette,
+## science, builder, station, ...) to meshes; the active set decides which
+## models the system view instances via MultiMesh. Additional sets can be
+## registered later (e.g. per-empire ship sets) and switched at runtime via
+## set_active_set_id() — renderers re-query meshes on every rebuild.
+
+const DEFAULT_SET_ID := "default"
+
+const VISUAL_KEY_CORVETTE := "corvette"
+const VISUAL_KEY_SCIENCE := "science"
+const VISUAL_KEY_BUILDER := "builder"
+const VISUAL_KEY_SHIP := "ship"
+const VISUAL_KEY_STATION := "station"
+const VISUAL_KEY_STELLAR_STATION := "stellar_station"
+const VISUAL_KEY_COLLECTOR_STATION := "collector_station"
+
+const CLASS_VISUAL_KEYS := {
+	"corvette": VISUAL_KEY_CORVETTE,
+	"debug_corvette": VISUAL_KEY_CORVETTE,
+	"science_ship": VISUAL_KEY_SCIENCE,
+	"builder_ship": VISUAL_KEY_BUILDER,
+	"basic_station": VISUAL_KEY_STATION,
+	"debug_station": VISUAL_KEY_STATION,
+	"stellar_station": VISUAL_KEY_STELLAR_STATION,
+	"resource_collector_station": VISUAL_KEY_COLLECTOR_STATION,
+}
+
+static var _active_set_id: String = DEFAULT_SET_ID
+static var _set_scripts_by_id: Dictionary = {}
+static var _mesh_cache: Dictionary = {}
+
+
+static func get_active_set_id() -> String:
+	return _active_set_id
+
+
+static func set_active_set_id(set_id: String) -> bool:
+	set_id = set_id.strip_edges()
+	if set_id.is_empty():
+		return false
+	if set_id != DEFAULT_SET_ID and not _set_scripts_by_id.has(set_id):
+		return false
+	_active_set_id = set_id
+	return true
+
+
+static func get_registered_set_ids() -> Array[String]:
+	var result: Array[String] = [DEFAULT_SET_ID]
+	for set_id_variant in _set_scripts_by_id.keys():
+		var set_id := str(set_id_variant)
+		if set_id != DEFAULT_SET_ID:
+			result.append(set_id)
+	result.sort()
+	return result
+
+
+## Register a custom ship set script. The script must expose
+## `static func build_mesh(visual_key: String) -> Mesh` and may return null
+## for keys it does not provide — those fall back to the default set.
+## (Scripts instead of Callables: lambdas stored in static state outlive
+## their owning script and crash on engine shutdown.)
+static func register_set(set_id: String, set_script: Script) -> bool:
+	set_id = set_id.strip_edges()
+	if set_id.is_empty() or set_id == DEFAULT_SET_ID or set_script == null:
+		return false
+	_set_scripts_by_id[set_id] = set_script
+	for cache_key in _mesh_cache.keys().duplicate():
+		if str(cache_key).begins_with("%s|" % set_id):
+			_mesh_cache.erase(cache_key)
+	return true
+
+
+static func get_mesh(visual_key: String) -> Mesh:
+	var cache_key := "%s|%s" % [_active_set_id, visual_key]
+	if _mesh_cache.has(cache_key):
+		return _mesh_cache[cache_key]
+
+	var mesh: Mesh = null
+	if _active_set_id != DEFAULT_SET_ID and _set_scripts_by_id.has(_active_set_id):
+		var set_script: Script = _set_scripts_by_id[_active_set_id]
+		var mesh_variant: Variant = set_script.call("build_mesh", visual_key)
+		if mesh_variant is Mesh:
+			mesh = mesh_variant
+	if mesh == null:
+		mesh = DefaultShipSet.build_mesh(visual_key)
+	_mesh_cache[cache_key] = mesh
+	return mesh
+
+
+## Resolve which model a unit should use. A unit class can force a key via
+## metadata.visual_key; otherwise known class ids map directly and everything
+## else falls back by kind (station vs generic ship).
+static func resolve_visual_key_for_unit_id(unit_id: String) -> String:
+	var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+	if unit == null:
+		return VISUAL_KEY_SHIP
+	var unit_class: SpaceUnitClass = SpaceManager.get_unit_class(unit.class_id)
+	return resolve_visual_key_for_class(unit_class, unit.class_id)
+
+
+static func resolve_visual_key_for_class(unit_class: SpaceUnitClass, class_id: String = "") -> String:
+	if unit_class != null:
+		var metadata_key := str(unit_class.metadata.get("visual_key", "")).strip_edges()
+		if not metadata_key.is_empty():
+			return metadata_key
+		if class_id.is_empty():
+			class_id = unit_class.class_id
+	if CLASS_VISUAL_KEYS.has(class_id):
+		return str(CLASS_VISUAL_KEYS[class_id])
+	if unit_class != null and unit_class.unit_kind == SpaceUnitClass.UNIT_KIND_STATION:
+		return VISUAL_KEY_STATION
+	return VISUAL_KEY_SHIP

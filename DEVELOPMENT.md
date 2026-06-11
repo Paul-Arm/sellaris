@@ -14,6 +14,7 @@ $env:GODOT_CONSOLE = "C:\Users\paulp\Downloads\Godot_v4.6.1-stable_win64.exe\God
 SceneTree tests run with `--script`:
 
 ```powershell
+& $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/celestial_visual_determinism_test.gd"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/galaxy_generator_name_test.gd"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/anomaly_pool_test.gd"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/resource_deposit_component_test.gd"
@@ -45,9 +46,48 @@ Node-based smoke tests run through their `.tscn` wrappers:
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/ship_designer_smoke_test.tscn"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/research_manager_smoke_test.tscn"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/research_modal_smoke_test.tscn"
+& $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/notification_center_smoke_test.tscn"
+& $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/ship_set_smoke_test.tscn"
+& $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/celestial_visual_smoke_test.tscn"
 ```
 
 Note: SceneTree `--script` tests compile before the autoloads are registered, so they cannot reference autoload singletons (`EconomyManager`, `SpaceManager`, ...) directly; tests that need autoloads run as node-based `.tscn` smoke tests instead. Fresh checkouts/worktrees need one `--import` run before tests so the script class cache exists.
+
+## Celestial Visuals
+
+Planets, stars, black holes and asteroid belts in the system view are real 3D
+meshes with live spatial shaders (`scene/StarSystem/procedural_planets/`).
+
+- Seed flow: system seed -> `_get_orbital_seed` / `_get_star_seed` /
+  `_get_belt_seed` -> `build_visual_config()` (one local RNG, fixed draw order
+  documented in each file — append new draws, never reorder) -> shader
+  uniforms. Same seed always reproduces the same body.
+- Shader rule: every planet surface pattern is a pure function of the
+  model-space unit direction plus seeded uniforms (see
+  `shaders/celestial_common.gdshaderinc`). Shader `TIME` only drives cosmetic
+  motion (spin handled via node rotation, gas band drift, star boil, pulses).
+- Lighting: `render_mode unshaded` + per-material sun uniforms
+  (`sun_mode`/`sun_direction`/`sun_position`). `StarSystemPreview` switches
+  bodies to point-light mode at the primary star; the body details panel and
+  colony modal use the fixed default direction. Note: unshaded mode ignores
+  `EMISSION` — HDR glow values go through `ALBEDO`.
+- Backdrop: `scene/StarSystem/SystemSkyBackdrop.gdshader` (sky shader; starfield
+  + nebula wisps, `seed_offset` set per system by `StarSystemPreview`). It is
+  self-contained because `fwidth()` from the shared include is unavailable in
+  the sky stage.
+- Star prominences are true 3D: half-torus arc tubes
+  (`CelestialMeshLibrary.get_prominence_arc()`) anchored on the star sphere
+  with seeded orientations, shaded by `shaders/StarPlasmaArms.gdshader`
+  (grow/collapse lifecycle, plasma flow, vertex flame wobble); the arm group
+  rotates slowly around the star. Normal stars only — neutron stars use beam
+  cones, black holes the accretion disk.
+- Future extension point: `ProceduralPlanetVisual.build_surface_material()` is
+  the single config->shader mapping. A colony-view texture baker can render
+  the same surface function through a UV->direction equirect wrapper for
+  pixel-identical results.
+- Visual check: render per-body screenshots (windowed, not headless) with
+  `& $env:GODOT_CONSOLE --path "O:\Spiele\sellaris" "res://tools/celestial_visual_screenshot.tscn"`
+  — output lands in `tools/screenshots/`.
 
 ## Asset Tools
 

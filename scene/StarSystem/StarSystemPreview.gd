@@ -5,6 +5,7 @@ signal selection_changed(selection_data: Dictionary)
 signal movement_order_requested(selection_data: Dictionary, target_local_position: Vector3)
 signal build_menu_requested(builder_unit_id: String, body_context: Dictionary, options: Array[Dictionary], screen_position: Vector2)
 
+const SYSTEM_SKY_SHADER: Shader = preload("res://scene/StarSystem/SystemSkyBackdrop.gdshader")
 const SYSTEM_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemRuntimePlaceholderRenderer.gd")
 const SYSTEM_COMBAT_EFFECTS_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemCombatEffectsRenderer.gd")
 const SYSTEM_SELECTABLE_COMPONENT_SCRIPT: Script = preload("res://scene/StarSystem/SystemSelectableComponent.gd")
@@ -15,9 +16,6 @@ const ORBITAL_TYPE_PLANET := "planet"
 const ORBITAL_TYPE_ASTEROID_BELT := "asteroid_belt"
 const ORBITAL_TYPE_STRUCTURE := "structure"
 const ORBITAL_TYPE_RUIN := "ruin"
-const SPECIAL_TYPE_BLACK_HOLE := "Black hole"
-const SPECIAL_TYPE_NEUTRON := "Neutron star"
-const SPECIAL_TYPE_O_CLASS := "O class star"
 const STAR_SYSTEM_STAR_SIZE_MULTIPLIER := 1.6
 const ORBIT_SEGMENT_COUNT := 80
 const SELECTION_RING_SEGMENT_COUNT := 48
@@ -42,13 +40,33 @@ var _movement_route_indicator: MeshInstance3D = null
 var _runtime_effects_root: Node3D = null
 var _static_outer_radius: float = 22.0
 var _external_selected_builder_unit_id: String = ""
+var _primary_star_position := Vector3.ZERO
+var _sky_material: ShaderMaterial = null
 
 
 func _ready() -> void:
 	_runtime_placeholder_renderer.bind(self)
 	_combat_effects_renderer.bind(self)
+	_setup_backdrop_sky()
 	clear_preview()
 	_set_camera_distance(92.0)
+
+
+# Procedural starfield + nebula backdrop, seeded per system in
+# set_system_details(). The environment is duplicated so other instances of
+# this scene (tests, panels) are not affected.
+func _setup_backdrop_sky() -> void:
+	var world_environment := get_node_or_null("WorldEnvironment") as WorldEnvironment
+	if world_environment == null or world_environment.environment == null:
+		return
+	var environment: Environment = world_environment.environment.duplicate()
+	_sky_material = ShaderMaterial.new()
+	_sky_material.shader = SYSTEM_SKY_SHADER
+	var sky := Sky.new()
+	sky.sky_material = _sky_material
+	environment.background_mode = Environment.BG_SKY
+	environment.sky = sky
+	world_environment.environment = environment
 
 
 func _exit_tree() -> void:
@@ -112,10 +130,19 @@ func set_system_details(system_details: Dictionary) -> void:
 	var orbitals: Array = system_details.get("orbitals", [])
 	var max_radius := 22.0
 
+	if _sky_material != null:
+		var backdrop_seed: int = int(system_details.get("seed", str(system_details.get("id", "system")).hash()))
+		_sky_material.set_shader_parameter("seed_offset", float(absi(backdrop_seed) % 4096) * 0.37)
+
+	_primary_star_position = Vector3.ZERO
+	var has_primary_star := false
 	for star_variant in stars:
 		var star: Dictionary = star_variant
 		var star_position := _get_orbit_position(star)
 		max_radius = maxf(max_radius, star_position.length() + float(star.get("scale", 1.0)) * 8.0 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER)
+		if not has_primary_star or bool(star.get("is_primary", false)):
+			_primary_star_position = star_position
+			has_primary_star = true
 		_build_star_visual(star, star_position)
 		_build_body_deposit_label(star, star_position)
 		_register_star_selectable(star, star_position)
@@ -901,36 +928,6 @@ func _build_star_visual(star: Dictionary, star_position: Vector3) -> void:
 	bodies.add_child(star_visual)
 
 
-func _build_black_hole_disk(star_position: Vector3, star_scale: float) -> void:
-	var disk := MultiMeshInstance3D.new()
-	var disk_mesh := SphereMesh.new()
-	disk_mesh.radius = 0.32
-	disk_mesh.height = 0.64
-	disk_mesh.radial_segments = 8
-	disk_mesh.rings = 4
-	var multimesh := MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.mesh = disk_mesh
-	multimesh.instance_count = 44
-
-	var rng := RandomNumberGenerator.new()
-	rng.seed = int(star_position.length() * 1000.0) + 17
-	for instance_index in range(multimesh.instance_count):
-		var angle: float = float(instance_index) * TAU / float(multimesh.instance_count) + rng.randf_range(-0.09, 0.09)
-		var radius: float = 4.8 * star_scale + rng.randf_range(-0.9, 1.1)
-		var local_position := Vector3(cos(angle) * radius, rng.randf_range(-0.18, 0.18), sin(angle) * radius)
-		var instance_basis := Basis().scaled(Vector3.ONE * rng.randf_range(0.5, 1.25))
-		multimesh.set_instance_transform(instance_index, Transform3D(instance_basis, local_position))
-
-	disk.multimesh = multimesh
-	disk.material_override = _build_lit_material(Color(0.38, 0.52, 0.98, 0.85), Color(0.3, 0.44, 1.0, 1.0), 1.5, 0.45, 0.1)
-	var disk_root := Node3D.new()
-	disk_root.position = star_position
-	disk_root.rotation = Vector3(PI * 0.5, 0.0, 0.0)
-	disk_root.add_child(disk)
-	effects.add_child(disk_root)
-
-
 func _build_orbital_visual(orbital: Dictionary, orbital_position: Vector3) -> void:
 	var orbital_type: String = str(orbital.get("type", ORBITAL_TYPE_PLANET))
 	match orbital_type:
@@ -1031,6 +1028,15 @@ func _build_planet(orbital: Dictionary, orbital_position: Vector3) -> void:
 	planet.position = orbital_position
 	planet.configure(_current_system_details, orbital)
 	bodies.add_child(planet)
+	planet.set_sun_world_position(_get_sun_world_position())
+
+
+# Sun position for the planet shaders' point-light mode, in world space (the
+# bodies container local positions pass through the tilted Pivot transform).
+func _get_sun_world_position() -> Vector3:
+	if bodies != null and bodies.is_inside_tree():
+		return bodies.to_global(_primary_star_position)
+	return _primary_star_position
 
 
 func _build_structure(orbital: Dictionary, orbital_position: Vector3) -> void:
@@ -1082,6 +1088,7 @@ func _build_asteroid_belt(orbital: Dictionary) -> void:
 	var belt: ProceduralAsteroidBelt = PROCEDURAL_ASTEROID_BELT_SCRIPT.new() as ProceduralAsteroidBelt
 	belt.configure(orbital)
 	bodies.add_child(belt)
+	belt.set_sun_world_position(_get_sun_world_position())
 
 
 func _build_orbit_ring(radius: float, height: float, color: Color) -> void:
@@ -1136,20 +1143,6 @@ func _get_orbit_color(orbital: Dictionary) -> Color:
 			return Color(0.72, 0.73, 0.78, 0.2)
 		_:
 			return Color(0.72, 0.84, 1.0, 0.2)
-
-
-func _get_star_glow_color(base_color: Color, special_type: String) -> Color:
-	match special_type:
-		SPECIAL_TYPE_BLACK_HOLE:
-			return Color(0.22, 0.36, 0.98, 0.32)
-		SPECIAL_TYPE_NEUTRON:
-			return Color(0.76, 0.92, 1.0, 0.28)
-		SPECIAL_TYPE_O_CLASS:
-			return Color(0.62, 0.86, 1.0, 0.3)
-		_:
-			var glow_color := base_color
-			glow_color.a = 0.24
-			return glow_color
 
 
 func _build_lit_material(

@@ -28,7 +28,7 @@ const CAPABILITY_EXPLORER := 64
 @export var display_name: String = ""
 @export_enum("ship", "station", "creature") var unit_kind: String = UNIT_KIND_SHIP
 @export_enum("combat", "civilian", "support", "station", "creature") var category: String = CATEGORY_COMBAT
-@export_range(1.0, 1000000.0, 1.0) var max_hull_points: float = 100.0
+@export_range(1, 1000000, 1) var max_hull_points: int = 100
 @export var default_ai_role: StringName = &""
 @export var command_tags: PackedStringArray = PackedStringArray()
 @export var ownership_component: SpaceUnitOwnershipComponent
@@ -64,6 +64,7 @@ func ensure_defaults() -> void:
 		buildable_component.call("ensure_defaults")
 	if explorer_component != null and explorer_component.has_method("ensure_defaults"):
 		explorer_component.call("ensure_defaults")
+	max_hull_points = maxi(max_hull_points, 1)
 	command_tags = _normalize_tags(command_tags)
 	unit_kind = _normalize_unit_kind(unit_kind)
 	category = _normalize_category(category)
@@ -120,6 +121,26 @@ func can_builder_construct(builder_class: SpaceUnitClass) -> bool:
 	if not builder_class.builder_component.has_method("can_build_tags"):
 		return false
 	return bool(builder_class.builder_component.call("can_build_tags", buildable_component.get("build_tags")))
+
+
+func get_design_slots() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for slot_variant in component_slots:
+		if slot_variant is not Dictionary:
+			continue
+		var slot: Dictionary = slot_variant
+		var slot_kind := str(slot.get("slot_kind", ""))
+		if not ShipComponentDefinition.EQUIPMENT_SLOT_KINDS.has(slot_kind):
+			continue
+		var slot_metadata_variant: Variant = slot.get("metadata", {})
+		var slot_metadata: Dictionary = slot_metadata_variant if slot_metadata_variant is Dictionary else {}
+		result.append({
+			"slot_id": str(slot.get("slot_id", "")),
+			"slot_kind": slot_kind,
+			"required": bool(slot.get("required", false)),
+			"slot_size": str(slot_metadata.get("size", ShipComponentDefinition.SLOT_SIZE_MEDIUM)),
+		})
+	return result
 
 
 func get_capability_mask() -> int:
@@ -194,7 +215,7 @@ static func from_dict(data: Dictionary) -> SpaceUnitClass:
 	unit_class.display_name = str(data.get("display_name", ""))
 	unit_class.unit_kind = str(data.get("unit_kind", data.get("kind", UNIT_KIND_SHIP)))
 	unit_class.category = str(data.get("category", CATEGORY_COMBAT))
-	unit_class.max_hull_points = maxf(float(data.get("max_hull_points", 100.0)), 1.0)
+	unit_class.max_hull_points = maxi(int(round(float(data.get("max_hull_points", 100)))), 1)
 	unit_class.default_ai_role = StringName(str(data.get("default_ai_role", "")))
 	unit_class.command_tags = _variant_to_packed_string_array(data.get("command_tags", PackedStringArray()))
 	unit_class.component_slots = _normalize_component_slots(data.get("component_slots", []))

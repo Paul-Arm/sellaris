@@ -203,6 +203,7 @@ func _populate_ship(unit: SpaceUnitRuntime) -> void:
 
 	_add_unit_facts(unit, unit_class)
 	_add_exploration_progress(unit)
+	_add_combat_actions(unit)
 	_add_evasion_action("toggle_unit_evasion", {
 		"unit_id": unit.unit_id,
 		"active": not bool(unit.metadata.get("evasion_active", false)),
@@ -229,6 +230,23 @@ func _populate_fleet(fleet: SpaceFleetRuntime) -> void:
 			_add_fact("ETA", "%d Tage" % fleet.eta_days_remaining)
 	if not str(fleet.ai_role).is_empty():
 		_add_fact("Rolle", _format_token(str(fleet.ai_role)))
+
+	var fleet_aggressive := _is_fleet_aggressive(fleet)
+	_add_fact("Haltung", "Aggressiv" if fleet_aggressive else "Passiv")
+	var fleet_stance_button := _build_action_button(
+		"Haltung: Aggressiv" if fleet_aggressive else "Haltung: Passiv",
+		"Haltung fuer alle Schiffe dieser Flotte umschalten."
+	)
+	fleet_stance_button.name = "FleetStanceButton"
+	fleet_stance_button.disabled = not _can_command(fleet.owner_empire_id)
+	var next_fleet_stance := SpaceUnitRuntime.STANCE_PASSIVE if fleet_aggressive else SpaceUnitRuntime.STANCE_AGGRESSIVE
+	fleet_stance_button.pressed.connect(func() -> void:
+		action_requested.emit("set_fleet_stance", {
+			"fleet_id": fleet.fleet_id,
+			"stance": next_fleet_stance,
+		})
+	)
+	_actions_box.add_child(fleet_stance_button)
 
 	var fleet_evasion_active := _is_fleet_evasion_active(fleet)
 	_add_evasion_action("toggle_fleet_evasion", {
@@ -264,11 +282,24 @@ func _add_unit_facts(unit: SpaceUnitRuntime, unit_class: SpaceUnitClass) -> void
 	_add_fact("Klasse", unit_class.display_name if unit_class != null else unit.class_id)
 	if unit_class != null:
 		_add_fact("Kategorie", _format_token(unit_class.category))
-	_add_fact("Huelle", "%.0f / %.0f (%d%%)" % [
+	_add_fact("Huelle", "%d / %d (%d%%)" % [
 		unit.current_hull_points,
 		unit.max_hull_points,
 		int(round(unit.get_hull_ratio() * 100.0)),
 	])
+	if unit.max_shield_points > 0:
+		_add_fact("Schilde", "%d / %d (%d%%)" % [
+			unit.current_shield_points,
+			unit.max_shield_points,
+			int(round(unit.get_shield_ratio() * 100.0)),
+		])
+	if unit.armor_points > 0:
+		_add_fact("Panzerung", str(unit.armor_points))
+	_add_fact("Haltung", "Aggressiv" if unit.is_aggressive() else "Passiv")
+	if unit.is_in_battle():
+		_add_fact("Kampf", "Im Gefecht")
+	if unit.is_stunned():
+		_add_fact("Betaeubt", "%d Tage" % unit.stunned_days_remaining)
 	if not unit.fleet_id.is_empty():
 		var fleet: SpaceFleetRuntime = SpaceManager.get_fleet(unit.fleet_id)
 		_add_fact("Flotte", fleet.display_name if fleet != null else unit.fleet_id)
@@ -285,7 +316,7 @@ func _add_unit_facts(unit: SpaceUnitRuntime, unit_class: SpaceUnitClass) -> void
 
 func _add_ship_special_actions(unit: SpaceUnitRuntime) -> void:
 	var can_command := _can_command(unit.owner_empire_id)
-	if unit.can_build_units():
+	if unit.can_build_units() and unit.is_mobile():
 		var build_button := _build_action_button("Bauziel waehlen", "Dieses Konstruktionsschiff als aktiven Builder setzen.")
 		build_button.name = "BuildTargetButton"
 		var project := SpaceManager.get_construction_project_for_builder(unit.unit_id)
@@ -297,6 +328,9 @@ func _add_ship_special_actions(unit: SpaceUnitRuntime) -> void:
 			action_requested.emit("build_target", {"unit_id": unit.unit_id})
 		)
 		_actions_box.add_child(build_button)
+
+	if unit.can_build_units() and unit.is_stationary():
+		_add_shipyard_actions(unit, can_command)
 
 	if _is_science_ship(unit):
 		var exploration_order: Dictionary = SpaceManager.get_exploration_order_for_unit(unit.unit_id)
@@ -313,6 +347,112 @@ func _add_ship_special_actions(unit: SpaceUnitRuntime) -> void:
 			})
 		)
 		_actions_box.add_child(survey_button)
+
+
+func _add_shipyard_actions(unit: SpaceUnitRuntime, can_command: bool) -> void:
+	var active_project := SpaceManager.get_construction_project_for_builder(unit.unit_id)
+	if not active_project.is_empty():
+		var status_button := _build_action_button(
+			"Bau laeuft: %s (%d Tage)" % [
+				str(active_project.get("display_name", active_project.get("build_class_id", ""))),
+				int(active_project.get("days_remaining", 0)),
+			],
+			"Diese Werft hat bereits ein aktives Bauprojekt."
+		)
+		status_button.name = "ShipyardBusyButton"
+		status_button.disabled = true
+		_actions_box.add_child(status_button)
+		return
+
+	for option in SpaceManager.get_ship_build_options(unit.unit_id):
+		var class_id := str(option.get("class_id", ""))
+		var design_id := str(option.get("design_id", ""))
+		var costs_variant: Variant = option.get("build_costs", [])
+		var label := "%s  (%s, %d Tage)" % [
+			str(option.get("display_name", class_id)),
+			_format_cost_summary(costs_variant),
+			int(option.get("build_time_days", 0)),
+		]
+		var build_ship_button := _build_action_button(label, "Dieses Design in der Werft bauen. Kosten werden sofort abgezogen.")
+		build_ship_button.name = "BuildShipButton_%s" % (design_id if not design_id.is_empty() else class_id)
+		var affordable := EconomyManager.can_afford(unit.owner_empire_id, costs_variant) if EconomyManager.is_bootstrapped() else true
+		build_ship_button.disabled = not can_command or not affordable
+		if not affordable:
+			build_ship_button.tooltip_text = "Nicht genug Ressourcen."
+		build_ship_button.pressed.connect(func() -> void:
+			action_requested.emit("build_ship", {
+				"unit_id": unit.unit_id,
+				"class_id": class_id,
+				"design_id": design_id,
+			})
+		)
+		_actions_box.add_child(build_ship_button)
+
+
+func _format_cost_summary(costs_variant: Variant) -> String:
+	if costs_variant is not Array:
+		return "-"
+	var parts: Array[String] = []
+	for amount_variant in costs_variant:
+		if amount_variant is not Dictionary:
+			continue
+		var amount: Dictionary = amount_variant
+		parts.append("%d %s" % [int(round(float(int(amount.get("milliunits", 0))) / 1000.0)), str(amount.get("resource_id", ""))])
+	return ", ".join(parts) if not parts.is_empty() else "-"
+
+
+func _add_combat_actions(unit: SpaceUnitRuntime) -> void:
+	var can_command := _can_command(unit.owner_empire_id)
+
+	var stance_button := _build_action_button(
+		"Haltung: Aggressiv" if unit.is_aggressive() else "Haltung: Passiv",
+		"Aggressiv greift Feinde im Erfassungsradius automatisch an. Passiv erwidert nur Feuer."
+	)
+	stance_button.name = "StanceButton"
+	stance_button.disabled = not can_command
+	var next_stance := SpaceUnitRuntime.STANCE_PASSIVE if unit.is_aggressive() else SpaceUnitRuntime.STANCE_AGGRESSIVE
+	stance_button.pressed.connect(func() -> void:
+		action_requested.emit("set_unit_stance", {
+			"unit_id": unit.unit_id,
+			"stance": next_stance,
+		})
+	)
+	_actions_box.add_child(stance_button)
+
+	if unit.design_id.is_empty():
+		return
+	var design_stats: Dictionary = SpaceManager.get_compiled_ship_design_stats(unit.design_id)
+	for ability_variant in design_stats.get("abilities", []):
+		if ability_variant is not Dictionary:
+			continue
+		var ability: Dictionary = ability_variant
+		if str(ability.get("trigger", "")) != "manual":
+			continue
+		var slot_id := str(ability.get("slot_id", ""))
+		var component: Dictionary = SpaceManager.get_ship_component(str(ability.get("component_id", "")))
+		var ability_name := str(component.get("display_name", ability.get("effect_id", slot_id)))
+		var cooldown_days := int(unit.ability_cooldowns.get(slot_id, 0))
+		var is_pending := false
+		for pending_command in unit.pending_ability_commands:
+			if str(pending_command.get("slot_id", "")) == slot_id:
+				is_pending = true
+				break
+
+		var label := ability_name
+		if cooldown_days > 0:
+			label = "%s (%d Tage Abklingzeit)" % [ability_name, cooldown_days]
+		elif is_pending:
+			label = "%s (befohlen)" % ability_name
+		var ability_button := _build_action_button(label, "Faehigkeit manuell ausloesen. Wird beim naechsten Tag-Tick ausgefuehrt.")
+		ability_button.name = "AbilityButton_%s" % slot_id
+		ability_button.disabled = not can_command or cooldown_days > 0 or is_pending
+		ability_button.pressed.connect(func() -> void:
+			action_requested.emit("trigger_unit_ability", {
+				"unit_id": unit.unit_id,
+				"slot_id": slot_id,
+			})
+		)
+		_actions_box.add_child(ability_button)
 
 
 func _add_evasion_action(action_id: String, payload: Dictionary, active: bool, can_command: bool) -> void:
@@ -534,6 +674,16 @@ func _can_command(owner_empire_id: String) -> bool:
 		return bool(_context.get("can_command", false))
 	var active_empire_id := str(_context.get("active_empire_id", "")).strip_edges()
 	return active_empire_id.is_empty() or active_empire_id == owner_empire_id
+
+
+func _is_fleet_aggressive(fleet: SpaceFleetRuntime) -> bool:
+	if fleet == null or fleet.unit_ids.is_empty():
+		return false
+	for unit_id in fleet.unit_ids:
+		var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
+		if unit != null and unit.is_aggressive():
+			return true
+	return false
 
 
 func _is_fleet_evasion_active(fleet: SpaceFleetRuntime) -> bool:

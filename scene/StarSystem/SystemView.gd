@@ -137,6 +137,12 @@ func refresh_runtime(system_details: Dictionary, neighbor_count: int) -> void:
 		_suppress_runtime_entity_selection_signal = false
 
 
+func play_combat_events(events: Array) -> void:
+	if not visible or preview == null:
+		return
+	preview.play_combat_events(events)
+
+
 func hide_view() -> void:
 	_current_system_id = ""
 	_current_system_details.clear()

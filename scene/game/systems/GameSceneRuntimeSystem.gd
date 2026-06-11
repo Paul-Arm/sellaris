@@ -1367,6 +1367,7 @@ func bootstrap_economy(capital_context: Dictionary = {}) -> void:
 
 	EconomyManager.bootstrap(empire_ids, build_economy_galaxy_snapshot())
 	ColonyManager.bootstrap(_state.empire_records, capital_context)
+	SpaceManager.bootstrap_empires(empire_ids)
 
 
 func build_economy_galaxy_snapshot() -> Dictionary:
@@ -1432,6 +1433,8 @@ func connect_space_runtime_signals() -> void:
 		SpaceManager.exploration_scan_completed.connect(_on_space_exploration_scan_completed)
 	if not SpaceManager.exploration_completed.is_connected(_on_space_exploration_completed):
 		SpaceManager.exploration_completed.connect(_on_space_exploration_completed)
+	if not SpaceManager.combat_events.is_connected(_on_space_combat_events):
+		SpaceManager.combat_events.connect(_on_space_combat_events)
 
 
 func disconnect_space_runtime_signals() -> void:
@@ -1458,6 +1461,8 @@ func disconnect_space_runtime_signals() -> void:
 		SpaceManager.exploration_scan_completed.disconnect(_on_space_exploration_scan_completed)
 	if SpaceManager.exploration_completed.is_connected(_on_space_exploration_completed):
 		SpaceManager.exploration_completed.disconnect(_on_space_exploration_completed)
+	if SpaceManager.combat_events.is_connected(_on_space_combat_events):
+		SpaceManager.combat_events.disconnect(_on_space_combat_events)
 
 
 func refresh_runtime_visuals() -> void:
@@ -2095,6 +2100,18 @@ func _on_space_runtime_changed(_record_id: String) -> void:
 
 func _on_space_construction_completed(_project_id: String, unit_id: String) -> void:
 	_on_space_runtime_changed(unit_id)
+
+
+func _on_space_combat_events(events: Array[Dictionary]) -> void:
+	if _state == null:
+		return
+	var system_view: SystemView = _view_router.get_system_view()
+	if system_view != null and system_view.is_open():
+		system_view.play_combat_events(events)
+	if _state.runtime_visual_refresh_queued:
+		return
+	_state.runtime_visual_refresh_queued = true
+	Callable(self, "refresh_runtime_visuals").call_deferred()
 
 
 func _on_space_exploration_scan_completed(order_id: String, unit_id: String, system_id: String, body_id: String) -> void:

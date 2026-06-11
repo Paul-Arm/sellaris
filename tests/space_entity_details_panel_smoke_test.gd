@@ -88,7 +88,8 @@ func _run(failures: Array[String]) -> void:
 		locked_emitter.emit_signal("clearing_requested")
 		await get_tree().process_frame
 		_expect(int(action_refresh_state.get("count", 0)) == 1, "panel should refresh safely while an action button signal is still emitting (count %d)" % int(action_refresh_state.get("count", 0)), failures)
-		_expect(actions_box != null and actions_box.get_child_count() == 2, "panel action refresh should replace old action buttons immediately", failures)
+		# Builder ship actions: stance toggle + evasion toggle + build target.
+		_expect(actions_box != null and actions_box.get_child_count() == 3, "panel action refresh should replace old action buttons immediately (count %d)" % (actions_box.get_child_count() if actions_box != null else -1), failures)
 
 	var fleet := SpaceManager.create_fleet("empire_test", "sys_alpha", [science_ship.unit_id, builder_ship.unit_id], {
 		"display_name": "Panel Fleet",

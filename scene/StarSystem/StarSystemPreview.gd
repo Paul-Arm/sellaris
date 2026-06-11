@@ -6,6 +6,7 @@ signal movement_order_requested(selection_data: Dictionary, target_local_positio
 signal build_menu_requested(builder_unit_id: String, body_context: Dictionary, options: Array[Dictionary], screen_position: Vector2)
 
 const SYSTEM_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemRuntimePlaceholderRenderer.gd")
+const SYSTEM_COMBAT_EFFECTS_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemCombatEffectsRenderer.gd")
 const SYSTEM_SELECTABLE_COMPONENT_SCRIPT: Script = preload("res://scene/StarSystem/SystemSelectableComponent.gd")
 const PROCEDURAL_PLANET_VISUAL_SCRIPT: Script = preload("res://scene/StarSystem/procedural_planets/ProceduralPlanetVisual.gd")
 const PROCEDURAL_STAR_VISUAL_SCRIPT: Script = preload("res://scene/StarSystem/procedural_planets/ProceduralStarVisual.gd")
@@ -32,6 +33,7 @@ const INVALID_COMMAND_TARGET := Vector3(INF, INF, INF)
 var _has_content: bool = false
 var _current_system_details: Dictionary = {}
 var _runtime_placeholder_renderer: RefCounted = SYSTEM_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT.new()
+var _combat_effects_renderer: SystemCombatEffectsRenderer = SYSTEM_COMBAT_EFFECTS_RENDERER_SCRIPT.new()
 var _selectables: Array[SystemSelectableComponent] = []
 var _runtime_selectables: Array[SystemSelectableComponent] = []
 var _selected_selectable: SystemSelectableComponent = null
@@ -44,6 +46,7 @@ var _external_selected_builder_unit_id: String = ""
 
 func _ready() -> void:
 	_runtime_placeholder_renderer.bind(self)
+	_combat_effects_renderer.bind(self)
 	clear_preview()
 	_set_camera_distance(92.0)
 
@@ -51,6 +54,8 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if _runtime_placeholder_renderer != null:
 		_runtime_placeholder_renderer.unbind()
+	if _combat_effects_renderer != null:
+		_combat_effects_renderer.unbind()
 
 
 func _process(_delta: float) -> void:
@@ -158,6 +163,13 @@ func refresh_runtime_placeholders(system_details: Dictionary) -> void:
 	_register_runtime_selectables(runtime_layouts)
 	_restore_selection(previous_selection_id)
 	_emit_selection_changed()
+
+
+func play_combat_events(events: Array) -> void:
+	if not _has_content or _combat_effects_renderer == null:
+		return
+	var system_id := str(_current_system_details.get("id", "")).strip_edges()
+	_combat_effects_renderer.play_events(events, system_id)
 
 
 func forward_input(event: InputEvent) -> void:

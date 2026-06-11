@@ -2,11 +2,13 @@ extends Control
 class_name EmpireCommandDrawer
 
 signal anomaly_open_requested(entry: Dictionary)
+signal ship_designer_open_requested
 
 const ANOMALY_PANEL_SCRIPT: Script = preload("res://scene/UI/EmpireAnomalyListPanel.gd")
 
 const DEFAULT_CATEGORIES: Array[Dictionary] = [
 	{"id": "anomalies", "title": "Anomalien / Situationen"},
+	{"id": "ship_design", "title": "Schiffsdesign"},
 	{"id": "diplomacy", "title": "Diplomatie"},
 	{"id": "species", "title": "Spezies"},
 	{"id": "government", "title": "Regierung"},
@@ -24,6 +26,7 @@ var _expanded_area: HBoxContainer = null
 var _category_row: VBoxContainer = null
 var _content_root: Control = null
 var _anomaly_panel: Control = null
+var _ship_design_panel: Control = null
 var _placeholder_label: Label = null
 var _categories: Array[Dictionary] = []
 var _category_buttons: Dictionary = {}
@@ -144,6 +147,9 @@ func _build() -> void:
 	_anomaly_panel.connect("anomaly_open_requested", Callable(self, "_on_anomaly_open_requested"))
 	_content_root.add_child(_anomaly_panel)
 
+	_ship_design_panel = _build_ship_design_panel()
+	_content_root.add_child(_ship_design_panel)
+
 	_placeholder_label = Label.new()
 	_placeholder_label.name = "PlaceholderLabel"
 	_placeholder_label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -184,9 +190,12 @@ func _refresh_active_category() -> void:
 			_style_category_button(button, category_id == _active_category_id)
 
 	var is_anomaly_category := _active_category_id == "anomalies"
+	var is_ship_design_category := _active_category_id == "ship_design"
 	_anomaly_panel.visible = is_anomaly_category
-	_placeholder_label.visible = not is_anomaly_category
-	if not is_anomaly_category:
+	if _ship_design_panel != null:
+		_ship_design_panel.visible = is_ship_design_category
+	_placeholder_label.visible = not is_anomaly_category and not is_ship_design_category
+	if _placeholder_label.visible:
 		_placeholder_label.text = "%s ist vorbereitet und wartet auf die naechste Datenquelle." % _get_category_title(_active_category_id)
 
 
@@ -269,6 +278,30 @@ func _build_button_style(fill: Color, border: Color) -> StyleBoxFlat:
 
 func _on_category_button_pressed(category_id: String) -> void:
 	set_active_category(category_id)
+
+
+func _build_ship_design_panel() -> Control:
+	var panel := VBoxContainer.new()
+	panel.name = "ShipDesignPanel"
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_theme_constant_override("separation", 10)
+
+	var info := Label.new()
+	info.text = "Entwirf Schiffs- und Stationsdesigns aus freigeschalteten Komponenten. Werften bauen die gespeicherten Designs."
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_theme_font_size_override("font_size", 13)
+	info.add_theme_color_override("font_color", Color(0.74, 0.82, 0.88, 0.82))
+	panel.add_child(info)
+
+	var open_button := Button.new()
+	open_button.name = "OpenShipDesignerButton"
+	open_button.text = "Schiffsdesigner oeffnen"
+	open_button.custom_minimum_size = Vector2(0.0, 34.0)
+	open_button.pressed.connect(func() -> void:
+		ship_designer_open_requested.emit()
+	)
+	panel.add_child(open_button)
+	return panel
 
 
 func _on_anomaly_open_requested(entry: Dictionary) -> void:

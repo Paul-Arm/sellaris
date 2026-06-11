@@ -3,6 +3,7 @@ class_name GalaxyDebugSpawner
 
 const DEBUG_FLEET_CLASS_ID: String = "debug_corvette"
 const DEBUG_STATION_CLASS_ID: String = "debug_station"
+const DEBUG_HOSTILE_EMPIRE_ID: String = "debug_raiders"
 
 var _panel: PanelContainer = null
 var _toggle_button: Button = null
@@ -13,6 +14,7 @@ var _use_inspected_system_button: Button = null
 var _fleet_name_line_edit: LineEdit = null
 var _fleet_unit_count_spin_box: SpinBox = null
 var _spawn_fleet_button: Button = null
+var _spawn_hostile_fleet_button: Button = null
 var _spawn_science_ship_button: Button = null
 var _spawn_builder_ship_button: Button = null
 var _spawn_station_button: Button = null
@@ -52,11 +54,21 @@ func bind(
 	_spawn_builder_ship_button = panel.get_node_or_null("MarginContainer/VBoxContainer/ButtonRow/SpawnBuilderShipButton") as Button
 	_spawn_station_button = panel.get_node("MarginContainer/VBoxContainer/ButtonRow/SpawnStationButton") as Button
 	_status_label = panel.get_node("MarginContainer/VBoxContainer/StatusLabel") as Label
+	_spawn_hostile_fleet_button = panel.get_node_or_null("MarginContainer/VBoxContainer/ButtonRow/SpawnHostileFleetButton") as Button
+	if _spawn_hostile_fleet_button == null and _spawn_fleet_button != null:
+		_spawn_hostile_fleet_button = Button.new()
+		_spawn_hostile_fleet_button.name = "SpawnHostileFleetButton"
+		_spawn_hostile_fleet_button.text = "Spawn Enemy Fleet"
+		_spawn_hostile_fleet_button.tooltip_text = "Spawnt eine bewaffnete Feindflotte (anderes Empire) im gewaehlten System."
+		_spawn_fleet_button.get_parent().add_child(_spawn_hostile_fleet_button)
+		_spawn_fleet_button.get_parent().move_child(_spawn_hostile_fleet_button, _spawn_fleet_button.get_index() + 1)
 
 	_toggle_button.pressed.connect(_on_toggle_pressed)
 	_use_active_empire_button.pressed.connect(_on_use_active_empire_pressed)
 	_use_inspected_system_button.pressed.connect(_on_use_inspected_system_pressed)
 	_spawn_fleet_button.pressed.connect(_on_spawn_fleet_pressed)
+	if _spawn_hostile_fleet_button != null:
+		_spawn_hostile_fleet_button.pressed.connect(_on_spawn_hostile_fleet_pressed)
 	_spawn_science_ship_button.pressed.connect(_on_spawn_science_ship_pressed)
 	if _spawn_builder_ship_button != null:
 		_spawn_builder_ship_button.pressed.connect(_on_spawn_builder_ship_pressed)
@@ -75,6 +87,7 @@ func unbind() -> void:
 	_fleet_name_line_edit = null
 	_fleet_unit_count_spin_box = null
 	_spawn_fleet_button = null
+	_spawn_hostile_fleet_button = null
 	_spawn_science_ship_button = null
 	_spawn_builder_ship_button = null
 	_spawn_station_button = null
@@ -186,6 +199,8 @@ func sync_defaults(active_empire_id: String, inspected_system_id: String, empire
 
 	var controls_disabled: bool = _empire_picker.item_count == 0 or _system_picker.item_count == 0
 	_spawn_fleet_button.disabled = controls_disabled
+	if _spawn_hostile_fleet_button != null:
+		_spawn_hostile_fleet_button.disabled = _system_picker.item_count == 0
 	_spawn_science_ship_button.disabled = controls_disabled
 	if _spawn_builder_ship_button != null:
 		_spawn_builder_ship_button.disabled = controls_disabled
@@ -301,6 +316,61 @@ func _on_spawn_fleet_pressed() -> void:
 
 	var systems_by_id: Dictionary = _resolve_systems_by_id()
 	set_status("Spawned %d corvettes as %s in %s." % [unit_count, resolved_fleet_name, str(systems_by_id.get(system_id, {}).get("name", system_id))])
+
+
+func _on_spawn_hostile_fleet_pressed() -> void:
+	if not _spawn_runtime_unit.is_valid() or not _create_runtime_fleet.is_valid():
+		return
+
+	var system_id: String = _get_selected_system_id()
+	var unit_count: int = int(_fleet_unit_count_spin_box.value)
+	if system_id.is_empty() or unit_count <= 0:
+		set_status("Choose a system and a positive unit count.")
+		return
+
+	var enemy_empire_id := _resolve_hostile_empire_id()
+	# Ensure the enemy empire has tier-0 unlocks and default designs, so its
+	# corvettes spawn armed and can actually fight (idempotent for real empires).
+	SpaceManager.bootstrap_empires(PackedStringArray([enemy_empire_id]))
+
+	var unit_ids := PackedStringArray()
+	for ship_index in range(unit_count):
+		var ship: SpaceUnitRuntime = _spawn_runtime_unit.call(SpaceManager.CORVETTE_CLASS_ID, enemy_empire_id, system_id, {
+			"display_name": "Raider %02d" % (ship_index + 1),
+			"ai_role": "raider",
+			"stance": SpaceUnitRuntime.STANCE_AGGRESSIVE,
+		})
+		if ship == null:
+			set_status("Failed to spawn enemy corvettes.")
+			return
+		unit_ids.append(ship.unit_id)
+
+	var fleet: SpaceFleetRuntime = _create_runtime_fleet.call(enemy_empire_id, system_id, unit_ids, {
+		"display_name": "Hostile Fleet",
+		"ai_role": "raider",
+	})
+	if fleet == null:
+		set_status("Enemy fleet creation failed after spawning units.")
+		return
+
+	var systems_by_id: Dictionary = _resolve_systems_by_id()
+	set_status("Spawned %d hostile corvettes (%s) in %s." % [
+		unit_count,
+		enemy_empire_id,
+		str(systems_by_id.get(system_id, {}).get("name", system_id)),
+	])
+
+
+func _resolve_hostile_empire_id() -> String:
+	# Prefer a real empire that is not the player's, so map colors and names
+	# stay meaningful; fall back to a synthetic raider empire otherwise.
+	var active_empire_id := str(_get_active_empire_id.call()) if _get_active_empire_id.is_valid() else ""
+	if _empire_picker != null:
+		for item_index in range(_empire_picker.item_count):
+			var empire_id := str(_empire_picker.get_item_metadata(item_index))
+			if not empire_id.is_empty() and empire_id != active_empire_id:
+				return empire_id
+	return DEBUG_HOSTILE_EMPIRE_ID
 
 
 func _on_spawn_science_ship_pressed() -> void:

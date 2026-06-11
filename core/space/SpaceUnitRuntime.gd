@@ -4,8 +4,12 @@ class_name SpaceUnitRuntime
 const MOVEMENT_IDLE := "idle"
 const MOVEMENT_MOVING := "moving"
 
+const STANCE_AGGRESSIVE := "aggressive"
+const STANCE_PASSIVE := "passive"
+
 var unit_id: String = ""
 var class_id: String = ""
+var design_id: String = ""
 var display_name: String = ""
 var owner_empire_id: String = ""
 var controller_kind: String = SpaceUnitOwnershipComponent.CONTROLLER_UNASSIGNED
@@ -15,8 +19,19 @@ var current_system_id: String = ""
 var destination_system_id: String = ""
 var eta_days_remaining: int = 0
 var fleet_id: String = ""
-var max_hull_points: float = 100.0
-var current_hull_points: float = 100.0
+var max_hull_points: int = 100
+var current_hull_points: int = 100
+var max_shield_points: int = 0
+var current_shield_points: int = 0
+var armor_points: int = 0
+var evasion_bp: int = 0
+var stance: String = STANCE_PASSIVE
+var auto_engage_radius: float = 12.0
+var battle_id: String = ""
+var stunned_days_remaining: int = 0
+var weapon_cooldowns: Dictionary = {}
+var ability_cooldowns: Dictionary = {}
+var pending_ability_commands: Array[Dictionary] = []
 var command_revision: int = 0
 var capability_mask: int = 0
 var command_tags: PackedStringArray = PackedStringArray()
@@ -55,7 +70,25 @@ func can_join_fleet() -> bool:
 
 
 func get_hull_ratio() -> float:
-	return current_hull_points / maxf(max_hull_points, 1.0)
+	return float(current_hull_points) / float(maxi(max_hull_points, 1))
+
+
+func get_shield_ratio() -> float:
+	if max_shield_points <= 0:
+		return 0.0
+	return float(current_shield_points) / float(max_shield_points)
+
+
+func is_in_battle() -> bool:
+	return not battle_id.is_empty()
+
+
+func is_stunned() -> bool:
+	return stunned_days_remaining > 0
+
+
+func is_aggressive() -> bool:
+	return stance == STANCE_AGGRESSIVE
 
 
 func clear_fleet_assignment() -> void:
@@ -85,6 +118,7 @@ func to_dict() -> Dictionary:
 	return {
 		"unit_id": unit_id,
 		"class_id": class_id,
+		"design_id": design_id,
 		"display_name": display_name,
 		"owner_empire_id": owner_empire_id,
 		"controller_kind": controller_kind,
@@ -96,6 +130,17 @@ func to_dict() -> Dictionary:
 		"fleet_id": fleet_id,
 		"max_hull_points": max_hull_points,
 		"current_hull_points": current_hull_points,
+		"max_shield_points": max_shield_points,
+		"current_shield_points": current_shield_points,
+		"armor_points": armor_points,
+		"evasion_bp": evasion_bp,
+		"stance": stance,
+		"auto_engage_radius": auto_engage_radius,
+		"battle_id": battle_id,
+		"stunned_days_remaining": stunned_days_remaining,
+		"weapon_cooldowns": weapon_cooldowns.duplicate(true),
+		"ability_cooldowns": ability_cooldowns.duplicate(true),
+		"pending_ability_commands": pending_ability_commands.duplicate(true),
 		"command_revision": command_revision,
 		"capability_mask": capability_mask,
 		"command_tags": command_tags.duplicate(),
@@ -114,6 +159,7 @@ static func from_dict(data: Dictionary) -> SpaceUnitRuntime:
 	var unit := SpaceUnitRuntime.new()
 	unit.unit_id = str(data.get("unit_id", data.get("ship_id", "")))
 	unit.class_id = str(data.get("class_id", ""))
+	unit.design_id = str(data.get("design_id", ""))
 	unit.display_name = str(data.get("display_name", ""))
 	unit.owner_empire_id = str(data.get("owner_empire_id", ""))
 	unit.controller_kind = str(data.get("controller_kind", SpaceUnitOwnershipComponent.CONTROLLER_UNASSIGNED))
@@ -123,8 +169,19 @@ static func from_dict(data: Dictionary) -> SpaceUnitRuntime:
 	unit.destination_system_id = str(data.get("destination_system_id", ""))
 	unit.eta_days_remaining = maxi(int(data.get("eta_days_remaining", 0)), 0)
 	unit.fleet_id = str(data.get("fleet_id", ""))
-	unit.max_hull_points = maxf(float(data.get("max_hull_points", 100.0)), 1.0)
-	unit.current_hull_points = clampf(float(data.get("current_hull_points", unit.max_hull_points)), 0.0, unit.max_hull_points)
+	unit.max_hull_points = maxi(int(round(float(data.get("max_hull_points", 100)))), 1)
+	unit.current_hull_points = clampi(int(round(float(data.get("current_hull_points", unit.max_hull_points)))), 0, unit.max_hull_points)
+	unit.max_shield_points = maxi(int(data.get("max_shield_points", 0)), 0)
+	unit.current_shield_points = clampi(int(data.get("current_shield_points", unit.max_shield_points)), 0, unit.max_shield_points)
+	unit.armor_points = maxi(int(data.get("armor_points", 0)), 0)
+	unit.evasion_bp = clampi(int(data.get("evasion_bp", 0)), 0, 9500)
+	unit.stance = _normalize_stance(str(data.get("stance", STANCE_PASSIVE)))
+	unit.auto_engage_radius = maxf(float(data.get("auto_engage_radius", 12.0)), 0.0)
+	unit.battle_id = str(data.get("battle_id", ""))
+	unit.stunned_days_remaining = maxi(int(data.get("stunned_days_remaining", 0)), 0)
+	unit.weapon_cooldowns = _sanitize_cooldowns(data.get("weapon_cooldowns", {}))
+	unit.ability_cooldowns = _sanitize_cooldowns(data.get("ability_cooldowns", {}))
+	unit.pending_ability_commands = _sanitize_command_array(data.get("pending_ability_commands", []))
 	unit.command_revision = maxi(int(data.get("command_revision", 0)), 0)
 	unit.capability_mask = int(data.get("capability_mask", 0))
 	unit.command_tags = _variant_to_packed_string_array(data.get("command_tags", PackedStringArray()))
@@ -159,6 +216,36 @@ static func _sanitize_metadata(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return value.duplicate(true)
 	return {}
+
+
+static func _normalize_stance(value: String) -> String:
+	if value == STANCE_AGGRESSIVE:
+		return STANCE_AGGRESSIVE
+	return STANCE_PASSIVE
+
+
+static func _sanitize_cooldowns(value: Variant) -> Dictionary:
+	if value is not Dictionary:
+		return {}
+	var data: Dictionary = value
+	var result: Dictionary = {}
+	for slot_id_variant in data.keys():
+		var slot_id := str(slot_id_variant).strip_edges()
+		var days := maxi(int(data.get(slot_id_variant, 0)), 0)
+		if slot_id.is_empty() or days <= 0:
+			continue
+		result[slot_id] = days
+	return result
+
+
+static func _sanitize_command_array(value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if value is not Array:
+		return result
+	for entry_variant in value:
+		if entry_variant is Dictionary:
+			result.append((entry_variant as Dictionary).duplicate(true))
+	return result
 
 
 static func _vector3_to_dict(value: Vector3) -> Dictionary:

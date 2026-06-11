@@ -3,17 +3,26 @@ extends Node
 const SPACE_UNIT_CLASS_SCRIPT: Script = preload("res://core/space/SpaceUnitClass.gd")
 const SPACE_UNIT_RUNTIME_SCRIPT: Script = preload("res://core/space/SpaceUnitRuntime.gd")
 const SPACE_FLEET_RUNTIME_SCRIPT: Script = preload("res://core/space/SpaceFleetRuntime.gd")
+const SHIP_COMPONENT_CATALOG_SCRIPT: Script = preload("res://core/space/design/ShipComponentCatalog.gd")
+const SHIP_DESIGN_CATALOG_SCRIPT: Script = preload("res://core/space/design/ShipDesignCatalog.gd")
+const COMBAT_SYSTEM_SCRIPT: Script = preload("res://core/space/combat/CombatSystem.gd")
+const HOSTILITY_FREE_FOR_ALL := "free_for_all"
+const HOSTILITY_PEACEFUL := "peaceful"
+const DEFAULT_AUTO_ENGAGE_RADIUS := 12.0
 const UNIT_SOURCE_PREFIX := "unit:"
 const SCIENCE_SHIP_CLASS_ID := "science_ship"
 const BUILDER_SHIP_CLASS_ID := "builder_ship"
 const BASIC_STATION_CLASS_ID := "basic_station"
 const STELLAR_STATION_CLASS_ID := "stellar_station"
 const RESOURCE_COLLECTOR_STATION_CLASS_ID := "resource_collector_station"
+const CORVETTE_CLASS_ID := "corvette"
 const STATION_BUILD_TIME_DAYS := 60
+const CORVETTE_BUILD_TIME_DAYS := 30
 const BUILD_TAG_ORBITAL_STATION := "orbital_station"
 const BUILD_TAG_STELLAR_STATION := "stellar_station"
 const BUILD_TAG_MINING_STATION := "mining_station"
 const BUILD_TAG_RESEARCH_STATION := "research_station"
+const BUILD_TAG_SHIP := "ship"
 const CONSTRUCTION_STATE_MOVING_TO_SITE := "moving_to_site"
 const CONSTRUCTION_STATE_BUILDING := "building"
 const CONSTRUCTION_SITE_ARRIVAL_DISTANCE := 0.35
@@ -38,6 +47,12 @@ signal exploration_updated(order_id: String)
 signal exploration_scan_completed(order_id: String, unit_id: String, system_id: String, body_id: String)
 signal exploration_completed(order_id: String, unit_id: String, system_id: String)
 signal exploration_cancelled(order_id: String)
+signal ship_component_unlocked(empire_id: String, component_id: String)
+signal ship_design_created(design_id: String)
+signal ship_design_updated(design_id: String)
+signal combat_events(events: Array[Dictionary])
+signal battle_started(battle_id: String, system_id: String)
+signal battle_ended(battle_id: String, system_id: String)
 
 var _next_unit_id: int = 1
 var _next_fleet_id: int = 1
@@ -58,9 +73,20 @@ var _construction_project_ids_by_builder_unit_id: Dictionary = {}
 var _construction_project_ids_by_system: Dictionary = {}
 var _exploration_order_ids_by_unit_id: Dictionary = {}
 var _exploration_order_ids_by_system: Dictionary = {}
+var _ship_component_catalog: ShipComponentCatalog = null
+var _ship_design_catalog: ShipDesignCatalog = null
+var _combat_system: CombatSystem = null
+var _hostility_mode: String = HOSTILITY_FREE_FOR_ALL
+var _next_ability_command_id: int = 1
 
 
 func _ready() -> void:
+	_ship_component_catalog = SHIP_COMPONENT_CATALOG_SCRIPT.new() as ShipComponentCatalog
+	_ship_component_catalog.load_definitions()
+	_ship_design_catalog = SHIP_DESIGN_CATALOG_SCRIPT.new() as ShipDesignCatalog
+	_ship_design_catalog.setup(_ship_component_catalog)
+	_combat_system = COMBAT_SYSTEM_SCRIPT.new() as CombatSystem
+	_combat_system.setup(self)
 	register_builtin_unit_classes()
 	if SimClock != null:
 		if not SimClock.day_tick.is_connected(_on_sim_day_tick):
@@ -88,6 +114,12 @@ func reset_runtime_state(clear_unit_classes: bool = false) -> void:
 	_construction_project_ids_by_system.clear()
 	_exploration_order_ids_by_unit_id.clear()
 	_exploration_order_ids_by_system.clear()
+	if _ship_design_catalog != null:
+		_ship_design_catalog.reset_state()
+	if _combat_system != null:
+		_combat_system.reset_state()
+	_hostility_mode = HOSTILITY_FREE_FOR_ALL
+	_next_ability_command_id = 1
 	if clear_unit_classes:
 		_unit_classes.clear()
 		register_builtin_unit_classes(true)
@@ -104,7 +136,8 @@ func register_builtin_unit_classes(overwrite_existing: bool = false) -> void:
 		"command_tags": ["civilian", "science", "survey", "explore"],
 		"component_slots": [
 			{"slot_id": "drive", "slot_kind": "drive", "required": true},
-			{"slot_id": "utility", "slot_kind": "addon", "required": false},
+			{"slot_id": "defense_1", "slot_kind": "defense", "required": false},
+			{"slot_id": "utility_1", "slot_kind": "utility", "required": false},
 		],
 		"upkeep_component": {
 			"build_costs": {
@@ -148,7 +181,8 @@ func register_builtin_unit_classes(overwrite_existing: bool = false) -> void:
 		"component_slots": [
 			{"slot_id": "drive", "slot_kind": "drive", "required": true},
 			{"slot_id": "construction", "slot_kind": "construction", "required": true},
-			{"slot_id": "utility", "slot_kind": "addon", "required": false},
+			{"slot_id": "defense_1", "slot_kind": "defense", "required": false},
+			{"slot_id": "utility_1", "slot_kind": "utility", "required": false},
 		],
 		"upkeep_component": {
 			"build_costs": {
@@ -188,7 +222,19 @@ func register_builtin_unit_classes(overwrite_existing: bool = false) -> void:
 		"category": SpaceUnitClass.CATEGORY_STATION,
 		"max_hull_points": 1800.0,
 		"default_ai_role": "system_anchor",
-		"command_tags": ["station", "buildable"],
+		"command_tags": ["station", "buildable", "shipyard"],
+		"component_slots": [
+			{"slot_id": "weapon_1", "slot_kind": "weapon", "required": false},
+			{"slot_id": "weapon_2", "slot_kind": "weapon", "required": false},
+			{"slot_id": "defense_1", "slot_kind": "defense", "required": false},
+			{"slot_id": "defense_2", "slot_kind": "defense", "required": false},
+			{"slot_id": "utility_1", "slot_kind": "utility", "required": false},
+			{"slot_id": "utility_2", "slot_kind": "utility", "required": false},
+		],
+		"builder_component": {
+			"buildable_tags": [BUILD_TAG_SHIP],
+			"single_active_project": true,
+		},
 		"upkeep_component": {
 			"build_costs": {
 				"alloys": 240.0,
@@ -213,7 +259,19 @@ func register_builtin_unit_classes(overwrite_existing: bool = false) -> void:
 		"category": SpaceUnitClass.CATEGORY_STATION,
 		"max_hull_points": 2200.0,
 		"default_ai_role": "stellar_anchor",
-		"command_tags": ["station", "stellar", "buildable"],
+		"command_tags": ["station", "stellar", "buildable", "shipyard"],
+		"component_slots": [
+			{"slot_id": "weapon_1", "slot_kind": "weapon", "required": false},
+			{"slot_id": "weapon_2", "slot_kind": "weapon", "required": false},
+			{"slot_id": "defense_1", "slot_kind": "defense", "required": false},
+			{"slot_id": "defense_2", "slot_kind": "defense", "required": false},
+			{"slot_id": "utility_1", "slot_kind": "utility", "required": false},
+			{"slot_id": "utility_2", "slot_kind": "utility", "required": false},
+		],
+		"builder_component": {
+			"buildable_tags": [BUILD_TAG_SHIP],
+			"single_active_project": true,
+		},
 		"upkeep_component": {
 			"build_costs": {
 				"alloys": 300.0,
@@ -239,6 +297,11 @@ func register_builtin_unit_classes(overwrite_existing: bool = false) -> void:
 		"max_hull_points": 1200.0,
 		"default_ai_role": "resource_collection",
 		"command_tags": ["station", "collector", "buildable"],
+		"component_slots": [
+			{"slot_id": "weapon_1", "slot_kind": "weapon", "required": false},
+			{"slot_id": "defense_1", "slot_kind": "defense", "required": false},
+			{"slot_id": "utility_1", "slot_kind": "utility", "required": false},
+		],
 		"upkeep_component": {
 			"build_costs": {
 				"alloys": 180.0,
@@ -257,6 +320,48 @@ func register_builtin_unit_classes(overwrite_existing: bool = false) -> void:
 		},
 		"metadata": {
 			"requires_resource_deposit": true,
+		},
+	}, overwrite_existing)
+	register_unit_class_from_data({
+		"class_id": CORVETTE_CLASS_ID,
+		"display_name": "Corvette",
+		"unit_kind": SpaceUnitClass.UNIT_KIND_SHIP,
+		"category": SpaceUnitClass.CATEGORY_COMBAT,
+		"max_hull_points": 300,
+		"default_ai_role": "escort",
+		"command_tags": ["military", "combat", "escort"],
+		"component_slots": [
+			{"slot_id": "weapon_1", "slot_kind": "weapon", "required": false},
+			{"slot_id": "weapon_2", "slot_kind": "weapon", "required": false},
+			{"slot_id": "defense_1", "slot_kind": "defense", "required": false},
+			{"slot_id": "utility_1", "slot_kind": "utility", "required": false},
+			{"slot_id": "drive", "slot_kind": "drive", "required": true},
+		],
+		"upkeep_component": {
+			"build_costs": {
+				"alloys": 90.0,
+				"energy": 30.0,
+			},
+			"monthly_costs": {
+				"energy": 0.8,
+				"alloys": 0.2,
+			},
+			"command_point_cost": 1.0,
+		},
+		"mobility_component": {
+			"cruise_speed": 6.0,
+			"acceleration": 7.0,
+			"turn_rate_degrees": 220.0,
+			"formation_radius": 2.0,
+			"can_join_fleets": true,
+			"uses_hyperlanes": true,
+			"can_orbit_system_objects": true,
+			"can_move_in_system": true,
+		},
+		"buildable_component": {
+			"build_time_days": CORVETTE_BUILD_TIME_DAYS,
+			"buildable_by_builder_ships": true,
+			"build_tags": [BUILD_TAG_SHIP],
 		},
 	}, overwrite_existing)
 
@@ -310,6 +415,321 @@ func get_all_unit_classes() -> Array[SpaceUnitClass]:
 	return result
 
 
+func bootstrap_empires(empire_ids_variant: Variant) -> void:
+	if _ship_design_catalog == null:
+		return
+	for empire_id_variant in empire_ids_variant:
+		var empire_id := str(empire_id_variant).strip_edges()
+		if empire_id.is_empty():
+			continue
+		_ship_design_catalog.bootstrap_empire_unlocks(empire_id)
+		_ship_design_catalog.ensure_default_designs(empire_id, get_all_unit_classes())
+
+
+func get_ship_component_catalog() -> ShipComponentCatalog:
+	return _ship_component_catalog
+
+
+func get_ship_component(component_id: String) -> Dictionary:
+	if _ship_component_catalog == null:
+		return {}
+	var definition := _ship_component_catalog.get_component(component_id)
+	if definition == null:
+		return {}
+	return definition.to_dict()
+
+
+func is_ship_component_unlocked(empire_id: String, component_id: String) -> bool:
+	if _ship_design_catalog == null:
+		return false
+	return _ship_design_catalog.is_component_unlocked(empire_id, component_id)
+
+
+func unlock_ship_component(empire_id: String, component_id: String) -> bool:
+	if _ship_design_catalog == null:
+		return false
+	if not _ship_design_catalog.unlock_component(empire_id, component_id):
+		return false
+	ship_component_unlocked.emit(empire_id, component_id)
+	return true
+
+
+func get_unlocked_ship_component_ids(empire_id: String) -> Array[String]:
+	if _ship_design_catalog == null:
+		return []
+	return _ship_design_catalog.get_unlocked_component_ids(empire_id)
+
+
+func create_ship_design(empire_id: String, class_id: String, slot_assignments: Dictionary, options: Dictionary = {}) -> String:
+	if _ship_design_catalog == null:
+		return ""
+	var design_id := _ship_design_catalog.create_design(empire_id, get_unit_class(class_id), slot_assignments, options)
+	if not design_id.is_empty():
+		ship_design_created.emit(design_id)
+	return design_id
+
+
+func update_ship_design(design_id: String, slot_assignments: Dictionary) -> bool:
+	if _ship_design_catalog == null:
+		return false
+	var design := _ship_design_catalog.get_design(design_id)
+	if design == null:
+		return false
+	if not _ship_design_catalog.update_design(design_id, get_unit_class(design.class_id), slot_assignments):
+		return false
+	for unit_variant in _units.values():
+		var unit: SpaceUnitRuntime = unit_variant
+		if unit.design_id == design_id:
+			_apply_design_to_unit(unit)
+			_sync_unit_economy_source(unit)
+			unit_updated.emit(unit.unit_id)
+	ship_design_updated.emit(design_id)
+	return true
+
+
+func remove_ship_design(design_id: String) -> bool:
+	if _ship_design_catalog == null:
+		return false
+	var design := _ship_design_catalog.get_design(design_id)
+	if design == null or design.is_default:
+		return false
+	for unit_variant in _units.values():
+		var unit: SpaceUnitRuntime = unit_variant
+		if unit.design_id == design_id:
+			return false
+	if not _ship_design_catalog.remove_design(design_id):
+		return false
+	ship_design_updated.emit(design_id)
+	return true
+
+
+func rename_ship_design(design_id: String, display_name: String) -> bool:
+	if _ship_design_catalog == null:
+		return false
+	if not _ship_design_catalog.rename_design(design_id, display_name):
+		return false
+	ship_design_updated.emit(design_id)
+	return true
+
+
+func set_default_ship_design(design_id: String) -> bool:
+	if _ship_design_catalog == null:
+		return false
+	if not _ship_design_catalog.set_default_design(design_id):
+		return false
+	ship_design_updated.emit(design_id)
+	return true
+
+
+func compile_ship_design_draft(class_id: String, slot_assignments: Dictionary) -> Dictionary:
+	var unit_class := get_unit_class(class_id)
+	if unit_class == null or _ship_component_catalog == null:
+		return {}
+	return ShipDesignCompiler.compile(unit_class, slot_assignments, _ship_component_catalog)
+
+
+func validate_ship_design_draft(empire_id: String, class_id: String, slot_assignments: Dictionary) -> PackedStringArray:
+	var unit_class := get_unit_class(class_id)
+	if unit_class == null or _ship_component_catalog == null or _ship_design_catalog == null:
+		return PackedStringArray(["unknown_unit_class"])
+	var unlocked: Dictionary = {}
+	for component_id in _ship_design_catalog.get_unlocked_component_ids(empire_id):
+		unlocked[component_id] = true
+	return ShipDesignCompiler.validate(unit_class, slot_assignments, _ship_component_catalog, unlocked)
+
+
+func get_ship_design(design_id: String) -> Dictionary:
+	if _ship_design_catalog == null:
+		return {}
+	var design := _ship_design_catalog.get_design(design_id)
+	if design == null:
+		return {}
+	return design.to_dict()
+
+
+func get_ship_design_ids_for_empire(empire_id: String) -> Array[String]:
+	if _ship_design_catalog == null:
+		return []
+	return _ship_design_catalog.get_design_ids_for_empire(empire_id)
+
+
+func get_default_ship_design_id(empire_id: String, class_id: String) -> String:
+	if _ship_design_catalog == null:
+		return ""
+	return _ship_design_catalog.get_default_design_id(empire_id, class_id)
+
+
+func get_compiled_ship_design_stats(design_id: String) -> Dictionary:
+	if _ship_design_catalog == null:
+		return {}
+	var design := _ship_design_catalog.get_design(design_id)
+	if design == null:
+		return {}
+	return _ship_design_catalog.get_compiled_stats(design_id, get_unit_class(design.class_id))
+
+
+func get_last_ship_design_errors() -> PackedStringArray:
+	if _ship_design_catalog == null:
+		return PackedStringArray()
+	return _ship_design_catalog.get_last_validation_errors()
+
+
+# --- Combat API (COMBAT_DESIGN.md Phase B) ---
+
+func set_hostility_mode(mode: String) -> void:
+	if mode == HOSTILITY_FREE_FOR_ALL or mode == HOSTILITY_PEACEFUL:
+		_hostility_mode = mode
+
+
+func get_hostility_mode() -> String:
+	return _hostility_mode
+
+
+func are_empires_hostile(empire_id_a: String, empire_id_b: String) -> bool:
+	# Diplomacy stub: free-for-all until a war/relations system exists.
+	if _hostility_mode != HOSTILITY_FREE_FOR_ALL:
+		return false
+	if empire_id_a.is_empty() or empire_id_b.is_empty():
+		return false
+	return empire_id_a != empire_id_b
+
+
+func set_unit_stance(unit_id: String, stance: String) -> bool:
+	var unit := get_unit(unit_id)
+	if unit == null:
+		return false
+	var normalized := SpaceUnitRuntime._normalize_stance(stance)
+	if unit.stance == normalized:
+		return false
+	unit.stance = normalized
+	unit.command_revision += 1
+	unit_updated.emit(unit_id)
+	return true
+
+
+func set_fleet_stance(fleet_id: String, stance: String) -> bool:
+	var fleet := get_fleet(fleet_id)
+	if fleet == null:
+		return false
+	var changed := false
+	for unit_id in fleet.unit_ids:
+		changed = set_unit_stance(unit_id, stance) or changed
+	return changed
+
+
+func queue_unit_ability_command(unit_id: String, slot_id: String, command_data: Dictionary = {}) -> bool:
+	var unit := get_unit(unit_id)
+	if unit == null or unit.design_id.is_empty():
+		return false
+	slot_id = slot_id.strip_edges()
+	if slot_id.is_empty() or unit.ability_cooldowns.has(slot_id):
+		return false
+
+	var has_manual_ability := false
+	var design_stats := get_compiled_ship_design_stats(unit.design_id)
+	for ability_variant in design_stats.get("abilities", []):
+		if ability_variant is not Dictionary:
+			continue
+		var ability: Dictionary = ability_variant
+		if str(ability.get("slot_id", "")) == slot_id and str(ability.get("trigger", "")) == "manual":
+			has_manual_ability = true
+			break
+	if not has_manual_ability:
+		return false
+
+	for pending_command in unit.pending_ability_commands:
+		if str(pending_command.get("slot_id", "")) == slot_id:
+			return false
+
+	var command := command_data.duplicate(true)
+	command["command_id"] = _next_ability_command_id
+	command["slot_id"] = slot_id
+	_next_ability_command_id += 1
+	unit.pending_ability_commands.append(command)
+	unit.command_revision += 1
+	unit_updated.emit(unit_id)
+	return true
+
+
+func get_battle(battle_id: String) -> Dictionary:
+	if _combat_system == null:
+		return {}
+	return _combat_system.get_battle(battle_id)
+
+
+func get_active_battle_ids() -> Array[String]:
+	if _combat_system == null:
+		return []
+	return _combat_system.get_active_battle_ids()
+
+
+func get_battle_id_for_system(system_id: String) -> String:
+	if _combat_system == null:
+		return ""
+	return _combat_system.get_battle_id_for_system(system_id)
+
+
+func get_battle_event_log(battle_id: String) -> Array[Dictionary]:
+	if _combat_system == null:
+		return []
+	return _combat_system.get_battle_event_log(battle_id)
+
+
+func get_all_unit_ids() -> PackedStringArray:
+	var result := PackedStringArray()
+	for unit_id_variant in _units.keys():
+		result.append(str(unit_id_variant))
+	return result
+
+
+func get_system_ids_with_units() -> PackedStringArray:
+	var result := PackedStringArray()
+	for system_id_variant in _unit_ids_by_system.keys():
+		result.append(str(system_id_variant))
+	return result
+
+
+func _resolve_design_for_spawn(unit_class: SpaceUnitClass, owner_empire_id: String, spawn_data: Dictionary) -> String:
+	if _ship_design_catalog == null or unit_class == null:
+		return ""
+	var design_id := str(spawn_data.get("design_id", "")).strip_edges()
+	if design_id.is_empty():
+		design_id = _ship_design_catalog.get_default_design_id(owner_empire_id, unit_class.class_id)
+	if design_id.is_empty():
+		return ""
+	var design := _ship_design_catalog.get_design(design_id)
+	if design == null or design.class_id != unit_class.class_id or design.empire_id != owner_empire_id:
+		return ""
+	return design_id
+
+
+func _apply_design_to_unit(unit: SpaceUnitRuntime) -> void:
+	if unit == null or unit.design_id.is_empty():
+		return
+	var stats := get_compiled_ship_design_stats(unit.design_id)
+	if stats.is_empty():
+		return
+	var hull_ratio := unit.get_hull_ratio()
+	unit.max_hull_points = maxi(int(stats.get("max_hull_points", unit.max_hull_points)), 1)
+	unit.current_hull_points = clampi(int(round(float(unit.max_hull_points) * hull_ratio)), 0, unit.max_hull_points)
+	var shield_ratio := unit.get_shield_ratio()
+	unit.max_shield_points = maxi(int(stats.get("max_shield_points", 0)), 0)
+	unit.current_shield_points = clampi(int(round(float(unit.max_shield_points) * shield_ratio)), 0, unit.max_shield_points)
+	unit.armor_points = maxi(int(stats.get("armor_points", 0)), 0)
+	unit.evasion_bp = clampi(int(stats.get("evasion_bp", 0)), 0, 9500)
+	unit.auto_engage_radius = maxf(float(stats.get("auto_engage_radius", DEFAULT_AUTO_ENGAGE_RADIUS)), 0.0)
+
+
+func _get_default_stance(unit_class: SpaceUnitClass) -> String:
+	if unit_class == null:
+		return SpaceUnitRuntime.STANCE_PASSIVE
+	match unit_class.category:
+		SpaceUnitClass.CATEGORY_COMBAT, SpaceUnitClass.CATEGORY_STATION:
+			return SpaceUnitRuntime.STANCE_AGGRESSIVE
+		_:
+			return SpaceUnitRuntime.STANCE_PASSIVE
+
+
 func spawn_unit(class_id: String, owner_empire_id: String, system_id: String, spawn_data: Dictionary = {}) -> SpaceUnitRuntime:
 	var unit_class := get_unit_class(class_id)
 	if unit_class == null:
@@ -338,6 +758,7 @@ func spawn_unit(class_id: String, owner_empire_id: String, system_id: String, sp
 	var unit := SPACE_UNIT_RUNTIME_SCRIPT.new() as SpaceUnitRuntime
 	unit.unit_id = unit_id
 	unit.class_id = unit_class.class_id
+	unit.design_id = _resolve_design_for_spawn(unit_class, owner_empire_id, spawn_data)
 	unit.display_name = str(spawn_data.get("display_name", unit_class.display_name))
 	unit.owner_empire_id = owner_empire_id
 	unit.controller_kind = controller_kind
@@ -347,7 +768,17 @@ func spawn_unit(class_id: String, owner_empire_id: String, system_id: String, sp
 	unit.destination_system_id = str(spawn_data.get("destination_system_id", ""))
 	unit.eta_days_remaining = maxi(int(spawn_data.get("eta_days_remaining", 0)), 0)
 	unit.max_hull_points = unit_class.max_hull_points
-	unit.current_hull_points = clampf(float(spawn_data.get("current_hull_points", unit.max_hull_points)), 0.0, unit.max_hull_points)
+	unit.auto_engage_radius = DEFAULT_AUTO_ENGAGE_RADIUS
+	if not unit.design_id.is_empty():
+		var design_stats := get_compiled_ship_design_stats(unit.design_id)
+		unit.max_hull_points = maxi(int(design_stats.get("max_hull_points", unit.max_hull_points)), 1)
+		unit.max_shield_points = maxi(int(design_stats.get("max_shield_points", 0)), 0)
+		unit.armor_points = maxi(int(design_stats.get("armor_points", 0)), 0)
+		unit.evasion_bp = clampi(int(design_stats.get("evasion_bp", 0)), 0, 9500)
+		unit.auto_engage_radius = maxf(float(design_stats.get("auto_engage_radius", DEFAULT_AUTO_ENGAGE_RADIUS)), 0.0)
+	unit.current_hull_points = clampi(int(round(float(spawn_data.get("current_hull_points", unit.max_hull_points)))), 0, unit.max_hull_points)
+	unit.current_shield_points = clampi(int(spawn_data.get("current_shield_points", unit.max_shield_points)), 0, unit.max_shield_points)
+	unit.stance = SpaceUnitRuntime._normalize_stance(str(spawn_data.get("stance", _get_default_stance(unit_class))))
 	unit.capability_mask = unit_class.get_capability_mask()
 	unit.command_tags = unit_class.command_tags.duplicate()
 	unit.metadata = _sanitize_dictionary(spawn_data.get("metadata", unit_class.metadata))
@@ -371,6 +802,8 @@ func remove_unit(unit_id: String) -> bool:
 
 	cancel_exploration_order_for_unit(unit_id)
 	cancel_build_order_for_builder(unit_id)
+	if _combat_system != null:
+		_combat_system.handle_unit_removed(unit)
 	if not unit.fleet_id.is_empty():
 		remove_unit_from_fleet(unit_id)
 
@@ -411,7 +844,7 @@ func get_owner_monthly_upkeep(empire_id: String) -> Dictionary:
 		var unit_class := get_unit_class(unit.class_id)
 		if unit_class == null:
 			continue
-		_merge_amount_defs_into_map(totals, unit_class.get_monthly_upkeep())
+		_merge_amount_defs_into_map(totals, _get_unit_monthly_upkeep(unit, unit_class))
 	return totals
 
 
@@ -448,15 +881,29 @@ func issue_build_order(builder_unit_id: String, build_class_id: String, build_da
 	if construction_state == CONSTRUCTION_STATE_MOVING_TO_SITE and not builder.is_mobile():
 		return ""
 
+	var design_id := str(build_data.get("design_id", "")).strip_edges()
+	if design_id.is_empty() and _ship_design_catalog != null:
+		design_id = _ship_design_catalog.get_default_design_id(builder.owner_empire_id, build_class.class_id)
+	var design_stats: Dictionary = {}
+	if not design_id.is_empty():
+		var design := _ship_design_catalog.get_design(design_id) if _ship_design_catalog != null else null
+		if design == null or design.class_id != build_class.class_id or design.empire_id != builder.owner_empire_id:
+			design_id = ""
+		else:
+			design_stats = get_compiled_ship_design_stats(design_id)
+
 	if bool(build_data.get("commit_cost", false)):
-		if EconomyManager == null or not EconomyManager.commit_cost(builder.owner_empire_id, build_class.get_build_costs()):
+		var order_costs: Variant = design_stats.get("build_costs", []) if not design_stats.is_empty() else build_class.get_build_costs()
+		if EconomyManager == null or not EconomyManager.commit_cost(builder.owner_empire_id, order_costs):
 			return ""
 
-	var build_time_days := maxi(int(build_data.get("build_time_days", build_class.get_build_time_days())), 1)
+	var default_build_time := int(design_stats.get("build_time_days", build_class.get_build_time_days())) if not design_stats.is_empty() else build_class.get_build_time_days()
+	var build_time_days := maxi(int(build_data.get("build_time_days", default_build_time)), 1)
 	var project := {
 		"project_id": project_id,
 		"builder_unit_id": builder.unit_id,
 		"build_class_id": build_class.class_id,
+		"design_id": design_id,
 		"display_name": str(build_data.get("display_name", build_class.display_name)).strip_edges(),
 		"owner_empire_id": builder.owner_empire_id,
 		"system_id": builder.current_system_id,
@@ -695,18 +1142,12 @@ func get_build_options_for_body(builder_unit_id: String, system_id: String, body
 			continue
 		if _is_resource_collector_class(candidate) and not _can_build_resource_collector_for_body(system_id, normalized_body, body_context):
 			continue
-		result.append({
-			"class_id": candidate.class_id,
-			"display_name": candidate.display_name,
-			"unit_kind": candidate.unit_kind,
-			"category": candidate.category,
-			"build_time_days": candidate.get_build_time_days(),
-			"build_tags": candidate_tags.duplicate(),
-			"build_costs": ResourceAmountDef.to_dict_array(candidate.get_build_costs()),
-			"target_body_id": str(normalized_body.get("body_id", "")),
-			"target_body_type": str(normalized_body.get("body_type", "")),
-			"target_body_name": str(normalized_body.get("body_name", "")),
-		})
+		var option := _build_class_option(candidate, builder.owner_empire_id)
+		option["build_tags"] = candidate_tags.duplicate()
+		option["target_body_id"] = str(normalized_body.get("body_id", ""))
+		option["target_body_type"] = str(normalized_body.get("body_type", ""))
+		option["target_body_name"] = str(normalized_body.get("body_name", ""))
+		result.append(option)
 
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var name_a := str(a.get("display_name", a.get("class_id", "")))
@@ -716,6 +1157,114 @@ func get_build_options_for_body(builder_unit_id: String, system_id: String, body
 		return name_a < name_b
 	)
 	return result
+
+
+func _build_class_option(candidate: SpaceUnitClass, owner_empire_id: String) -> Dictionary:
+	var option := {
+		"class_id": candidate.class_id,
+		"display_name": candidate.display_name,
+		"unit_kind": candidate.unit_kind,
+		"category": candidate.category,
+		"build_time_days": candidate.get_build_time_days(),
+		"build_costs": ResourceAmountDef.to_dict_array(candidate.get_build_costs()),
+		"design_id": "",
+	}
+	var design_id := get_default_ship_design_id(owner_empire_id, candidate.class_id)
+	if design_id.is_empty():
+		return option
+	var design_stats := get_compiled_ship_design_stats(design_id)
+	if design_stats.is_empty():
+		return option
+	option["design_id"] = design_id
+	option["build_time_days"] = maxi(int(design_stats.get("build_time_days", option["build_time_days"])), 1)
+	option["build_costs"] = design_stats.get("build_costs", option["build_costs"])
+	return option
+
+
+func get_ship_build_options(builder_unit_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var builder := get_unit(builder_unit_id)
+	if builder == null or not builder.can_build_units() or is_unit_constructing(builder_unit_id):
+		return result
+	var builder_class := get_unit_class(builder.class_id)
+	if builder_class == null or builder_class.builder_component == null:
+		return result
+
+	for unit_class_variant in _unit_classes.values():
+		var candidate: SpaceUnitClass = unit_class_variant
+		if candidate == null or not candidate.is_buildable():
+			continue
+		if not candidate.get_build_tags().has(BUILD_TAG_SHIP):
+			continue
+		if not candidate.can_builder_construct(builder_class):
+			continue
+		var design_entries := _build_design_options_for_class(candidate, builder.owner_empire_id)
+		if design_entries.is_empty():
+			result.append(_build_class_option(candidate, builder.owner_empire_id))
+		else:
+			result.append_array(design_entries)
+
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var name_a := str(a.get("display_name", a.get("class_id", "")))
+		var name_b := str(b.get("display_name", b.get("class_id", "")))
+		if name_a == name_b:
+			return str(a.get("class_id", "")) < str(b.get("class_id", ""))
+		return name_a < name_b
+	)
+	return result
+
+
+func _build_design_options_for_class(candidate: SpaceUnitClass, owner_empire_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if _ship_design_catalog == null:
+		return result
+	var default_design_id := _ship_design_catalog.get_default_design_id(owner_empire_id, candidate.class_id)
+	for design_id in _ship_design_catalog.get_design_ids_for_empire(owner_empire_id):
+		var design := _ship_design_catalog.get_design(design_id)
+		if design == null or design.class_id != candidate.class_id:
+			continue
+		var design_stats := get_compiled_ship_design_stats(design_id)
+		if design_stats.is_empty():
+			continue
+		result.append({
+			"class_id": candidate.class_id,
+			"design_id": design_id,
+			"display_name": design.display_name,
+			"unit_kind": candidate.unit_kind,
+			"category": candidate.category,
+			"is_default_design": design_id == default_design_id,
+			"build_time_days": maxi(int(design_stats.get("build_time_days", candidate.get_build_time_days())), 1),
+			"build_costs": design_stats.get("build_costs", []),
+		})
+	return result
+
+
+func request_build_ship(builder_unit_id: String, build_class_id: String, build_data: Dictionary = {}) -> String:
+	var builder := get_unit(builder_unit_id)
+	if builder == null:
+		return ""
+	var allowed := false
+	for option in get_ship_build_options(builder_unit_id):
+		if str(option.get("class_id", "")) == build_class_id:
+			allowed = true
+			break
+	if not allowed:
+		return ""
+
+	var resolved_build_data := build_data.duplicate(true)
+	if not resolved_build_data.has("local_position"):
+		resolved_build_data["local_position"] = builder.local_position + _resolve_ship_spawn_offset(builder.unit_id, build_class_id)
+	if not resolved_build_data.has("commit_cost"):
+		resolved_build_data["commit_cost"] = true
+	return issue_build_order(builder_unit_id, build_class_id, resolved_build_data)
+
+
+func _resolve_ship_spawn_offset(builder_unit_id: String, build_class_id: String) -> Vector3:
+	# Keep the dock site within CONSTRUCTION_SITE_ARRIVAL_DISTANCE so stationary
+	# builders (shipyard stations) start in the "building" state immediately.
+	var seed_key := "%s|%s|%d" % [builder_unit_id, build_class_id, _next_construction_project_id]
+	var angle := float(absi(seed_key.hash()) % 3600) / 3600.0 * TAU
+	return Vector3(cos(angle), 0.0, sin(angle)) * (CONSTRUCTION_SITE_ARRIVAL_DISTANCE * 0.8)
 
 
 func request_build_order_for_body(
@@ -876,8 +1425,8 @@ func _issue_unit_move(unit_id: String, target_position: Vector3, cancel_active_e
 		return false
 	if is_unit_constructing(unit_id):
 		return false
-	var unit_class := get_unit_class(unit.class_id)
-	if unit_class == null or unit_class.get_in_system_speed() <= 0.0:
+	var unit_speed := get_unit_in_system_speed(unit)
+	if unit_speed <= 0.0:
 		return false
 	if unit.local_position.is_equal_approx(target_position):
 		return clear_unit_move(unit_id)
@@ -886,7 +1435,7 @@ func _issue_unit_move(unit_id: String, target_position: Vector3, cancel_active_e
 
 	unit.previous_local_position = unit.local_position
 	unit.target_local_position = target_position
-	unit.velocity = (target_position - unit.local_position).normalized() * unit_class.get_in_system_speed()
+	unit.velocity = (target_position - unit.local_position).normalized() * unit_speed
 	unit.movement_state = SpaceUnitRuntime.MOVEMENT_MOVING
 	unit.movement_order_id = _generate_movement_order_id()
 	unit.last_movement_day_serial = _get_current_day_serial()
@@ -1600,6 +2149,10 @@ func build_snapshot() -> Dictionary:
 		"fleets": fleet_snapshots,
 		"construction_projects": construction_project_snapshots,
 		"exploration_orders": exploration_order_snapshots,
+		"ship_designs": _ship_design_catalog.build_snapshot() if _ship_design_catalog != null else {},
+		"combat": _combat_system.build_snapshot() if _combat_system != null else {},
+		"hostility_mode": _hostility_mode,
+		"next_ability_command_id": _next_ability_command_id,
 	}
 
 
@@ -1619,6 +2172,13 @@ func load_snapshot(snapshot: Dictionary, clear_existing_state: bool = true) -> v
 		if unit_class == null:
 			continue
 		_unit_classes[unit_class.class_id] = unit_class
+
+	if _ship_design_catalog != null:
+		_ship_design_catalog.load_snapshot(snapshot.get("ship_designs", {}))
+	if _combat_system != null:
+		_combat_system.load_snapshot(snapshot.get("combat", {}))
+	set_hostility_mode(str(snapshot.get("hostility_mode", HOSTILITY_FREE_FOR_ALL)))
+	_next_ability_command_id = maxi(int(snapshot.get("next_ability_command_id", 1)), 1)
 
 	for unit_variant in snapshot.get("space_units", snapshot.get("ships", [])):
 		var unit_data: Dictionary = unit_variant
@@ -1659,8 +2219,24 @@ func _on_sim_day_tick(_date: Dictionary) -> void:
 	_tick_unit_hyperlane_travel()
 	_tick_fleet_in_system_movement(day_serial)
 	_tick_independent_unit_movement(day_serial)
+	_tick_combat(day_serial)
 	_tick_exploration_orders()
 	_tick_construction_projects()
+
+
+func _tick_combat(day_serial: int) -> void:
+	if _combat_system == null:
+		return
+	var events: Array[Dictionary] = _combat_system.tick(day_serial)
+	if events.is_empty():
+		return
+	for event in events:
+		match str(event.get("type", "")):
+			CombatSystem.EVENT_BATTLE_STARTED:
+				battle_started.emit(str(event.get("battle_id", "")), str(event.get("system_id", "")))
+			CombatSystem.EVENT_BATTLE_ENDED:
+				battle_ended.emit(str(event.get("battle_id", "")), str(event.get("system_id", "")))
+	combat_events.emit(events)
 
 
 func _tick_fleet_hyperlane_travel() -> void:
@@ -1727,8 +2303,7 @@ func _tick_independent_unit_movement(day_serial: int) -> void:
 		var unit: SpaceUnitRuntime = unit_variant
 		if not unit.has_active_movement() or not unit.fleet_id.is_empty():
 			continue
-		var unit_class := get_unit_class(unit.class_id)
-		var speed := unit_class.get_in_system_speed() if unit_class != null else 0.0
+		var speed := get_unit_in_system_speed(unit)
 		if speed <= 0.0:
 			clear_unit_move(unit.unit_id)
 			continue
@@ -1793,6 +2368,7 @@ func _complete_construction_project(project_id: String) -> void:
 	var build_class_id := str(project.get("build_class_id", ""))
 	var unit := spawn_unit(build_class_id, owner_empire_id, system_id, {
 		"display_name": str(project.get("display_name", "")),
+		"design_id": str(project.get("design_id", "")),
 		"local_position": SpaceUnitRuntime._variant_to_vector3(project.get("local_position", Vector3.ZERO)),
 		"metadata": project.get("metadata", {}).duplicate(true) if project.get("metadata", {}) is Dictionary else {},
 	})
@@ -2388,6 +2964,7 @@ func _construction_project_from_snapshot(data: Dictionary) -> Dictionary:
 		"project_id": project_id,
 		"builder_unit_id": str(data.get("builder_unit_id", "")),
 		"build_class_id": str(data.get("build_class_id", BASIC_STATION_CLASS_ID)),
+		"design_id": str(data.get("design_id", "")),
 		"display_name": str(data.get("display_name", "")),
 		"owner_empire_id": str(data.get("owner_empire_id", "")),
 		"system_id": str(data.get("system_id", "")),
@@ -2871,7 +3448,7 @@ func _sync_unit_economy_source(unit: SpaceUnitRuntime) -> void:
 		_remove_unit_economy_source(unit.unit_id)
 		return
 
-	var upkeep_costs := unit_class.get_monthly_upkeep()
+	var upkeep_costs := _get_unit_monthly_upkeep(unit, unit_class)
 	if upkeep_costs.is_empty():
 		_remove_unit_economy_source(unit.unit_id)
 		return
@@ -2906,11 +3483,35 @@ func _get_unit_source_id(unit_id: String) -> String:
 	return "%s%s" % [UNIT_SOURCE_PREFIX, unit_id]
 
 
+func _get_unit_monthly_upkeep(unit: SpaceUnitRuntime, unit_class: SpaceUnitClass) -> Array[ResourceAmountDef]:
+	if unit != null and not unit.design_id.is_empty():
+		var design_stats := get_compiled_ship_design_stats(unit.design_id)
+		if not design_stats.is_empty():
+			return ResourceAmountDef.normalize_array(design_stats.get("monthly_upkeep", []))
+	if unit_class == null:
+		return []
+	return unit_class.get_monthly_upkeep()
+
+
 func _merge_amount_defs_into_map(target: Dictionary, amounts: Array[ResourceAmountDef]) -> void:
 	for amount in amounts:
 		if amount == null or amount.resource_id.is_empty() or amount.milliunits == 0:
 			continue
 		target[amount.resource_id] = int(target.get(amount.resource_id, 0)) + amount.milliunits
+
+
+func get_unit_in_system_speed(unit: SpaceUnitRuntime) -> float:
+	if unit == null:
+		return 0.0
+	var unit_class := get_unit_class(unit.class_id)
+	if unit_class == null or not unit_class.has_mobility():
+		return 0.0
+	if not unit.design_id.is_empty():
+		var design_stats := get_compiled_ship_design_stats(unit.design_id)
+		var design_speed := float(design_stats.get("cruise_speed", -1.0))
+		if design_speed >= 0.0:
+			return design_speed
+	return unit_class.get_in_system_speed()
 
 
 func _get_fleet_in_system_speed(fleet: SpaceFleetRuntime) -> float:
@@ -2924,7 +3525,7 @@ func _get_fleet_in_system_speed(fleet: SpaceFleetRuntime) -> float:
 		var unit_class := get_unit_class(unit.class_id)
 		if unit_class == null:
 			return 0.0
-		speed = minf(speed, unit_class.get_in_system_speed())
+		speed = minf(speed, get_unit_in_system_speed(unit))
 	return speed if speed != INF else 0.0
 
 

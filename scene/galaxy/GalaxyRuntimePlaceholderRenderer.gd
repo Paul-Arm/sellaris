@@ -15,6 +15,9 @@ const FLEET_ICON_SIZE: float = 11.0
 const FLEET_BAR_LENGTH: float = 4.4
 const FLEET_BAR_THICKNESS: float = 0.5
 const FLEET_ICON_TEXTURE: Texture2D = preload("res://assets/ships/spaceship.png")
+const BATTLE_MARKER_HEIGHT: float = 21.0
+const BATTLE_MARKER_RADIUS: float = 9.0
+const BATTLE_MARKER_COLOR := Color(1.0, 0.34, 0.26, 0.95)
 
 var _host: Node = null
 
@@ -35,6 +38,7 @@ func render_runtime_placeholders() -> void:
 	var station_instances: Array[Dictionary] = []
 	var fleet_icon_instances: Array[Dictionary] = []
 	var fleet_bar_instances: Array[Dictionary] = []
+	var battle_instances: Array[Dictionary] = []
 
 	for system_record in _host.system_records:
 		var system_id: String = str(system_record.get("id", ""))
@@ -43,6 +47,13 @@ func render_runtime_placeholders() -> void:
 		if not _is_system_visible(system_id):
 			continue
 		var system_position: Vector3 = system_record.get("position", Vector3.ZERO)
+		if not SpaceManager.get_battle_id_for_system(system_id).is_empty():
+			battle_instances.append({
+				"position": system_position + Vector3(0.0, BATTLE_MARKER_HEIGHT, 0.0),
+				"yaw": 0.0,
+				"scale": 1.0,
+				"color": BATTLE_MARKER_COLOR,
+			})
 		var station_index: int = 0
 		var mobile_ship_summary: Dictionary = _summarize_mobile_ships_in_system(system_id)
 		if not mobile_ship_summary.is_empty():
@@ -88,6 +99,11 @@ func render_runtime_placeholders() -> void:
 	_render_multimesh(_host.fleet_markers, _build_fleet_mesh(), fleet_icon_instances)
 	if _host.get("ship_markers") != null:
 		_render_multimesh(_host.ship_markers, _build_bar_mesh(), fleet_bar_instances)
+	if _host.has_method("ensure_battle_markers"):
+		var battle_node: MultiMeshInstance3D = _host.ensure_battle_markers()
+		if battle_node.material_override == null:
+			battle_node.material_override = _build_material(0.95, 1.6)
+		_render_multimesh(battle_node, _build_battle_mesh(), battle_instances)
 
 
 func clear_runtime_placeholders() -> void:
@@ -97,6 +113,9 @@ func clear_runtime_placeholders() -> void:
 	_host.fleet_markers.multimesh = null
 	if _host.get("ship_markers") != null:
 		_host.ship_markers.multimesh = null
+	var battle_node_variant: Variant = _host.get("battle_markers")
+	if battle_node_variant is MultiMeshInstance3D:
+		(battle_node_variant as MultiMeshInstance3D).multimesh = null
 
 
 func _render_multimesh(target: MultiMeshInstance3D, mesh: Mesh, instances: Array[Dictionary]) -> void:
@@ -210,6 +229,15 @@ func _build_fleet_icon_material() -> StandardMaterial3D:
 func _build_bar_mesh() -> Mesh:
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3(FLEET_BAR_LENGTH, FLEET_BAR_THICKNESS, FLEET_BAR_THICKNESS)
+	return mesh
+
+
+func _build_battle_mesh() -> Mesh:
+	var mesh := TorusMesh.new()
+	mesh.inner_radius = BATTLE_MARKER_RADIUS * 0.82
+	mesh.outer_radius = BATTLE_MARKER_RADIUS
+	mesh.rings = 24
+	mesh.ring_segments = 12
 	return mesh
 
 

@@ -2,6 +2,7 @@ extends Node
 class_name GameSceneUiController
 
 const COLONY_MODAL_SCRIPT := preload("res://scene/game/ColonyModal.gd")
+const SHIP_DESIGNER_MODAL_SCRIPT := preload("res://scene/game/ShipDesignerModal.gd")
 const DEBUG_INFO_PANEL_SCRIPT := preload("res://scene/UI/GalaxyDebugInfoPanel.gd")
 const SPACE_ENTITY_DETAILS_PANEL_SCRIPT := preload("res://scene/game/SpaceEntityDetailsPanel.gd")
 const HOVER_PREVIEW_DELAY_SEC: float = 1.0
@@ -16,6 +17,7 @@ var _hover_preview_ready_system_id: String = ""
 var _hover_preview_sequence: int = 0
 var _active_preview_system_id: String = ""
 var _colony_modal: Control = null
+var _ship_designer_modal: Control = null
 var _manage_colony_button: Button = null
 var _manage_colony_id: String = ""
 var _open_colony_id: String = ""
@@ -50,9 +52,12 @@ func teardown() -> void:
 		ColonyManager.colony_updated.disconnect(_on_colony_updated)
 	if _colony_modal != null:
 		_colony_modal.queue_free()
+	if _ship_designer_modal != null:
+		_ship_designer_modal.queue_free()
 	if _space_entity_panel != null:
 		_space_entity_panel.queue_free()
 	_colony_modal = null
+	_ship_designer_modal = null
 	_manage_colony_button = null
 	_debug_info_panel = null
 	_space_entity_panel = null
@@ -396,6 +401,18 @@ func _on_space_entity_panel_action_requested(action_id: String, payload: Diction
 			SpaceManager.set_unit_evasion_mode(str(payload.get("unit_id", "")), bool(payload.get("active", false)))
 		"toggle_fleet_evasion":
 			SpaceManager.set_fleet_evasion_mode(str(payload.get("fleet_id", "")), bool(payload.get("active", false)))
+		"set_unit_stance":
+			SpaceManager.set_unit_stance(str(payload.get("unit_id", "")), str(payload.get("stance", "")))
+		"set_fleet_stance":
+			SpaceManager.set_fleet_stance(str(payload.get("fleet_id", "")), str(payload.get("stance", "")))
+		"trigger_unit_ability":
+			SpaceManager.queue_unit_ability_command(str(payload.get("unit_id", "")), str(payload.get("slot_id", "")))
+		"build_ship":
+			var ship_build_data: Dictionary = {}
+			var ship_design_id := str(payload.get("design_id", ""))
+			if not ship_design_id.is_empty():
+				ship_build_data["design_id"] = ship_design_id
+			SpaceManager.request_build_ship(str(payload.get("unit_id", "")), str(payload.get("class_id", "")), ship_build_data)
 		"build_target":
 			var unit_id := str(payload.get("unit_id", ""))
 			var unit: SpaceUnitRuntime = SpaceManager.get_unit(unit_id)
@@ -664,7 +681,7 @@ func set_loading_state(visible_state: bool, status_text: String = "", progress_r
 func refresh_camera_input_block() -> void:
 	if _state == null or _ui == null or _view_router == null:
 		return
-	var modal_visible := is_colony_modal_visible()
+	var modal_visible := is_colony_modal_visible() or is_ship_designer_visible()
 	var block_galaxy_camera: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or _view_router.is_system_view_open() or modal_visible
 	_view_router.set_galaxy_camera_input_blocked(block_galaxy_camera)
 	var block_shared_ui: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or modal_visible
@@ -736,6 +753,36 @@ func refresh_empire_command_drawer() -> void:
 
 func is_colony_modal_visible() -> bool:
 	return _colony_modal != null and _colony_modal.visible
+
+
+func is_ship_designer_visible() -> bool:
+	return _ship_designer_modal != null and _ship_designer_modal.visible
+
+
+func open_ship_designer_modal() -> void:
+	if _state == null or _ui == null or _ui.canvas_layer == null:
+		return
+	var empire_id := _state.active_empire_id.strip_edges()
+	if empire_id.is_empty():
+		return
+	if _ship_designer_modal == null:
+		_ship_designer_modal = SHIP_DESIGNER_MODAL_SCRIPT.new() as Control
+		_ui.canvas_layer.add_child(_ship_designer_modal)
+		_ship_designer_modal.close_requested.connect(_on_ship_designer_close_requested)
+	_ship_designer_modal.open(empire_id)
+	refresh_camera_input_block()
+
+
+func close_ship_designer_modal() -> void:
+	if _ship_designer_modal == null or not _ship_designer_modal.visible:
+		return
+	_ship_designer_modal.close()
+
+
+func _on_ship_designer_close_requested() -> void:
+	refresh_camera_input_block()
+	update_system_panel()
+	update_selection_panel()
 
 
 func close_colony_modal() -> void:

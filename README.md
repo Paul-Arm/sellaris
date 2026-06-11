@@ -17,12 +17,14 @@ The folder names `MainMenue` and `GennerateMenue` keep their historical spelling
 
 - `autoload/`: Global managers for music, settings, simulation time, empires, presets, economy, colonies, and space units.
 - `core/economy/`: Resource definitions, bundles, colony runtime data, pop units, species runtime data, jobs, buildings, deposits, and colony host components.
-- `core/space/`: Data-oriented unit classes, live units, fleets, movement, construction, exploration, and station build components.
+- `core/space/`: Data-oriented unit classes, live units, fleets, movement, construction, exploration, and station build components. Unit classes declare `component_slots` (equipment slot kinds: `weapon`, `defense`, `drive`, `utility`, plus built-in `construction`/`science`).
+- `core/space/design/`: Ship component definitions (`ship_components.cfg`), per-empire ship designs, the design compiler (validation + compiled stats), and per-empire component unlocks. See `COMBAT_DESIGN.md`.
 - `core/empire/`: Empire runtime data, presets, species catalog discovery, portraits, and species traits.
+- `core/player/`: Placeholder player base class (stub, not yet wired into gameplay).
 - `core/anomaly/`: Deterministic anomaly definitions, body components, discovery state, and research outcome helpers.
 - `scene/MainMenue/`: Authored startup menu and its split UI systems for setup, species, settings, and empire presets.
 - `scene/GennerateMenue/`: Galaxy setup scene that launches the active game scene.
-- `scene/game/`: Active game scene, view router, UI controller, runtime system, simulation system, colony modal, and space entity panel.
+- `scene/game/`: Active game scene, view router, UI controller, runtime system, simulation system, colony modal, ship designer modal, and space entity panel.
 - `scene/galaxy/`: Galaxy generator, state container, map view, map renderers, territory rendering, system names, and the older `galaxy.tscn` path.
 - `scene/StarSystem/`: Full system view, preview renderer, selectable components, procedural planets, custom system resource types, and body detail panels.
 - `scene/UI/`: Shared galaxy HUD, bottom category bar, debug panels, music controller, and command drawer UI.
@@ -48,6 +50,18 @@ The folder names `MainMenue` and `GennerateMenue` keep their historical spelling
 - Species traits live in `core/empire/species/traits/traits.cfg` and are copied into runtime species by the preset/colony flow.
 - Custom star-system resources use `CustomStarSystem`, `CustomSystemStar`, and `CustomSystemOrbital` from `scene/StarSystem/`.
 - Runtime save data is exposed through `GameSceneRuntimeSystem.get_runtime_snapshot()`, which includes galaxy, space, economy, and colony snapshots.
+
+## Current State & Known Gaps
+
+The simulation core (day/month ticks via `SimClock`, per-empire int64 economy, per-empire fog-of-war intel, full state snapshots) is in place. The following gameplay systems are defined but not yet wired up or missing entirely:
+
+- **Combat loop is feature-complete for the prototype** (all phases of `COMBAT_DESIGN.md`): deterministic battles, system-view VFX, galaxy battle indicators, panel controls, and a ship designer (command drawer → "Schiffsdesign") feeding design-driven shipyard build menus. Open ends: hostility is a free-for-all stub until diplomacy exists, and component unlocks only come from `unlock_ship_component()` (anomaly outcomes / future tech tree).
+- **Body-targeted station builds do not commit costs**: the UI flow through `request_build_order_for_body` never sets `commit_cost`, so stations built on bodies are currently free. The new shipyard flow (`request_build_ship`) does commit design costs.
+- **Fleet command queue is dormant**: `SpaceFleetRuntime.command_queue` is appended, cleared, and serialized but never executed in the day tick.
+- **No pop growth**: colonies keep their starting pop units; the `growth_speed` trait scope is declared but never evaluated.
+- **Instant colony actions**: colonization and colony building placement have no build time; only ship/station construction uses timers.
+- **No AI empires**: `EmpireRuntime.played_by` exists but nothing consumes it; all non-player empires are inert.
+- **Multiplayer is a UI placeholder**: the main-menu page exists, but there is no netcode and no command/permission layer yet.
 
 ## Notes
 

@@ -54,6 +54,18 @@ const SYSTEM_LABEL_COLLISION_PADDING: float = 4.0
 @onready var fleet_markers: MultiMeshInstance3D = $RuntimePlaceholders/FleetMarkers
 @onready var ship_markers: MultiMeshInstance3D = $RuntimePlaceholders/ShipMarkers
 
+var battle_markers: MultiMeshInstance3D = null
+
+
+func ensure_battle_markers() -> MultiMeshInstance3D:
+	if is_instance_valid(battle_markers):
+		return battle_markers
+	battle_markers = MultiMeshInstance3D.new()
+	battle_markers.name = "BattleMarkers"
+	battle_markers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	runtime_placeholders.add_child(battle_markers)
+	return battle_markers
+
 var system_positions: Array[Vector3] = []
 var system_records: Array[Dictionary] = []
 var hyperlane_links: Array[Vector2i] = []

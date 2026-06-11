@@ -529,6 +529,10 @@ func place_building(colony_id: String, slot_id: String, building_id: String) -> 
 		_set_build_error(colony, "That building cannot be built manually.")
 		return false
 
+	if not _is_building_tech_unlocked(colony.empire_id, building_definition):
+		_set_build_error(colony, "Requires technology: %s." % str(building_definition.get("requires_tech", "")))
+		return false
+
 	var max_per_colony := int(building_definition.get("max_per_colony", 0))
 	if max_per_colony > 0 and _count_buildings_on_colony(colony, building_id) >= max_per_colony:
 		_set_build_error(colony, "Colony limit reached for %s." % str(building_definition.get("display_name", building_id)))
@@ -1098,9 +1102,12 @@ func _build_building_catalog(colony) -> Array[Dictionary]:
 		var current_count := _count_buildings_on_colony(colony, building_id)
 		var under_limit := max_per_colony <= 0 or current_count < max_per_colony
 		var can_afford := build_cost.is_empty() or EconomyManager.can_afford(colony.empire_id, build_cost)
-		var can_place := has_empty_slot and under_limit and can_afford
+		var tech_unlocked := _is_building_tech_unlocked(colony.empire_id, building_definition)
+		var can_place := has_empty_slot and under_limit and can_afford and tech_unlocked
 		var unavailable_reason := ""
-		if not has_empty_slot:
+		if not tech_unlocked:
+			unavailable_reason = "Requires technology: %s." % str(building_definition.get("requires_tech", ""))
+		elif not has_empty_slot:
 			unavailable_reason = "No empty building slots."
 		elif not under_limit:
 			unavailable_reason = "Colony limit reached."
@@ -1128,7 +1135,19 @@ func _build_building_entry(building_id: String, building_definition: Dictionary,
 		"build_cost": (building_definition.get("build_cost", []) as Array).duplicate(true),
 		"buildable": bool(building_definition.get("buildable", true)),
 		"max_per_colony": int(building_definition.get("max_per_colony", 0)),
+		"requires_tech": str(building_definition.get("requires_tech", "")),
 	}
+
+
+## Buildings may declare requires_tech="<tech_id>" in buildings.cfg; the
+## research system unlocks them per empire via the unlock_building effect.
+func _is_building_tech_unlocked(empire_id: String, building_definition: Dictionary) -> bool:
+	var required_tech_id := str(building_definition.get("requires_tech", "")).strip_edges()
+	if required_tech_id.is_empty():
+		return true
+	if ResearchManager == null:
+		return false
+	return ResearchManager.is_building_unlocked(empire_id, str(building_definition.get("id", "")))
 
 
 func _expand_default_job_caps_after_building(colony, building_definition: Dictionary, previous_job_slots: Dictionary) -> void:
@@ -1610,6 +1629,7 @@ func _load_building_definitions() -> void:
 			"build_cost": _normalize_amounts_to_dict_array(config.get_value(section, "build_cost", {})),
 			"buildable": bool(config.get_value(section, "buildable", true)),
 			"max_per_colony": int(config.get_value(section, "max_per_colony", 0)),
+			"requires_tech": str(config.get_value(section, "requires_tech", "")).strip_edges(),
 		}
 		_building_ids.append(building_id)
 	_building_ids.sort_custom(_sort_building_ids)

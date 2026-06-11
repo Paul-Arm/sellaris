@@ -25,6 +25,7 @@ EmpirePresetManager="*res://autoload/EmpirePresetManager.gd"
 EconomyManager="*res://autoload/EconomyManager.gd"
 ColonyManager="*res://autoload/ColonyManager.gd"
 SpaceManager="*res://autoload/SpaceManager.gd"
+ResearchManager="*res://autoload/ResearchManager.gd"
 
 [display]
 

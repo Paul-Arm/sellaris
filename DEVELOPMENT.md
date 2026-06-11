@@ -21,6 +21,8 @@ SceneTree tests run with `--script`:
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/empire_command_drawer_smoke_test.gd"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/ship_design_compiler_test.gd"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/component_unlock_test.gd"
+& $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/research_catalog_test.gd"
+& $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tests/research_advisor_test.gd"
 ```
 
 Node-based smoke tests run through their `.tscn` wrappers:
@@ -41,7 +43,11 @@ Node-based smoke tests run through their `.tscn` wrappers:
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/combat_determinism_test.tscn"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/combat_ui_smoke_test.tscn"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/ship_designer_smoke_test.tscn"
+& $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/research_manager_smoke_test.tscn"
+& $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" "res://tests/research_modal_smoke_test.tscn"
 ```
+
+Note: SceneTree `--script` tests compile before the autoloads are registered, so they cannot reference autoload singletons (`EconomyManager`, `SpaceManager`, ...) directly; tests that need autoloads run as node-based `.tscn` smoke tests instead. Fresh checkouts/worktrees need one `--import` run before tests so the script class cache exists.
 
 ## Asset Tools
 

@@ -15,13 +15,14 @@ The folder names `MainMenue` and `GennerateMenue` keep their historical spelling
 
 ## Main Folders
 
-- `autoload/`: Global managers for music, settings, simulation time, empires, presets, economy, colonies, and space units.
+- `autoload/`: Global managers for music, settings, simulation time, empires, presets, economy, colonies, space units, and research.
 - `core/economy/`: Resource definitions, bundles, colony runtime data, pop units, species runtime data, jobs, buildings, deposits, and colony host components.
 - `core/space/`: Data-oriented unit classes, live units, fleets, movement, construction, exploration, and station build components. Unit classes declare `component_slots` (equipment slot kinds: `weapon`, `defense`, `drive`, `utility`, plus built-in `construction`/`science`).
 - `core/space/design/`: Ship component definitions (`ship_components.cfg`), per-empire ship designs, the design compiler (validation + compiled stats), and per-empire component unlocks. See `COMBAT_DESIGN.md`.
 - `core/empire/`: Empire runtime data, presets, species catalog discovery, portraits, and species traits.
 - `core/player/`: Placeholder player base class (stub, not yet wired into gameplay).
 - `core/anomaly/`: Deterministic anomaly definitions, body components, discovery state, and research outcome helpers.
+- `core/research/`: Draft-based research system: data-driven domains and techs (`domains.cfg`, `techs/*.cfg`), deterministic drafts, momentum, inspirations, effects, and the AI scoring advisor. See `core/research/README.md` for the modding format.
 - `scene/MainMenue/`: Authored startup menu and its split UI systems for setup, species, settings, and empire presets.
 - `scene/GennerateMenue/`: Galaxy setup scene that launches the active game scene.
 - `scene/game/`: Active game scene, view router, UI controller, runtime system, simulation system, colony modal, ship designer modal, and space entity panel.
@@ -44,8 +45,9 @@ The folder names `MainMenue` and `GennerateMenue` keep their historical spelling
 
 ## Data Conventions
 
-- Resource types live as `.tres` definitions under `core/economy/resources/`.
-- Jobs and buildings are data-driven through `core/economy/jobs/jobs.cfg` and `core/economy/buildings/buildings.cfg`.
+- Resource types live as `.tres` definitions under `core/economy/resources/` (including the `research` resource that feeds research projects).
+- Jobs and buildings are data-driven through `core/economy/jobs/jobs.cfg` and `core/economy/buildings/buildings.cfg`. Buildings may declare `requires_tech="<tech_id>"`; the research effect `unlock_building` opens them per empire.
+- Research domains and technologies are data-driven through `core/research/domains.cfg` and every `*.cfg` in `core/research/techs/`; mods can also register definitions at runtime via `ResearchManager.register_tech_dict()` / `register_domain_dict()`.
 - Species are auto-discovered from `core/empire/species/<archetype>/<species_id>/`.
 - Species traits live in `core/empire/species/traits/traits.cfg` and are copied into runtime species by the preset/colony flow.
 - Custom star-system resources use `CustomStarSystem`, `CustomSystemStar`, and `CustomSystemOrbital` from `scene/StarSystem/`.
@@ -55,7 +57,8 @@ The folder names `MainMenue` and `GennerateMenue` keep their historical spelling
 
 The simulation core (day/month ticks via `SimClock`, per-empire int64 economy, per-empire fog-of-war intel, full state snapshots) is in place. The following gameplay systems are defined but not yet wired up or missing entirely:
 
-- **Combat loop is feature-complete for the prototype** (all phases of `COMBAT_DESIGN.md`): deterministic battles, system-view VFX, galaxy battle indicators, panel controls, and a ship designer (command drawer → "Schiffsdesign") feeding design-driven shipyard build menus. Open ends: hostility is a free-for-all stub until diplomacy exists, and component unlocks only come from `unlock_ship_component()` (anomaly outcomes / future tech tree).
+- **Combat loop is feature-complete for the prototype** (all phases of `COMBAT_DESIGN.md`): deterministic battles, system-view VFX, galaxy battle indicators, panel controls, and a ship designer (command drawer → "Schiffsdesign") feeding design-driven shipyard build menus. Open ends: hostility is a free-for-all stub until diplomacy exists.
+- **Research loop is in place** (command drawer → "Forschung"): deterministic per-domain drafts, daily progress draining the `research` resource, momentum/inspiration discounts, and effects that unlock ship components (tier-1 set), buildings (`advanced_lab`, `fusion_plant`), monthly income, and extra research slots. Open ends: `modifier` effects (e.g. `weapon_damage_bp` from the naval doctrines) are stored per empire via `ResearchManager.get_modifier_bp()` but not yet consumed by combat, and AI empires do not call the advisor/auto-pick APIs yet.
 - **Body-targeted station builds do not commit costs**: the UI flow through `request_build_order_for_body` never sets `commit_cost`, so stations built on bodies are currently free. The new shipyard flow (`request_build_ship`) does commit design costs.
 - **Fleet command queue is dormant**: `SpaceFleetRuntime.command_queue` is appended, cleared, and serialized but never executed in the day tick.
 - **No pop growth**: colonies keep their starting pop units; the `growth_speed` trait scope is declared but never evaluated.

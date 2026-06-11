@@ -3,11 +3,13 @@ class_name EmpireCommandDrawer
 
 signal anomaly_open_requested(entry: Dictionary)
 signal ship_designer_open_requested
+signal research_open_requested
 
 const ANOMALY_PANEL_SCRIPT: Script = preload("res://scene/UI/EmpireAnomalyListPanel.gd")
 
 const DEFAULT_CATEGORIES: Array[Dictionary] = [
 	{"id": "anomalies", "title": "Anomalien / Situationen"},
+	{"id": "research", "title": "Forschung"},
 	{"id": "ship_design", "title": "Schiffsdesign"},
 	{"id": "diplomacy", "title": "Diplomatie"},
 	{"id": "species", "title": "Spezies"},
@@ -27,6 +29,8 @@ var _category_row: VBoxContainer = null
 var _content_root: Control = null
 var _anomaly_panel: Control = null
 var _ship_design_panel: Control = null
+var _research_panel: Control = null
+var _research_summary_label: Label = null
 var _placeholder_label: Label = null
 var _categories: Array[Dictionary] = []
 var _category_buttons: Dictionary = {}
@@ -72,6 +76,11 @@ func set_active_category(category_id: String) -> void:
 func set_anomaly_entries(entries: Array) -> void:
 	if _anomaly_panel != null:
 		_anomaly_panel.call("set_entries", entries)
+
+
+func set_research_summary(summary_text: String) -> void:
+	if _research_summary_label != null:
+		_research_summary_label.text = summary_text
 
 
 func is_expanded() -> bool:
@@ -150,6 +159,9 @@ func _build() -> void:
 	_ship_design_panel = _build_ship_design_panel()
 	_content_root.add_child(_ship_design_panel)
 
+	_research_panel = _build_research_panel()
+	_content_root.add_child(_research_panel)
+
 	_placeholder_label = Label.new()
 	_placeholder_label.name = "PlaceholderLabel"
 	_placeholder_label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -191,10 +203,13 @@ func _refresh_active_category() -> void:
 
 	var is_anomaly_category := _active_category_id == "anomalies"
 	var is_ship_design_category := _active_category_id == "ship_design"
+	var is_research_category := _active_category_id == "research"
 	_anomaly_panel.visible = is_anomaly_category
 	if _ship_design_panel != null:
 		_ship_design_panel.visible = is_ship_design_category
-	_placeholder_label.visible = not is_anomaly_category and not is_ship_design_category
+	if _research_panel != null:
+		_research_panel.visible = is_research_category
+	_placeholder_label.visible = not is_anomaly_category and not is_ship_design_category and not is_research_category
 	if _placeholder_label.visible:
 		_placeholder_label.text = "%s ist vorbereitet und wartet auf die naechste Datenquelle." % _get_category_title(_active_category_id)
 
@@ -299,6 +314,37 @@ func _build_ship_design_panel() -> Control:
 	open_button.custom_minimum_size = Vector2(0.0, 34.0)
 	open_button.pressed.connect(func() -> void:
 		ship_designer_open_requested.emit()
+	)
+	panel.add_child(open_button)
+	return panel
+
+
+func _build_research_panel() -> Control:
+	var panel := VBoxContainer.new()
+	panel.name = "ResearchPanel"
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_theme_constant_override("separation", 10)
+
+	var info := Label.new()
+	info.text = "Waehle pro Disziplin ein Forschungsprojekt aus dem aktuellen Angebot. Abschluesse erzeugen Momentum und schalten neue Stufen frei."
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_theme_font_size_override("font_size", 13)
+	info.add_theme_color_override("font_color", Color(0.74, 0.82, 0.88, 0.82))
+	panel.add_child(info)
+
+	_research_summary_label = Label.new()
+	_research_summary_label.name = "ResearchSummaryLabel"
+	_research_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_research_summary_label.add_theme_font_size_override("font_size", 12)
+	_research_summary_label.add_theme_color_override("font_color", Color(0.86, 0.92, 0.96, 0.92))
+	panel.add_child(_research_summary_label)
+
+	var open_button := Button.new()
+	open_button.name = "OpenResearchButton"
+	open_button.text = "Forschung oeffnen"
+	open_button.custom_minimum_size = Vector2(0.0, 34.0)
+	open_button.pressed.connect(func() -> void:
+		research_open_requested.emit()
 	)
 	panel.add_child(open_button)
 	return panel

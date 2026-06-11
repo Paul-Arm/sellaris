@@ -15,6 +15,7 @@ const OUTCOME_GRANT_RESOURCES := "grant_resources"
 const OUTCOME_MONTHLY_RESOURCES := "monthly_resources"
 const OUTCOME_SPAWN_UNIT := "spawn_unit"
 const OUTCOME_RUNTIME_METHOD := "runtime_method"
+const OUTCOME_RESEARCH_INSPIRATION := "research_inspiration"
 
 const BODY_TYPE_STAR := "star"
 const BODY_TYPE_PLANET := "planet"
@@ -104,6 +105,51 @@ const DEFINITIONS := [
 				"summary": "Ein Wissenschaftsschiff wird geborgen",
 				"class_id": "science_ship",
 				"display_name": "Reaktivierte Sonde",
+			},
+		],
+	},
+	{
+		"id": "fractured_archive",
+		"title": "Zersplittertes Archiv",
+		"description": "Bruchstuecke einer fremden Datenbank koennten die eigene Forschung befluegeln.",
+		"frequency": FREQUENCY_REPEATABLE,
+		"research_days": 55,
+		"spawn": {
+			"body_types": [BODY_TYPE_RUIN, BODY_TYPE_STRUCTURE, BODY_TYPE_PLANET],
+			"chance_bp": 540,
+			"weight": 1000,
+		},
+		"discovery_lore": [
+			"Zwischen den Truemmern rotieren Speicherkerne in perfekter Formation.",
+			"Ein beschaedigter Index verweist auf Wissen, das niemand mehr besitzt.",
+			"Die Fragmente antworten auf Abfragen - in einer Sprache aus reiner Mathematik.",
+		],
+		"outcomes": [
+			{
+				"type": OUTCOME_RESEARCH_INSPIRATION,
+				"weight": 600,
+				"summary": "Inspiration fuer die Waffenforschung",
+				"inspiration": {"tags": ["weapons", "voidcraft"], "discount_bp": 2500, "weight_bonus_bp": 6000, "expires_in_days": 720},
+			},
+			{
+				"type": OUTCOME_RESEARCH_INSPIRATION,
+				"weight": 600,
+				"summary": "Inspiration fuer die Industrieforschung",
+				"inspiration": {"tags": ["industry", "matter"], "discount_bp": 2500, "weight_bonus_bp": 6000, "expires_in_days": 720},
+			},
+			{
+				"type": OUTCOME_RESEARCH_INSPIRATION,
+				"weight": 500,
+				"summary": "Inspiration fuer die Grundlagenforschung",
+				"inspiration": {"tags": ["science", "frontier"], "discount_bp": 2500, "weight_bonus_bp": 6000, "expires_in_days": 720},
+			},
+			{
+				"type": OUTCOME_GRANT_RESOURCES,
+				"weight": 300,
+				"summary": "Geborgene Rohdaten",
+				"resource_table": [
+					{"weight": 100, "resources": [{"resource_id": "research", "milliunits": 45000}]},
+				],
 			},
 		],
 	},

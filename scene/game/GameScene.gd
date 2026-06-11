@@ -182,6 +182,7 @@ func _connect_scene_signals() -> void:
 	if _ui.empire_command_drawer != null:
 		_ui.empire_command_drawer.connect("anomaly_open_requested", Callable(self, "_on_empire_anomaly_open_requested"))
 		_ui.empire_command_drawer.connect("ship_designer_open_requested", Callable(self, "_on_ship_designer_open_requested"))
+		_ui.empire_command_drawer.connect("research_open_requested", Callable(self, "_on_research_open_requested"))
 	SimClock.day_tick.connect(_simulation_system.on_sim_day_tick)
 	SimClock.month_tick.connect(_simulation_system.on_sim_month_tick)
 	SimClock.year_tick.connect(_simulation_system.on_sim_year_tick)
@@ -208,6 +209,12 @@ func _on_bottom_runtime_entry_activated(category_id: String, entry: Dictionary) 
 func _on_ship_designer_open_requested() -> void:
 	_scene_ui_controller.close_colony_modal()
 	_scene_ui_controller.open_ship_designer_modal()
+
+
+func _on_research_open_requested() -> void:
+	_scene_ui_controller.close_colony_modal()
+	_scene_ui_controller.close_ship_designer_modal()
+	_scene_ui_controller.open_research_modal()
 
 
 func _on_empire_anomaly_open_requested(entry: Dictionary) -> void:

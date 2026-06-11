@@ -42,6 +42,7 @@ func generate_async() -> void:
 	_state.is_generating = true
 	SpaceManager.reset_runtime_state()
 	ColonyManager.reset_runtime_state()
+	ResearchManager.clear_runtime_state()
 	_debug_spawner.register_debug_unit_classes()
 	_state.selected_system_id = ""
 	_state.selected_system_panel_id = ""
@@ -289,6 +290,7 @@ func get_runtime_snapshot() -> Dictionary:
 		"space": SpaceManager.build_snapshot(),
 		"economy": EconomyManager.build_snapshot(),
 		"colonies": ColonyManager.build_snapshot(),
+		"research": ResearchManager.build_snapshot(),
 	}
 
 
@@ -1368,6 +1370,7 @@ func bootstrap_economy(capital_context: Dictionary = {}) -> void:
 	EconomyManager.bootstrap(empire_ids, build_economy_galaxy_snapshot())
 	ColonyManager.bootstrap(_state.empire_records, capital_context)
 	SpaceManager.bootstrap_empires(empire_ids)
+	ResearchManager.bootstrap(empire_ids, _state.generated_seed)
 
 
 func build_economy_galaxy_snapshot() -> Dictionary:
@@ -1572,6 +1575,8 @@ func _execute_anomaly_outcome(anomaly_record: Dictionary, outcome: Dictionary, e
 			return _execute_anomaly_spawn_unit(anomaly_record, outcome, empire_id)
 		ANOMALY_POOL_SCRIPT.OUTCOME_RUNTIME_METHOD:
 			return _execute_anomaly_runtime_method(anomaly_record, outcome, empire_id)
+		ANOMALY_POOL_SCRIPT.OUTCOME_RESEARCH_INSPIRATION:
+			return _execute_anomaly_research_inspiration(anomaly_record, outcome, empire_id)
 		_:
 			return {"success": false, "summary": "Unbekannter Anomalie-Ausgang."}
 
@@ -1649,6 +1654,29 @@ func _execute_anomaly_runtime_method(anomaly_record: Dictionary, outcome: Dictio
 	if result is Dictionary:
 		return result
 	return {"success": true, "summary": str(result)}
+
+
+func _execute_anomaly_research_inspiration(anomaly_record: Dictionary, outcome: Dictionary, empire_id: String) -> Dictionary:
+	if ResearchManager == null or not ResearchManager.has_empire(empire_id):
+		return {"success": false, "summary": "Keine Forschung verfuegbar."}
+	var params: Dictionary = outcome.get("inspiration", {}) if outcome.get("inspiration", {}) is Dictionary else {}
+	var inspiration: Dictionary = ResearchManager.add_inspiration(
+		empire_id,
+		params.get("tags", []),
+		int(params.get("discount_bp", 2000)),
+		int(params.get("weight_bonus_bp", 5000)),
+		"anomaly:%s" % str(anomaly_record.get("anomaly_id", "")),
+		int(params.get("expires_in_days", 0))
+	)
+	if inspiration.is_empty():
+		return {"success": false, "summary": "Die Fragmente blieben stumm."}
+	var tag_names: Array[String] = []
+	for tag_variant in inspiration.get("tags", []):
+		tag_names.append(str(tag_variant))
+	return {
+		"success": true,
+		"summary": "Forschungs-Inspiration gewonnen: %s" % ", ".join(tag_names),
+	}
 
 
 func _amounts_to_resource_map(amounts: Array[Dictionary]) -> Dictionary:

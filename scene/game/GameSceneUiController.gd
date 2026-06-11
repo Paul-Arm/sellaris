@@ -3,6 +3,7 @@ class_name GameSceneUiController
 
 const COLONY_MODAL_SCRIPT := preload("res://scene/game/ColonyModal.gd")
 const SHIP_DESIGNER_MODAL_SCRIPT := preload("res://scene/game/ShipDesignerModal.gd")
+const RESEARCH_MODAL_SCRIPT := preload("res://scene/game/ResearchModal.gd")
 const DEBUG_INFO_PANEL_SCRIPT := preload("res://scene/UI/GalaxyDebugInfoPanel.gd")
 const SPACE_ENTITY_DETAILS_PANEL_SCRIPT := preload("res://scene/game/SpaceEntityDetailsPanel.gd")
 const HOVER_PREVIEW_DELAY_SEC: float = 1.0
@@ -18,6 +19,7 @@ var _hover_preview_sequence: int = 0
 var _active_preview_system_id: String = ""
 var _colony_modal: Control = null
 var _ship_designer_modal: Control = null
+var _research_modal: Control = null
 var _manage_colony_button: Button = null
 var _manage_colony_id: String = ""
 var _open_colony_id: String = ""
@@ -54,10 +56,13 @@ func teardown() -> void:
 		_colony_modal.queue_free()
 	if _ship_designer_modal != null:
 		_ship_designer_modal.queue_free()
+	if _research_modal != null:
+		_research_modal.queue_free()
 	if _space_entity_panel != null:
 		_space_entity_panel.queue_free()
 	_colony_modal = null
 	_ship_designer_modal = null
+	_research_modal = null
 	_manage_colony_button = null
 	_debug_info_panel = null
 	_space_entity_panel = null
@@ -681,7 +686,7 @@ func set_loading_state(visible_state: bool, status_text: String = "", progress_r
 func refresh_camera_input_block() -> void:
 	if _state == null or _ui == null or _view_router == null:
 		return
-	var modal_visible := is_colony_modal_visible() or is_ship_designer_visible()
+	var modal_visible := is_colony_modal_visible() or is_ship_designer_visible() or is_research_modal_visible()
 	var block_galaxy_camera: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or _view_router.is_system_view_open() or modal_visible
 	_view_router.set_galaxy_camera_input_blocked(block_galaxy_camera)
 	var block_shared_ui: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or modal_visible
@@ -749,6 +754,29 @@ func refresh_empire_command_drawer() -> void:
 	if _ui == null or _runtime_system == null or _ui.empire_command_drawer == null:
 		return
 	_ui.empire_command_drawer.call("set_anomaly_entries", _runtime_system.build_empire_anomaly_entries())
+	_ui.empire_command_drawer.call("set_research_summary", _build_research_drawer_summary())
+
+
+func _build_research_drawer_summary() -> String:
+	if _state == null or _state.active_empire_id.is_empty() or ResearchManager == null or not ResearchManager.is_bootstrapped():
+		return ""
+	var lines: Array[String] = []
+	for overview in ResearchManager.get_domains_overview(_state.active_empire_id):
+		var domain_name := str(overview.get("display_name", overview.get("domain_id", "")))
+		var active_projects: Array = overview.get("active_projects", [])
+		if active_projects.is_empty():
+			lines.append("%s: Slot frei" % domain_name)
+			continue
+		var project_parts: Array[String] = []
+		for project_variant in active_projects:
+			if project_variant is not Dictionary:
+				continue
+			var project: Dictionary = project_variant
+			var total := maxi(int(project.get("total_cost_milliunits", 1)), 1)
+			var percent := clampi(int(float(project.get("invested_milliunits", 0)) * 100.0 / float(total)), 0, 100)
+			project_parts.append("%s %d%%" % [str(project.get("display_name", project.get("tech_id", ""))), percent])
+		lines.append("%s: %s" % [domain_name, ", ".join(project_parts)])
+	return "\n".join(lines)
 
 
 func is_colony_modal_visible() -> bool:
@@ -781,6 +809,37 @@ func close_ship_designer_modal() -> void:
 
 func _on_ship_designer_close_requested() -> void:
 	refresh_camera_input_block()
+	update_system_panel()
+	update_selection_panel()
+
+
+func is_research_modal_visible() -> bool:
+	return _research_modal != null and _research_modal.visible
+
+
+func open_research_modal() -> void:
+	if _state == null or _ui == null or _ui.canvas_layer == null:
+		return
+	var empire_id := _state.active_empire_id.strip_edges()
+	if empire_id.is_empty():
+		return
+	if _research_modal == null:
+		_research_modal = RESEARCH_MODAL_SCRIPT.new() as Control
+		_ui.canvas_layer.add_child(_research_modal)
+		_research_modal.close_requested.connect(_on_research_modal_close_requested)
+	_research_modal.open(empire_id)
+	refresh_camera_input_block()
+
+
+func close_research_modal() -> void:
+	if _research_modal == null or not _research_modal.visible:
+		return
+	_research_modal.close()
+
+
+func _on_research_modal_close_requested() -> void:
+	refresh_camera_input_block()
+	refresh_empire_command_drawer()
 	update_system_panel()
 	update_selection_panel()
 

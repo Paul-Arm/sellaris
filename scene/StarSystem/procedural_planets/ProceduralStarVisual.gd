@@ -180,7 +180,7 @@ func _build_star_body(base_diameter: float, sphere_diameter: float) -> void:
 	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	surface.material_override = _build_surface_material()
 	add_child(surface)
-	_build_corona(base_diameter)
+	_build_corona(base_diameter, sphere_diameter)
 	if str(_visual_config.get("kind", STAR_KIND_NORMAL)) == STAR_KIND_NORMAL:
 		_build_plasma_arms(sphere_diameter)
 
@@ -300,7 +300,7 @@ func _build_black_hole(base_diameter: float) -> void:
 	disk.material_override = disk_material
 	add_child(disk)
 
-	_build_corona(base_diameter)
+	_build_corona(base_diameter, base_diameter * 0.5)
 
 
 # Long thin polar jets tapering to a point far from the star, plus a flat
@@ -354,14 +354,18 @@ func _build_neutron_beams(base_diameter: float) -> void:
 	beams_tilt.add_child(disk)
 
 
-func _build_corona(base_diameter: float) -> void:
+# Volumetric fog shell between the actual body surface (inner_diameter) and
+# the fringe edge (inner_diameter * halo_scale) — true 3D, raymarched. The
+# fringe scales with the BODY, so the tiny neutron core keeps a tight halo.
+func _build_corona(_base_diameter: float, inner_diameter: float) -> void:
 	if float(_visual_config.get("halo_alpha", 0.0)) <= 0.001:
 		return
+	var halo_scale: float = maxf(float(_visual_config.get("halo_scale", 1.3)), 1.05)
+	var outer_diameter: float = inner_diameter * halo_scale
 	var corona := MeshInstance3D.new()
 	corona.name = "Corona"
-	var quad := QuadMesh.new()
-	quad.size = Vector2.ONE * base_diameter * float(_visual_config.get("halo_scale", 1.26))
-	corona.mesh = quad
+	corona.mesh = CelestialMeshLibrary.get_body_sphere()
+	corona.scale = Vector3.ONE * outer_diameter
 	corona.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var material := ShaderMaterial.new()
 	material.shader = STAR_CORONA_SHADER
@@ -369,10 +373,10 @@ func _build_corona(base_diameter: float) -> void:
 	var corona_color: Color = _visual_config.get("halo_color", Color.WHITE)
 	corona_color.a = clampf(float(_visual_config.get("halo_alpha", 0.18)) * 2.2, 0.0, 1.0)
 	material.set_shader_parameter("corona_color", corona_color)
+	material.set_shader_parameter("inner_radius", inner_diameter * 0.5 * 0.99)
+	material.set_shader_parameter("outer_radius", outer_diameter * 0.5 * 0.98)
+	material.set_shader_parameter("noise_offset", _visual_config.get("noise_offset", Vector3.ZERO))
 	material.set_shader_parameter("phase_offset", float(_visual_config.get("phase_offset", 0.0)))
-	# The cloud starts at the star limb (quad spans halo_scale diameters).
-	var halo_scale: float = maxf(float(_visual_config.get("halo_scale", 1.9)), 1.05)
-	material.set_shader_parameter("core_radius", 0.98 / halo_scale)
 	corona.material_override = material
 	add_child(corona)
 

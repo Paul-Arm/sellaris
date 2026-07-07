@@ -1,0 +1,73 @@
+{
+  "corvette": {
+    "tris": 952,
+    "dims": [
+      3.07,
+      2.3,
+      0.396
+    ]
+  },
+  "destroyer": {
+    "tris": 1164,
+    "dims": [
+      4.338,
+      2.36,
+      1.028
+    ]
+  },
+  "cruiser": {
+    "tris": 1108,
+    "dims": [
+      4.716,
+      3.7,
+      0.785
+    ]
+  },
+  "battleship": {
+    "tris": 1624,
+    "dims": [
+      6.356,
+      5.0,
+      1.07
+    ]
+  },
+  "science": {
+    "tris": 962,
+    "dims": [
+      3.0,
+      1.9,
+      1.39
+    ]
+  },
+  "builder": {
+    "tris": 788,
+    "dims": [
+      2.861,
+      1.57,
+      1.17
+    ]
+  },
+  "station": {
+    "tris": 470,
+    "dims": [
+      3.889,
+      4.09,
+      2.44
+    ]
+  },
+  "stellar_station": {
+    "tris": 844,
+    "dims": [
+      6.04,
+      5.231,
+      3.62
+    ]
+  },
+  "_glb": {
+    "path": "O:\\Spiele\\sellaris\\assets\\ships\\tidal\\tidal_ships.glb",
+    "bytes": 900444
+  },
+  "_preview": {
+    "contact_sheet": "C:\\Users\\paulp\\AppData\\Local\\Temp\\claude\\O--Spiele-sellaris\\7cd5f2a1-3946-43b6-892c-1da627fb4e46\\scratchpad\\previews\\tidal\\tidal_contact_sheet.png"
+  }
+}

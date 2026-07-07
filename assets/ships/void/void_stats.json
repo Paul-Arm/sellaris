@@ -1,0 +1,73 @@
+{
+  "corvette": {
+    "tris": 380,
+    "dims": [
+      2.81,
+      1.04,
+      1.18
+    ]
+  },
+  "destroyer": {
+    "tris": 508,
+    "dims": [
+      3.68,
+      1.058,
+      1.54
+    ]
+  },
+  "cruiser": {
+    "tris": 600,
+    "dims": [
+      4.9,
+      1.484,
+      1.83
+    ]
+  },
+  "battleship": {
+    "tris": 772,
+    "dims": [
+      6.4,
+      2.643,
+      2.27
+    ]
+  },
+  "science": {
+    "tris": 476,
+    "dims": [
+      2.87,
+      2.185,
+      1.28
+    ]
+  },
+  "builder": {
+    "tris": 520,
+    "dims": [
+      2.66,
+      0.909,
+      0.93
+    ]
+  },
+  "station": {
+    "tris": 448,
+    "dims": [
+      3.48,
+      3.48,
+      3.7
+    ]
+  },
+  "stellar_station": {
+    "tris": 788,
+    "dims": [
+      5.2,
+      5.2,
+      4.8
+    ]
+  },
+  "_glb": {
+    "path": "O:\\Spiele\\sellaris\\assets\\ships\\void\\void_ships.glb",
+    "bytes": 654368
+  },
+  "_preview": {
+    "contact_sheet": "C:\\Users\\paulp\\AppData\\Local\\Temp\\claude\\O--Spiele-sellaris\\7cd5f2a1-3946-43b6-892c-1da627fb4e46\\scratchpad\\previews\\void\\void_contact_sheet.png"
+  }
+}

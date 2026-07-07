@@ -1,0 +1,73 @@
+{
+  "corvette": {
+    "tris": 510,
+    "dims": [
+      2.865,
+      2.24,
+      0.685
+    ]
+  },
+  "destroyer": {
+    "tris": 678,
+    "dims": [
+      3.631,
+      2.56,
+      0.84
+    ]
+  },
+  "cruiser": {
+    "tris": 1038,
+    "dims": [
+      4.734,
+      3.16,
+      1.17
+    ]
+  },
+  "battleship": {
+    "tris": 1314,
+    "dims": [
+      6.557,
+      4.12,
+      1.73
+    ]
+  },
+  "science": {
+    "tris": 906,
+    "dims": [
+      2.916,
+      1.72,
+      1.445
+    ]
+  },
+  "builder": {
+    "tris": 646,
+    "dims": [
+      2.633,
+      1.206,
+      0.7
+    ]
+  },
+  "station": {
+    "tris": 836,
+    "dims": [
+      3.56,
+      3.56,
+      3.56
+    ]
+  },
+  "stellar_station": {
+    "tris": 1128,
+    "dims": [
+      5.18,
+      4.558,
+      4.85
+    ]
+  },
+  "_glb": {
+    "path": "O:\\Spiele\\sellaris\\assets\\ships\\vanguard\\vanguard_ships.glb",
+    "bytes": 1224680
+  },
+  "_preview": {
+    "contact_sheet": "C:\\Users\\paulp\\AppData\\Local\\Temp\\claude\\O--Spiele-sellaris\\7cd5f2a1-3946-43b6-892c-1da627fb4e46\\scratchpad\\previews\\vanguard\\vanguard_contact_sheet.png"
+  }
+}

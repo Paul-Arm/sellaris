@@ -1,76 +1,84 @@
-// Glowing cloud around the star: two counter-rotating fbm layers shape a
-// churning fog over the radial falloff — billowing clumps, not a smooth
-// gradient. Billboarding happens shader-side in vertex() (no per-frame
-// script work), and a distance boost keeps far stars readable at maximum
-// zoom — computed from the camera position in-shader.
+// True-3D volumetric star corona: raymarches a spherical fog shell between
+// the star surface (inner_radius) and the fringe edge (outer_radius).
+// Density = 3D fbm billows sampled in star-local space, so cloud clumps sit
+// spatially in front of and behind the star, parallax with the camera, and
+// the rim brightens naturally where rays travel the longest chord through
+// the shell. Rendered on an enlarged sphere mesh (cull_front), occlusion
+// against the star handled analytically inside the march.
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+render_mode unshaded, blend_add, cull_front, depth_draw_never;
 
 #include "celestial_common.gdshaderinc"
 
 uniform vec4 corona_color : source_color = vec4(1.0, 0.85, 0.6, 0.4);
-// Star limb in quad UV space — set from GDScript as ~1/halo_scale.
-uniform float core_radius = 0.75;
-uniform float falloff = 6.0;
-uniform float cloud_frequency = 2.4;
-uniform float billow_strength = 1.1;
-uniform float base_glow = 0.25;
-uniform float rotation_speed = 0.05;
-uniform float drift_speed = 0.06;
+uniform float inner_radius = 5.0;
+uniform float outer_radius = 6.5;
+uniform float cloud_frequency = 2.2;
+uniform float billow_strength = 1.0;
+uniform float base_glow = 0.18;
+uniform float brightness = 0.8;
+uniform float rotation_speed = 0.03;
+uniform float drift_speed = 0.05;
+uniform vec3 noise_offset = vec3(0.0);
 uniform float phase_offset = 0.0;
-uniform float boost_distance = 180.0;
-uniform float boost_max = 2.2;
 
-varying float v_boost;
+varying vec3 v_world_pos;
+
+const int STEPS = 14;
 
 void vertex() {
-	vec3 model_scale = vec3(
-		length(MODEL_MATRIX[0].xyz),
-		length(MODEL_MATRIX[1].xyz),
-		length(MODEL_MATRIX[2].xyz)
-	);
-	mat4 billboard = mat4(
-		vec4(INV_VIEW_MATRIX[0].xyz * model_scale.x, 0.0),
-		vec4(INV_VIEW_MATRIX[1].xyz * model_scale.y, 0.0),
-		vec4(INV_VIEW_MATRIX[2].xyz * model_scale.z, 0.0),
-		MODEL_MATRIX[3]
-	);
-	float camera_distance = length(CAMERA_POSITION_WORLD - MODEL_MATRIX[3].xyz);
-	v_boost = clamp(camera_distance / boost_distance, 1.0, boost_max);
-	VERTEX *= v_boost;
-	MODELVIEW_MATRIX = VIEW_MATRIX * billboard;
-	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
-	vec2 centered_uv = UV * 2.0 - 1.0;
-	float radius = length(centered_uv);
-	float base_angle = atan(centered_uv.y, centered_uv.x);
+	vec3 ray_origin = CAMERA_POSITION_WORLD;
+	vec3 ray_dir = normalize(v_world_pos - ray_origin);
+	vec3 center = MODEL_MATRIX[3].xyz;
 
-	// Two cloud layers, counter-rotating, drifting slowly outward. Periodic
-	// by construction: noise sampled on the unit circle embedding, radius on
-	// the third axis.
-	float a1 = base_angle + TIME * rotation_speed + phase_offset;
-	vec3 p1 = vec3(cos(a1), sin(a1), 0.0) * cloud_frequency;
-	p1.z = radius * cloud_frequency * 1.6 - TIME * drift_speed + phase_offset;
-	float c1 = cb_fbm3(p1, 5);
+	// Ray / outer-sphere intersection.
+	vec3 oc = ray_origin - center;
+	float b = dot(oc, ray_dir);
+	float c_out = dot(oc, oc) - outer_radius * outer_radius;
+	float h_out = b * b - c_out;
+	if (h_out <= 0.0) {
+		discard;
+	}
+	float sq_out = sqrt(h_out);
+	float t_near = max(-b - sq_out, 0.0);
+	float t_far = -b + sq_out;
+	// Stop at the star surface — the disc occludes the far half of the shell.
+	float c_in = dot(oc, oc) - inner_radius * inner_radius;
+	float h_in = b * b - c_in;
+	if (h_in > 0.0) {
+		t_far = min(t_far, -b - sqrt(h_in));
+	}
+	if (t_far <= t_near) {
+		discard;
+	}
 
-	float a2 = base_angle - TIME * rotation_speed * 0.6 + phase_offset * 1.7;
-	vec3 p2 = vec3(cos(a2), sin(a2), 0.0) * cloud_frequency * 2.1;
-	p2.z = radius * cloud_frequency * 3.0 - TIME * drift_speed * 1.7 + 41.0;
-	float c2 = cb_fbm3(p2, 4);
+	// Slow churn: the whole fog field rotates around Y and drifts.
+	float spin_angle = TIME * rotation_speed + phase_offset;
+	float ca = cos(spin_angle);
+	float sa = sin(spin_angle);
+	mat3 spin = mat3(vec3(ca, 0.0, -sa), vec3(0.0, 1.0, 0.0), vec3(sa, 0.0, ca));
 
-	float billow = smoothstep(0.3, 0.78, c1) * (0.65 + 0.55 * c2);
+	float shell_outer = outer_radius / inner_radius;
+	float dt = (t_far - t_near) / float(STEPS);
+	float accum = 0.0;
+	for (int i = 0; i < STEPS; i++) {
+		vec3 p = ray_origin + ray_dir * (t_near + (float(i) + 0.5) * dt);
+		vec3 q = spin * (p - center) / inner_radius; // 1.0 at the star surface
+		float r = length(q);
+		float shell = 1.0 - smoothstep(1.0, shell_outer, r);
+		float n = cb_fbm3(q * cloud_frequency + noise_offset + vec3(0.0, 0.0, TIME * drift_speed), 3);
+		float billow = smoothstep(0.32, 0.72, n);
+		accum += shell * (base_glow + billow_strength * billow);
+	}
+	// Normalize by shell thickness — tangent chords through the shell still
+	// run several times longer than the thickness, brightening the rim.
+	accum *= dt / max(outer_radius - inner_radius, 0.001) * brightness;
 
-	float reach = max(radius - core_radius, 0.0);
-	float radial = exp(-reach * falloff);
-	// Bright rim hugging the limb so the cloud connects to the disc.
-	float rim = exp(-reach * 10.0) * 0.55;
-	float glow = radial * (base_glow + billow_strength * billow) + rim;
-	glow *= 1.0 - smoothstep(0.82, 1.0, radius);
-
-	float alpha = clamp(glow * corona_color.a, 0.0, 1.0);
 	// unshaded mode ignores EMISSION — additive output goes through ALBEDO.
-	ALBEDO = corona_color.rgb * glow * corona_color.a * 2.0;
-	ALPHA = alpha;
+	ALBEDO = corona_color.rgb * accum * corona_color.a * 2.0;
+	ALPHA = 1.0;
 }

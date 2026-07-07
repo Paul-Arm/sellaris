@@ -235,7 +235,11 @@ func _create_model_marker(visual_key: String, instance_count: int, alpha: float,
 	multimesh.instance_count = instance_count
 	marker.multimesh = multimesh
 	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	marker.material_override = _build_material(alpha, emission_energy)
+	# Textured ship sets (GLB-based) carry their own PBR materials; the
+	# unshaded placeholder override would hide their textures. Instance colors
+	# still tint them via vertex_color_use_as_albedo (see GlbShipSet).
+	if not _mesh_provides_materials(multimesh.mesh):
+		marker.material_override = _build_material(alpha, emission_energy)
 	_host.get_runtime_effects_root().add_child(marker)
 	return marker
 
@@ -987,6 +991,15 @@ func _get_marker_tint(record: Dictionary, alpha: float, tint_strength: float) ->
 	var tint: Color = Color.WHITE.lerp(Color(owner_color.r, owner_color.g, owner_color.b, 1.0), tint_strength)
 	tint.a = alpha
 	return tint
+
+
+static func _mesh_provides_materials(mesh: Mesh) -> bool:
+	if mesh == null:
+		return false
+	for surface_index in range(mesh.get_surface_count()):
+		if mesh.surface_get_material(surface_index) != null:
+			return true
+	return false
 
 
 func _build_material(alpha: float, emission_energy: float) -> StandardMaterial3D:

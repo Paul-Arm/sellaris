@@ -1,0 +1,73 @@
+{
+  "corvette": {
+    "tris": 400,
+    "dims": [
+      2.736,
+      0.905,
+      1.072
+    ]
+  },
+  "destroyer": {
+    "tris": 654,
+    "dims": [
+      3.613,
+      1.065,
+      1.43
+    ]
+  },
+  "cruiser": {
+    "tris": 872,
+    "dims": [
+      4.873,
+      2.305,
+      1.766
+    ]
+  },
+  "battleship": {
+    "tris": 1220,
+    "dims": [
+      6.298,
+      2.42,
+      2.651
+    ]
+  },
+  "science": {
+    "tris": 516,
+    "dims": [
+      2.55,
+      1.51,
+      1.301
+    ]
+  },
+  "builder": {
+    "tris": 370,
+    "dims": [
+      3.04,
+      1.49,
+      1.194
+    ]
+  },
+  "station": {
+    "tris": 230,
+    "dims": [
+      4.1,
+      3.551,
+      2.11
+    ]
+  },
+  "stellar_station": {
+    "tris": 398,
+    "dims": [
+      5.68,
+      4.919,
+      2.86
+    ]
+  },
+  "_glb": {
+    "path": "O:\\Spiele\\sellaris\\assets\\ships\\forge\\forge_ships.glb",
+    "bytes": 1052196
+  },
+  "_preview": {
+    "contact_sheet": "C:\\Users\\paulp\\AppData\\Local\\Temp\\claude\\O--Spiele-sellaris\\7cd5f2a1-3946-43b6-892c-1da627fb4e46\\scratchpad\\previews\\forge\\forge_contact_sheet.png"
+  }
+}

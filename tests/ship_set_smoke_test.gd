@@ -28,6 +28,7 @@ func _ready() -> void:
 
 func _run(failures: Array[String]) -> void:
 	_run_registry_checks(failures)
+	_run_builtin_glb_set_checks(failures)
 	_run_set_switching_checks(failures)
 	await _run_renderer_checks(failures)
 
@@ -90,6 +91,29 @@ func _run_registry_checks(failures: Array[String]) -> void:
 		"unknown station classes should fall back to the station model",
 		failures
 	)
+
+
+func _run_builtin_glb_set_checks(failures: Array[String]) -> void:
+	var registered := ShipSetRegistry.get_registered_set_ids()
+	for set_id in ["forge", "tidal", "vanguard", "void"]:
+		_expect(registered.has(set_id), "builtin set %s should be registered" % set_id, failures)
+
+	for set_id in ["forge", "tidal", "vanguard", "void"]:
+		_expect(ShipSetRegistry.set_active_set_id(set_id), "builtin set %s should activate" % set_id, failures)
+		for visual_key in ["corvette", "destroyer", "cruiser", "battleship", "science", "builder", "ship", "station", "stellar_station", "collector_station"]:
+			var mesh := ShipSetRegistry.get_mesh(visual_key)
+			var label := "%s/%s" % [set_id, visual_key]
+			_expect(mesh != null and mesh.get_surface_count() > 0, "%s should resolve to a mesh with surfaces" % label, failures)
+			if mesh == null or mesh.get_surface_count() == 0:
+				continue
+			var material := mesh.surface_get_material(0) as BaseMaterial3D
+			_expect(material != null, "%s should carry its own material (textured set)" % label, failures)
+			if material == null:
+				continue
+			_expect(material.vertex_color_use_as_albedo, "%s material should enable vertex color tint for owner colors" % label, failures)
+			_expect(material.albedo_texture != null, "%s material should reference the set's albedo texture" % label, failures)
+
+	_expect(ShipSetRegistry.set_active_set_id(ShipSetRegistry.DEFAULT_SET_ID), "switching back to the default set after builtin checks should work", failures)
 
 
 func _run_set_switching_checks(failures: Array[String]) -> void:

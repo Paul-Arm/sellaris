@@ -75,6 +75,10 @@ meshes with live spatial shaders (`scene/StarSystem/procedural_planets/`).
   + nebula wisps, `seed_offset` set per system by `StarSystemPreview`). It is
   self-contained because `fwidth()` from the shared include is unavailable in
   the sky stage.
+- The star corona is a true-3D volumetric: `shaders/StarCorona.gdshader`
+  raymarches a fog shell (14 steps) between the body surface and
+  `halo_scale`× the body diameter on an enlarged sphere mesh — cloud billows
+  parallax with the camera, the rim brightens from real chord lengths.
 - Star prominences are true 3D: half-torus arc tubes
   (`CelestialMeshLibrary.get_prominence_arc()`) anchored on the star sphere
   with seeded orientations, shaded by `shaders/StarPlasmaArms.gdshader`
@@ -97,6 +101,36 @@ Regenerate and validate the modular station kit with:
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tools/generate_modular_station_assets.gd"
 & $env:GODOT_CONSOLE --headless --path "O:\Spiele\sellaris" --script "res://tools/validate_modular_station_assets.gd"
 ```
+
+## Ship Sets (Blender pipeline)
+
+Four GLB-based ship sets live in `assets/ships/<set_id>/` (`vanguard` angular
+military / red, `tidal` aquatic organic / teal, `forge` machine industrial /
+amber, `void` crystalline / lavender). Each provides corvette, destroyer,
+cruiser, battleship, science, builder, station and stellar_station models plus
+a shared trim-sheet texture atlas (albedo/emission/ORM, embedded in the GLB).
+They are registered as builtins in `ShipSetRegistry`; switch at runtime with
+`ShipSetRegistry.set_active_set_id("tidal")`. Unknown visual keys fall back to
+the procedural default set. `GlbShipSet` prepares imported materials with
+`vertex_color_use_as_albedo` so MultiMesh instance colors keep tinting by
+owner; `SystemRuntimePlaceholderRenderer` skips its unshaded material override
+for meshes that carry their own materials.
+
+Regenerate a set (headless Blender 5.1, procedural geometry + textures in
+`tools/shipgen/`):
+
+```powershell
+& "C:\Program Files\Blender Foundation\Blender 5.1\blender.exe" --background --factory-startup `
+  --python "O:\Spiele\sellaris\tools\shipgen\generate.py" -- `
+  --set vanguard --out "O:\Spiele\sellaris\assets\ships\vanguard" --preview "$env:TEMP\shipgen_previews"
+```
+
+`tools/shipgen/shipgen_lib.py` holds the shared geometry/texture library
+(lofted custom profiles, trim-sheet UV mapping, numpy-painted atlas, GLB
+export, Cycles preview renders); `tools/shipgen/sets/<set_id>.py` defines each
+set's palette and per-ship builders. Tri budgets are enforced by the runner
+(exit code 2). After regenerating, run the Godot import once so the `.glb`
+gets (re)imported, then `res://tests/ship_set_smoke_test.tscn`.
 
 ## Current Startup Path
 

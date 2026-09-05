@@ -11,7 +11,7 @@ check() {
     return 1
   fi
   cat "$log"
-  if rg -q 'SCRIPT ERROR|Parse Error|Shader compilation failed|Assertion failed' "$log"; then
+  if grep -Eq 'SCRIPT ERROR|Parse Error|Shader compilation failed|Assertion failed' "$log"; then
     return 1
   fi
 }
@@ -20,6 +20,7 @@ check lobby --script res://tests/lobby_state_test.gd
 check visuals --script res://tests/observatory_visual_test.gd
 check deterministic --script res://tests/celestial_visual_determinism_test.gd
 check builder res://tests/builder_ship_smoke_test.tscn
+check station_cost res://tests/station_cost_boundary_test.tscn
 check ships res://tests/ship_set_smoke_test.tscn
 check research res://tests/research_modal_smoke_test.tscn
 check drawer --script res://tests/empire_command_drawer_smoke_test.gd

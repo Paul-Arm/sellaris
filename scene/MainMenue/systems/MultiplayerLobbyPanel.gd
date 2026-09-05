@@ -83,7 +83,7 @@ func _refresh() -> void:
 	_host_button.disabled = active
 	_join_button.disabled = active
 	_leave_button.disabled = not active
-	_ready_button.disabled = not NetworkSession.is_connected()
+	_ready_button.disabled = not NetworkSession.is_lobby_connected()
 	_name_edit.editable = not active
 	_address_edit.editable = not active
 	_port_edit.editable = not active

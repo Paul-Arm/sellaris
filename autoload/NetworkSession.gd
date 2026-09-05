@@ -30,7 +30,7 @@ func is_active() -> bool:
 func is_host() -> bool:
 	return is_active() and multiplayer.is_server()
 
-func is_connected() -> bool:
+func is_lobby_connected() -> bool:
 	return is_active() and not _connecting and roster.has(multiplayer.get_unique_id())
 
 func host_lobby(display_name: String, port: int = DEFAULT_PORT) -> Error:
@@ -94,7 +94,7 @@ func leave_lobby(message: String = "Offline · connection closed") -> void:
 	lobby_changed.emit()
 
 func toggle_ready() -> void:
-	if not is_connected():
+	if not is_lobby_connected():
 		return
 	_ready_requested = not _ready_requested
 	if is_host():

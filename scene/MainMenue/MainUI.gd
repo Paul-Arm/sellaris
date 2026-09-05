@@ -238,10 +238,11 @@ func _close_delete_overlay() -> void:
 
 func _show_page(page_index: int) -> void:
 	content_tabs.current_tab = page_index
-	landing_button.disabled = page_index == PAGE_LANDING
-	presets_button.disabled = page_index == PAGE_PRESETS
-	settings_button.disabled = page_index == PAGE_SETTINGS
-	multiplayer_button.disabled = page_index == PAGE_MULTIPLAYER
+	var pages: Array[Button] = [landing_button, presets_button, settings_button, multiplayer_button]
+	for index in range(pages.size()):
+		var selected: bool = index == page_index
+		pages[index].theme_type_variation = &"PrimaryButton" if selected else &"Button"
+		pages[index].button_pressed = selected
 	if page_index != PAGE_PRESETS:
 		_close_species_gallery()
 	if page_index == PAGE_PRESETS:

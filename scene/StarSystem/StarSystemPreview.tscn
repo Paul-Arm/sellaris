@@ -5,14 +5,14 @@
 
 [sub_resource type="Environment" id="Environment_xrj4o"]
 background_mode = 1
-background_color = Color(0.0509804, 0.0745098, 0.133333, 1)
+background_color = Color(0.004, 0.008, 0.016, 1)
 ambient_light_source = 2
-ambient_light_color = Color(0.85098, 0.823529, 0.980392, 1)
-ambient_light_energy = 0.9
-tonemap_exposure = 1.15
+ambient_light_color = Color(0.64, 0.75, 0.85, 1)
+ambient_light_energy = 0.55
+tonemap_exposure = 1.05
 glow_enabled = true
 glow_intensity = 0.22
-glow_bloom = 0.16
+glow_bloom = 0.08
 
 [node name="StarSystemPreview" type="Node3D"]
 script = ExtResource("1_y11p6")

@@ -15,7 +15,7 @@ const BLACK_HOLE_CORE_SHADER: Shader = preload("res://scene/StarSystem/procedura
 const ACCRETION_DISK_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/AccretionDisk.gdshader")
 const NEUTRON_BEAMS_SHADER: Shader = preload("res://scene/StarSystem/procedural_planets/shaders/NeutronBeams.gdshader")
 
-const STAR_SCALE_MULTIPLIER := 3.2
+const STAR_SCALE_MULTIPLIER := 2.1
 const STAR_KIND_NORMAL := "star"
 const STAR_KIND_NEUTRON := "neutron"
 const STAR_KIND_BLACK_HOLE := "black_hole"
@@ -218,7 +218,7 @@ func _build_plasma_arms(sphere_diameter: float) -> void:
 		var h3 := _hash01(seed_value, arm_index * 3 + 3)
 
 		# Arc chord on the sphere; feet pushed slightly below the surface.
-		var arc_scale: float = star_radius * lerpf(0.85, 1.3, h2)
+		var arc_scale: float = star_radius * lerpf(0.35, 0.65, h2)
 		var foot_half_span: float = arc_scale * 0.5
 		var lift: float = sqrt(maxf(star_radius * star_radius - foot_half_span * foot_half_span, 0.0)) * 0.97
 

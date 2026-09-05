@@ -48,7 +48,7 @@ render_target_update_mode = 4
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_left = 28.0
+offset_left = 88.0
 offset_top = 92.0
 offset_right = -28.0
 offset_bottom = 164.0
@@ -81,13 +81,13 @@ text = "Back"
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 1.0
-anchor_top = 0.319
+anchor_top = 0.0
 anchor_right = 1.0
-anchor_bottom = 0.319
+anchor_bottom = 1.0
 offset_left = -360.0
-offset_top = 118.287994
+offset_top = 190.0
 offset_right = -24.0
-offset_bottom = 238.288
+offset_bottom = -104.0
 grow_horizontal = 0
 
 [node name="RightMargin" type="MarginContainer" parent="RightPanel" unique_id=1086601856]

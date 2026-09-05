@@ -461,7 +461,7 @@ func _apply_theme() -> void:
 	tab_view.add_theme_stylebox_override("tabbar_background", _build_tabbar_background_style())
 	tab_view.add_theme_color_override("font_unselected_color", Color(0.82, 0.88, 0.92, 0.9))
 	tab_view.add_theme_color_override("font_hovered_color", Color(0.96, 0.99, 1.0, 1.0))
-	tab_view.add_theme_color_override("font_selected_color", Color(0.96, 0.99, 1.0, 1.0))
+	tab_view.add_theme_color_override("font_selected_color", Color(0.015, 0.035, 0.045, 1.0))
 	tab_view.add_theme_color_override("font_disabled_color", Color(0.96, 0.93, 0.95, 0.42))
 	tab_view.add_theme_font_size_override("font_size", 14)
 	_refresh_selected_theme()

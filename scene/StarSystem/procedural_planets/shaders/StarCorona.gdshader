@@ -79,6 +79,6 @@ void fragment() {
 	accum *= dt / max(outer_radius - inner_radius, 0.001) * brightness;
 
 	// unshaded mode ignores EMISSION — additive output goes through ALBEDO.
-	ALBEDO = corona_color.rgb * accum * corona_color.a * 2.0;
+	ALBEDO = corona_color.rgb * accum * corona_color.a * 0.55;
 	ALPHA = 1.0;
 }

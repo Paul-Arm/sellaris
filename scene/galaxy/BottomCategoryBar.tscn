@@ -185,7 +185,7 @@ theme_override_constants/separation = 10
 [node name="AccentLine" type="ColorRect" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox" unique_id=253883889]
 custom_minimum_size = Vector2(0, 4)
 layout_mode = 2
-color = Color(0.709804, 0.396078, 0.462745, 1)
+color = Color(0.43, 0.66, 0.75, 1)
 
 [node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox" unique_id=1394895390]
 layout_mode = 2
@@ -261,7 +261,7 @@ theme_override_constants/separation = 10
 [node name="AccentLine" type="ColorRect" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox" unique_id=1048468245]
 custom_minimum_size = Vector2(0, 4)
 layout_mode = 2
-color = Color(0.898039, 0.419608, 0.435294, 1)
+color = Color(0.82, 0.72, 0.47, 1)
 
 [node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox" unique_id=1774800909]
 layout_mode = 2

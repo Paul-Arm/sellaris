@@ -19,6 +19,7 @@ check import --editor --import
 check lobby --script res://tests/lobby_state_test.gd
 check visuals --script res://tests/observatory_visual_test.gd
 check deterministic --script res://tests/celestial_visual_determinism_test.gd
+check celestial res://tests/celestial_visual_smoke_test.tscn
 check builder res://tests/builder_ship_smoke_test.tscn
 check station_cost res://tests/station_cost_boundary_test.tscn
 check ships res://tests/ship_set_smoke_test.tscn

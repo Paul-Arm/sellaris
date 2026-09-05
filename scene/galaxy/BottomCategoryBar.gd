@@ -91,6 +91,15 @@ func _ready() -> void:
 		_tab_bar.tab_clicked.connect(_on_tab_bar_tab_clicked)
 	call_deferred("_refresh_bubble_positions")
 	call_deferred("_refresh_chrome_state")
+	SettingsManager.design_changed.connect(_apply_design)
+	_apply_design(SettingsManager.get_design_variant())
+
+
+func _apply_design(_variant: String) -> void:
+	_refresh_selected_theme()
+	_refresh_responsive_layout()
+	if _chrome_layer != null:
+		_chrome_layer.queue_redraw()
 
 
 func _notification(what: int) -> void:
@@ -691,6 +700,8 @@ func _refresh_responsive_layout() -> void:
 
 
 func _get_responsive_bar_width() -> float:
+	if DesignDirector.is_clean() and not _expanded:
+		return minf(600.0, maxf(size.x - 48.0, 320.0))
 	var safe_max_width := maxf(size.x - 48.0, 320.0)
 	var safe_min_width := minf(min_bar_width, safe_max_width)
 	return clampf(size.x * width_ratio, safe_min_width, minf(max_bar_width, safe_max_width))
@@ -707,6 +718,8 @@ func _set_expanded(expanded: bool, animate: bool = true) -> void:
 	var start_height: float = dock_panel.custom_minimum_size.y
 	var end_height: float = expanded_height if next_expanded else collapsed_height
 	_expanded = next_expanded
+	if DesignDirector.is_clean():
+		dock_panel.custom_minimum_size.x = _get_responsive_bar_width()
 
 	if not animate:
 		_set_panel_height(end_height)
@@ -903,6 +916,9 @@ func _build_tab_style(background: Color, border: Color) -> StyleBoxFlat:
 	style.content_margin_top = 7
 	style.content_margin_right = 16
 	style.content_margin_bottom = 7
+	if DesignDirector.is_clean():
+		style.set_corner_radius_all(0)
+		style.shadow_size = 0
 	return style
 
 

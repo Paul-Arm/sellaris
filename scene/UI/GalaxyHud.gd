@@ -85,6 +85,11 @@ var _resource_refresh_queued: bool = false
 
 
 func _ready() -> void:
+	SettingsManager.design_changed.connect(_apply_design)
+	_apply_design(SettingsManager.get_design_variant())
+	var switcher := preload("res://scene/UI/theme/DesignSwitcher.gd").new()
+	close_settings_button.get_parent().add_child(switcher)
+	close_settings_button.get_parent().move_child(switcher, 1)
 	_install_top_chrome()
 	_apply_top_bar_theme()
 	_setup_resource_signals()
@@ -700,3 +705,9 @@ func _on_territory_core_opacity_slider_changed(value: float) -> void:
 	if _is_syncing:
 		return
 	territory_core_opacity_changed.emit(value)
+
+
+func _apply_design(variant: String) -> void:
+	music_box.visible = variant != "clean"
+	if variant == "clean":
+		music_track_dropdown.hide()

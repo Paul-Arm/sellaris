@@ -155,7 +155,8 @@ func set_system_details(system_details: Dictionary) -> void:
 		_emit_selection_changed()
 		return
 
-	_clean_body_records = GravityFieldMap.collect_bodies(system_details) if DesignDirector.is_clean() else []
+	if DesignDirector.is_clean():
+		_clean_body_records = GravityFieldMap.collect_bodies(system_details)
 	var stars: Array = system_details.get("stars", [])
 	var orbitals: Array = system_details.get("orbitals", [])
 	var max_radius := 22.0

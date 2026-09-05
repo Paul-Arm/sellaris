@@ -6,7 +6,7 @@ PR #3 is the merged foundation. This revision keeps the same simulation and adds
 |---|---|---|
 | Bodies | Detailed procedural planets, cloud shells, stars and asteroid belts | Smooth luminous star markers, restrained planet markers and labels |
 | System space | Dark painted sky, orbital paths, soft pastel grading | Dark potential surface, anti-aliased contours, transported warm light |
-| UI | Softer tinted surfaces; system summary visible | Neutral surfaces, square corners; summary available through System info |
+| UI | Softer tinted surfaces; system summary visible | Neutral surfaces, square corners, compact command dock, music controls moved out of the top HUD; summary available through System info |
 | Galaxy | Nebula layers and colored stellar glows | Nebulae hidden, quieter stellar glows and cooler cores |
 
 Select the design in **Settings**, in a system's header, or press **F6**. The choice is saved to the existing local `user://settings.cfg`. It does not change saved campaigns or networking state. Camera focus, zoom, tilt, yaw and selected entity survive switching.

@@ -10,11 +10,11 @@ const MAX_CATEGORY_COUNT := 9
 const FALLBACK_CONTEXT_EMPIRE := "None selected"
 const FALLBACK_CONTEXT_SYSTEM := "No system selected"
 const FALLBACK_CONTEXT_OWNER := "Unclaimed"
-const PALETTE_DUSK_BLUE := Color("355070")
-const PALETTE_DUSTY_LAVENDER := Color("6D597A")
-const PALETTE_ROSEWOOD := Color("B56576")
-const PALETTE_LIGHT_CORAL := Color("E56B6F")
-const PALETTE_LIGHT_BRONZE := Color("EAAC8B")
+const PALETTE_DUSK_BLUE := Color("163242")
+const PALETTE_DUSTY_LAVENDER := Color("62BDAD")
+const PALETTE_ROSEWOOD := Color("6EA9BF")
+const PALETTE_LIGHT_CORAL := Color("D1B779")
+const PALETTE_LIGHT_BRONZE := Color("DBC793")
 const LIST_ROW_ICON_SIZE := Vector2i(22, 22)
 const RUNTIME_LIST_ROW_COUNT := 2
 const RUNTIME_LIST_ITEM_HEIGHT := 30
@@ -873,7 +873,7 @@ func _build_page_panel_style() -> StyleBoxFlat:
 	style.bg_color = Color(0.025, 0.035, 0.045, 0.0)
 	style.border_color = Color(0.24, 0.42, 0.52, 0.0)
 	style.set_border_width_all(0)
-	style.set_corner_radius_all(6)
+	style.set_corner_radius_all(3)
 	style.content_margin_left = 0
 	style.content_margin_top = 0
 	style.content_margin_right = 0
@@ -911,7 +911,7 @@ func _build_focus_style(accent: Color) -> StyleBoxFlat:
 	style.draw_center = false
 	style.border_color = accent.lightened(0.15)
 	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
+	style.set_corner_radius_all(3)
 	return style
 
 
@@ -920,7 +920,7 @@ func _build_list_style(fill_color: Color, border_color: Color, radius: int) -> S
 	style.bg_color = fill_color
 	style.border_color = border_color
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(radius)
+	style.set_corner_radius_all(mini(radius, 3))
 	style.content_margin_left = 8
 	style.content_margin_top = 4
 	style.content_margin_right = 8
@@ -933,7 +933,7 @@ func _build_action_button_style(fill_color: Color, border_color: Color) -> Style
 	style.bg_color = fill_color
 	style.border_color = border_color
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
+	style.set_corner_radius_all(3)
 	style.content_margin_left = 10
 	style.content_margin_top = 5
 	style.content_margin_right = 10

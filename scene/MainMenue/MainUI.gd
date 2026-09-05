@@ -365,6 +365,8 @@ func _on_quit_pressed() -> void:
 
 
 func _install_observatory_menu() -> void:
+	get_node("UiRoot/RootVBox/MainShell").add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	content_tabs.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var lobby := preload("res://scene/MainMenue/systems/MultiplayerLobbyPanel.gd").new()
 	content_tabs.get_node("MultiplayerPage/MultiplayerVBox").add_child(lobby)
 	for button: Button in [landing_button, singleplayer_button, presets_button, settings_button, multiplayer_button, quit_button]:

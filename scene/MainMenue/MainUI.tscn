@@ -754,7 +754,7 @@ text = "DIRECT CONNECTION     /     UP TO 6 COMMANDERS"
 autowrap_mode = 2
 
 [node name="MultiplayerStatusPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox" unique_id=858054798]
-custom_minimum_size = Vector2(0, 180)
+custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 
 [node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel" unique_id=1184816251]

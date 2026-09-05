@@ -22,7 +22,9 @@ jobs:
       - name: Render visual review frames
         run: |
           mkdir -p tools/screenshots
-          xvfb-run -a "$GODOT_BIN" --path . --rendering-method gl_compatibility res://tools/observatory_screenshot.tscn
+          timeout 180 xvfb-run -a "$GODOT_BIN" --path . --audio-driver Dummy --rendering-method gl_compatibility res://tools/observatory_screenshot.tscn 2>&1 | tee /tmp/sellaris-checks/render.log
+          test -s tools/screenshots/observatory_fleet.png
+          if grep -Eq "SCRIPT ERROR|Shader compilation failed" /tmp/sellaris-checks/render.log; then exit 1; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

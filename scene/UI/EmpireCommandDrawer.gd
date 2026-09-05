@@ -17,7 +17,7 @@ const DEFAULT_CATEGORIES: Array[Dictionary] = [
 	{"id": "edicts", "title": "Beschluesse"},
 ]
 
-@export var collapsed_width: float = 34.0
+@export var collapsed_width: float = 54.0
 @export var expanded_width: float = 430.0
 @export var drawer_height: float = 430.0
 @export var animation_duration: float = 0.14
@@ -102,12 +102,12 @@ func set_interaction_enabled(enabled: bool) -> void:
 
 func _build() -> void:
 	anchor_left = 0.0
-	anchor_top = 0.5
+	anchor_top = 0.0
 	anchor_right = 0.0
-	anchor_bottom = 0.5
+	anchor_bottom = 0.0
 	offset_left = 14.0
-	offset_top = -drawer_height * 0.5
-	offset_bottom = drawer_height * 0.5
+	offset_top = 78.0
+	offset_bottom = 78.0 + drawer_height
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	clip_contents = true
 
@@ -128,8 +128,9 @@ func _build() -> void:
 	margin.add_child(row)
 
 	_toggle_button = Button.new()
-	_toggle_button.custom_minimum_size = Vector2(22.0, drawer_height - 16.0)
-	_toggle_button.text = ">"
+	_toggle_button.custom_minimum_size = Vector2(30.0, 36.0)
+	_toggle_button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_toggle_button.text = "≡"
 	_toggle_button.tooltip_text = "Empire-Menue"
 	_toggle_button.pressed.connect(func() -> void: _set_expanded(not _expanded))
 	_style_toggle_button(_toggle_button)
@@ -218,13 +219,13 @@ func _set_expanded(expanded: bool, animate: bool = true) -> void:
 	if _tween != null:
 		_tween.kill()
 	_expanded = expanded
-	_toggle_button.text = "<" if _expanded else ">"
+	_toggle_button.text = "‹" if _expanded else "≡"
 	if _expanded_area != null:
 		_expanded_area.visible = _expanded
 
 	var target_width := expanded_width if _expanded else collapsed_width
 	if not animate:
-		custom_minimum_size = Vector2(target_width, drawer_height)
+		custom_minimum_size = Vector2(target_width, drawer_height if _expanded else 52.0)
 		size = custom_minimum_size
 		return
 
@@ -236,7 +237,7 @@ func _set_expanded(expanded: bool, animate: bool = true) -> void:
 
 
 func _set_drawer_width(value: float) -> void:
-	custom_minimum_size = Vector2(value, drawer_height)
+	custom_minimum_size = Vector2(value, drawer_height if _expanded else 52.0)
 	size = custom_minimum_size
 
 

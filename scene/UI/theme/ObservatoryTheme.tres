@@ -146,7 +146,7 @@ content_margin_top = 8.0
 content_margin_bottom = 8.0
 
 [sub_resource type="StyleBoxFlat" id="hero"]
-bg_color = Color(0.02, 0.045, 0.065, 0.76)
+bg_color = Color(0.02, 0.045, 0.065, 0.50)
 border_color = Color(0.16, 0.28, 0.33, 0.75)
 border_width_left = 1
 border_width_top = 1

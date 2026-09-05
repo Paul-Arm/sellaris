@@ -19,6 +19,9 @@ var generator: RefCounted = GALAXY_GENERATOR_SCRIPT.new()
 
 
 func _ready() -> void:
+	get_node("MarginContainer/RootVBox/HeaderPanel").add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	get_node("MarginContainer/RootVBox/MainShell").add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	generate_button.theme_type_variation = &"PrimaryButton"
 	MusicManager.play_menu_loops()
 	generate_button.pressed.connect(_on_generate_pressed)
 	back_button.pressed.connect(_on_back_pressed)

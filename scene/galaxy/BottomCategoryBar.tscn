@@ -104,11 +104,11 @@ theme_override_constants/separation = 10
 [node name="AccentLine" type="ColorRect" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox" unique_id=311742604]
 custom_minimum_size = Vector2(0, 4)
 layout_mode = 2
-color = Color(0.427451, 0.34902, 0.478431, 1)
+color = Color(0.38, 0.74, 0.68, 1)
 
 [node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox" unique_id=1966241584]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 1)
+theme_override_colors/font_color = Color(0.86, 0.78, 0.58, 1)
 theme_override_font_sizes/font_size = 19
 text = "Planet Operations"
 
@@ -121,7 +121,7 @@ autowrap_mode = 3
 
 [node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Planets/PageContent/PageMargin/PageVBox" unique_id=88880766]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
+theme_override_colors/font_color = Color(0.86, 0.78, 0.58, 0.82)
 theme_override_font_sizes/font_size = 12
 text = "Select a system to surface its worlds here."
 autowrap_mode = 3
@@ -189,7 +189,7 @@ color = Color(0.709804, 0.396078, 0.462745, 1)
 
 [node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox" unique_id=1394895390]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 1)
+theme_override_colors/font_color = Color(0.86, 0.78, 0.58, 1)
 theme_override_font_sizes/font_size = 19
 text = "Starbase Command"
 
@@ -202,7 +202,7 @@ autowrap_mode = 3
 
 [node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Starbases/PageContent/PageMargin/PageVBox" unique_id=1666352516]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
+theme_override_colors/font_color = Color(0.86, 0.78, 0.58, 0.82)
 theme_override_font_sizes/font_size = 12
 text = "Use this page for choke points, shipyards, and anchorages."
 autowrap_mode = 3
@@ -265,7 +265,7 @@ color = Color(0.898039, 0.419608, 0.435294, 1)
 
 [node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox" unique_id=1774800909]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 1)
+theme_override_colors/font_color = Color(0.86, 0.78, 0.58, 1)
 theme_override_font_sizes/font_size = 19
 text = "Passive Fleet Control"
 
@@ -278,7 +278,7 @@ autowrap_mode = 3
 
 [node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Passive Fleets/PageContent/PageMargin/PageVBox" unique_id=1204193774]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
+theme_override_colors/font_color = Color(0.86, 0.78, 0.58, 0.82)
 theme_override_font_sizes/font_size = 12
 text = "Civilian and support task groups can stay organized here."
 autowrap_mode = 3
@@ -337,11 +337,11 @@ theme_override_constants/separation = 10
 [node name="AccentLine" type="ColorRect" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox" unique_id=47053032]
 custom_minimum_size = Vector2(0, 4)
 layout_mode = 2
-color = Color(0.917647, 0.67451, 0.545098, 1)
+color = Color(0.86, 0.78, 0.58, 1)
 
 [node name="PageTitle" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox" unique_id=325025038]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 1)
+theme_override_colors/font_color = Color(0.86, 0.78, 0.58, 1)
 theme_override_font_sizes/font_size = 19
 text = "Military Fleet Control"
 
@@ -354,7 +354,7 @@ autowrap_mode = 3
 
 [node name="ContextLabel" type="Label" parent="BottomAnchor/BottomAlign/CenterRow/DockPanel/DockMargin/OverlayRoot/TabView/Military Fleets/PageContent/PageMargin/PageVBox" unique_id=1244858982]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.917647, 0.67451, 0.545098, 0.82)
+theme_override_colors/font_color = Color(0.86, 0.78, 0.58, 0.82)
 theme_override_font_sizes/font_size = 12
 text = "Combat fleets, rally anchors, and offensive staging can cluster here."
 autowrap_mode = 3

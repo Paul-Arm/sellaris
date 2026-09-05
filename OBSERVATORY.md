@@ -24,7 +24,7 @@ The lobby supports six commanders, protocol matching, slot reuse, a ten-second c
 - Galaxy: darker background, muted nebulae, finer hyperlanes and less saturated star cores. Existing fog-of-war and ownership behavior remain intact.
 - System view: continuous light falloff, deep planetary nights, narrow terminators, smaller ocean glints, quieter sky and less washed-out postprocessing. Surface seeds and their RNG draw order are unchanged.
 - Ships: the new `observatory` set is active on startup. It has faceted alloy hulls, distinct military hull sizes, a sensor ring on science vessels, construction arms/cargo on builders and ring stations. Separate hull and illumination surfaces preserve MultiMesh instancing. Existing sets remain selectable through `ShipSetRegistry`.
-- HUD: a static full-width command rail replaces continuously animated chrome. Resource states, research, ship design, colony management, body/entity panels and notifications share the new style.
+- HUD: static top and bottom command rails replace continuously animated chrome. The compact empire-menu button opens the drawer; debug telemetry is hidden by default and toggled with F8. Resource states, research, ship design, colony management, body/entity panels and notifications share the new style.
 
 The procedural shader and geometry assets are project-owned and require no external texture download.
 

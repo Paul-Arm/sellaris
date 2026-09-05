@@ -16,6 +16,7 @@ func _ready() -> void:
 	var body := {"body_id": "planet_01", "body_type": "planet", "body_name": "Alpha I", "local_position": Vector3(18, 0, 0), "size": 2.0, "buildable_component": {"body_type": "planet", "allowed_build_tags": ["orbital_station"], "max_active_projects": 1}}
 	var costs := SpaceManager.get_unit_class(SpaceManager.BASIC_STATION_CLASS_ID).get_build_costs()
 	assert(not costs.is_empty())
+	EconomyManager.grant_resources("owner", costs)
 	var before: Dictionary = {}
 	for cost: ResourceAmountDef in costs:
 		before[cost.resource_id] = EconomyManager.get_amount("owner", cost.resource_id)

@@ -43,6 +43,7 @@ var _external_selected_builder_unit_id: String = ""
 var _primary_star_position := Vector3.ZERO
 var _sky_material: ShaderMaterial = null
 var _gravity_field: GravityFieldMap = null
+var _clean_body_records: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -154,6 +155,7 @@ func set_system_details(system_details: Dictionary) -> void:
 		_emit_selection_changed()
 		return
 
+	_clean_body_records = GravityFieldMap.collect_bodies(system_details) if DesignDirector.is_clean() else []
 	var stars: Array = system_details.get("stars", [])
 	var orbitals: Array = system_details.get("orbitals", [])
 	var max_radius := 22.0
@@ -317,6 +319,7 @@ func _get_external_builder_command_entity() -> Dictionary:
 
 func _clear_preview_nodes() -> void:
 	_gravity_field = null
+	_clean_body_records.clear()
 	for container in [orbit_lines, bodies, effects]:
 		for child in container.get_children():
 			child.free()
@@ -553,7 +556,7 @@ func _register_star_selectable(star: Dictionary, star_position: Vector3) -> void
 		"title": star_name,
 		"subtitle": subtitle,
 		"body_text": _join_lines(lines),
-		"anchor_local_position": star_position,
+		"anchor_local_position": _design_anchor(str(star.get("id", "")), star_position),
 		"screen_pick_radius": 24.0 + float(star.get("scale", 1.0)) * 5.0 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER,
 		"highlight_radius": 3.4 + float(star.get("scale", 1.0)) * 1.6 * STAR_SYSTEM_STAR_SIZE_MULTIPLIER,
 		"highlight_color": Color(star_color.r, star_color.g, star_color.b, 0.95),
@@ -589,7 +592,7 @@ func _register_orbital_selectable(orbital: Dictionary, orbital_position: Vector3
 		"title": str(orbital.get("name", orbital.get("id", type_label))),
 		"subtitle": type_label,
 		"body_text": _join_lines(lines),
-		"anchor_local_position": orbital_position,
+		"anchor_local_position": _design_anchor(str(orbital.get("id", "")), orbital_position),
 		"screen_pick_radius": 18.0 + float(orbital.get("size", 1.0)) * 4.0,
 		"highlight_radius": 1.8 + float(orbital.get("size", 1.0)) * 0.9,
 		"highlight_color": Color(orbital_color.r, orbital_color.g, orbital_color.b, 0.95),
@@ -1425,3 +1428,10 @@ static func _variant_to_vector3(value: Variant) -> Vector3:
 
 func _is_pointer_over_gui() -> bool:
 	return get_viewport().gui_get_hovered_control() != null
+
+
+func _design_anchor(body_id: String, position: Vector3) -> Vector3:
+	for record in _clean_body_records:
+		if str(record["id"]) == body_id:
+			return GravityFieldMap.visual_position(record, _clean_body_records)
+	return position

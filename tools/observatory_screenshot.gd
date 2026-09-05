@@ -45,6 +45,7 @@ func _ready() -> void:
 	game.queue_free()
 	await get_tree().process_frame
 	await _capture_design_fixture()
+	await _verify_radiance_occlusion()
 	await _capture_fleet()
 	get_tree().quit(0)
 
@@ -100,6 +101,11 @@ func _capture_design_fixture() -> void:
 	await _capture("clean_binary")
 	var field := view.preview.get_node("Pivot/Bodies/GravityFieldMap") as GravityFieldMap
 	assert(field.bake_complete, "Radiance cascade bake must finish")
+	for body in field.body_records:
+		var anchor := GravityFieldMap.visual_position(body, field.body_records)
+		var screen := view.preview.camera.unproject_position(view.preview.pivot.to_global(anchor))
+		var picked: SystemSelectableComponent = view.preview.call("_pick_selectable_at_screen_position", screen)
+		assert(picked != null and picked.selection_id.ends_with(str(body["id"])), "Visible clean markers must remain clickable")
 	var data := field.cascade_views[0].get_texture().get_image()
 	var bright := 0
 	for y in range(data.get_height()):
@@ -112,3 +118,30 @@ func _capture_design_fixture() -> void:
 	view.queue_free()
 	await get_tree().process_frame
 	SettingsManager.set_design_variant("pastel", false)
+
+
+func _verify_radiance_occlusion() -> void:
+	var source := {"id": "light", "scale": 1.1, "orbit_radius": 12.0, "orbit_angle": PI}
+	var clear_details := {"stars": [source], "orbitals": []}
+	var blocked_details := {"stars": [source], "orbitals": [{"id": "blocker", "type": "planet", "size": 10.0, "orbit_radius": 8.0, "orbit_angle": 0.0}]}
+	var energy: Array[float] = []
+	for details: Dictionary in [clear_details, blocked_details, {"stars": [], "orbitals": []}]:
+		var field := GravityFieldMap.new()
+		add_child(field)
+		field.configure(details, 80.0)
+		while not field.bake_complete:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var atlas := field.cascade_views[0].get_texture().get_image()
+		# Probe near (32, 0), behind the occluder as seen from the emitter.
+		var probe := Vector2i(44, 32)
+		var total := 0.0
+		for y in range(2):
+			for x in range(2):
+				total += atlas.get_pixel(probe.x * 2 + x, probe.y * 2 + y).r
+		energy.append(total * 0.25)
+		field.free()
+	assert(energy[0] > 0.005, "A distant emitter must illuminate an empty probe")
+	assert(energy[1] < energy[0] * 0.8, "An intervening opaque body must reduce transported light")
+	assert(energy[2] < 0.001, "An empty map must produce no radiance")
+	print("PASS: GPU radiance transport, occlusion and empty-map baseline: ", energy)

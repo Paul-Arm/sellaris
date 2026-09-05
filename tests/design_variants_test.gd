@@ -22,13 +22,18 @@ func _ready() -> void:
 		assert(preview.get_selected_selection_id() == selected, "Selection must survive")
 		assert(preview.camera_rig.position.is_equal_approx(Vector3(4, 0, 7)), "Camera focus must survive")
 		assert(is_equal_approx(preview.camera_rig.get("_camera_distance"), 140.0))
+		assert(is_equal_approx(preview.camera_rig.get("_tilt_degrees"), -42.0))
+		assert(is_equal_approx(preview.camera_rig.get("_yaw_degrees"), 18.0))
 		var field := preview.get_node("Pivot/Bodies/GravityFieldMap") as GravityFieldMap
 		assert(field.body_records.size() == 4)
 		assert(field.cascade_views.size() == 4)
 		assert(preview.find_children("", "SubViewport", true, false).size() == 4, "Switching must not accumulate buffers")
 		for body in field.body_records:
 			var marker := field.get_node("Marker_%s" % body["id"]) as Node3D
-			assert(marker.position.is_equal_approx(body["position"]), "Markers must use real selectable coordinates")
+			assert(marker.position.is_equal_approx(GravityFieldMap.visual_position(body, field.body_records)), "Marker and projected selection positions must agree")
+			var actual: Vector3 = body["position"]
+			assert(is_equal_approx(marker.position.x, actual.x) and is_equal_approx(marker.position.z, actual.z), "Presentation must preserve command-plane coordinates")
+			assert(preview.call("_design_anchor", str(body["id"]), actual).is_equal_approx(marker.position))
 		SettingsManager.set_design_variant("pastel", false)
 		assert(preview.find_children("", "SubViewport", true, false).is_empty(), "Pastel releases the cascade buffers")
 		assert(_ids(preview) == ids)

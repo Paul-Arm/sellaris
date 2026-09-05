@@ -22,13 +22,29 @@ static func body_position(body: Dictionary) -> Vector3:
 static func collect_bodies(details: Dictionary) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for record: Dictionary in details.get("stars", []):
-		var black_hole := str(record.get("kind", "")) == "black_hole" or str(record.get("star_class", "")) == "BH"
+		var black_hole := str(record.get("special_type", "")).to_lower() == "black hole" or str(record.get("kind", "")) == "black_hole" or str(record.get("star_class", "")) == "BH"
 		result.append({"id": str(record.get("id", "")), "name": str(record.get("name", "Star")), "position": body_position(record), "radius": maxf(1.5, float(record.get("scale", 1.0)) * 2.7), "star": true, "black_hole": black_hole, "color": Color(0.98, 0.57, 0.25) if not black_hole else Color(0.80, 0.39, 0.68)})
 	for record: Dictionary in details.get("orbitals", []):
 		if str(record.get("type", "planet")) != "planet":
 			continue
 		result.append({"id": str(record.get("id", "")), "name": str(record.get("name", "World")), "position": body_position(record), "radius": maxf(0.55, float(record.get("size", 1.0)) * 0.8), "star": false, "black_hole": false, "color": Color(0.52, 0.82, 0.77)})
 	return result
+
+static func visual_position(body: Dictionary, records: Array[Dictionary]) -> Vector3:
+	var position: Vector3 = body["position"]
+	var h := -1.2
+	for index in range(mini(records.size(), MAX_BODIES)):
+		var well: Dictionary = records[index]
+		var source: Vector3 = well["position"]
+		var radius: float = well["radius"]
+		var star: bool = well["star"]
+		var soft := radius * (2.5 if star else 2.0)
+		var depth := radius * (3.8 if star else 1.8)
+		var distance_sq := Vector2(position.x - source.x, position.z - source.z).length_squared()
+		h -= depth * soft / sqrt(distance_sq + soft * soft)
+	# The visible marker nestles in its well. Real command coordinates remain
+	# in the selectable context; only its projected selection anchor changes.
+	return Vector3(position.x, h + float(body["radius"]) * 0.85, position.z)
 
 func configure(details: Dictionary, extent: float) -> void:
 	name = "GravityFieldMap"
@@ -125,7 +141,7 @@ func _exit_tree() -> void:
 func _add_body(body: Dictionary) -> void:
 	var mesh := MeshInstance3D.new()
 	mesh.name = "Marker_%s" % str(body["id"])
-	mesh.position = body["position"]
+	mesh.position = visual_position(body, body_records)
 	var sphere := SphereMesh.new()
 	sphere.radius = body["radius"]
 	sphere.height = sphere.radius * 2.0

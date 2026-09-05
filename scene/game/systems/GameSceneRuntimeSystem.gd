@@ -790,7 +790,8 @@ func request_build_order_for_body(
 		builder_unit_id,
 		system_id,
 		body_context,
-		build_class_id
+		build_class_id,
+		{"commit_cost": true}
 	)
 	return not project_id.is_empty()
 

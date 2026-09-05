@@ -99,6 +99,7 @@ func _ready() -> void:
 	_refresh_music_settings()
 	_refresh_display_settings()
 	_clear_form()
+	_install_observatory_menu()
 	_show_page(PAGE_LANDING)
 
 
@@ -333,6 +334,8 @@ func _on_confirm_delete_preset_pressed() -> void:
 
 
 func _on_open_galaxy_setup_pressed() -> void:
+	if NetworkSession.is_active():
+		NetworkSession.leave_lobby()
 	get_tree().change_scene_to_file(GENERATE_MENU_SCENE_PATH)
 
 
@@ -358,3 +361,16 @@ func _on_music_playback_changed(track_name: String, paused: bool, volume_ratio: 
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()
+
+
+func _install_observatory_menu() -> void:
+	var lobby := preload("res://scene/MainMenue/systems/MultiplayerLobbyPanel.gd").new()
+	content_tabs.get_node("MultiplayerPage/MultiplayerVBox").add_child(lobby)
+	for button: Button in [landing_button, singleplayer_button, presets_button, settings_button, multiplayer_button, quit_button]:
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.custom_minimum_size.y = 48
+	var header := get_node("UiRoot/RootVBox/HeaderPanel") as PanelContainer
+	header.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var hero := content_tabs.get_node("LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox")
+	hero.get_node("HeroTitle").add_theme_font_size_override("font_size", 42)
+	hero.get_node("HeroText").custom_minimum_size.y = 64

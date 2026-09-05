@@ -6,17 +6,6 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_7co16"]
 shader = ExtResource("2_j7onr")
 shader_parameter/background_color = Color(0.005, 0.008, 0.02, 1)
-shader_parameter/core_color = Color(0.42, 0.72, 1, 1)
-shader_parameter/arm_color_a = Color(0.32, 0.45, 0.95, 1)
-shader_parameter/arm_color_b = Color(0.88, 0.42, 0.78, 1)
-shader_parameter/dust_color = Color(0.03, 0.02, 0.06, 1)
-shader_parameter/star_color = Color(0.95, 0.98, 1, 1)
-shader_parameter/galaxy_scale = 1.6600000001487398
-shader_parameter/galaxy_tilt = 0.58
-shader_parameter/swirl = 3.28999992646192
-shader_parameter/arm_count = 3.0
-shader_parameter/nebula_strength = 1.71999996155456
-shader_parameter/star_density = 0.5499999877064
 shader_parameter/motion_speed = 0.0530000025175
 
 [node name="MainMenue" type="Control" unique_id=2121804400]
@@ -79,13 +68,15 @@ layout_mode = 2
 theme_override_constants/separation = 6
 
 [node name="HeaderTitle" type="Label" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer/HeaderVBox" unique_id=417299309]
+theme_type_variation = &"TitleLabel"
 layout_mode = 2
-theme_override_font_sizes/font_size = 34
-text = "Sellaris Command Nexus"
+theme_override_font_sizes/font_size = 38
+text = "S E L L A R I S"
 
 [node name="HeaderSubtitle" type="Label" parent="UiRoot/RootVBox/HeaderPanel/MarginContainer/HeaderVBox" unique_id=1609766809]
+theme_type_variation = &"CaptionLabel"
 layout_mode = 2
-text = "This is the real startup menu scene. Singleplayer opens the galaxy generator UI, while presets, settings, and multiplayer stay here as dedicated pages."
+text = "THE OBSERVATORY     /     A GALAXY AWAITS"
 autowrap_mode = 2
 
 [node name="MainShell" type="PanelContainer" parent="UiRoot/RootVBox" unique_id=269165000]
@@ -105,7 +96,7 @@ size_flags_vertical = 3
 theme_override_constants/separation = 18
 
 [node name="NavColumn" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow" unique_id=2130232802]
-custom_minimum_size = Vector2(220, 0)
+custom_minimum_size = Vector2(200, 0)
 layout_mode = 2
 theme_override_constants/separation = 10
 
@@ -113,7 +104,7 @@ theme_override_constants/separation = 10
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Landing Page"
+text = "Overview"
 
 [node name="SingleplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/NavColumn" unique_id=661138536]
 custom_minimum_size = Vector2(0, 44)
@@ -172,7 +163,8 @@ layout_mode = 2
 theme_override_constants/separation = 18
 
 [node name="HeroPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox" unique_id=1901079983]
-custom_minimum_size = Vector2(0, 240)
+theme_type_variation = &"HeroPanel"
+custom_minimum_size = Vector2(0, 310)
 layout_mode = 2
 
 [node name="MarginContainer" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel" unique_id=337953537]
@@ -187,13 +179,14 @@ layout_mode = 2
 theme_override_constants/separation = 14
 
 [node name="HeroTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox" unique_id=573522148]
+theme_type_variation = &"TitleLabel"
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
-text = "Shape the next galactic era."
+text = "Every star is a beginning."
 
 [node name="HeroText" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox" unique_id=242470176]
 layout_mode = 2
-text = "The main menu now lives in this authored scene. Singleplayer jumps into the galaxy generator scene, while empire presets, settings, and multiplayer stay inside this screen."
+text = "Chart unknown systems. Build a civilization. Command the fleets that will write its history."
 autowrap_mode = 2
 
 [node name="LandingActionRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox" unique_id=386722241]
@@ -201,16 +194,17 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="StartSingleplayerButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox/LandingActionRow" unique_id=2093899198]
+theme_type_variation = &"PrimaryButton"
 custom_minimum_size = Vector2(190, 46)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Start Singleplayer"
+text = "Begin expedition"
 
 [node name="OpenEmpirePresetsButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox/LandingActionRow" unique_id=1093147140]
 custom_minimum_size = Vector2(190, 46)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Open Empire Presets"
+text = "Create an empire"
 
 [node name="LandingInfoRow" type="HBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox" unique_id=2013101337]
 layout_mode = 2
@@ -241,7 +235,7 @@ text = "Settings"
 [node name="SettingsCardBody" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox" unique_id=230789877]
 layout_mode = 2
 size_flags_vertical = 3
-text = "Music controls are already live here, and this page is ready for graphics, controls, and accessibility later."
+text = "Your command station, your preferences. Adjust display quality and the soundtrack for the journey ahead."
 autowrap_mode = 2
 
 [node name="SettingsCardButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/SettingsCard/MarginContainer/SettingsCardVBox" unique_id=2037213685]
@@ -274,7 +268,7 @@ text = "Multiplayer"
 [node name="MultiplayerCardBody" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox" unique_id=541462861]
 layout_mode = 2
 size_flags_vertical = 3
-text = "The multiplayer destination exists now so the future lobby flow has a real home in the menu."
+text = "Establish a direct connection with other commanders. Host a lobby, choose your callsign, and take your place among the stars."
 autowrap_mode = 2
 
 [node name="MultiplayerCardButton" type="Button" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/LandingPage/LandingVBox/LandingInfoRow/MultiplayerCard/MarginContainer/MultiplayerCardVBox" unique_id=326523094]
@@ -639,7 +633,7 @@ text = "Settings"
 
 [node name="SettingsDescription" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=2051972270]
 layout_mode = 2
-text = "Menu audio is live here now. This page lives directly in the main menu scene instead of appearing as a popup."
+text = "Prepare your command station for a long voyage."
 autowrap_mode = 2
 
 [node name="DisplayPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=1640404099]
@@ -688,7 +682,7 @@ layout_mode = 2
 
 [node name="SettingsStatusLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox/DisplayPanel/MarginContainer/DisplayVBox" unique_id=403766896]
 layout_mode = 2
-text = "Display settings are applied immediately and saved to user://settings.cfg."
+text = "Display preferences are saved automatically."
 autowrap_mode = 2
 
 [node name="SettingsTrackLabel" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/SettingsPage/SettingsVBox" unique_id=1439591383]
@@ -730,10 +724,10 @@ text = "Next"
 custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
 size_flags_vertical = 3
-text = "Resolution is remembered for windowed mode, and audio plus display preferences persist automatically between runs."
+text = "Your display and audio preferences follow you into the next session."
 autowrap_mode = 2
 
-[node name="MultiplayerPage" type="MarginContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs" unique_id=441336759]
+[node name="MultiplayerPage" type="ScrollContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs" unique_id=441336759]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 3
@@ -746,6 +740,7 @@ metadata/_tab_index = 3
 
 [node name="MultiplayerVBox" type="VBoxContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage" unique_id=1989497012]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 14
 
 [node name="MultiplayerTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox" unique_id=649485817]
@@ -755,7 +750,7 @@ text = "Multiplayer"
 
 [node name="MultiplayerDescription" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox" unique_id=481475238]
 layout_mode = 2
-text = "This page is reserved for future hosting, joining, lobbies, and empire slot assignment."
+text = "DIRECT CONNECTION     /     UP TO 6 COMMANDERS"
 autowrap_mode = 2
 
 [node name="MultiplayerStatusPanel" type="PanelContainer" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox" unique_id=858054798]
@@ -776,12 +771,12 @@ theme_override_constants/separation = 10
 [node name="MultiplayerStatusTitle" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer/MultiplayerStatusVBox" unique_id=1279707915]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Not Yet Implemented"
+text = "Establish a connection"
 
 [node name="MultiplayerStatusText" type="Label" parent="UiRoot/RootVBox/MainShell/MarginContainer/ShellRow/ContentTabs/MultiplayerPage/MultiplayerVBox/MultiplayerStatusPanel/MarginContainer/MultiplayerStatusVBox" unique_id=1818560476]
 layout_mode = 2
 size_flags_vertical = 3
-text = "The important part now is that multiplayer has its own real page in the main menu scene instead of being a popup afterthought."
+text = "Connect over LAN or a private VPN. This lobby is the first networking milestone; synchronized campaigns are not available yet."
 autowrap_mode = 2
 
 [node name="SpeciesGalleryOverlay" type="Control" parent="." unique_id=1141733961]
@@ -842,7 +837,7 @@ text = "Select Species"
 
 [node name="SpeciesGalleryDescription" type="Label" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow/SpeciesGalleryTitleBox" unique_id=941552649]
 layout_mode = 2
-text = "Species are discovered automatically from res://core/empire/species. Open a category tab and click the portrait you want."
+text = "Choose a species to lead beyond its homeworld."
 autowrap_mode = 2
 
 [node name="SpeciesGalleryCloseButton" type="Button" parent="SpeciesGalleryOverlay/SpeciesGalleryCenter/SpeciesGalleryDialog/MarginContainer/SpeciesGalleryVBox/SpeciesGalleryHeaderRow" unique_id=1645335511]

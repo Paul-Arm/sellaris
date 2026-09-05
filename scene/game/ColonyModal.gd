@@ -172,10 +172,10 @@ func _build_layout() -> void:
 
 func _make_panel_style(fill_color: Color, border_color: Color, radius: int, border_width: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = fill_color
+	style.bg_color = ObservatoryStyle.SURFACE.lerp(fill_color, 0.22)
 	style.border_color = border_color
 	style.set_border_width_all(border_width)
-	style.set_corner_radius_all(radius)
+	style.set_corner_radius_all(mini(radius, 3))
 	style.shadow_color = Color(0.0, 0.0, 0.0, 0.42)
 	style.shadow_size = 18
 	style.shadow_offset = Vector2(0.0, 6.0)

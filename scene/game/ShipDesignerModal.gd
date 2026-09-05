@@ -8,7 +8,7 @@ extends Control
 signal close_requested
 
 const PANEL_MINIMUM_SIZE := Vector2(1100, 640)
-const COLOR_PANEL := Color(0.028, 0.04, 0.052, 0.97)
+const COLOR_PANEL := ObservatoryStyle.SURFACE
 const COLOR_PANEL_BORDER := Color(0.44, 0.64, 0.74, 0.56)
 const COLOR_TEXT := Color(0.96, 0.98, 1.0, 0.96)
 const COLOR_MUTED := Color(0.76, 0.84, 0.9, 0.78)
@@ -122,7 +122,7 @@ func _build_layout() -> void:
 	style.bg_color = COLOR_PANEL
 	style.border_color = COLOR_PANEL_BORDER
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
+	style.set_corner_radius_all(3)
 	_panel.add_theme_stylebox_override("panel", style)
 	center.add_child(_panel)
 

@@ -5,15 +5,15 @@
 // which is unavailable in the sky shader stage.
 shader_type sky;
 
-uniform vec3 top_color : source_color = vec3(0.06, 0.09, 0.17);
-uniform vec3 bottom_color : source_color = vec3(0.035, 0.055, 0.105);
-uniform vec3 nebula_color_a : source_color = vec3(0.45, 0.38, 0.62);
-uniform vec3 nebula_color_b : source_color = vec3(0.24, 0.44, 0.54);
-uniform float nebula_strength : hint_range(0.0, 0.5) = 0.14;
+uniform vec3 top_color : source_color = vec3(0.005, 0.009, 0.018);
+uniform vec3 bottom_color : source_color = vec3(0.002, 0.004, 0.009);
+uniform vec3 nebula_color_a : source_color = vec3(0.16, 0.24, 0.38);
+uniform vec3 nebula_color_b : source_color = vec3(0.09, 0.32, 0.34);
+uniform float nebula_strength : hint_range(0.0, 0.5) = 0.10;
 uniform float star_density = 26.0;
 uniform float star_brightness : hint_range(0.0, 2.0) = 0.8;
 uniform float seed_offset = 0.0;
-uniform float drift_speed = 0.0025;
+uniform float drift_speed = 0.0005;
 
 uint sky_pcg(uint v) {
 	uint state = v * 747796405u + 2891336453u;

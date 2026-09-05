@@ -8,7 +8,7 @@ extends Control
 signal close_requested
 
 const PANEL_MINIMUM_SIZE := Vector2(1180, 680)
-const COLOR_PANEL := Color(0.028, 0.04, 0.052, 0.97)
+const COLOR_PANEL := ObservatoryStyle.SURFACE
 const COLOR_PANEL_BORDER := Color(0.44, 0.64, 0.74, 0.56)
 const COLOR_TEXT := Color(0.96, 0.98, 1.0, 0.96)
 const COLOR_MUTED := Color(0.76, 0.84, 0.9, 0.78)
@@ -113,7 +113,7 @@ func _build_layout() -> void:
 	panel_style.bg_color = COLOR_PANEL
 	panel_style.border_color = COLOR_PANEL_BORDER
 	panel_style.set_border_width_all(1)
-	panel_style.set_corner_radius_all(8)
+	panel_style.set_corner_radius_all(3)
 	_panel.add_theme_stylebox_override("panel", panel_style)
 	center.add_child(_panel)
 
@@ -252,7 +252,7 @@ func _build_domain_column(overview: Dictionary) -> Control:
 	column_style.bg_color = Color(0.04, 0.055, 0.07, 0.85)
 	column_style.border_color = Color(domain_color.r, domain_color.g, domain_color.b, 0.45)
 	column_style.set_border_width_all(1)
-	column_style.set_corner_radius_all(6)
+	column_style.set_corner_radius_all(3)
 	column_style.content_margin_left = 10
 	column_style.content_margin_top = 8
 	column_style.content_margin_right = 10
@@ -311,7 +311,7 @@ func _build_project_panel(project: Dictionary) -> Control:
 	style.bg_color = Color(0.06, 0.085, 0.1, 0.9)
 	style.border_color = Color(COLOR_PROGRESS.r, COLOR_PROGRESS.g, COLOR_PROGRESS.b, 0.5)
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
+	style.set_corner_radius_all(3)
 	style.content_margin_left = 8
 	style.content_margin_top = 6
 	style.content_margin_right = 8
@@ -366,7 +366,7 @@ func _build_option_card(domain_id: String, option: Dictionary, has_free_slot: bo
 	else:
 		style.border_color = Color(0.3, 0.45, 0.55, 0.4)
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
+	style.set_corner_radius_all(3)
 	style.content_margin_left = 8
 	style.content_margin_top = 6
 	style.content_margin_right = 8

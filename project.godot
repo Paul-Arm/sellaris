@@ -19,17 +19,29 @@ config/icon="res://icon.svg"
 
 MusicManager="*res://autoload/MusicManager.gd"
 SettingsManager="*res://autoload/SettingsManager.gd"
-SimClock="*uid://3e6kd3sqfbrk"
-EmpireManager="*uid://d1q7tp3dnalep"
+SimClock="*res://autoload/SimClock.gd"
+EmpireManager="*res://autoload/EmpireManager.gd"
 EmpirePresetManager="*res://autoload/EmpirePresetManager.gd"
 EconomyManager="*res://autoload/EconomyManager.gd"
 ColonyManager="*res://autoload/ColonyManager.gd"
 SpaceManager="*res://autoload/SpaceManager.gd"
 ResearchManager="*res://autoload/ResearchManager.gd"
 
+NetworkSession="*res://autoload/NetworkSession.gd"
+
 [display]
 
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/size/window_width_override=1600
+window/size/window_height_override=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 window/size/mode=2
+
+[gui]
+
+theme/custom="res://scene/UI/theme/ObservatoryTheme.tres"
 
 [physics]
 

@@ -239,7 +239,7 @@ func _apply_top_bar_theme() -> void:
 	top_music_volume_slider.add_theme_icon_override("grabber_highlight", _get_slider_grabber_icon(Color(0.86, 0.96, 1.0, 1.0)))
 
 	if _top_chrome != null:
-		_top_chrome.set_accent(Color(0.58, 0.42, 0.64, 1.0))
+		_top_chrome.set_accent(ObservatoryStyle.ACCENT)
 	call_deferred("_sync_top_chrome_bounds")
 	call_deferred("_position_music_track_dropdown")
 
@@ -581,10 +581,10 @@ func _get_slider_grabber_icon(color: Color = Color(0.66, 0.9, 1.0, 1.0)) -> Text
 
 func _build_hud_segment_style(fill_color: Color, border_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = fill_color
+	style.bg_color = ObservatoryStyle.SURFACE.lerp(fill_color, 0.22)
 	style.border_color = border_color
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
+	style.set_corner_radius_all(3)
 	style.content_margin_left = 8
 	style.content_margin_top = 4
 	style.content_margin_right = 8
@@ -594,14 +594,14 @@ func _build_hud_segment_style(fill_color: Color, border_color: Color) -> StyleBo
 
 func _build_resource_chip_style(accent: Color, active: bool, warning: bool) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	var fill_alpha := 0.56 if active else 0.34
+	var fill_alpha := 0.92 if active else 0.6
 	var border_alpha := 0.34 if active else 0.16
 	style.bg_color = Color(0.035, 0.048, 0.06, fill_alpha)
 	style.border_color = Color(accent.r, accent.g, accent.b, border_alpha)
 	if warning:
 		style.border_color = Color(1.0, 0.46, 0.42, 0.62)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
+	style.border_width_bottom = 2
+	style.set_corner_radius_all(0)
 	style.content_margin_left = 2
 	style.content_margin_top = 2
 	style.content_margin_right = 2
@@ -611,10 +611,10 @@ func _build_resource_chip_style(accent: Color, active: bool, warning: bool) -> S
 
 func _build_button_style(fill_color: Color, border_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = fill_color
+	style.bg_color = ObservatoryStyle.SURFACE.lerp(fill_color, 0.22)
 	style.border_color = border_color
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
+	style.set_corner_radius_all(3)
 	style.content_margin_left = 9
 	style.content_margin_top = 4
 	style.content_margin_right = 9
@@ -627,13 +627,13 @@ func _build_focus_style(accent: Color) -> StyleBoxFlat:
 	style.draw_center = false
 	style.border_color = accent
 	style.set_border_width_all(2)
-	style.set_corner_radius_all(5)
+	style.set_corner_radius_all(3)
 	return style
 
 
 func _build_slider_style(fill_color: Color, border_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = fill_color
+	style.bg_color = ObservatoryStyle.SURFACE.lerp(fill_color, 0.22)
 	style.border_color = border_color
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(999)

@@ -74,6 +74,7 @@ void fragment() {
 	);
 	// Stylized sun glint on water; slightly HDR for a hint of bloom (unshaded
 	// mode ignores EMISSION, so it is added to ALBEDO).
-	float glint = smoothstep(0.86, 0.94, dot(reflect(-sun_dir, normalize(v_world_normal)), view_dir));
+	float glint = pow(max(dot(reflect(-sun_dir, normalize(v_world_normal)), view_dir), 0.0), 96.0);
+	glint *= smoothstep(0.0, 0.15, dot(normalize(v_world_normal), sun_dir));
 	ALBEDO = lit + vec3(1.0, 0.98, 0.9) * glint * (1.0 - land_mask) * glint_strength * 1.2;
 }

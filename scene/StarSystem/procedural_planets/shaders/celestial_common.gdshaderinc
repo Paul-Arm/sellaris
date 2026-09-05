@@ -1,4 +1,4 @@
-// Shared library for the 3D celestial body shaders (pastel / painterly style).
+// Shared library for seeded celestial surfaces and Observatory lighting.
 //
 // Contract for planet surface shaders (future equirect bake seam):
 // the surface pattern must be a pure function of the MODEL-SPACE unit
@@ -222,9 +222,8 @@ float cb_toon_ramp(float w, float step_1, float step_2, float width_1, float wid
 }
 
 // --- House lighting style ----------------------------------------------------
-// Half-lambert wrap -> soft toon ramp; shadow side hue-shifts toward cool
-// violet (never black); saturation boost in the terminator band; gentle rim
-// light on the day side only. Pure math, independent of Godot lights.
+// Continuous directional lighting, deep nights and a day-side atmospheric rim.
+// The legacy function name preserves the material API and seed contracts.
 vec3 cb_pastel_light(
 	vec3 albedo,
 	vec3 world_normal,
@@ -236,14 +235,15 @@ vec3 cb_pastel_light(
 	float rim_strength,
 	float rim_power
 ) {
-	float d = dot(normalize(world_normal), normalize(sun_dir));
-	float w = d * 0.5 + 0.5;
-	float ramp = cb_toon_ramp(w, 0.35, 0.62, 0.10, 0.16, shadow_floor);
-	vec3 col = mix(albedo * shadow_tint, albedo, ramp);
-	float terminator = 1.0 - smoothstep(0.0, 0.25, abs(d));
-	col = cb_shift_saturation(col, 1.0 + 0.15 * terminator);
-	float rim = cb_fresnel(world_normal, view_dir, rim_power) * smoothstep(0.0, 0.35, d);
-	return col + rim_color * rim * rim_strength;
+	vec3 n = normalize(world_normal);
+	float d = dot(n, normalize(sun_dir));
+	float diffuse = pow(max(d, 0.0), 0.85);
+	float day = smoothstep(-0.055, 0.10, d);
+	// Deep nights, a narrow terminator, continuous daylight instead of toon bands.
+	vec3 night = albedo * mix(vec3(0.035, 0.055, 0.085), shadow_tint * 0.06, 0.25);
+	vec3 col = mix(night, albedo * (0.06 + diffuse * 1.18), day);
+	float rim = cb_fresnel(n, view_dir, max(rim_power, 3.5));
+	return col + rim_color * rim * rim_strength * day * 0.65;
 }
 
 // --- Misc --------------------------------------------------------------------

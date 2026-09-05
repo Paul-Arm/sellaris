@@ -203,6 +203,9 @@ func _load_audio_stream(resource_path: String) -> AudioStream:
 
 func _load_tracks(directory_path: String, strip_loop_suffix: bool) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []
+	# The optional soundtrack is excluded from source control.
+	if not DirAccess.dir_exists_absolute(directory_path):
+		return results
 	var file_names: PackedStringArray = DirAccess.get_files_at(directory_path)
 	file_names.sort()
 

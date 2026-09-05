@@ -14,9 +14,9 @@ const OWNERSHIP_ISLAND_BRIDGE_DISTANCE_FACTOR := 1.15
 const OWNERSHIP_ISLAND_BRIDGE_RADIUS_FACTOR := 1.12
 const OWNERSHIP_COVERAGE_PADDING_FACTOR := 0.18
 const OWNERSHIP_FINAL_EXPAND_FACTOR := 0.16
-const HYPERLANE_LINE_WIDTH_FACTOR := 0.032
-const HYPERLANE_LINE_MIN_WIDTH := 1.8
-const HYPERLANE_LINE_MAX_WIDTH := 4.2
+const HYPERLANE_LINE_WIDTH_FACTOR := 0.022
+const HYPERLANE_LINE_MIN_WIDTH := 1.2
+const HYPERLANE_LINE_MAX_WIDTH := 2.8
 const HYPERLANE_HEIGHT_OFFSET := 2.2
 const UNKNOWN_HINT_COLOR := Color(0.28, 0.36, 0.48, 1.0)
 const SENSOR_HINT_COLOR := Color(0.6, 0.78, 1.0, 1.0)
@@ -62,7 +62,7 @@ func render_stars() -> void:
 	core_material.set_shader_parameter("emission_strength", 2.15)
 	core_material.set_shader_parameter("rim_strength", 0.42)
 	core_material.set_shader_parameter("rim_power", 1.9)
-	core_material.set_shader_parameter("saturation_boost", 1.8)
+	core_material.set_shader_parameter("saturation_boost", 1.15)
 	core_mesh.material = core_material
 
 	var star_instances: Array[Dictionary] = []
@@ -161,7 +161,7 @@ func render_hyperlanes() -> void:
 		HYPERLANE_LINE_MIN_WIDTH,
 		HYPERLANE_LINE_MAX_WIDTH
 	)
-	var lane_color := Color(0.56, 0.78, 0.92, 0.58)
+	var lane_color := Color(0.27, 0.56, 0.59, 0.38)
 	var has_visible_link: bool = false
 
 	for link in _host.hyperlane_links:

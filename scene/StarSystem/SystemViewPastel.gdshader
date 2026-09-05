@@ -10,15 +10,15 @@
 shader_type canvas_item;
 
 uniform float exposure : hint_range(0.7, 1.4) = 1.0;
-uniform float contrast : hint_range(0.85, 1.25) = 1.05;
+uniform float contrast : hint_range(0.85, 1.25) = 1.10;
 // Contrast pivot near black so the space background is not lifted.
 uniform float black_pivot : hint_range(0.0, 0.5) = 0.085;
-uniform float saturation : hint_range(0.5, 1.5) = 1.07;
+uniform float saturation : hint_range(0.5, 1.5) = 1.02;
 uniform vec4 shadow_tint : source_color = vec4(0.72, 0.78, 1.0, 1.0);
-uniform float shadow_tint_strength : hint_range(0.0, 0.5) = 0.12;
+uniform float shadow_tint_strength : hint_range(0.0, 0.5) = 0.08;
 uniform vec4 highlight_tint : source_color = vec4(1.0, 0.95, 0.86, 1.0);
-uniform float highlight_tint_strength : hint_range(0.0, 0.5) = 0.1;
-uniform float vignette_strength : hint_range(0.0, 0.4) = 0.12;
+uniform float highlight_tint_strength : hint_range(0.0, 0.5) = 0.035;
+uniform float vignette_strength : hint_range(0.0, 0.4) = 0.08;
 uniform float vignette_floor : hint_range(0.5, 1.0) = 0.88;
 uniform float dither_strength : hint_range(0.0, 0.01) = 0.0035;
 

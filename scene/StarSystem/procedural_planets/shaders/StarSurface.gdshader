@@ -65,5 +65,7 @@ void fragment() {
 
 	// unshaded mode ignores EMISSION — HDR output goes through ALBEDO and
 	// still feeds the environment glow.
-	ALBEDO = (col * limb * energy + color_hot * edge_glow) * pulse;
+	// Compress the luminous surface so convection remains visible on SDR.
+	vec3 radiance = (col * limb * energy + color_hot * edge_glow) * pulse;
+	ALBEDO = radiance / (vec3(1.0) + radiance * 0.65);
 }

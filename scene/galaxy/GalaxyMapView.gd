@@ -928,7 +928,7 @@ func _configure_environment_backdrop() -> void:
 	if world_environment == null or world_environment.environment == null:
 		return
 	var environment: Environment = world_environment.environment
-	environment.background_color = Color(0.012, 0.018, 0.04, 1.0)
+	environment.background_color = Color(0.004, 0.008, 0.016, 1.0)
 	environment.ambient_light_color = Color(0.7, 0.76, 0.94, 1.0)
 	environment.ambient_light_energy = 0.58
 	environment.tonemap_exposure = 1.05
@@ -1180,11 +1180,11 @@ func _get_nebula_ellipse_point(
 
 func _get_nebula_cloud_color(rng: RandomNumberGenerator, is_near_layer: bool, distance_ratio: float) -> Color:
 	var palette: Array[Color] = [
-		Color(0.24, 0.58, 0.76, 1.0),
-		Color(0.54, 0.28, 0.64, 1.0),
-		Color(0.3, 0.62, 0.52, 1.0),
-		Color(0.82, 0.48, 0.28, 1.0),
-		Color(0.45, 0.54, 0.86, 1.0),
+		Color(0.12, 0.34, 0.48, 1.0),
+		Color(0.25, 0.22, 0.36, 1.0),
+		Color(0.11, 0.35, 0.31, 1.0),
+		Color(0.34, 0.27, 0.19, 1.0),
+		Color(0.20, 0.28, 0.43, 1.0),
 	]
 	var base_color: Color = palette[rng.randi_range(0, palette.size() - 1)]
 	var mix_color: Color = palette[rng.randi_range(0, palette.size() - 1)]

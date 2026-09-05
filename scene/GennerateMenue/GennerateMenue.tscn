@@ -6,17 +6,6 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_7co16"]
 shader = ExtResource("2_j7onr")
 shader_parameter/background_color = Color(0.005, 0.008, 0.02, 1)
-shader_parameter/core_color = Color(0.42, 0.72, 1, 1)
-shader_parameter/arm_color_a = Color(0.32, 0.45, 0.95, 1)
-shader_parameter/arm_color_b = Color(0.88, 0.42, 0.78, 1)
-shader_parameter/dust_color = Color(0.03, 0.02, 0.06, 1)
-shader_parameter/star_color = Color(0.95, 0.98, 1, 1)
-shader_parameter/galaxy_scale = 1.6600000001487398
-shader_parameter/galaxy_tilt = 0.58
-shader_parameter/swirl = 3.28999992646192
-shader_parameter/arm_count = 3.0
-shader_parameter/nebula_strength = 1.71999996155456
-shader_parameter/star_density = 0.5499999877064
 shader_parameter/motion_speed = 0.0530000025175
 
 [node name="GennerateMenue" type="Control" unique_id=497395205]
@@ -80,11 +69,11 @@ theme_override_constants/separation = 6
 [node name="Title" type="Label" parent="MarginContainer/RootVBox/HeaderPanel/MarginContainer/HeaderVBox" unique_id=835063113]
 layout_mode = 2
 theme_override_font_sizes/font_size = 34
-text = "Sellaris Galaxy Generator"
+text = "CHART YOUR GALAXY"
 
 [node name="Description" type="Label" parent="MarginContainer/RootVBox/HeaderPanel/MarginContainer/HeaderVBox" unique_id=189006529]
 layout_mode = 2
-text = "Tune your next galaxy from a dedicated control deck, then drop straight into the simulation."
+text = "EXPEDITION SETUP     /     CHOOSE THE STARS YOU WILL CALL HOME"
 autowrap_mode = 2
 
 [node name="MainShell" type="PanelContainer" parent="MarginContainer/RootVBox" unique_id=197875676]
@@ -136,7 +125,7 @@ theme_override_constants/separation = 10
 [node name="SidebarTitle" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/SidebarHintPanel/MarginContainer/SidebarVBox" unique_id=1402316368]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Launch Notes"
+text = "The expedition"
 
 [node name="SidebarText" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/Sidebar/SidebarHintPanel/MarginContainer/SidebarVBox" unique_id=377546954]
 layout_mode = 2
@@ -167,7 +156,7 @@ text = "Configuration"
 
 [node name="ConfigDescription" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox" unique_id=1687329141]
 layout_mode = 2
-text = "These settings feed directly into the procedural layout pass, so this panel is the last stop before the stars are placed."
+text = "Choose the shape and scale of your expedition."
 autowrap_mode = 2
 
 [node name="SettingsGrid" type="GridContainer" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox" unique_id=1223618562]
@@ -192,7 +181,7 @@ layout_mode = 2
 
 [node name="MinRadiusLabel" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=119263508]
 layout_mode = 2
-text = "Min Radius"
+text = "System spacing"
 
 [node name="MinRadiusSpinBox" type="SpinBox" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/SettingsGrid" unique_id=171998212]
 layout_mode = 2
@@ -237,7 +226,7 @@ theme_override_constants/separation = 10
 [node name="InfoTitle" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/InfoPanel/MarginContainer/InfoVBox" unique_id=539993215]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Generation Notes"
+text = "Your homeworld"
 
 [node name="Hint" type="Label" parent="MarginContainer/RootVBox/MainShell/MarginContainer/ShellRow/ContentPanel/MarginContainer/ContentVBox/InfoPanel/MarginContainer/InfoVBox" unique_id=1097349]
 layout_mode = 2

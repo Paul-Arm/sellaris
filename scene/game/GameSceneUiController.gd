@@ -26,6 +26,7 @@ var _manage_colony_button: Button = null
 var _manage_colony_id: String = ""
 var _open_colony_id: String = ""
 var _debug_info_panel: GalaxyDebugInfoPanel = null
+var _debug_telemetry_visible := false
 var _space_entity_panel: SpaceEntityDetailsPanel = null
 
 
@@ -149,7 +150,7 @@ func update_info_label() -> void:
 		selected_summary,
 		command_summary,
 	]
-	_ui.info_label.visible = not _view_router.is_system_view_open()
+	_ui.info_label.visible = _debug_telemetry_visible and not _view_router.is_system_view_open()
 	if _debug_info_panel != null:
 		_debug_info_panel.visible = _ui.info_label.visible
 
@@ -1129,3 +1130,8 @@ func _refresh_open_colony_modal() -> void:
 		close_colony_modal()
 		return
 	_colony_modal.open_details(details)
+
+
+func toggle_debug_telemetry() -> void:
+	_debug_telemetry_visible = not _debug_telemetry_visible
+	update_info_label()

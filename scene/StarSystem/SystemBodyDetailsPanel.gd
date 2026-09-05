@@ -500,7 +500,7 @@ func _add_chip(parent: Control, text: String, accent: Color) -> void:
 
 func _build_style(background: Color, border: Color, radius: int, border_width: int) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = background
+	style.bg_color = ObservatoryStyle.SURFACE.lerp(background, 0.22)
 	style.border_color = border
 	style.border_width_left = border_width
 	style.border_width_top = border_width

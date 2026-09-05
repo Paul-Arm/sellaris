@@ -69,6 +69,9 @@ func handle_unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_E:
 			_scene_ui_controller.open_empire_picker(false)
 			return
+		if event.keycode == KEY_F8:
+			_scene_ui_controller.toggle_debug_telemetry()
+			return
 		if event.keycode == KEY_F9:
 			_debug_spawner.toggle()
 			return

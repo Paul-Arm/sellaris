@@ -195,10 +195,10 @@ func _style_button(button: Button) -> void:
 
 func _build_button_style(fill_color: Color, border_color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = fill_color
+	style.bg_color = ObservatoryStyle.SURFACE.lerp(fill_color, 0.22)
 	style.border_color = border_color
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
+	style.set_corner_radius_all(3)
 	style.content_margin_left = 8
 	style.content_margin_top = 4
 	style.content_margin_right = 8

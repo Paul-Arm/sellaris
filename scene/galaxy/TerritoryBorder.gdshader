@@ -17,14 +17,10 @@ vec4 sample_palette(float palette_index) {
 void fragment() {
 	float palette_index = round(UV2.x);
 	vec4 map_color = sample_palette(palette_index);
-	float edge_distance = min(UV.y, 1.0 - UV.y);
-	float outer_rim = (1.0 - smoothstep(0.0, 0.11, edge_distance)) * bright_rim_strength;
-	float inner_falloff = pow(max(1.0 - UV.y, 0.0), 2.7);
-	float glow_band = (1.0 - UV.y) * 0.26;
-	float inner_coverage = inner_alpha_floor * 0.35 + inner_falloff * 0.22;
-	vec3 rim_tint = vec3(0.84, 0.87, 0.94);
-	vec3 final_color = mix(map_color.rgb * (0.92 + glow_band * 0.56), rim_tint, outer_rim);
-	ALBEDO = final_color;
-	EMISSION = final_color * (0.45 * inner_coverage + outer_rim * 0.85);
-	ALPHA = clamp(inner_coverage * map_color.a + outer_rim * 0.78, 0.0, 1.0);
+	// One contour with a soft inward fade, rather than two white contour bands.
+	float outer_rim = (1.0 - smoothstep(0.0, 0.18, UV.y)) * bright_rim_strength;
+	float inside = pow(max(1.0 - UV.y, 0.0), 2.0);
+	vec3 final_color = mix(map_color.rgb, vec3(0.75, 0.91, 0.88), outer_rim * 0.28);
+	ALBEDO = final_color * (1.0 + outer_rim * 0.3);
+	ALPHA = clamp(map_color.a * (inside * inner_alpha_floor * 0.3 + outer_rim * 0.72), 0.0, 1.0);
 }

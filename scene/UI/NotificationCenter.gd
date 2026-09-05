@@ -16,7 +16,7 @@ const IMPORTANCE_MIN := 1
 const IMPORTANCE_MAX := 4
 const MAX_NOTIFICATIONS := 30
 const PANEL_WIDTH := 330.0
-const COLOR_CARD := Color(0.03, 0.045, 0.058, 0.94)
+const COLOR_CARD := ObservatoryStyle.SURFACE
 const COLOR_CARD_BORDER := Color(0.4, 0.58, 0.68, 0.45)
 const COLOR_TEXT := Color(0.96, 0.98, 1.0, 0.96)
 const COLOR_MUTED := Color(0.76, 0.84, 0.9, 0.78)
@@ -173,7 +173,7 @@ func _build_card(
 	style.set_border_width_all(1)
 	style.border_width_left = 4
 	style.border_color = IMPORTANCE_COLORS.get(importance, COLOR_CARD_BORDER)
-	style.set_corner_radius_all(5)
+	style.set_corner_radius_all(3)
 	root.add_theme_stylebox_override("panel", style)
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.tooltip_text = "Klicken zum Oeffnen" if not action.is_empty() else ""

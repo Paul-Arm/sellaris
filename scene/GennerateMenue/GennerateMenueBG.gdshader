@@ -1,5 +1,6 @@
 // Observatory backdrop: seeded dust, distant stars and a sunlit planetary limb.
 shader_type canvas_item;
+global uniform bool design_clean;
 uniform vec4 background_color : source_color = vec4(0.005, 0.008, 0.02, 1.0);
 uniform float motion_speed = 0.05;
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -46,5 +47,18 @@ void fragment() {
  // Dark left gutter keeps navigation readable, including on ultrawide displays.
  col*=mix(0.45,1.0,smoothstep(0.15,0.8,UV.x));
  col*=1.0-0.22*length(UV-0.5);
+ if(design_clean){
+  vec2 center=vec2(aspect*0.79,0.55);
+  float d=length((p-center)*vec2(1.0,1.6));
+  float potential=10.0/sqrt(d*d+0.12);
+  float w=max(fwidth(potential),0.018);
+  float line=1.0-smoothstep(w*0.25,w,abs(fract(potential)-0.5));
+  float glow=exp(-d*4.0);
+  col=vec3(0.004,0.010,0.014)+vec3(0.055,0.11,0.12)*line+vec3(0.09,0.18,0.16)*glow;
+  col*=mix(0.25,1.0,smoothstep(0.2,0.8,UV.x));
+ } else {
+  col=mix(vec3(dot(col,vec3(0.299,0.587,0.114))),col,0.88);
+  col*=vec3(1.09,1.0,1.08);
+ }
  COLOR=vec4(col,1.0);
 }

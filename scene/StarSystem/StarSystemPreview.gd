@@ -42,6 +42,7 @@ var _static_outer_radius: float = 22.0
 var _external_selected_builder_unit_id: String = ""
 var _primary_star_position := Vector3.ZERO
 var _sky_material: ShaderMaterial = null
+var _gravity_field: GravityFieldMap = null
 
 
 func _ready() -> void:
@@ -50,6 +51,33 @@ func _ready() -> void:
 	_setup_backdrop_sky()
 	clear_preview()
 	_set_camera_distance(92.0)
+	SettingsManager.design_changed.connect(_on_design_changed)
+	_apply_environment_design()
+
+
+func _on_design_changed(_variant: String) -> void:
+	_apply_environment_design()
+	if not _has_content:
+		return
+	var focus := camera_rig.position
+	var distance: float = camera_rig.get("_camera_distance")
+	var tilt: float = camera_rig.get("_tilt_degrees")
+	var yaw: float = camera_rig.get("_yaw_degrees")
+	var details := _current_system_details.duplicate(true)
+	set_system_details(details)
+	camera_rig.configure_view(focus, distance, tilt, yaw)
+
+
+func _apply_environment_design() -> void:
+	var world := get_node_or_null("WorldEnvironment") as WorldEnvironment
+	if world == null or world.environment == null:
+		return
+	var clean := DesignDirector.is_clean()
+	world.environment.background_mode = Environment.BG_COLOR if clean else Environment.BG_SKY
+	world.environment.background_color = Color(0.003, 0.006, 0.010)
+	world.environment.ambient_light_energy = 0.35 if clean else 0.55
+	world.environment.glow_intensity = 0.6 if clean else 0.22
+	world.environment.glow_bloom = 0.15 if clean else 0.08
 
 
 # Procedural starfield + nebula backdrop, seeded per system in
@@ -157,6 +185,10 @@ func set_system_details(system_details: Dictionary) -> void:
 		_build_body_deposit_label(orbital, orbital_position)
 		_register_orbital_selectable(orbital, orbital_position)
 
+	if DesignDirector.is_clean():
+		_gravity_field = GravityFieldMap.new()
+		bodies.add_child(_gravity_field)
+		_gravity_field.configure(system_details, max_radius * 1.6)
 	_static_outer_radius = max_radius
 	var runtime_layouts: Dictionary = _render_runtime_layer(system_details.get("space_renderables", {}))
 	max_radius = maxf(max_radius, float(runtime_layouts.get("outer_radius", max_radius)))
@@ -284,6 +316,7 @@ func _get_external_builder_command_entity() -> Dictionary:
 
 
 func _clear_preview_nodes() -> void:
+	_gravity_field = null
 	for container in [orbit_lines, bodies, effects]:
 		for child in container.get_children():
 			child.free()
@@ -922,6 +955,8 @@ func _is_commandable_selection_kind(selection_kind: String) -> bool:
 
 
 func _build_star_visual(star: Dictionary, star_position: Vector3) -> void:
+	if DesignDirector.is_clean():
+		return
 	var star_visual: ProceduralStarVisual = PROCEDURAL_STAR_VISUAL_SCRIPT.new() as ProceduralStarVisual
 	star_visual.position = star_position
 	star_visual.configure(star)
@@ -932,6 +967,8 @@ func _build_orbital_visual(orbital: Dictionary, orbital_position: Vector3) -> vo
 	var orbital_type: String = str(orbital.get("type", ORBITAL_TYPE_PLANET))
 	match orbital_type:
 		ORBITAL_TYPE_ASTEROID_BELT:
+			if DesignDirector.is_clean():
+				return
 			_build_asteroid_belt(orbital)
 		ORBITAL_TYPE_STRUCTURE:
 			_build_structure(orbital, orbital_position)
@@ -942,6 +979,8 @@ func _build_orbital_visual(orbital: Dictionary, orbital_position: Vector3) -> vo
 
 
 func _build_body_deposit_label(body_record: Dictionary, body_position: Vector3) -> void:
+	if DesignDirector.is_clean():
+		return
 	if not _should_show_deposit_labels():
 		return
 	if EconomyManager == null or not EconomyManager.has_method("preview_body_deposit_income"):
@@ -1024,6 +1063,8 @@ func _resolve_deposit_body_type(body_record: Dictionary) -> String:
 
 
 func _build_planet(orbital: Dictionary, orbital_position: Vector3) -> void:
+	if DesignDirector.is_clean():
+		return
 	var planet: ProceduralPlanetVisual = PROCEDURAL_PLANET_VISUAL_SCRIPT.new() as ProceduralPlanetVisual
 	planet.position = orbital_position
 	planet.configure(_current_system_details, orbital)
@@ -1133,6 +1174,8 @@ func _set_camera_distance(distance: float) -> void:
 
 
 func _get_orbit_color(orbital: Dictionary) -> Color:
+	if DesignDirector.is_clean():
+		return Color(0.37, 0.55, 0.57, 0.20)
 	var orbital_type: String = str(orbital.get("type", ORBITAL_TYPE_PLANET))
 	match orbital_type:
 		ORBITAL_TYPE_ASTEROID_BELT:

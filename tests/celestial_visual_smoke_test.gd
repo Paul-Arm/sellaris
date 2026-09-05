@@ -12,6 +12,7 @@ const PLANET_KINDS := ["landmass", "dry_terran", "no_atmosphere", "ice_world", "
 
 
 func _ready() -> void:
+	SettingsManager.set_design_variant("pastel", false)
 	var failures: Array[String] = []
 	await _run(failures)
 	if failures.is_empty():

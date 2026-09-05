@@ -100,6 +100,9 @@ func _ready() -> void:
 	_refresh_display_settings()
 	_clear_form()
 	_install_observatory_menu()
+	var design_switch := preload("res://scene/UI/theme/DesignSwitcher.gd").new()
+	settings_status_label.get_parent().add_child(design_switch)
+	settings_status_label.get_parent().move_child(design_switch, 0)
 	_show_page(PAGE_LANDING)
 
 

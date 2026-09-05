@@ -1,4 +1,5 @@
 shader_type spatial;
+global uniform bool design_clean;
 
 render_mode blend_add, depth_draw_never, cull_disabled, unshaded;
 
@@ -16,7 +17,7 @@ void fragment() {
 	float pulse = 1.0 + sin(TIME * pulse_speed) * pulse_strength;
 	float halo = max(fresnel, center_fill);
 	vec3 emission = final_color.rgb * halo * glow_strength * pulse;
-	EMISSION = emission;
+	EMISSION = emission * (design_clean ? 0.25 : 1.0);
 	ALBEDO = final_color.rgb * 0.14;
-	ALPHA = clamp(halo * final_color.a * 0.9, 0.0, 1.0);
+	ALPHA = clamp(halo * final_color.a * (design_clean ? 0.2 : 0.9), 0.0, 1.0);
 }

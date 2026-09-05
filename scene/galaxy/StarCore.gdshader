@@ -1,4 +1,5 @@
 shader_type spatial;
+global uniform bool design_clean;
 
 render_mode blend_mix, depth_draw_opaque, cull_back;
 
@@ -14,6 +15,10 @@ void fragment() {
 	float view_dot = clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
 	float rim = pow(1.0 - view_dot, rim_power) * rim_strength;
 	vec3 lit_color = mix(base_color * 0.58, base_color * 1.08, max(NORMAL.y * 0.5 + 0.5, 0.0));
+	if (design_clean) {
+		base_color = mix(base_color, vec3(0.68, 0.88, 0.86), 0.72);
+		lit_color = base_color * 0.8;
+	}
 	ALBEDO = lit_color;
 	EMISSION = base_color * (emission_strength + rim);
 	ROUGHNESS = 0.16;

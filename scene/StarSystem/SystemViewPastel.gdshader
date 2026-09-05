@@ -8,6 +8,7 @@
 // box blur, additive color wash over dark pixels, posterize, heavy grain.
 // Space stays dark, the image stays crisp.
 shader_type canvas_item;
+global uniform bool design_clean;
 
 uniform float exposure : hint_range(0.7, 1.4) = 1.0;
 uniform float contrast : hint_range(0.85, 1.25) = 1.10;
@@ -57,5 +58,13 @@ void fragment() {
 	// Pixel-based (not UV-based) dither: invisible, prevents banding.
 	col += (hash(FRAGCOORD.xy) - 0.5) * dither_strength;
 
+	if (design_clean) {
+		// Keep transported light neutral; only restrained local display contrast.
+		col = src.rgb;
+	} else {
+		float paint_mask = smoothstep(0.05, 0.45, luminance(col));
+		col = mix(col, col * vec3(1.04, 0.99, 1.03) + vec3(0.012, 0.008, 0.012), paint_mask * 0.35);
+		col = mix(vec3(luminance(col)), col, 0.90);
+	}
 	COLOR = vec4(clamp(col, vec3(0.0), vec3(1.0)), src.a);
 }

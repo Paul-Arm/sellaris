@@ -27,6 +27,8 @@ const BODY_DETAILS_PANEL_SCRIPT: Script = preload("res://scene/StarSystem/System
 @onready var selection_popup_subtitle: Label = get_node_or_null("SelectionPopup/PopupMargin/PopupVBox/PopupSubtitle")
 @onready var selection_popup_body: Label = get_node_or_null("SelectionPopup/PopupMargin/PopupVBox/PopupBody")
 
+var _info_toggle: Button
+
 var _current_system_id: String = ""
 var _current_system_details: Dictionary = {}
 var _body_details_panel = null
@@ -51,6 +53,28 @@ func _ready() -> void:
 	_ensure_body_details_panel()
 	_ensure_build_menu()
 	_hide_selection_popup()
+	var row := get_node("HeaderMargin/HeaderRow")
+	var design_switch := preload("res://scene/UI/theme/DesignSwitcher.gd").new()
+	row.add_child(design_switch)
+	row.move_child(design_switch, 1)
+	_info_toggle = Button.new()
+	_info_toggle.text = "System info"
+	_info_toggle.toggle_mode = true
+	_info_toggle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_info_toggle)
+	row.move_child(_info_toggle, 2)
+	_info_toggle.toggled.connect(func(open: bool): get_node("RightPanel").visible = open)
+	SettingsManager.design_changed.connect(_apply_design)
+	_apply_design(SettingsManager.get_design_variant())
+
+
+func _apply_design(variant: String) -> void:
+	var clean := variant == "clean"
+	get_node("RightPanel").visible = not clean
+	_info_toggle.set_pressed_no_signal(not clean)
+	_info_toggle.visible = clean
+	if subtitle_label != null:
+		subtitle_label.text = "GRAVITY FIELD" if clean else "SYSTEM OBSERVATORY"
 
 
 func _process(_delta: float) -> void:
@@ -88,7 +112,7 @@ func show_system(system_details: Dictionary, neighbor_count: int) -> void:
 		special_text = "  Special: %s" % special_type
 
 	_set_label_text(title_label, str(system_details.get("name", _current_system_id)))
-	_set_label_text(subtitle_label, "System View")
+	_set_label_text(subtitle_label, "GRAVITY FIELD" if DesignDirector.is_clean() else "SYSTEM OBSERVATORY")
 	_set_label_text(owner_label, "Owner: %s" % owner_name)
 	_set_label_text(summary_label, "Star Class: %s  Stars: %d%s\nHyperlane Connections: %d" % [
 		star_class,
@@ -602,7 +626,7 @@ func _update_system_labels(system_details: Dictionary, neighbor_count: int) -> v
 		special_text = "  Special: %s" % special_type
 
 	_set_label_text(title_label, str(system_details.get("name", _current_system_id)))
-	_set_label_text(subtitle_label, "System View")
+	_set_label_text(subtitle_label, "GRAVITY FIELD" if DesignDirector.is_clean() else "SYSTEM OBSERVATORY")
 	_set_label_text(owner_label, "Owner: %s" % owner_name)
 	_set_label_text(summary_label, "Star Class: %s  Stars: %d%s\nHyperlane Connections: %d" % [
 		star_class,

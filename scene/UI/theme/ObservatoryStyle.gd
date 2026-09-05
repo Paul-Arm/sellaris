@@ -16,4 +16,9 @@ static func panel(fill: Color = SURFACE, edge: Color = EDGE, radius: int = 3, bo
 	style.border_color = EDGE.lerp(edge, 0.45)
 	style.set_border_width_all(border)
 	style.set_corner_radius_all(mini(radius, 3))
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree != null:
+		var director := tree.root.get_node_or_null("DesignDirector")
+		if director != null:
+			director.track_panel(style)
 	return style

@@ -1,5 +1,8 @@
 extends Node
 
+signal design_changed(variant: String)
+var _design_variant: String = "pastel"
+
 const SETTINGS_PATH := "user://settings.cfg"
 const DEFAULT_MUSIC_VOLUME := 0.7
 const DEFAULT_WINDOW_MODE := DisplayServer.WINDOW_MODE_MAXIMIZED
@@ -26,6 +29,7 @@ func load_settings() -> void:
 	if load_error != OK and load_error != ERR_FILE_NOT_FOUND:
 		push_warning("Failed to load settings from %s with error %d." % [SETTINGS_PATH, load_error])
 
+	_design_variant = normalize_design(config.get_value("display", "design_variant", "pastel"))
 	_music_volume = clampf(float(config.get_value("audio", "music_volume", DEFAULT_MUSIC_VOLUME)), 0.0, 1.0)
 	_window_mode = _normalize_window_mode(config.get_value("display", "window_mode", DEFAULT_WINDOW_MODE))
 	_resolution = _normalize_resolution(config.get_value("display", "resolution", DEFAULT_RESOLUTION))
@@ -50,6 +54,7 @@ func save_settings() -> Error:
 	config.set_value("display", "window_mode", _window_mode)
 	config.set_value("display", "resolution", _resolution)
 	config.set_value("display", "msaa", _msaa)
+	config.set_value("display", "design_variant", _design_variant)
 	config.set_value("galaxy", "territory_bright_rim", _territory_bright_rim)
 	config.set_value("galaxy", "territory_core_opacity", _territory_core_opacity)
 	return config.save(SETTINGS_PATH)
@@ -192,3 +197,21 @@ func _normalize_msaa(value: Variant) -> int:
 
 func _is_headless() -> bool:
 	return DisplayServer.get_name().to_lower() == "headless"
+
+
+static func normalize_design(value: Variant) -> String:
+	return "clean" if value is String and value == "clean" else "pastel"
+
+
+func get_design_variant() -> String:
+	return _design_variant
+
+
+func set_design_variant(value: String, persist: bool = true) -> void:
+	var next := normalize_design(value)
+	if next == _design_variant:
+		return
+	_design_variant = next
+	if persist:
+		save_settings()
+	design_changed.emit(next)

@@ -92,6 +92,8 @@ var _background_time: float = 0.0
 
 
 func _ready() -> void:
+	SettingsManager.design_changed.connect(_apply_design)
+	_apply_design(SettingsManager.get_design_variant())
 	_map_renderer.bind(self, STAR_CORE_SHADER, STAR_GLOW_SHADER)
 	_runtime_placeholder_renderer.bind(self)
 	_ensure_label_layer()
@@ -1263,3 +1265,9 @@ func _get_current_system_extent() -> float:
 	for system_position in system_positions:
 		extent = maxf(extent, Vector2(system_position.x, system_position.z).length())
 	return extent
+
+
+func _apply_design(variant: String) -> void:
+	var painted := variant != "clean"
+	background_nebula_far.visible = painted
+	background_nebula_near.visible = painted

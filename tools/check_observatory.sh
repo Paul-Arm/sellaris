@@ -16,6 +16,7 @@ check() {
   fi
 }
 check import --editor --import
+check designs res://tests/design_variants_test.tscn
 check lobby --script res://tests/lobby_state_test.gd
 check visuals --script res://tests/observatory_visual_test.gd
 check deterministic --script res://tests/celestial_visual_determinism_test.gd

@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 MusicManager="*res://autoload/MusicManager.gd"
 SettingsManager="*res://autoload/SettingsManager.gd"
+DesignDirector="*res://autoload/DesignDirector.gd"
 SimClock="*res://autoload/SimClock.gd"
 EmpireManager="*res://autoload/EmpireManager.gd"
 EmpirePresetManager="*res://autoload/EmpirePresetManager.gd"
@@ -52,3 +53,10 @@ theme/custom="res://scene/UI/theme/ObservatoryTheme.tres"
 rendering_device/driver.windows="d3d12"
 anti_aliasing/quality/msaa_2d=2
 anti_aliasing/quality/msaa_3d=2
+
+[shader_globals]
+
+design_clean={
+"type": "bool",
+"value": false
+}

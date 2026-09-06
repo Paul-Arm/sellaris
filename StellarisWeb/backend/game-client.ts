@@ -1,5 +1,8 @@
 import { GALAXY_QUERIES, type Client } from './client';
-import { gameTimeAt, progressAt } from './domain';
+import { isShipSet } from '../shared/shipSets';
+import { progressAt } from './domain';
+import { ProjectionCache, watchTables, type ReadTable } from './projection-cache';
+import { gameDay, travelProgress } from '../shared/time';
 import type { GameView, Player, ShipType, TechId } from '../shared/game';
 import type { Colony } from '../shared/colonies';
 import type { TreatyOffer, Relation } from '../shared/diplomacy';
@@ -25,29 +28,42 @@ export const GAME_QUERIES = [
     'game_crisis',
     'my_crisis_pledges',
     'visible_game_sites',
+    'my_terraform_projects',
   ].map((t) => `SELECT * FROM ${t}`),
 ];
 /** Project authorized subscription rows into the existing presentation model.
  * Local time advances bars and strategic fleet positions, never authoritative resources. */
+const caches = new WeakMap<Client, ProjectionCache>();
 export function gameView(client: Client): GameView | null {
+  let cache = caches.get(client);
+  if (!cache) caches.set(client, (cache = new ProjectionCache()));
+  const memo = cache.get.bind(cache);
+  const read = <R extends { id: unknown }>(_key: string, table: ReadTable<R>) => cache.table(table);
   const db = client.conn.db,
     config = [...db.gameSettings.iter()][0],
     p = [...db.myGamePlayer.iter()][0],
     e = [...db.myEmpire.iter()][0],
     clock = [...db.clock.iter()][0];
   if (!config || !p || !e || !clock) return null;
-  const at = gameTimeAt(clock, Date.now() / 1000);
-  const atlas = new Map([...db.gameAtlas.iter()].map((s) => [s.id, s])),
-    players = new Map([...db.gamePlayers.iter()].map((p) => [p.id, p]));
-  const summary = new Map([...db.empireSummary.iter()].map((p) => [p.id, p])),
-    presence = new Map([...db.gamePresence.iter()].map((p) => [p.id, p]));
-  const intel = new Map([...db.gameIntel.iter()].map((s) => [s.id, s])),
-    infos = new Map([...db.gameFleetInfo.iter()].map((f) => [f.id, f]));
-  const jobs = [...db.myJobs.iter()]
-    .filter((j) => ['active', 'queued', 'blocked'].includes(j.status))
-    .sort((a, b) => a.id - b.id);
+  const at = gameDay(client.clock.now());
+  const index = <R extends { id: number }>(key: string, table: ReadTable<R>) => {
+    const rows = read(key, table);
+    return memo(`${key}-index`, [rows], () => new Map(rows.map((r) => [r.id, r])));
+  };
+  const atlas = index('atlas', db.gameAtlas),
+    players = index('players', db.gamePlayers);
+  const summary = index('summary', db.empireSummary),
+    presence = index('presence', db.gamePresence);
+  const intel = index('intel', db.gameIntel),
+    infos = index('infos', db.gameFleetInfo);
+  const stars = index('stars', db.star);
+  const jobs = memo('jobs', [read('jobRows', db.myJobs)], () =>
+    [...db.myJobs.iter()]
+      .filter((j) => ['active', 'queued', 'blocked'].includes(j.status))
+      .sort((a, b) => a.id - b.id),
+  );
   const remaining = (j: (typeof jobs)[number]) =>
-    Math.max(0, j.workTotal - (j.status === 'active' ? progressAt(j, at) : j.workDone));
+    Math.max(0, j.workTotal - (j.status === 'active' ? progressAt(j, client.clock.now()) : j.workDone));
   const systemId = (id: number) => atlas.get(id)?.externalId || '';
   const crises: CrisisView[] = [...db.gameCrisis.iter()].flatMap((meta) => {
     const crisis = db.crisis.id.find(meta.id);
@@ -65,20 +81,26 @@ export function gameView(client: Client): GameView | null {
     ];
   });
   const factor = Math.min(1, ...crises.map((c) => crisisProductionFactor(c.phase, c.shielded)));
-  const sites: BodySite[] = [...db.visibleGameSites.iter()].map((site) => ({
-    id: site.id,
-    systemId: systemId(site.systemId),
-    bodySlot: site.bodySlot,
-    owner: players.get(site.empireId)?.externalId || '',
-    facility: site.facility as Facility,
-    level: site.level,
-    building: site.building,
-    startedAt: site.startedAt,
-    finishAt: site.finishAt,
-    suspended:
-      db.star.id.find(site.systemId)?.kind === 'star' &&
-      db.star.id.find(site.systemId)?.ownerId !== site.empireId,
-  }));
+  const sites: BodySite[] = memo(
+    'sites',
+    [read('siteRows', db.visibleGameSites), atlas, players, stars],
+    () =>
+      [...db.visibleGameSites.iter()].map((site) =>
+        memo(site, [atlas, players, stars.get(site.systemId)], () => ({
+          id: site.id,
+          systemId: systemId(site.systemId),
+          bodySlot: site.bodySlot,
+          owner: players.get(site.empireId)?.externalId || '',
+          facility: site.facility as Facility,
+          level: site.level,
+          building: site.building,
+          startedAt: site.startedAt,
+          finishAt: site.finishAt,
+          suspended:
+            stars.get(site.systemId)?.kind === 'star' && stars.get(site.systemId)?.ownerId !== site.empireId,
+        })),
+      ),
+  );
   const installationIncome = { energy: 0, minerals: 0, science: 0 };
   for (const site of sites)
     if (site.owner === p.externalId && !site.suspended) {
@@ -87,45 +109,53 @@ export function gameView(client: Client): GameView | null {
       installationIncome.minerals += rate.minerals;
       installationIncome.science += rate.science;
     }
-  const systems = [...db.star.iter()].flatMap((s) => {
-    const m = atlas.get(s.id);
-    if (!m) return [];
-    const i = intel.get(s.id),
-      colony: Colony | null = i?.colonyJson ? JSON.parse(i.colonyJson) : null;
-    const upgrade = jobs.find((j) => j.kind === 'game_upgrade' && j.targetId === s.id);
-    if (colony?.construction && upgrade) colony.construction.remaining = remaining(upgrade);
-    const descriptor = {
-      id: m.externalId,
-      kind: s.kind as 'star' | 'rift' | 'blackhole',
-      class: m.starClass,
-      color: m.color,
-    };
-    const starClass = stellarClass(descriptor);
-    return [
-      {
-        id: m.externalId,
-        name: s.name,
-        x: s.x,
-        y: s.y,
-        color: starClass === m.starClass ? m.color : stellarProfile(descriptor).color,
-        kind: s.kind as 'star' | 'rift' | 'blackhole',
-        class: starClass,
-        planet: m.planet,
-        owner: s.ownerId ? players.get(s.ownerId)?.externalId || null : null,
-        resources: { energy: i?.energy || 0, minerals: i?.minerals || 0, science: i?.science || 0 },
-        productionFactor: s.ownerId === p.id ? factor : 1,
-        defense: i?.defense || 0,
-        mined: i?.mined || false,
-        anomaly: m.anomaly,
-        studied: i?.studied || false,
-        colony,
-        colonyName: i?.colonyName || undefined,
-      },
-    ];
-  });
+  const systems = memo('systems', [stars, atlas, intel, players, jobs, factor, p.id], () =>
+    [...stars.values()].flatMap((s) => {
+      const m = atlas.get(s.id);
+      if (!m) return [];
+      const upgrade = jobs.find((j) => j.kind === 'game_upgrade' && j.targetId === s.id);
+      return [
+        memo(s, [m, intel.get(s.id), upgrade, players, factor, p.id], () => {
+          const i = intel.get(s.id),
+            colony: Colony | null = i?.colonyJson ? JSON.parse(i.colonyJson) : null;
+          if (colony?.construction && upgrade)
+            Object.defineProperty(colony.construction, 'remaining', {
+              enumerable: true,
+              get: () => remaining(upgrade),
+            });
+          const descriptor = {
+            id: m.externalId,
+            kind: s.kind as 'star' | 'rift' | 'blackhole',
+            class: m.starClass,
+            color: m.color,
+          };
+          const starClass = stellarClass(descriptor);
+          return {
+            id: m.externalId,
+            name: s.name,
+            x: s.x,
+            y: s.y,
+            color: starClass === m.starClass ? m.color : stellarProfile(descriptor).color,
+            kind: s.kind as 'star' | 'rift' | 'blackhole',
+            class: starClass,
+            planet: m.planet,
+            owner: s.ownerId ? players.get(s.ownerId)?.externalId || null : null,
+            resources: { energy: i?.energy || 0, minerals: i?.minerals || 0, science: i?.science || 0 },
+            productionFactor: s.ownerId === p.id ? factor : 1,
+            defense: i?.defense || 0,
+            mined: i?.mined || false,
+            anomaly: m.anomaly,
+            studied: i?.studied || false,
+            colony,
+            colonyName: i?.colonyName || undefined,
+          };
+        }),
+      ];
+    }),
+  );
   const research = jobs.find((j) => j.kind === 'game_research'),
     identity = summary.get(p.id)!;
-  const me: Player = {
+  const me: Player = memo('me', [p, e, research, jobs, identity, factor, sites, atlas], () => ({
     id: p.externalId,
     name: identity.name,
     color: `#${identity.color.toString(16).padStart(6, '0')}`,
@@ -135,25 +165,34 @@ export function gameView(client: Client): GameView | null {
     surveyed: p.surveyed.map(systemId),
     discovered: p.discovered.map(systemId),
     installationIncome,
-    empire: JSON.parse(p.empireJson),
+    empire: memo('empireJson', [p.empireJson], () => JSON.parse(p.empireJson)),
     online: true,
     research: research
-      ? { id: research.topic as TechId, total: research.workTotal, remaining: remaining(research) }
+      ? {
+          id: research.topic as TechId,
+          total: research.workTotal,
+          get remaining() {
+            return remaining(research);
+          },
+        }
       : null,
     queue: jobs
       .filter((j) => j.kind === 'game_build')
       .map((j) => ({
         type: j.topic as ShipType,
         systemId: systemId(j.targetId),
-        remaining: remaining(j),
+        get remaining() {
+          return remaining(j);
+        },
         total: j.workTotal,
       })),
-  };
+  }));
   const tasks = new Map(
     jobs.filter((j) => ['game_scan', 'game_colonize'].includes(j.kind)).map((j) => [j.targetId, j]),
   );
   return {
     version: 1,
+    displayClock: client.clock,
     code: config.code,
     tick: at,
     speed: clock.speed,
@@ -202,55 +241,122 @@ export function gameView(client: Client): GameView | null {
         : [];
     }),
     systems,
-    links: [...db.gameLane.iter()].map((l) => [systemId(l.a), systemId(l.b)]),
+    links: memo('links', [read('lanes', db.gameLane), atlas], () =>
+      [...db.gameLane.iter()].map((l): [string, string] => [systemId(l.a), systemId(l.b)]),
+    ),
     me,
-    players: [...players.values()].map((p) => {
-      const s = summary.get(p.id)!;
-      return {
-        id: p.externalId,
-        name: s.name,
-        color: `#${s.color.toString(16).padStart(6, '0')}`,
-        online: presence.get(p.id)?.online || false,
-        colonies: p.colonies,
-        ai: s.ai,
-        flag: JSON.parse(p.flagJson),
-      };
-    }),
-    fleets: [...db.galaxyFleets.iter()].flatMap((f) => {
-      const m = infos.get(f.id);
-      if (!m) return [];
-      const task = tasks.get(f.id),
-        duration = f.arrivesAt - f.departedAt;
-      return [
-        {
-          id: m.externalId,
-          nativeId: f.id,
-          owner: players.get(f.empireId)?.externalId || '',
-          name: f.name,
-          type: m.kind as ShipType,
-          systemId: systemId(f.systemId || m.lastSystemId),
-          route: m.route.map(systemId),
-          duration,
-          progress: m.route.length
-            ? Math.min(1, Math.max(0, (at - f.departedAt) / Math.max(0.001, duration)))
-            : 0,
-          hp: m.maxHull ? (100 * m.hull) / m.maxHull : 0,
-          shipCount: f.shipCount,
-          battleId: f.battleId,
-          task: task
-            ? {
-                type: task.kind === 'game_scan' ? ('scan' as const) : ('colonize' as const),
-                total: task.workTotal,
-                remaining: remaining(task),
-                blocked: task.status === 'blocked',
-              }
-            : null,
-        },
-      ];
-    }),
-    log: [...db.myGameEvents.iter()]
-      .sort((a, b) => b.id - a.id)
-      .map((l) => ({ id: l.id, tick: l.tick, text: l.text, tone: l.tone as 'info' | 'success' | 'warning' })),
+    players: memo('publicPlayers', [players, summary, presence], () =>
+      [...players.values()].map((p) =>
+        memo(p, [summary.get(p.id), presence.get(p.id)], () => {
+          const s = summary.get(p.id)!;
+          return {
+            id: p.externalId,
+            name: s.name,
+            color: `#${s.color.toString(16).padStart(6, '0')}`,
+            online: presence.get(p.id)?.online || false,
+            colonies: p.colonies,
+            ai: s.ai,
+            flag: JSON.parse(p.flagJson),
+            shipSet: isShipSet(p.shipSet) ? p.shipSet : 'prisma',
+          };
+        }),
+      ),
+    ),
+    fleets: memo('fleets', [read('fleetRows', db.galaxyFleets), infos, players, atlas, jobs], () =>
+      [...db.galaxyFleets.iter()].flatMap((f) => {
+        const m = infos.get(f.id);
+        if (!m) return [];
+        const task = tasks.get(f.id),
+          duration = f.arrivesAt - f.departedAt;
+        return [
+          memo(f, [m, task, players, atlas], () => ({
+            id: m.externalId,
+            nativeId: f.id,
+            navigation: m.navigationJson ? JSON.parse(m.navigationJson) : undefined,
+            owner: players.get(f.empireId)?.externalId || '',
+            name: f.name,
+            type: m.kind as ShipType,
+            systemId: systemId(f.systemId || m.lastSystemId),
+            route: m.route.map(systemId),
+            duration,
+            journey: {
+              fromX: f.fromX,
+              fromY: f.fromY,
+              toX: f.toX,
+              toY: f.toY,
+              departedAt: f.departedAt,
+              arrivesAt: f.arrivesAt,
+            },
+            get progress() {
+              return m.route.length ? travelProgress(f, client.clock.now()) : 0;
+            },
+            hp: m.maxHull ? (100 * m.hull) / m.maxHull : 0,
+            shipCount: f.shipCount,
+            battleId: f.battleId,
+            task: task
+              ? {
+                  type: task.kind === 'game_scan' ? ('scan' as const) : ('colonize' as const),
+                  total: task.workTotal,
+                  get remaining() {
+                    return remaining(task);
+                  },
+                  blocked: task.status === 'blocked',
+                }
+              : null,
+          })),
+        ];
+      }),
+    ),
+    log: memo('log', [read('eventRows', db.myGameEvents)], () =>
+      [...db.myGameEvents.iter()]
+        .sort((a, b) => b.id - a.id)
+        .map((l) => ({
+          id: l.id,
+          tick: l.tick,
+          text: l.text,
+          tone: l.tone as 'info' | 'success' | 'warning',
+        })),
+    ),
     nextId: 0,
+  };
+}
+
+/** One publication per completed subscription transaction, no projection timer. */
+export function observeGame(client: Client, publish: (view: GameView | null) => void) {
+  const db = client.conn.db;
+  const unwatch = watchTables(
+    [
+      db.gameSettings,
+      db.myGamePlayer,
+      db.myEmpire,
+      db.gameAtlas,
+      db.gamePlayers,
+      db.empireSummary,
+      db.gamePresence,
+      db.gameIntel,
+      db.gameFleetInfo,
+      db.myJobs,
+      db.star,
+      db.visibleGameSites,
+      db.gameCrisis,
+      db.crisis,
+      db.myCrisisPledges,
+      db.myDecisions,
+      db.myGameStories,
+      db.gameRelation,
+      db.myTreaties,
+      db.myGameOffers,
+      db.gameLane,
+      db.galaxyFleets,
+      db.myGameEvents,
+      db.visibleBattleSummaries,
+    ],
+    () => publish(gameView(client)),
+  );
+  publish(gameView(client));
+  return () => {
+    unwatch();
+    caches.get(client)?.dispose();
+    caches.delete(client);
   };
 }

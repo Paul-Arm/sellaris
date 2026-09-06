@@ -120,7 +120,7 @@ export function DiplomacyPanel({
             <div className={`dip-relation ${war ? 'war' : ''}`}>
               {war ? <Swords size={18} /> : <ShieldCheck size={18} />}
               <strong>{war ? 'Im Krieg' : truce ? 'Waffenstillstand' : 'Friedliche Beziehungen'}</strong>
-              {truce > 0 && <span>{truce} s verbleibend</span>}
+              {truce > 0 && <span>{truce} T verbleibend</span>}
             </div>
             <p className="dip-note">
               {war
@@ -198,8 +198,8 @@ export function DiplomacyPanel({
                   ))}
                 </div>
                 <p className="dip-note">
-                  Dein Angebot wird für {OFFER_LIFETIME} Spielsekunden reserviert. Bei Ablehnung, Rücknahme
-                  oder Ablauf erhältst du die Rohstoffe zurück.
+                  Dein Angebot wird für {OFFER_LIFETIME} Spieltage reserviert. Bei Ablehnung, Rücknahme oder
+                  Ablauf erhältst du die Rohstoffe zurück.
                 </p>
                 <button className="primary-button" disabled={invalid || disabled} type="submit">
                   Angebot senden
@@ -227,7 +227,7 @@ export function DiplomacyPanel({
                     </div>
                     <small>
                       {outbound ? 'Von dir' : `Von ${peer.name}`}
-                      {open ? ` · ${Math.max(0, Math.ceil(o.expiresAt - game.tick))} s` : ''}
+                      {open ? ` · ${Math.max(0, Math.ceil(o.expiresAt - game.tick))} T` : ''}
                     </small>
                     {o.kind === 'trade' ? (
                       <dl>
@@ -242,7 +242,7 @@ export function DiplomacyPanel({
                       </dl>
                     ) : (
                       <p className="dip-note">
-                        Beendet den Krieg. {TRUCE_DURATION} Spielsekunden Schutz vor einer erneuten
+                        Beendet den Krieg. {TRUCE_DURATION} Spieltage Schutz vor einer erneuten
                         Kriegserklärung.
                       </p>
                     )}

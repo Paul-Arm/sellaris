@@ -1,10 +1,11 @@
 import { Range } from 'spacetimedb/server';
-import { combatStep, effectiveHpLost } from '../../backend/domain';
+import { combatDay, effectiveHpLost } from '../../backend/domain';
+import { nextGameDay } from '../../shared/time';
 import { ensureBattleReport, publishBattleReport, recordBattleDamage } from './battle-reports';
 import { gameStrategic, gameEconomy } from './game-ticks';
 import { gameAI } from './game-ai';
 import { db, strategicSchedule, economySchedule, combatSchedule, aiSchedule, type Context } from './tables';
-import { finishBattle, move, NEVER, now, refreshJob, shipTemplate, tickAt, wallNow } from './rules';
+import { finishBattle, move, NEVER, now, clockNow, refreshJob, shipTemplate, tickAt, wallNow } from './rules';
 
 const due = (at: number) =>
   new Range<bigint>({ tag: 'included', value: 0n }, { tag: 'included', value: tickAt(at) });
@@ -24,11 +25,20 @@ function record(ctx: Context, name: string, rows: number, interval: number, lag 
 const active = (ctx: Context) =>
   ctx.db.scenario.id.find(1)?.phase === 'ready' && !ctx.db.clock.id.find(1)!.paused;
 
+function beginDay(ctx: Context, name: string) {
+  const runtime = ctx.db.runtime.name.find(name)!;
+  const at = now(ctx);
+  if (at < runtime.nextGameAt) return false;
+  ctx.db.runtime.name.update({ ...runtime, nextGameAt: at + 1 });
+  return true;
+}
+
 export const strategicTick = db.reducer(
   { onSchedule: strategicSchedule },
   { arg: strategicSchedule.rowType },
   (ctx) => {
     if (!active(ctx)) return;
+    if (!beginDay(ctx, 'strategic')) return;
     if (ctx.db.gameSettings.id.find(1)) {
       gameStrategic(ctx);
       return;
@@ -36,7 +46,7 @@ export const strategicTick = db.reducer(
     const at = now(ctx);
     const clock = ctx.db.clock.id.find(1)!;
     if (wallNow(ctx) - clock.wallTime >= 1)
-      ctx.db.clock.id.update({ ...clock, gameTime: at, wallTime: wallNow(ctx) });
+      ctx.db.clock.id.update({ ...clock, gameTime: clockNow(ctx), wallTime: wallNow(ctx) });
     let writes = 0,
       lag = 0;
     for (const arrival of [...ctx.db.arrival.dueTick.filter(due(at))]) {
@@ -209,11 +219,11 @@ export const combatTick = db.reducer(
     for (const initial of ctx.db.battle.state.filter('active')) {
       let b = initial;
       // Bounded catch-up: keep the remaining backlog visible in metrics, never discard battle time.
-      for (let catchup = 0; catchup < 4 && at - b.simulatedAt >= 0.2 - 1e-8; catchup++) {
-        const stepAt = b.simulatedAt + 0.2;
+      for (let catchup = 0; catchup < 4 && at >= nextGameDay(b.simulatedAt); catchup++) {
+        const stepAt = nextGameDay(b.simulatedAt);
         const fighters = [...ctx.db.participant.battleId.filter(b.id)];
         ensureBattleReport(ctx, b, fighters, wallNow(ctx));
-        const result = combatStep(fighters, stepAt, 0.2);
+        const result = combatDay(fighters, b.simulatedAt, stepAt);
         const previous = new Map(fighters.map((p) => [p.shipId, p]));
         const fleetLosses = new Map<number, number>();
         const killedIds = new Set(result.killed.map((p) => p.shipId));
@@ -262,14 +272,15 @@ export const combatTick = db.reducer(
         if (wallNow(ctx) >= ctx.db.battleReport.id.find(b.id)!.nextPublishWallAt)
           publishBattleReport(ctx, b, [...ctx.db.participant.battleId.filter(b.id)], wallNow(ctx));
       }
-      lag = Math.max(lag, at - b.simulatedAt - 0.2);
+      lag = Math.max(lag, at - b.simulatedAt - 1);
     }
-    record(ctx, 'combat', writes, 0.1, lag);
+    if (writes) record(ctx, 'combat', writes, 1 / ctx.db.clock.id.find(1)!.speed, lag);
   },
 );
 
 export const aiTick = db.reducer({ onSchedule: aiSchedule }, { arg: aiSchedule.rowType }, (ctx) => {
   if (!active(ctx)) return;
+  if (!beginDay(ctx, 'ai')) return;
   if (ctx.db.gameSettings.id.find(1)) {
     gameAI(ctx);
     return;

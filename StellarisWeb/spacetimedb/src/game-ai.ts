@@ -25,6 +25,7 @@ export function gameAI(ctx: Context) {
       (f) =>
         f.systemId &&
         !f.battleId &&
+        (!ctx.db.gameNavigation.id.find(f.id) || ctx.db.gameNavigation.id.find(f.id)!.ordersJson === '[]') &&
         !jobs.some((j) => ['game_scan', 'game_colonize'].includes(j.kind) && j.targetId === f.id),
     );
     // Rotate fleet priority so a busy scout cannot starve colony ships or military orders.

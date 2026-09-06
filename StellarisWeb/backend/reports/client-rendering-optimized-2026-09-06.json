@@ -1,0 +1,213 @@
+{
+  "measuredAt": "2026-09-06T16:54:40.714Z",
+  "node": "v24.18.0",
+  "cpu": "12th Gen Intel(R) Core(TM) i7-12700K",
+  "sourceSha256": {
+    "src/model-assets.ts": "75a612f901d496355f00db134fc22c68fdbc71aa922ab397bc6e274f3f665eab",
+    "src/SystemSpaceScene.tsx": "9aa868a759f8976658a2d6cadc7d1922de4d14f22d6c69131c4b205705b33fd5",
+    "src/LabScene.tsx": "63e73f031a9c274f81edd803ad306a0d774d162d4f6ce93d8e63496845679f1a",
+    "backend/game-client.ts": "4e78033db608889082e8bd7ce3aeb59bb086dd9752b7987ce266172dffad0289"
+  },
+  "limitations": [
+    "CPU timing covers only InstancedModel begin/add/end and simple formation matrices in Node.",
+    "No browser, GPU, complete frame, raycast, network or live game benchmark.",
+    "Upload rates are calculated from dirty occupied matrix spans, not measured bus throughput.",
+    "165 Hz is the user-confirmed display cap, not a measured performance capacity."
+  ],
+  "models": [
+    {
+      "set": "aureole",
+      "id": "01_korvette",
+      "meshParts": 12,
+      "drawsPerBatch": 12,
+      "trianglesPerInstance": 2832
+    },
+    {
+      "set": "aureole",
+      "id": "07_arbeiter",
+      "meshParts": 19,
+      "drawsPerBatch": 19,
+      "trianglesPerInstance": 3908
+    },
+    {
+      "set": "aureole",
+      "id": "08_forschung",
+      "meshParts": 11,
+      "drawsPerBatch": 11,
+      "trianglesPerInstance": 3232
+    },
+    {
+      "set": "bastion",
+      "id": "01_korvette",
+      "meshParts": 15,
+      "drawsPerBatch": 15,
+      "trianglesPerInstance": 3132
+    },
+    {
+      "set": "bastion",
+      "id": "07_arbeiter",
+      "meshParts": 22,
+      "drawsPerBatch": 22,
+      "trianglesPerInstance": 6656
+    },
+    {
+      "set": "bastion",
+      "id": "08_forschung",
+      "meshParts": 19,
+      "drawsPerBatch": 19,
+      "trianglesPerInstance": 5834
+    },
+    {
+      "set": "nexus",
+      "id": "01_korvette",
+      "meshParts": 13,
+      "drawsPerBatch": 13,
+      "trianglesPerInstance": 1812
+    },
+    {
+      "set": "nexus",
+      "id": "07_arbeiter",
+      "meshParts": 18,
+      "drawsPerBatch": 18,
+      "trianglesPerInstance": 2384
+    },
+    {
+      "set": "nexus",
+      "id": "08_forschung",
+      "meshParts": 9,
+      "drawsPerBatch": 9,
+      "trianglesPerInstance": 1696
+    },
+    {
+      "set": "parallax",
+      "id": "01_korvette",
+      "meshParts": 9,
+      "drawsPerBatch": 9,
+      "trianglesPerInstance": 554
+    },
+    {
+      "set": "parallax",
+      "id": "07_arbeiter",
+      "meshParts": 13,
+      "drawsPerBatch": 13,
+      "trianglesPerInstance": 2073
+    },
+    {
+      "set": "parallax",
+      "id": "08_forschung",
+      "meshParts": 8,
+      "drawsPerBatch": 8,
+      "trianglesPerInstance": 3018
+    },
+    {
+      "set": "prisma",
+      "id": "01_korvette",
+      "meshParts": 11,
+      "drawsPerBatch": 11,
+      "trianglesPerInstance": 4352
+    },
+    {
+      "set": "prisma",
+      "id": "07_arbeiter",
+      "meshParts": 19,
+      "drawsPerBatch": 19,
+      "trianglesPerInstance": 3912
+    },
+    {
+      "set": "prisma",
+      "id": "08_forschung",
+      "meshParts": 9,
+      "drawsPerBatch": 9,
+      "trianglesPerInstance": 2882
+    },
+    {
+      "set": "vektor",
+      "id": "01_korvette",
+      "meshParts": 4,
+      "drawsPerBatch": 4,
+      "trianglesPerInstance": 612
+    },
+    {
+      "set": "vektor",
+      "id": "07_arbeiter",
+      "meshParts": 8,
+      "drawsPerBatch": 8,
+      "trianglesPerInstance": 808
+    },
+    {
+      "set": "vektor",
+      "id": "08_forschung",
+      "meshParts": 9,
+      "drawsPerBatch": 9,
+      "trianglesPerInstance": 348
+    }
+  ],
+  "instancedModelCpu": [
+    {
+      "set": "nexus",
+      "instances": 100,
+      "samples": 300,
+      "p50Ms": 0.010100000000022646,
+      "p95Ms": 0.034300000000030195,
+      "fullMatrixBytes": 8192,
+      "dirtyMatrixBytes": 6400,
+      "uniqueMatrixBuffers": 1,
+      "theoreticalDirtyMatrixMiBPerSecondAt165Hz": 1.007080078125
+    },
+    {
+      "set": "nexus",
+      "instances": 1000,
+      "samples": 300,
+      "p50Ms": 0.03109999999998081,
+      "p95Ms": 0.0968000000000302,
+      "fullMatrixBytes": 65536,
+      "dirtyMatrixBytes": 64000,
+      "uniqueMatrixBuffers": 1,
+      "theoreticalDirtyMatrixMiBPerSecondAt165Hz": 10.07080078125
+    },
+    {
+      "set": "nexus",
+      "instances": 3000,
+      "samples": 300,
+      "p50Ms": 0.09610000000003538,
+      "p95Ms": 0.19160000000005084,
+      "fullMatrixBytes": 262144,
+      "dirtyMatrixBytes": 192000,
+      "uniqueMatrixBuffers": 1,
+      "theoreticalDirtyMatrixMiBPerSecondAt165Hz": 30.21240234375
+    },
+    {
+      "set": "prisma",
+      "instances": 100,
+      "samples": 300,
+      "p50Ms": 0.00909999999998945,
+      "p95Ms": 0.019099999999980355,
+      "fullMatrixBytes": 8192,
+      "dirtyMatrixBytes": 6400,
+      "uniqueMatrixBuffers": 1,
+      "theoreticalDirtyMatrixMiBPerSecondAt165Hz": 1.007080078125
+    },
+    {
+      "set": "prisma",
+      "instances": 1000,
+      "samples": 300,
+      "p50Ms": 0.0464999999999236,
+      "p95Ms": 0.09789999999998145,
+      "fullMatrixBytes": 65536,
+      "dirtyMatrixBytes": 64000,
+      "uniqueMatrixBuffers": 1,
+      "theoreticalDirtyMatrixMiBPerSecondAt165Hz": 10.07080078125
+    },
+    {
+      "set": "prisma",
+      "instances": 3000,
+      "samples": 300,
+      "p50Ms": 0.09500000000002728,
+      "p95Ms": 0.2035000000000764,
+      "fullMatrixBytes": 262144,
+      "dirtyMatrixBytes": 192000,
+      "uniqueMatrixBuffers": 1,
+      "theoreticalDirtyMatrixMiBPerSecondAt165Hz": 30.21240234375
+    }
+  ]
+}

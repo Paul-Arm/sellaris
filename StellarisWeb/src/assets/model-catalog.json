@@ -1,0 +1,2384 @@
+[
+  {
+    "set": "aureole",
+    "id": "01_aussenposten",
+    "url": "/models/aureole/01_aussenposten.glb",
+    "bytes": 71108,
+    "size": [
+      10,
+      2.871115356683731,
+      9.759469509124756
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "01_korvette",
+    "url": "/models/aureole/01_korvette.glb",
+    "bytes": 122752,
+    "size": [
+      5.420834064483643,
+      0.7807635084986686,
+      6.264690440148115
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "01_mining_station",
+    "url": "/models/aureole/01_mining_station.glb",
+    "bytes": 99984,
+    "size": [
+      13.25793493911624,
+      5.929767370223999,
+      13.958572674542665
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "02_fregatte",
+    "url": "/models/aureole/02_fregatte.glb",
+    "bytes": 122760,
+    "size": [
+      6.761147975921631,
+      0.9833477139472961,
+      8.753463104367256
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "02_mining_ring",
+    "url": "/models/aureole/02_mining_ring.glb",
+    "bytes": 242972,
+    "size": [
+      59.999996185302734,
+      4.401057958602905,
+      59.99999809265137
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "02_sternenbasis",
+    "url": "/models/aureole/02_sternenbasis.glb",
+    "bytes": 197944,
+    "size": [
+      18,
+      4.1064232885837555,
+      17.999999046325684
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "03_dyson_swarm",
+    "url": "/models/aureole/03_dyson_swarm.glb",
+    "bytes": 824744,
+    "size": [
+      113.42562866210938,
+      160,
+      145.72164916992188
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 120
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "03_festung",
+    "url": "/models/aureole/03_festung.glb",
+    "bytes": 266496,
+    "size": [
+      24.248714447021484,
+      9.883136987686157,
+      28
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "03_zerstoerer",
+    "url": "/models/aureole/03_zerstoerer.glb",
+    "bytes": 135280,
+    "size": [
+      9.999994277954102,
+      1.4322315454483032,
+      11.783758252859116
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "04_kreuzer",
+    "url": "/models/aureole/04_kreuzer.glb",
+    "bytes": 187436,
+    "size": [
+      19.06478500366211,
+      1.8650650680065155,
+      15.999402165412903
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "04_mega_shipyard",
+    "url": "/models/aureole/04_mega_shipyard.glb",
+    "bytes": 266472,
+    "size": [
+      55.527626037597656,
+      17.945728302001953,
+      89.99998474121094
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "04_zitadelle",
+    "url": "/models/aureole/04_zitadelle.glb",
+    "bytes": 466328,
+    "size": [
+      39.99999809265137,
+      15.395373344421387,
+      40
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "05_abwehrplattform",
+    "url": "/models/aureole/05_abwehrplattform.glb",
+    "bytes": 87280,
+    "size": [
+      8.495118141174316,
+      1.6566630601882935,
+      8.999999523162842
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "05_construction_level_0",
+    "url": "/models/aureole/05_construction_level_0.glb",
+    "bytes": 141824,
+    "size": [
+      33.68442153930664,
+      11.378795623779297,
+      35.00000190734863
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "05_schlachtschiff",
+    "url": "/models/aureole/05_schlachtschiff.glb",
+    "bytes": 307812,
+    "size": [
+      21.75810432434082,
+      2.566793441772461,
+      21.385377779603004
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "06_artillerieplattform",
+    "url": "/models/aureole/06_artillerieplattform.glb",
+    "bytes": 57588,
+    "size": [
+      13.614627838134766,
+      2.8894324898719788,
+      14
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "06_titan",
+    "url": "/models/aureole/06_titan.glb",
+    "bytes": 342848,
+    "size": [
+      30.08240509033203,
+      4.942460656166077,
+      29.4147330224514
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "07_arbeiter",
+    "url": "/models/aureole/07_arbeiter.glb",
+    "bytes": 197840,
+    "size": [
+      6.26621675491333,
+      1.8220410346984863,
+      8.176024615764618
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "08_forschung",
+    "url": "/models/aureole/08_forschung.glb",
+    "bytes": 150348,
+    "size": [
+      4.505184173583984,
+      5.95354962348938,
+      8.888676047325134
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "aureole",
+    "id": "orbital_ring",
+    "url": "/models/aureole/orbital_ring.glb",
+    "bytes": 92632,
+    "size": [
+      160,
+      32.01650428771973,
+      153.94662475585938
+    ],
+    "planetRadius": 46.27680206298828,
+    "clips": [
+      {
+        "name": "AUREOLE_ORBITAL_LOOP",
+        "duration": 120
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "01_aussenposten",
+    "url": "/models/bastion/01_aussenposten.glb",
+    "bytes": 104192,
+    "size": [
+      9.987134456634521,
+      5.588656902313232,
+      9.987135887145996
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "01_korvette",
+    "url": "/models/bastion/01_korvette.glb",
+    "bytes": 78992,
+    "size": [
+      3.1428569555282593,
+      2.0546665526926517,
+      6.228733274906874
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "01_mining_station",
+    "url": "/models/bastion/01_mining_station.glb",
+    "bytes": 420088,
+    "size": [
+      13.497310072183609,
+      6.076715707778931,
+      14.101984035223722
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "02_fregatte",
+    "url": "/models/bastion/02_fregatte.glb",
+    "bytes": 234100,
+    "size": [
+      4.7311320304870605,
+      2.3066539764404297,
+      8.756785687312483
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "02_mining_ring",
+    "url": "/models/bastion/02_mining_ring.glb",
+    "bytes": 967188,
+    "size": [
+      60.000003814697266,
+      18.791704177856445,
+      60.000003814697266
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "02_sternenbasis",
+    "url": "/models/bastion/02_sternenbasis.glb",
+    "bytes": 262548,
+    "size": [
+      18.18461799621582,
+      5.254005551338196,
+      18.18461799621582
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "03_dyson_swarm",
+    "url": "/models/bastion/03_dyson_swarm.glb",
+    "bytes": 1492316,
+    "size": [
+      113.38430786132812,
+      160.12146759033203,
+      145.79535675048828
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 120
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "03_festung",
+    "url": "/models/bastion/03_festung.glb",
+    "bytes": 414464,
+    "size": [
+      28.287182807922363,
+      13.174320697784424,
+      28.287182807922363
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "03_zerstoerer",
+    "url": "/models/bastion/03_zerstoerer.glb",
+    "bytes": 241280,
+    "size": [
+      4.97269007563591,
+      2.8509278744459152,
+      11.82380385696888
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "04_kreuzer",
+    "url": "/models/bastion/04_kreuzer.glb",
+    "bytes": 244368,
+    "size": [
+      11.983261108398438,
+      3.3358303904533386,
+      15.871357368409633
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "04_mega_shipyard",
+    "url": "/models/bastion/04_mega_shipyard.glb",
+    "bytes": 881636,
+    "size": [
+      59.727272033691406,
+      15.093980431556702,
+      90
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "04_zitadelle",
+    "url": "/models/bastion/04_zitadelle.glb",
+    "bytes": 566936,
+    "size": [
+      40.26065254211426,
+      17.059971809387207,
+      40.260650634765625
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "05_abwehrplattform",
+    "url": "/models/bastion/05_abwehrplattform.glb",
+    "bytes": 260716,
+    "size": [
+      10.203370571136475,
+      2.896179735660553,
+      9.101810496747493
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "05_construction_level_0",
+    "url": "/models/bastion/05_construction_level_0.glb",
+    "bytes": 588980,
+    "size": [
+      34.07009696960449,
+      11.43955945968628,
+      35.13036918640137
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "05_schlachtschiff",
+    "url": "/models/bastion/05_schlachtschiff.glb",
+    "bytes": 357316,
+    "size": [
+      15.27572250366211,
+      4.8615211099386215,
+      21.439374790519476
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "06_artillerieplattform",
+    "url": "/models/bastion/06_artillerieplattform.glb",
+    "bytes": 139276,
+    "size": [
+      7.712070107460022,
+      6.920345038175583,
+      14.265927579402923
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "06_titan",
+    "url": "/models/bastion/06_titan.glb",
+    "bytes": 416076,
+    "size": [
+      19.595630645751953,
+      7.850115537643433,
+      29.525840885192157
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "07_arbeiter",
+    "url": "/models/bastion/07_arbeiter.glb",
+    "bytes": 201204,
+    "size": [
+      5.186688184738159,
+      1.6862176656723022,
+      7.792207270860672
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "08_forschung",
+    "url": "/models/bastion/08_forschung.glb",
+    "bytes": 192668,
+    "size": [
+      5.483871281147003,
+      5.402776479721069,
+      8.82903203368187
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "bastion",
+    "id": "orbital_ring",
+    "url": "/models/bastion/orbital_ring.glb",
+    "bytes": 743272,
+    "size": [
+      160,
+      22.05534076690674,
+      159.99999237060547
+    ],
+    "planetRadius": 37.119998931884766,
+    "clips": [
+      {
+        "name": "BASTION_ORBITAL_LOOP",
+        "duration": 180
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "01_aussenposten",
+    "url": "/models/nexus/01_aussenposten.glb",
+    "bytes": 2037660,
+    "size": [
+      10,
+      4.8849263191223145,
+      8.660252809524536
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "01_korvette",
+    "url": "/models/nexus/01_korvette.glb",
+    "bytes": 2070868,
+    "size": [
+      2.860727548599243,
+      2.301666259765625,
+      6.1806776486337185
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "01_mining_station",
+    "url": "/models/nexus/01_mining_station.glb",
+    "bytes": 2088832,
+    "size": [
+      13.267852034419775,
+      7.238923788070679,
+      13.958889760077
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "02_fregatte",
+    "url": "/models/nexus/02_fregatte.glb",
+    "bytes": 2078168,
+    "size": [
+      4.458380937576294,
+      3.9383418560028076,
+      8.732610687613487
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "02_mining_ring",
+    "url": "/models/nexus/02_mining_ring.glb",
+    "bytes": 2289168,
+    "size": [
+      60.000003814697266,
+      8.936859607696533,
+      60.00000190734863
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "02_sternenbasis",
+    "url": "/models/nexus/02_sternenbasis.glb",
+    "bytes": 2054988,
+    "size": [
+      18,
+      9.927945137023926,
+      18
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "03_dyson_swarm",
+    "url": "/models/nexus/03_dyson_swarm.glb",
+    "bytes": 2691996,
+    "size": [
+      113.16534423828125,
+      159.37423706054688,
+      145.3828582763672
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 120
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "03_festung",
+    "url": "/models/nexus/03_festung.glb",
+    "bytes": 2240408,
+    "size": [
+      24.248714447021484,
+      17.56109046936035,
+      28
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "03_zerstoerer",
+    "url": "/models/nexus/03_zerstoerer.glb",
+    "bytes": 2078164,
+    "size": [
+      6.212789535522461,
+      5.6385273933410645,
+      11.804299041628838
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "04_kreuzer",
+    "url": "/models/nexus/04_kreuzer.glb",
+    "bytes": 2083436,
+    "size": [
+      14.33787727355957,
+      8.860106468200684,
+      15.862219586968422
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "04_mega_shipyard",
+    "url": "/models/nexus/04_mega_shipyard.glb",
+    "bytes": 2233124,
+    "size": [
+      60.283023834228516,
+      21.196510314941406,
+      89.99999618530273
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "04_zitadelle",
+    "url": "/models/nexus/04_zitadelle.glb",
+    "bytes": 2350472,
+    "size": [
+      40,
+      31.498209238052368,
+      40.00000190734863
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "05_abwehrplattform",
+    "url": "/models/nexus/05_abwehrplattform.glb",
+    "bytes": 2131092,
+    "size": [
+      9.000637500166892,
+      5.732917785644531,
+      9.000637500166892
+    ],
+    "clips": [
+      {
+        "name": "Fire",
+        "duration": 2
+      },
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "05_construction_level_0",
+    "url": "/models/nexus/05_construction_level_0.glb",
+    "bytes": 2145512,
+    "size": [
+      35,
+      12.622824430465698,
+      33.636868476867676
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "05_schlachtschiff",
+    "url": "/models/nexus/05_schlachtschiff.glb",
+    "bytes": 2104684,
+    "size": [
+      18.236597061157227,
+      11.680398941040039,
+      21.44660919904709
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "06_artillerieplattform",
+    "url": "/models/nexus/06_artillerieplattform.glb",
+    "bytes": 2076964,
+    "size": [
+      9.137845039367676,
+      9.071257591247559,
+      14.464990526050329
+    ],
+    "clips": [
+      {
+        "name": "Fire",
+        "duration": 2
+      },
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "06_titan",
+    "url": "/models/nexus/06_titan.glb",
+    "bytes": 2155728,
+    "size": [
+      25.4945068359375,
+      19.18663787841797,
+      29.56654465198517
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "07_arbeiter",
+    "url": "/models/nexus/07_arbeiter.glb",
+    "bytes": 2103336,
+    "size": [
+      4.927110970020294,
+      4.434332370758057,
+      7.776497408747673
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "08_forschung",
+    "url": "/models/nexus/08_forschung.glb",
+    "bytes": 2058332,
+    "size": [
+      10.114710807800293,
+      6.559544086456299,
+      8.779632732272148
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "nexus",
+    "id": "orbital_ring",
+    "url": "/models/nexus/orbital_ring.glb",
+    "bytes": 2276420,
+    "size": [
+      160,
+      159.00108337402344,
+      159.00108337402344
+    ],
+    "planetRadius": 45.96611022949219,
+    "clips": [
+      {
+        "name": "NEXUS_ORBITAL_LOOP",
+        "duration": 90
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "01_aussenposten",
+    "url": "/models/parallax/01_aussenposten.glb",
+    "bytes": 611440,
+    "size": [
+      9.067388653755188,
+      2.6727156937122345,
+      9.999999523162842
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "01_korvette",
+    "url": "/models/parallax/01_korvette.glb",
+    "bytes": 589716,
+    "size": [
+      1.0606088116765022,
+      0.7100695073604584,
+      6.153004206717014
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "01_mining_station",
+    "url": "/models/parallax/01_mining_station.glb",
+    "bytes": 747784,
+    "size": [
+      12.975213050842285,
+      4.863760948181152,
+      14.003832202404737
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "02_fregatte",
+    "url": "/models/parallax/02_fregatte.glb",
+    "bytes": 625364,
+    "size": [
+      4.673385739326477,
+      2.1662183105945587,
+      8.69221368059516
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "02_mining_ring",
+    "url": "/models/parallax/02_mining_ring.glb",
+    "bytes": 1334920,
+    "size": [
+      60.015056133270264,
+      4.956946134567261,
+      60.01365041732788
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "02_sternenbasis",
+    "url": "/models/parallax/02_sternenbasis.glb",
+    "bytes": 708608,
+    "size": [
+      17.999998807907104,
+      7.469032168388367,
+      17.99999737739563
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "03_dyson_swarm",
+    "url": "/models/parallax/03_dyson_swarm.glb",
+    "bytes": 1176136,
+    "size": [
+      113.94641876220703,
+      160.02172088623047,
+      146.21622467041016
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 120
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "03_festung",
+    "url": "/models/parallax/03_festung.glb",
+    "bytes": 887088,
+    "size": [
+      27.999999046325684,
+      13.219424486160278,
+      24.248711824417114
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "03_zerstoerer",
+    "url": "/models/parallax/03_zerstoerer.glb",
+    "bytes": 642196,
+    "size": [
+      6.42255038022995,
+      2.28901144862175,
+      11.754103779792786
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "04_kreuzer",
+    "url": "/models/parallax/04_kreuzer.glb",
+    "bytes": 697820,
+    "size": [
+      11.06175410747528,
+      3.5416679978370667,
+      15.84248711168766
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "04_mega_shipyard",
+    "url": "/models/parallax/04_mega_shipyard.glb",
+    "bytes": 1105740,
+    "size": [
+      66.82014846801758,
+      13.833492755889893,
+      90.01848077774048
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "04_zitadelle",
+    "url": "/models/parallax/04_zitadelle.glb",
+    "bytes": 1237152,
+    "size": [
+      40.029417991638184,
+      22.204885721206665,
+      40.02534627914429
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "05_abwehrplattform",
+    "url": "/models/parallax/05_abwehrplattform.glb",
+    "bytes": 645344,
+    "size": [
+      9.00000011920929,
+      1.78035169839859,
+      8.23684549331665
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "05_construction_level_0",
+    "url": "/models/parallax/05_construction_level_0.glb",
+    "bytes": 799764,
+    "size": [
+      35.03587794303894,
+      9.449431717395782,
+      34.647765159606934
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "05_schlachtschiff",
+    "url": "/models/parallax/05_schlachtschiff.glb",
+    "bytes": 734812,
+    "size": [
+      14.869654655456543,
+      3.785363256931305,
+      21.407613694667816
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "06_artillerieplattform",
+    "url": "/models/parallax/06_artillerieplattform.glb",
+    "bytes": 636960,
+    "size": [
+      10.560823440551758,
+      3.3126381635665894,
+      13.980947732925415
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "06_titan",
+    "url": "/models/parallax/06_titan.glb",
+    "bytes": 865604,
+    "size": [
+      19.682425022125244,
+      9.212850093841553,
+      29.537723541259766
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "07_arbeiter",
+    "url": "/models/parallax/07_arbeiter.glb",
+    "bytes": 689196,
+    "size": [
+      6.501674175262451,
+      1.6732221990823746,
+      7.7388375252485275
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "08_forschung",
+    "url": "/models/parallax/08_forschung.glb",
+    "bytes": 652048,
+    "size": [
+      13.20401906967163,
+      8.05629014968872,
+      8.826152467168868
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "parallax",
+    "id": "orbital_ring",
+    "url": "/models/parallax/orbital_ring.glb",
+    "bytes": 980468,
+    "size": [
+      160.0821304321289,
+      50.13267707824707,
+      150.87158966064453
+    ],
+    "planetRadius": 41.08761978149414,
+    "clips": [
+      {
+        "name": "PARALLAX_ORBITAL_LOOP",
+        "duration": 120
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "01_aussenposten",
+    "url": "/models/prisma/01_aussenposten.glb",
+    "bytes": 23308,
+    "size": [
+      10,
+      2.3792530447244644,
+      8.66025161743164
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "01_korvette",
+    "url": "/models/prisma/01_korvette.glb",
+    "bytes": 54416,
+    "size": [
+      2.1047472953796387,
+      0.8400000333786011,
+      6.5529032064676285
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "01_mining_station",
+    "url": "/models/prisma/01_mining_station.glb",
+    "bytes": 46684,
+    "size": [
+      13.492220841348171,
+      5.545617699623108,
+      14.00000013038516
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "02_fregatte",
+    "url": "/models/prisma/02_fregatte.glb",
+    "bytes": 57520,
+    "size": [
+      4.520130634307861,
+      1.190000057220459,
+      9.305957967564463
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "02_mining_ring",
+    "url": "/models/prisma/02_mining_ring.glb",
+    "bytes": 99764,
+    "size": [
+      60,
+      3.5777602195739746,
+      60
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "02_sternenbasis",
+    "url": "/models/prisma/02_sternenbasis.glb",
+    "bytes": 89112,
+    "size": [
+      18.000000953674316,
+      4.006046772003174,
+      18
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "03_dyson_swarm",
+    "url": "/models/prisma/03_dyson_swarm.glb",
+    "bytes": 220512,
+    "size": [
+      112.89404296875,
+      160,
+      145.6861114501953
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 120
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "03_festung",
+    "url": "/models/prisma/03_festung.glb",
+    "bytes": 168688,
+    "size": [
+      24.248714447021484,
+      6.876923203468323,
+      28
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "03_zerstoerer",
+    "url": "/models/prisma/03_zerstoerer.glb",
+    "bytes": 58988,
+    "size": [
+      6.253959655761719,
+      1.60999995470047,
+      12.621600985527039
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "04_kreuzer",
+    "url": "/models/prisma/04_kreuzer.glb",
+    "bytes": 75316,
+    "size": [
+      12.987190246582031,
+      2.2320000529289246,
+      17.00687313079834
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "04_mega_shipyard",
+    "url": "/models/prisma/04_mega_shipyard.glb",
+    "bytes": 126484,
+    "size": [
+      62.99999237060547,
+      15.651817321777344,
+      89.99999618530273
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "04_zitadelle",
+    "url": "/models/prisma/04_zitadelle.glb",
+    "bytes": 225912,
+    "size": [
+      40,
+      13.083333373069763,
+      40
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "05_abwehrplattform",
+    "url": "/models/prisma/05_abwehrplattform.glb",
+    "bytes": 30792,
+    "size": [
+      9,
+      2.105403706431389,
+      8.194868326187134
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "05_construction_level_0",
+    "url": "/models/prisma/05_construction_level_0.glb",
+    "bytes": 57996,
+    "size": [
+      35.00000190734863,
+      10.975982189178467,
+      34.95649719238281
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "05_schlachtschiff",
+    "url": "/models/prisma/05_schlachtschiff.glb",
+    "bytes": 78188,
+    "size": [
+      19.00226402282715,
+      3.3348641395568848,
+      23.4808292388916
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "06_artillerieplattform",
+    "url": "/models/prisma/06_artillerieplattform.glb",
+    "bytes": 22892,
+    "size": [
+      10.111109733581543,
+      3.5408331155776978,
+      13.999998569488525
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "06_titan",
+    "url": "/models/prisma/06_titan.glb",
+    "bytes": 79628,
+    "size": [
+      26.83763885498047,
+      4.495919108390808,
+      32.50959587097168
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "07_arbeiter",
+    "url": "/models/prisma/07_arbeiter.glb",
+    "bytes": 51760,
+    "size": [
+      5.778449296951294,
+      1.7453465461730957,
+      8.561058759689331
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "08_forschung",
+    "url": "/models/prisma/08_forschung.glb",
+    "bytes": 30904,
+    "size": [
+      4.2683281898498535,
+      0.9389999508857727,
+      9.436479687690735
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "prisma",
+    "id": "orbital_ring",
+    "url": "/models/prisma/orbital_ring.glb",
+    "bytes": 59268,
+    "size": [
+      158.7706298828125,
+      13.154990434646606,
+      160
+    ],
+    "planetRadius": 36.54244613647461,
+    "clips": [
+      {
+        "name": "PRISMA_ORBITAL_LOOP",
+        "duration": 90
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "01_aussenposten",
+    "url": "/models/vektor/01_aussenposten.glb",
+    "bytes": 34944,
+    "size": [
+      8.811771988868713,
+      1.309277892112732,
+      8.741889476776123
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "01_korvette",
+    "url": "/models/vektor/01_korvette.glb",
+    "bytes": 85952,
+    "size": [
+      2.4248437881469727,
+      0.29789207875728607,
+      6.792968627989293
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "01_mining_station",
+    "url": "/models/vektor/01_mining_station.glb",
+    "bytes": 239852,
+    "size": [
+      12.160814568400383,
+      4.867788255214691,
+      12.6174471154809
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "02_fregatte",
+    "url": "/models/vektor/02_fregatte.glb",
+    "bytes": 108644,
+    "size": [
+      2.436122417449951,
+      0.5419515073299408,
+      9.611694122746588
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "02_mining_ring",
+    "url": "/models/vektor/02_mining_ring.glb",
+    "bytes": 547996,
+    "size": [
+      59.720855712890625,
+      6.0815465450286865,
+      59.72085189819336
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "02_sternenbasis",
+    "url": "/models/vektor/02_sternenbasis.glb",
+    "bytes": 41236,
+    "size": [
+      16.919137716293335,
+      2.3567795753479004,
+      16.919137477874756
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "03_dyson_swarm",
+    "url": "/models/vektor/03_dyson_swarm.glb",
+    "bytes": 2490236,
+    "size": [
+      113.5616455078125,
+      159.9614715576172,
+      146.75616455078125
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 120
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "03_festung",
+    "url": "/models/vektor/03_festung.glb",
+    "bytes": 53596,
+    "size": [
+      24.238708019256592,
+      3.66611647605896,
+      26.556191444396973
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "03_zerstoerer",
+    "url": "/models/vektor/03_zerstoerer.glb",
+    "bytes": 117588,
+    "size": [
+      6.8007659912109375,
+      1.3577063933312892,
+      12.998051285743713
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "04_kreuzer",
+    "url": "/models/vektor/04_kreuzer.glb",
+    "bytes": 147112,
+    "size": [
+      18.520751953125,
+      0.9150878190994263,
+      17.51962983608246
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "04_mega_shipyard",
+    "url": "/models/vektor/04_mega_shipyard.glb",
+    "bytes": 84728,
+    "size": [
+      59.680795669555664,
+      8.009862184524536,
+      83.59812355041504
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "04_zitadelle",
+    "url": "/models/vektor/04_zitadelle.glb",
+    "bytes": 114064,
+    "size": [
+      39.61394739151001,
+      11.719512939453125,
+      39.61395502090454
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "05_abwehrplattform",
+    "url": "/models/vektor/05_abwehrplattform.glb",
+    "bytes": 42648,
+    "size": [
+      9.062580754637718,
+      1.1783955097198486,
+      8.365561807960272
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "05_construction_level_0",
+    "url": "/models/vektor/05_construction_level_0.glb",
+    "bytes": 125360,
+    "size": [
+      36.69991731643677,
+      7.014427243053913,
+      35.45039415359497
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "05_schlachtschiff",
+    "url": "/models/vektor/05_schlachtschiff.glb",
+    "bytes": 180492,
+    "size": [
+      19.816631317138672,
+      5.326566457748413,
+      23.712208032608032
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "06_artillerieplattform",
+    "url": "/models/vektor/06_artillerieplattform.glb",
+    "bytes": 82316,
+    "size": [
+      6.570950508117676,
+      4.412343014538288,
+      14.184533728986978
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 24
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "06_titan",
+    "url": "/models/vektor/06_titan.glb",
+    "bytes": 208676,
+    "size": [
+      24.94873046875,
+      9.59009374409914,
+      32.719645977020264
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Fire",
+        "duration": 2
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "07_arbeiter",
+    "url": "/models/vektor/07_arbeiter.glb",
+    "bytes": 124564,
+    "size": [
+      3.89372181892395,
+      1.9766348004341125,
+      7.64667147397995
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "08_forschung",
+    "url": "/models/vektor/08_forschung.glb",
+    "bytes": 64992,
+    "size": [
+      7.7960134744644165,
+      5.806279957294464,
+      9.356257021427155
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 12
+      },
+      {
+        "name": "Operate",
+        "duration": 8
+      }
+    ]
+  },
+  {
+    "set": "vektor",
+    "id": "orbital_ring",
+    "url": "/models/vektor/orbital_ring.glb",
+    "bytes": 39680,
+    "size": [
+      142.91474533081055,
+      10.651228904724121,
+      158.0526885986328
+    ],
+    "planetRadius": 27.33440589904785,
+    "clips": [
+      {
+        "name": "VEKTOR_ORBITAL_LOOP",
+        "duration": 120
+      }
+    ]
+  }
+]

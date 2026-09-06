@@ -3,6 +3,7 @@ import { db } from './tables';
 import { gamePlayer, gameEvent, gameOffer, gameStory, gameCrisisPledge, gameSite } from './game-tables';
 import { visibleSystems } from './rules';
 import { flagForEmpire } from '../../shared/flags';
+import { shipSetFor } from '../../shared/shipSets';
 
 export const visibleGameSites = db.view(
   { name: 'visible_game_sites', public: true },
@@ -105,6 +106,7 @@ export const gamePlayers = db.view(
       homeId: t.u32(),
       colonies: t.u32(),
       flagJson: t.string(),
+      shipSet: t.string(),
     }),
   ),
   (ctx) =>
@@ -114,6 +116,7 @@ export const gamePlayers = db.view(
       homeId: p.homeId,
       colonies: [...ctx.db.colony.empireId.filter(p.id)].length,
       flagJson: JSON.stringify(flagForEmpire(JSON.parse(p.empireJson).design)),
+      shipSet: shipSetFor(JSON.parse(p.empireJson).design),
     })),
 );
 export const gameIntel = db.view(
@@ -162,6 +165,7 @@ export const gameFleetInfo = db.view(
   { name: 'game_fleet_info', public: true },
   t.array(
     t.row('GameFleetInfoRow', {
+      navigationJson: t.string(),
       id: t.u32().primaryKey(),
       externalId: t.string(),
       kind: t.string(),
@@ -182,9 +186,20 @@ export const gameFleetInfo = db.view(
       const r = ctx.db.gameFleet.id.find(f.id);
       if (!r) return [];
       const condition = ctx.db.gameFleetCondition.id.find(f.id);
+      const nav = ctx.db.gameNavigation.id.find(f.id);
       return [
         {
           id: f.id,
+          navigationJson: nav
+            ? JSON.stringify({
+                motion: JSON.parse(nav.motionJson),
+                orders: f.empireId === m.empireId ? JSON.parse(nav.ordersJson) : [],
+                phase: f.empireId === m.empireId ? nav.phase : '',
+                visited: f.empireId === m.empireId ? nav.visited : [],
+                targetSlot: f.empireId === m.empireId ? nav.targetSlot : 0,
+                totalBodies: f.empireId === m.empireId ? nav.totalBodies : 0,
+              })
+            : '',
           externalId: r.externalId,
           kind: r.kind,
           lastSystemId: r.lastSystemId,

@@ -1,6 +1,7 @@
 import { DbConnection } from './module_bindings';
 import { setGlobalLogLevel } from 'spacetimedb';
 import { OrderedReceiver, receiveStats, type ReceiveStats } from './transport';
+import { ClientClock } from './client-clock';
 
 setGlobalLogLevel('warn');
 export const GALAXY_QUERIES = [
@@ -39,6 +40,7 @@ export interface Client {
   token: string;
   identity: string;
   traffic: Traffic;
+  clock: ClientClock;
 }
 type WSFactory = Parameters<ReturnType<typeof DbConnection.builder>['withWSFn']>[0];
 
@@ -121,6 +123,9 @@ export function connect(
 ): Promise<Client> {
   return new Promise((resolve, reject) => {
     const traffic = { ...receiveStats(), receivedBytes: 0, sentBytes: 0, frames: 0, connectedAt: 0 };
+    const clock = new ClientClock();
+    let clockTimer: ReturnType<typeof setTimeout> | undefined;
+    let closed = false;
     const timeout = setTimeout(() => {
       conn.disconnect();
       reject(new Error('Connection timed out'));
@@ -134,13 +139,36 @@ export function connect(
       .withWSFn(meteredTransport(traffic))
       .onConnect((conn, identity, token) => {
         clearTimeout(timeout);
-        resolve({ conn, token, identity: identity.toHexString(), traffic });
+        const observe = () => {
+          const row = conn.db.clock.iter().next().value;
+          if (row) clock.observe(row);
+        };
+        conn.db.clock.onInsert(observe);
+        conn.db.clock.onUpdate(observe);
+        let probes = 0;
+        const probe = async () => {
+          const sent = performance.now();
+          try {
+            const sample = await conn.procedures.sampleClock({});
+            if (!closed) clock.sample(sample, sent);
+          } catch {
+            /* Old modules can still connect until their rolling update. */
+          }
+          if (!closed) clockTimer = setTimeout(probe, ++probes < 4 ? 500 : 10000);
+        };
+        void probe();
+        resolve({ conn, token, identity: identity.toHexString(), traffic, clock });
       })
       .onConnectError((_ctx, error) => {
         clearTimeout(timeout);
         reject(error);
       })
-      .onDisconnect(() => options.onDisconnect?.())
+      .onDisconnect(() => {
+        closed = true;
+        clearTimeout(clockTimer);
+        clock.freeze();
+        options.onDisconnect?.();
+      })
       .build();
   });
 }

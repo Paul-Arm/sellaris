@@ -12,6 +12,7 @@ import { checkCompactBattle } from '../battle-snapshot';
 import { GAME_QUERIES, gameView } from '../game-client';
 import { addPlayer, createGame, command } from '../../shared/game';
 import { randomBytes } from 'node:crypto';
+import { SystemSubscription } from '../system-subscription';
 const ALL_DETAIL_QUERIES = [
   ...DETAIL_QUERIES,
   'SELECT * FROM battle_participants',
@@ -147,6 +148,8 @@ test(
         owner = addPlayer(source, 'persisted-player', 'Durable');
       source.paused = true;
       source.tick = 30;
+      owner.techs.push('terraforming');
+      owner.resources = { energy: 5000, minerals: 5000, science: 5000 };
       addPlayer(source, 'trade-peer', 'Trade peer');
       command(source, owner.id, { type: 'research', tech: 'extraction' });
       command(source, owner.id, { type: 'move', fleetId: source.fleets[0].id, systemId: 's1' });
@@ -194,6 +197,42 @@ test(
           receive: { energy: 0, minerals: 10, science: 0 },
         }),
       });
+      const objectHome = [...gameClient.conn.db.myGamePlayer.iter()][0].homeId;
+      await new SystemSubscription(gameClient).focus(objectHome);
+      await gameClient.conn.reducers.renameBody({
+        objectId: `${objectHome}:2`,
+        revision: 1,
+        name: 'Beständigkeit',
+      });
+      const objectSnapshot = [...gameClient.conn.db.focusedSystemObjects.iter()].sort(
+        (a, b) => a.slot - b.slot,
+      );
+      await gameClient.conn.reducers.startTerraforming({
+        objectId: `${objectHome}:3`,
+        revision: 1,
+        target: 'continental',
+      });
+      const terraformSnapshot = [...gameClient.conn.db.myTerraformProjects.iter()];
+      const localFleet = gameView(gameClient)!.fleets.find(
+        (f) => f.owner === owner.id && f.type === 'corvette',
+      )!;
+      await gameClient.conn.reducers.gameCommand({
+        commandJson: JSON.stringify({
+          type: 'local_move',
+          fleetId: localFleet.id,
+          systemId: localFleet.systemId,
+          point: { x: 600, y: 100, z: 400 },
+        }),
+      });
+      await gameClient.conn.reducers.gameCommand({
+        commandJson: JSON.stringify({
+          type: 'local_move',
+          fleetId: localFleet.id,
+          systemId: localFleet.systemId,
+          point: { x: -600, y: 200, z: 400 },
+          append: true,
+        }),
+      });
       const gameSnapshot = gameView(gameClient)!;
       await stop();
       await start();
@@ -228,6 +267,17 @@ test(
       clients.push(gameResumed);
       await subscribe(gameResumed.conn, GAME_QUERIES);
       assert.equal(gameResumed.identity, gameClient.identity);
+      assert.deepEqual(
+        [...gameResumed.conn.db.myTerraformProjects.iter()],
+        terraformSnapshot,
+        'paid terraforming projects and deadlines survive database restart',
+      );
+      await new SystemSubscription(gameResumed).focus(objectHome);
+      assert.deepEqual(
+        [...gameResumed.conn.db.focusedSystemObjects.iter()].sort((a, b) => a.slot - b.slot),
+        objectSnapshot,
+        'stored bodies, names, revisions and parent references survive an abrupt restart',
+      );
       assert.deepEqual(gameView(gameResumed)!.me, gameSnapshot.me);
       assert.deepEqual(gameView(gameResumed)!.fleets, gameSnapshot.fleets);
       assert.equal(gameView(gameResumed)!.tick, gameSnapshot.tick);

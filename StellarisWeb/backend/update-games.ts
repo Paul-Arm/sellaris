@@ -35,6 +35,8 @@ for (const entry of entries) {
     process.env.SPACETIME_HTTP || 'http://127.0.0.1:3100',
     '--js-path',
     'spacetimedb/dist/bundle.js',
+    '--delete-data=never',
+    ...(process.argv.includes('--break-clients') ? ['--break-clients'] : []),
     '--yes=skip-login',
   ]);
   const after = await connect(entry.database, { uri: process.env.SPACETIME_WS, token: adminToken() });

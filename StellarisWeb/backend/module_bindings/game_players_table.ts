@@ -16,4 +16,5 @@ export default __t.row({
   homeId: __t.u32().name("home_id"),
   colonies: __t.u32(),
   flagJson: __t.string().name("flag_json"),
+  shipSet: __t.string().name("ship_set"),
 });

@@ -9,12 +9,14 @@ import {
   type ShipType,
   type TechId,
 } from '../../shared/game';
-import { empireModifiers, type EmpireState } from '../../shared/empireState';
+import { empireModifiers, populationGrowth, type EmpireState } from '../../shared/empireState';
+import { environmentForPlanet } from '../../shared/empires';
 import { type Context, type ReadContext } from './tables';
 import { NEVER, now, tickAt } from './rules';
 import { atWar } from './game-relations';
 import { productionFactor } from './game-crisis-state';
 import { facilityYield, type Facility } from '../../shared/celestial';
+import { syncPrimaryObjects } from './game-objects';
 
 export const dueJobs = (at: number) =>
   new Range<bigint>({ tag: 'included', value: 0n }, { tag: 'included', value: tickAt(at) });
@@ -146,10 +148,20 @@ export function commandModel(ctx: Context, owner: number): GameState {
   };
 }
 export function updateColony(ctx: Context, id: number, colony: Colony | null, owner: number) {
+  syncPrimaryObjects(ctx, id);
   const m = ctx.db.gameSystem.id.find(id)!;
   ctx.db.gameSystem.id.update({ ...m, colonyJson: colony ? JSON.stringify(colony) : '' });
   for (const c of ctx.db.cohort.colonyId.filter(id)) ctx.db.cohort.id.delete(c.id);
   if (!colony) {
+    for (const project of [...ctx.db.gameTerraform.systemId.filter(id)]) {
+      ctx.db.gameTerraform.id.delete(project.id);
+      event(
+        ctx,
+        project.empireId,
+        'Terraforming durch Verlust des Systems beendet; Kosten verloren.',
+        'warning',
+      );
+    }
     ctx.db.colony.id.delete(id);
     return;
   }

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { travelProgress } from '../shared/time';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Crosshair, Layers3, Minus, Plus, Orbit, Scan, Search, X, Hexagon } from 'lucide-react';
 import type { Fleet, GameView, StarSystem } from '../shared/game';
@@ -85,9 +86,13 @@ export function GalaxyMap(props: Props) {
   const sample = useRef({ game: props.game, at: performance.now() });
   if (sample.current.game !== props.game) sample.current = { game: props.game, at: performance.now() };
   const [size, setSize] = useState({ width: 1000, height: 800 });
-  const [camera, setCamera] = useState(initialCamera);
+  const [camera, setCameraState] = useState(initialCamera);
   const cameraRef = useRef(camera);
-  cameraRef.current = camera;
+  const setCamera = (next: typeof camera | ((c: typeof camera) => typeof camera)) => {
+    cameraRef.current = typeof next === 'function' ? next(cameraRef.current) : next;
+    setCameraState(cameraRef.current);
+  };
+  const hitTargets = useRef(new Map<string, HTMLButtonElement>());
   const [contours, setContours] = useState(true);
   const contourRef = useRef(contours);
   contourRef.current = contours;
@@ -97,7 +102,10 @@ export function GalaxyMap(props: Props) {
   const [borders, setBorders] = useState(true);
   const borderRef = useRef(borders);
   borderRef.current = borders;
-  const geometryKey = props.game.systems.map((s) => [s.id, s.x, s.y].join(':')).join('|');
+  const geometryKey = useMemo(
+    () => props.game.systems.map((s) => [s.id, s.x, s.y].join(':')).join('|'),
+    [props.game.systems],
+  );
   const [search, setSearch] = useState('');
   const [webgl, setWebgl] = useState(true);
   const drag = useRef<{ x: number; y: number; cx: number; cy: number; moved: boolean } | null>(null);
@@ -182,10 +190,12 @@ export function GalaxyMap(props: Props) {
     renderer.setSize(size.width, size.height, false);
     let frame = 0;
     let last = 0;
+    let lastCamera = cameraRef.current;
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     function render(now: number) {
       frame = requestAnimationFrame(render);
-      if (document.hidden || now - last < 33) return;
+      if (document.hidden || (now - last < 33 && lastCamera === cameraRef.current)) return;
+      lastCamera = cameraRef.current;
       last = now;
       const c = cameraRef.current;
       uniforms.center.value.set(c.x, c.y);
@@ -217,18 +227,41 @@ export function GalaxyMap(props: Props) {
       a: random(i * 7 + 3) * 0.6 + 0.1,
     }));
     let frame = 0;
-    let last = 0;
+    let positionedCamera: typeof cameraRef.current | undefined;
+    let positionedSystems: GameView['systems'] | undefined;
+    let indexedSystems: GameView['systems'] | undefined, indexedPlayers: GameView['players'] | undefined;
+    let systemIndex = new Map<string, StarSystem>(),
+      playerIndex = new Map<string, GameView['players'][number]>();
+    let ownership = '';
+    let exclusions: { x: number; y: number; width: number; height: number }[] = [];
+    let exclusionsDirty = true,
+      exclusionVersion = 0;
+    const observedExclusions = new Set<Element>();
+    const exclusionObserver = new ResizeObserver(() => {
+      exclusionsDirty = true;
+    });
+    const mutations = new MutationObserver(() => {
+      exclusionsDirty = true;
+    });
+    mutations.observe(container.current!.parentElement!, { childList: true, subtree: true });
+    let lastReadout = 0;
     let territoryKey = '',
       territories: Territory[] = [];
     let labelKey = '',
       labels: LabelPlacement[] = [];
     function render(now: number) {
       frame = requestAnimationFrame(render);
-      if (document.hidden || now - last < 33) return;
-      last = now;
+      if (document.hidden) return;
       const { game, selected, fleetId, mode } = latest.current;
-      const systemIndex = new Map(game.systems.map((s) => [s.id, s]));
-      const playerIndex = new Map(game.players.map((p) => [p.id, p]));
+      if (indexedSystems !== game.systems) {
+        indexedSystems = game.systems;
+        systemIndex = new Map(game.systems.map((s) => [s.id, s]));
+        ownership = game.systems.map((s) => [s.id, s.x, s.y, s.owner].join(':')).join('|');
+      }
+      if (indexedPlayers !== game.players) {
+        indexedPlayers = game.players;
+        playerIndex = new Map(game.players.map((p) => [p.id, p]));
+      }
       const dense = game.systems.length > 100;
       const c = cameraRef.current;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -255,24 +288,64 @@ export function GalaxyMap(props: Props) {
         return;
       }
       if (!webgl) drawFallback(ctx, game.systems, now, contourRef.current);
-      const ownership = game.systems.map((s) => [s.id, s.x, s.y, s.owner].join(':')).join('|');
+
       if (ownership !== territoryKey) {
         territories = buildTerritories(game.systems);
         territoryKey = ownership;
       }
       if (borderRef.current) drawTerritories(ctx, territories, playerIndex, c.zoom);
-      const mapRect = canvas.getBoundingClientRect();
-      const exclusions = Array.from(
-        container.current!.parentElement!.querySelectorAll(
-          '.left-panel,.right-panel,.time-control,.fleet-command,.map-toolbar,.system-search,.paused-label',
-        ),
-      )
-        .map((el) => el.getBoundingClientRect())
-        .filter((r) => r.width && r.height)
-        .map((r) => ({ x: r.left - mapRect.left, y: r.top - mapRect.top, width: r.width, height: r.height }));
+      if (exclusionsDirty) {
+        exclusionsDirty = false;
+        exclusionVersion++;
+        const mapRect = canvas.getBoundingClientRect();
+        const panels = new Set(
+          container.current!.parentElement!.querySelectorAll(
+            '.left-panel,.right-panel,.time-control,.fleet-command,.map-toolbar,.system-search,.paused-label',
+          ),
+        );
+        for (const el of observedExclusions) {
+          if (panels.has(el)) continue;
+          exclusionObserver.unobserve(el);
+          observedExclusions.delete(el);
+        }
+        for (const el of panels) {
+          if (observedExclusions.has(el)) continue;
+          exclusionObserver.observe(el);
+          observedExclusions.add(el);
+        }
+        exclusions = [...panels]
+          .map((el) => el.getBoundingClientRect())
+          .filter((r) => r.width && r.height)
+          .map((r) => ({
+            x: r.left - mapRect.left,
+            y: r.top - mapRect.top,
+            width: r.width,
+            height: r.height,
+          }));
+      }
+      if (positionedCamera !== c || positionedSystems !== game.systems) {
+        positionedCamera = c;
+        positionedSystems = game.systems;
+        for (const [id, button] of hitTargets.current) {
+          const system = systemIndex.get(id);
+          if (!system) continue;
+          const x = (system.x - c.x) * c.zoom + size.width / 2,
+            y = (system.y - c.y) * c.zoom + size.height / 2;
+          const visible = x > -30 && y > -30 && x < size.width + 30 && y < size.height + 30;
+          button.hidden = !visible;
+          if (visible) {
+            button.style.left = `${x}px`;
+            button.style.top = `${y}px`;
+          }
+        }
+      }
+      if (now - lastReadout > 150) {
+        setCameraState(c);
+        lastReadout = now;
+      }
       const nextLabelKey = [
         ownership,
-        JSON.stringify(exclusions),
+        exclusionVersion,
         c.x,
         c.y,
         c.zoom,
@@ -295,21 +368,36 @@ export function GalaxyMap(props: Props) {
         );
         labelKey = nextLabelKey;
       }
-      for (const [a, b] of game.links) {
-        const s = systemIndex.get(a)!,
-          t = systemIndex.get(b)!;
-        const active = a === selected || b === selected;
-        ctx.strokeStyle = active
+      const left = c.x - size.width / (2 * c.zoom),
+        right = c.x + size.width / (2 * c.zoom);
+      const top = c.y - size.height / (2 * c.zoom),
+        bottom = c.y + size.height / (2 * c.zoom);
+      for (const highlighted of [false, true]) {
+        ctx.strokeStyle = highlighted
           ? '#b9aaeb90'
           : c.zoom < 0.65
             ? '#8493b013'
             : c.zoom < 1.2
               ? '#8493b027'
               : '#8493b038';
-        ctx.lineWidth = (active ? 1.1 : 0.7) / c.zoom;
+        ctx.lineWidth = (highlighted ? 1.1 : 0.7) / c.zoom;
         ctx.beginPath();
-        ctx.moveTo(s.x, s.y);
-        ctx.lineTo(t.x, t.y);
+        for (const [a, b] of game.links) {
+          if ((a === selected || b === selected) !== highlighted) continue;
+          const s = systemIndex.get(a),
+            t = systemIndex.get(b);
+          if (
+            !s ||
+            !t ||
+            Math.max(s.x, t.x) < left ||
+            Math.min(s.x, t.x) > right ||
+            Math.max(s.y, t.y) < top ||
+            Math.min(s.y, t.y) > bottom
+          )
+            continue;
+          ctx.moveTo(s.x, s.y);
+          ctx.lineTo(t.x, t.y);
+        }
         ctx.stroke();
       }
       for (const s of game.systems) {
@@ -416,13 +504,19 @@ export function GalaxyMap(props: Props) {
       for (const f of game.fleets) {
         const offset = stationaryCounts.get(f.systemId) || 0;
         if (!f.route.length) stationaryCounts.set(f.systemId, offset + 1);
-        const elapsed = game.paused ? 0 : Math.max(0, (now - sample.current.at) / 1000) * game.speed;
+        const elapsed =
+          game.displayClock?.now(now) ??
+          game.tick + (game.paused ? 0 : Math.max(0, (now - sample.current.at) / 1000) * game.speed);
         drawFleet(ctx, f, offset, systemIndex, playerIndex, c.zoom, f.id === fleetId, elapsed);
       }
       ctx.restore();
     }
     frame = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      exclusionObserver.disconnect();
+      mutations.disconnect();
+    };
   }, [size, webgl]);
   function screen(s: StarSystem) {
     return {
@@ -454,18 +548,25 @@ export function GalaxyMap(props: Props) {
       aria-label="Interaktive Sternenkarte"
       onPointerDown={(e) => {
         if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
-        drag.current = { x: e.clientX, y: e.clientY, cx: camera.x, cy: camera.y, moved: false };
+        drag.current = {
+          x: e.clientX,
+          y: e.clientY,
+          cx: cameraRef.current.x,
+          cy: cameraRef.current.y,
+          moved: false,
+        };
         e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
         const d = drag.current;
         if (!d) return;
         d.moved = true;
-        setCamera((c) => ({
+        const c = cameraRef.current;
+        cameraRef.current = {
           ...c,
           x: Math.max(-100, Math.min(1750, d.cx - (e.clientX - d.x) / c.zoom)),
           y: Math.max(-100, Math.min(1200, d.cy - (e.clientY - d.y) / c.zoom)),
-        }));
+        };
       }}
       onPointerUp={() => {
         drag.current = null;
@@ -526,35 +627,32 @@ export function GalaxyMap(props: Props) {
         </div>
       )}
       {props.mode === 'galaxy' &&
-        props.game.systems
-          .filter(
-            (s) =>
-              Math.abs((s.x - camera.x) * camera.zoom) < size.width / 2 + 30 &&
-              Math.abs((s.y - camera.y) * camera.zoom) < size.height / 2 + 30,
-          )
-          .map((s) => (
-            <button
-              key={s.id}
-              className={`star-hit ${isLandmark(s) ? 'anomaly-hit' : ''}`}
-              style={{
-                ...screen(s),
-                ...(!isLandmark(s) && props.game.systems.length > 100 ? { width: 18, height: 18 } : {}),
-              }}
-              aria-label={`System ${s.name}`}
-              title={s.name}
-              onMouseEnter={() => setHover(s.id)}
-              onMouseLeave={() => setHover(null)}
-              onClick={() => props.onSelect(s.id)}
-              onDoubleClick={() => {
-                props.onSelect(s.id);
-                props.setMode('system');
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                props.onMove(s.id);
-              }}
-            />
-          ))}
+        props.game.systems.map((s) => (
+          <button
+            key={s.id}
+            ref={(el) => {
+              if (el) hitTargets.current.set(s.id, el);
+              else hitTargets.current.delete(s.id);
+            }}
+            className={`star-hit ${isLandmark(s) ? 'anomaly-hit' : ''}`}
+            style={{
+              ...(!isLandmark(s) && props.game.systems.length > 100 ? { width: 18, height: 18 } : {}),
+            }}
+            aria-label={`System ${s.name}`}
+            title={s.name}
+            onMouseEnter={() => setHover(s.id)}
+            onMouseLeave={() => setHover(null)}
+            onClick={() => props.onSelect(s.id)}
+            onDoubleClick={() => {
+              props.onSelect(s.id);
+              props.setMode('system');
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              props.onMove(s.id);
+            }}
+          />
+        ))}
       {hovered && props.mode === 'galaxy' && (
         <div
           className="star-tooltip"
@@ -757,15 +855,19 @@ function drawFleet(
     y = a.y - 35 / zoom - (Math.floor(offset / 3) * 14) / zoom,
     angle = -Math.PI / 2;
   if (b) {
-    const progress = Math.min(1, f.progress + elapsed / Math.max(0.001, f.duration));
-    x = a.x + (b.x - a.x) * progress;
-    y = a.y + (b.y - a.y) * progress;
-    angle = Math.atan2(b.y - a.y, b.x - a.x);
+    const progress = f.journey ? travelProgress(f.journey, elapsed) : f.progress;
+    const fromX = f.journey?.fromX ?? a.x,
+      fromY = f.journey?.fromY ?? a.y;
+    const toX = f.journey?.toX ?? b.x,
+      toY = f.journey?.toY ?? b.y;
+    x = fromX + (toX - fromX) * progress;
+    y = fromY + (toY - fromY) * progress;
+    angle = Math.atan2(toY - fromY, toX - fromX);
     ctx.strokeStyle = selected ? '#c4b9fb88' : '#ab9cff33';
     ctx.setLineDash([4 / zoom, 6 / zoom]);
     ctx.lineWidth = 1 / zoom;
     ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
+    ctx.moveTo(fromX, fromY);
     for (const id of f.route) {
       const t = systems.get(id)!;
       ctx.lineTo(t.x, t.y);

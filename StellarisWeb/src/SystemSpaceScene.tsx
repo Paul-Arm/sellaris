@@ -1,3 +1,8 @@
+import { colonyBuildingLevel } from '../shared/colonies';
+import { gameIndices } from './game-indices';
+import { RenderProfiler } from './render-profiler';
+import { instanceMatrix, instanceColor, flushInstances, takeInstanceUploadBytes } from './instance-buffers';
+import { travelProgress } from '../shared/time';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -7,7 +12,9 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import type { GameView, StarSystem } from '../shared/game';
-import { systemBodies, systemHasAsteroidBelt, stableHash } from '../shared/celestial';
+import { systemHasAsteroidBelt, stableHash, type CelestialBody } from '../shared/celestial';
+import { gravitySlots } from '../shared/systemObjects';
+import { bodyPosition, fleetAnchor, localPosition, localVelocity, type Point3 } from '../shared/navigation';
 import { createBody, lineLoop, shipGeometry, type Disposable } from './system-objects';
 import { createAsteroidBelt } from './asteroid-belts';
 import { fieldVertex, fieldFragment } from './system-shaders';
@@ -28,8 +35,19 @@ import {
   surfaceHeight,
 } from './spacetime-surface';
 import { createWormhole } from './wormhole-objects';
+import { InstancedModel, ModelLibrary, ModelSlot, modelAsset } from './model-assets';
+import { createModelEnvironment } from './model-materials';
+import { SHIP_MODEL, STATION_MODELS, facilityModel, playerShipSet } from './system-models';
 
+export type SystemTarget =
+  { kind: 'body'; slot: number } | { kind: 'fleet'; id: string } | { kind: 'exit'; id: string };
 interface Props {
+  placement?: Point3;
+  previewPoint?: Point3;
+  onPoint?: (point: Point3, append: boolean) => void;
+  onMove: (point: Point3, append: boolean) => void;
+  onContext: (target: SystemTarget, x: number, y: number) => void;
+  bodies: CelestialBody[];
   game: GameView;
   system: StarSystem;
   selectedBody: number;
@@ -57,7 +75,8 @@ export function SystemScene(props: Props) {
   useEffect(() => {
     const root = parent.current!,
       initial = latest.current,
-      bodies = systemBodies(initial.system);
+      bodies = initial.bodies;
+    const gravity = gravitySlots(bodies);
     let renderer: THREE.WebGLRenderer;
     try {
       // AA belongs to the composer's HDR target; default-framebuffer MSAA cannot smooth it.
@@ -70,7 +89,7 @@ export function SystemScene(props: Props) {
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
     renderer.setClearColor('#080b12');
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1;
     renderer.domElement.setAttribute(
       'aria-label',
       'Dreidimensionale Raumzeitkarte. Ziehen zum Drehen, Mausrad zum Zoomen.',
@@ -78,9 +97,17 @@ export function SystemScene(props: Props) {
     renderer.domElement.tabIndex = 0;
     root.prepend(renderer.domElement);
     const resources: Disposable[] = [];
+    const modelLibrary = new ModelLibrary();
+    const profiler = new RenderProfiler(renderer);
+    resources.push(profiler);
+    resources.push(modelLibrary);
     const scene = new THREE.Scene(),
       camera = new THREE.PerspectiveCamera(44, 1, 1, 7000);
     scene.background = new THREE.Color(0.003, 0.004, 0.007);
+    const environment = createModelEnvironment(renderer);
+    scene.environment = environment.texture;
+    scene.environmentIntensity = 0.32;
+    resources.push(environment);
     const hud = new CanvasHud(root, scene, camera);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -106,11 +133,12 @@ export function SystemScene(props: Props) {
       controls.saveState();
     };
     homeCamera();
-    scene.add(new THREE.HemisphereLight('#d7e4ff', '#6c466c', 2.4));
-    const keyLight = new THREE.DirectionalLight('#fff3e4', 3);
+    scene.add(new THREE.HemisphereLight('#d7e4ff', '#3d2945', 0.4));
+    const keyLight = new THREE.DirectionalLight('#fff3e4', 2.4);
     keyLight.position.set(-400, 700, 500);
     scene.add(keyLight);
-    const sunLight = new THREE.PointLight('#ff86be', 55000, 1100, 2);
+    // Keep nearby ceramic hulls below the bloom range so their relief remains visible.
+    const sunLight = new THREE.PointLight('#ffb9cc', 11000, 1100, 2);
     scene.add(sunLight);
     const gl = renderer.getContext() as WebGL2RenderingContext;
     const colorSamples = Array.from(
@@ -121,13 +149,14 @@ export function SystemScene(props: Props) {
     );
     const samples = Math.max(0, ...colorSamples.filter((n) => n <= 4 && depthSamples.includes(n)));
     const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples });
-    const hasBlackHole = initial.system.kind === 'blackhole';
+    const coreBody = bodies.find((b) => b.slot === 0);
+    const hasBlackHole = coreBody?.kind === 'blackhole';
     if (hasBlackHole) {
       target.depthTexture = new THREE.DepthTexture(1, 1, THREE.UnsignedIntType);
     }
     const composer = new EffectComposer(renderer, target);
     const renderPass = new RenderPass(scene, camera);
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.75, 0.55, 0.85);
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.75, 0.4, 1.35);
     const aaPass = new SMAAPass();
     const outputPass = new OutputPass();
     composer.addPass(renderPass);
@@ -135,6 +164,10 @@ export function SystemScene(props: Props) {
     // SMAA also smooths shader detail after bloom; this Three.js version expects linear color.
     composer.addPass(aaPass);
     composer.addPass(outputPass);
+    profiler.pass('scene', renderPass);
+    profiler.pass('bloom', bloomPass);
+    profiler.pass('smaa', aaPass);
+    profiler.pass('output', outputPass);
     renderer.domElement.dataset.antialiasing = samples ? `msaa-${samples}+smaa` : 'smaa';
     const time = { value: 0 };
     const wells = Array.from({ length: 10 }, () => new THREE.Vector4(0, 0, 1, 0));
@@ -210,14 +243,21 @@ export function SystemScene(props: Props) {
     resources.push(fieldGeo, fieldMat);
     const selectable: THREE.Object3D[] = [];
     const bodyObjects = new Map(
-      bodies.map((b, i) => {
+      bodies.map((b) => {
         const visual = createBody(b, resources, time);
         scene.add(visual.group);
         selectable.push(visual.core);
-        colors[i].copy(visual.tint);
-        const well = bodyGravityWell(b);
-        wells[i].set(well.x, well.y, well.z, well.w);
+        const i = gravity.get(b.slot);
+        if (i !== undefined) {
+          colors[i].copy(visual.tint);
+          const well = bodyGravityWell(b);
+          wells[i].set(well.x, well.y, well.z, well.w);
+        }
         const label = hud.add('body', b.name, () => latest.current.onBody(b.slot));
+        label.element.oncontextmenu = (e) => {
+          e.preventDefault();
+          latest.current.onContext({ kind: 'body', slot: b.slot }, e.clientX, e.clientY);
+        };
         label.object.position.y = -b.radius - 10;
         visual.group.add(label.object);
         const orbit =
@@ -240,13 +280,16 @@ export function SystemScene(props: Props) {
           scene,
           camera,
           bodyObjects.get(0)!.group,
-          bodies[0].radius,
-          bodies[0].stellar?.family === 'quasar',
+          coreBody!.radius,
+          coreBody!.stellar?.family === 'quasar',
           time,
           samples,
         )
       : null;
-    if (blackHolePass) composer.insertPass(blackHolePass, 1);
+    if (blackHolePass) {
+      composer.insertPass(blackHolePass, 1);
+      profiler.pass('black-hole', blackHolePass);
+    }
     renderer.domElement.dataset.blackHoleRenderer = blackHolePass ? 'schwarzschild-rk4' : 'none';
     const stationGeo = new THREE.OctahedronGeometry(4),
       panelGeo = new THREE.BoxGeometry(18, 1, 5);
@@ -267,6 +310,26 @@ export function SystemScene(props: Props) {
         return [b.slot, g] as const;
       }),
     );
+    const facilityModels = new Map(
+      bodies.map((body) => {
+        const slot = new ModelSlot(modelLibrary);
+        bodyObjects.get(body.slot)!.group.add(slot.group);
+        resources.push(slot);
+        return [body.slot, slot] as const;
+      }),
+    );
+    const colonyStation = new ModelSlot(modelLibrary);
+    const colonyYard = new ModelSlot(modelLibrary);
+    const colonyRing = new ModelSlot(modelLibrary);
+    const defenses = [new ModelSlot(modelLibrary), new ModelSlot(modelLibrary)];
+    for (const slot of [colonyStation, colonyYard, colonyRing, ...defenses]) {
+      (bodyObjects.get(bodies.find((b) => b.main)?.slot ?? 0)?.group ?? scene).add(slot.group);
+      resources.push(slot);
+    }
+    colonyStation.group.position.set(65, 20, 0);
+    colonyYard.group.position.set(-70, 20, -35);
+    defenses[0].group.position.set(22, 12, 55);
+    defenses[1].group.position.set(-22, 12, 55);
     const selection = lineLoop(1, resources, '#e8f4db', 0.9);
     scene.add(selection);
     const exits = connections.map(({ id, destination, direction, position, mouth }) => {
@@ -289,6 +352,10 @@ export function SystemScene(props: Props) {
       selectable.push(pick);
       resources.push(pickGeo, pickMat);
       const label = hud.add('exit', destination.name, () => latest.current.onNavigate(id));
+      label.element.oncontextmenu = (e) => {
+        e.preventDefault();
+        latest.current.onContext({ kind: 'exit', id }, e.clientX, e.clientY);
+      };
       scene.add(label.object);
       return { id, position, mouth, portal, pick, label, direction };
     });
@@ -313,6 +380,22 @@ export function SystemScene(props: Props) {
         return [kind, mesh] as const;
       }),
     );
+    const modelBatches = new Map<string, { model: InstancedModel; operating: boolean }>();
+    const markerGeo = new THREE.RingGeometry(17, 18, 40);
+    markerGeo.rotateX(-Math.PI / 2);
+    const markerMat = new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false,
+    });
+    const fleetMarkers = new THREE.InstancedMesh(markerGeo, markerMat, 4096);
+    fleetMarkers.frustumCulled = false;
+    fleetMarkers.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    fleetMarkers.userData.fleets = [] as string[];
+    scene.add(fleetMarkers);
+    selectable.push(fleetMarkers);
+    resources.push(markerGeo, markerMat, fleetMarkers);
     const engineGeo = new THREE.SphereGeometry(1.5, 5, 4);
     const engineMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#9ae8ff').multiplyScalar(4) });
     const engines = new THREE.InstancedMesh(engineGeo, engineMat, 12288);
@@ -366,12 +449,26 @@ export function SystemScene(props: Props) {
     resize();
     const ray = new THREE.Raycaster(),
       pointer = new THREE.Vector2();
-    const drag = { x: 0, y: 0, moved: 0, valid: false };
+    const previewGeo = new THREE.OctahedronGeometry(18),
+      previewMat = new THREE.MeshBasicMaterial({ color: '#9ee9d4', wireframe: true });
+    const preview = new THREE.Mesh(previewGeo, previewMat);
+    scene.add(preview);
+    resources.push(previewGeo, previewMat);
+    const pathGeo = new THREE.BufferGeometry(),
+      pathMat = new THREE.LineBasicMaterial({ color: '#a7d9ce', transparent: true, opacity: 0.65 });
+    const pathPositions = new Float32Array(65 * 3);
+    pathGeo.setAttribute('position', new THREE.BufferAttribute(pathPositions, 3));
+    const pathLine = new THREE.Line(pathGeo, pathMat);
+    pathLine.frustumCulled = false;
+    scene.add(pathLine);
+    resources.push(pathGeo, pathMat);
+    const drag = { x: 0, y: 0, moved: 0, valid: false, button: 0 };
     const down = (e: PointerEvent) => {
       drag.x = e.clientX;
       drag.y = e.clientY;
       drag.moved = 0;
-      drag.valid = e.button === 0 && e.isPrimary;
+      drag.button = e.button;
+      drag.valid = (e.button === 0 || e.button === 2) && e.isPrimary;
     };
     const move = (e: PointerEvent) => {
       drag.moved = Math.max(drag.moved, Math.hypot(e.clientX - drag.x, e.clientY - drag.y));
@@ -384,7 +481,44 @@ export function SystemScene(props: Props) {
         const r = renderer.domElement.getBoundingClientRect();
         pointer.set(((e.clientX - r.left) / width) * 2 - 1, 1 - ((e.clientY - r.top) / height) * 2);
         ray.setFromCamera(pointer, camera);
-        const hit = ray.intersectObjects(selectable, false)[0];
+        if (drag.button === 0 && latest.current.placement) {
+          const point = new THREE.Vector3();
+          if (
+            ray.ray.intersectPlane(
+              new THREE.Plane(new THREE.Vector3(0, 1, 0), -latest.current.placement.y),
+              point,
+            )
+          )
+            latest.current.onPoint?.(
+              { x: Math.round(point.x), y: point.y, z: Math.round(point.z) },
+              e.shiftKey,
+            );
+          drag.valid = false;
+          return;
+        }
+        const hit = ray.intersectObjects(selectable, true)[0];
+        if (drag.button === 2) {
+          const data = hit?.object.userData;
+          const id = hit?.instanceId === undefined ? undefined : data?.fleets?.[hit.instanceId];
+          const target: SystemTarget | undefined = data?.destination
+            ? { kind: 'exit', id: data.destination }
+            : id
+              ? { kind: 'fleet', id }
+              : data?.slot !== undefined
+                ? { kind: 'body', slot: data.slot }
+                : undefined;
+          if (target) latest.current.onContext(target, e.clientX, e.clientY);
+          else {
+            const p = latest.current;
+            const fleet = p.game.fleets.find((f) => f.id === p.fleetId);
+            const y = fleet?.navigation ? localPosition(fleet.navigation.motion, p.game.tick).y : 24;
+            const point = new THREE.Vector3();
+            if (ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), point))
+              p.onMove({ x: Math.round(point.x), y, z: Math.round(point.z) }, e.shiftKey);
+          }
+          drag.valid = false;
+          return;
+        }
         if (hit?.object.userData.destination) latest.current.onNavigate(hit.object.userData.destination);
         else if (hit?.instanceId !== undefined) {
           const id = hit.object.userData.fleets?.[hit.instanceId];
@@ -402,6 +536,7 @@ export function SystemScene(props: Props) {
       projection = new THREE.Vector3(),
       offset = new THREE.Vector3();
     const fleetPositions = new Map<string, THREE.Vector3>();
+    const fleetHeadings = new Map<string, number>();
     let lastStep = initial.zoomStep,
       lastReset = initial.reset,
       lastFocus = initial.focusSelection;
@@ -415,19 +550,24 @@ export function SystemScene(props: Props) {
       const delta = previous ? Math.min(0.05, (at - previous) / 1000) : 1 / 60;
       previous = at;
       const p = latest.current,
-        t = p.game.tick + (p.game.paused ? 0 : Math.min(1, (at - sample.current.at) / 1000) * p.game.speed);
+        t =
+          p.game.displayClock?.now(at) ??
+          p.game.tick + (p.game.paused ? 0 : Math.min(1, (at - sample.current.at) / 1000) * p.game.speed);
+      const indices = gameIndices(p.game);
       time.value = t;
       for (const belt of asteroidBelts) belt.animate(t);
       fieldMat.uniforms.contours.value = p.contours ? 1 : 0;
       bloomPass.enabled = p.bloom;
-      for (const [i, b] of bodies.entries()) {
+      for (const b of bodies) {
         const visual = bodyObjects.get(b.slot)!,
-          angle = b.phase + (t / b.period) * Math.PI * 2;
+          pos = bodyPosition(b, bodies, t);
         visual.animate(t);
-        visual.group.position.set(Math.cos(angle) * b.orbit, 0, Math.sin(angle) * b.orbit);
-        if (b.parent !== undefined) visual.group.position.add(bodyObjects.get(b.parent)!.group.position);
-        wells[i].x = visual.group.position.x;
-        wells[i].y = visual.group.position.z;
+        visual.group.position.set(pos.x, pos.y, pos.z);
+        const i = gravity.get(b.slot);
+        if (i !== undefined) {
+          wells[i].x = visual.group.position.x;
+          wells[i].y = visual.group.position.z;
+        }
       }
       for (const [i, mouth] of mouths.entries())
         mouthHeights[i] = surfaceHeight(mouth.x, mouth.y, wells, mouths);
@@ -444,19 +584,77 @@ export function SystemScene(props: Props) {
         const v = bodyObjects.get(b.slot)!,
           pos = v.group.position;
         // Bodies float above their potential well so they remain readable at low viewing angles.
-        pos.y = b.radius * 0.45 - 12;
+        pos.y = b.position?.y ?? b.radius * 0.45 - 12;
+        if (b.kind === 'station')
+          v.group.children[0].visible = !indices.sites.get(`${p.system.id}:${b.slot}`)?.level;
         if (v.orbit) {
           v.orbit.visible = b.slot === p.selectedBody;
           if (b.parent !== undefined) v.orbit.position.copy(bodyObjects.get(b.parent)!.group.position);
           else v.orbit.position.y = -8;
         }
-        const site = p.game.sites?.find((s) => s.systemId === p.system.id && s.bodySlot === b.slot),
+        const site = indices.sites.get(`${p.system.id}:${b.slot}`),
           station = stations.get(b.slot)!;
-        station.visible = !!site;
+        const facility = facilityModels.get(b.slot)!;
+        const spec = site ? facilityModel(site, b) : undefined;
+        facility.set(
+          spec ? modelAsset(playerShipSet(p.game, site!.owner), spec.id) : undefined,
+          spec?.span ?? 1,
+          spec?.planetRadius,
+        );
+        facility.group.position.set(
+          spec?.centered ? 0 : b.radius + 22,
+          spec?.centered ? 0 : b.radius * 0.5,
+          0,
+        );
+        facility.update(t, !!site && !site.suspended);
+        station.visible = !!site && !facility.ready;
         station.scale.setScalar(site?.building ? 0.85 + Math.sin(t * 2) * 0.15 : 1);
         station.rotation.y = t * 0.08;
         v.label.update({ selected: p.selectedBody === b.slot, built: !!site?.level });
       }
+      const colony = p.system.colony;
+      const ownerSet = playerShipSet(p.game, p.system.owner);
+      const bastion = colonyBuildingLevel(colony, 'bastion');
+      colonyStation.set(
+        p.system.owner ? modelAsset(ownerSet, STATION_MODELS[Math.min(3, bastion)]) : undefined,
+        30 + bastion * 9,
+      );
+      colonyStation.update(t);
+      colonyYard.set(
+        p.system.owner && colonyBuildingLevel(colony, 'foundry') >= 2
+          ? modelAsset(ownerSet, '04_mega_shipyard')
+          : undefined,
+        65,
+      );
+      colonyYard.update(
+        t,
+        p.game.me.queue.some((j) => j.systemId === p.system.id),
+      );
+      const mainBody = bodies.find((b) => b.main);
+      const hasHabitatRing = p.game.sites?.some(
+        (s) =>
+          s.systemId === p.system.id &&
+          s.bodySlot === mainBody?.slot &&
+          s.facility === 'habitat' &&
+          s.level >= 3,
+      );
+      colonyRing.set(
+        p.system.owner && mainBody && !hasHabitatRing && colonyBuildingLevel(colony, 'foundry') >= 3
+          ? modelAsset(ownerSet, 'orbital_ring')
+          : undefined,
+        80,
+        mainBody ? mainBody.radius * 1.05 : undefined,
+      );
+      colonyRing.update(t);
+      defenses.forEach((slot, i) => {
+        slot.set(
+          p.system.owner && bastion > i
+            ? modelAsset(ownerSet, i ? '06_artillerieplattform' : '05_abwehrplattform')
+            : undefined,
+          21 + i * 6,
+        );
+        slot.update(t);
+      });
       sunLight.position.copy(bodyObjects.get(0)!.group.position);
       sunLight.position.y += 50;
       const chosen = bodies.find((b) => b.slot === p.selectedBody);
@@ -466,9 +664,14 @@ export function SystemScene(props: Props) {
         selection.scale.setScalar(chosen.radius + 12);
       }
       const counts: Record<string, number> = { scout: 0, colony: 0, corvette: 0 };
+      for (const { model } of modelBatches.values()) model.begin();
       let engineCount = 0;
-      const fleets = p.game.fleets.filter(
-        (f) => f.systemId === p.system.id && (!f.route.length || f.progress < 0.15),
+      let markerCount = 0;
+      const fleets = (indices.fleetsBySystem.get(p.system.id) ?? []).filter(
+        (f) =>
+          !f.route.length ||
+          ((f.journey ? travelProgress(f.journey, t) : f.progress) < 0.15 &&
+            (!f.journey || Math.hypot(f.journey.fromX - p.system.x, f.journey.fromY - p.system.y) < 0.01)),
       );
       const perKind = new Map<string, number>();
       for (const f of fleets) perKind.set(f.type, (perKind.get(f.type) || 0) + 1);
@@ -476,42 +679,117 @@ export function SystemScene(props: Props) {
       for (const [k, f] of fleets.entries()) {
         const mesh = shipMeshes.get(f.type);
         if (!mesh) continue;
+        const set = playerShipSet(p.game, f.owner);
+        const operating = !!f.task && !f.task.blocked;
+        const key = `${set}/${f.type}/${operating}`;
+        let batch = modelBatches.get(key);
+        const asset = modelAsset(set, SHIP_MODEL[f.type]);
+        if (!batch && asset) {
+          const model = new InstancedModel(modelLibrary, asset, f.type === 'corvette' ? 25 : 28);
+          batch = { model, operating };
+          modelBatches.set(key, batch);
+          scene.add(model.group);
+          selectable.push(model.group);
+          resources.push(model);
+        }
         const nShips = Math.min(f.shipCount ?? 1, 120, Math.max(1, Math.floor(4096 / perKind.get(f.type)!)));
         const a = (stableHash(f.id) / 0xffffffff) * Math.PI * 2 + (f.task ? t * 0.002 : 0),
           orbit = 100 + (k % 3) * 32;
-        const center = new THREE.Vector3(Math.cos(a) * orbit, 16 + (k % 2) * 8, Math.sin(a) * orbit);
+        const loc = f.navigation ? localPosition(f.navigation.motion, t) : fleetAnchor(f.id);
+        const velocity = f.navigation ? localVelocity(f.navigation.motion, t) : { x: 0, y: 0, z: 0 };
+        const speed = Math.hypot(velocity.x, velocity.z);
+        const heading = fleetHeadings.get(f.id) ?? -a;
+        const motion = f.navigation?.motion;
+        const targetHeading =
+          speed > 0.05
+            ? Math.atan2(velocity.x, velocity.z)
+            : motion && motion.finishAt > t && !motion.paused
+              ? Math.atan2(motion.to.x - loc.x, motion.to.z - loc.z)
+              : heading;
+        const turn = Math.atan2(Math.sin(targetHeading - heading), Math.cos(targetHeading - heading));
+        const maxTurn = p.game.paused ? 0 : delta * p.game.speed * 0.65;
+        const yaw = heading + Math.max(-maxTurn, Math.min(maxTurn, turn));
+        fleetHeadings.set(f.id, yaw);
+        const center = new THREE.Vector3(loc.x, loc.y, loc.z);
         const exit = f.route.length ? exits.find((e) => e.id === f.route[0]) : undefined;
-        if (exit) center.lerp(exit.position, Math.min(1, f.progress / 0.15));
+        if (exit)
+          center.lerp(
+            exit.position,
+            Math.min(1, (f.journey ? travelProgress(f.journey, t) : f.progress) / 0.15),
+          );
         fleetPositions.set(f.id, center);
-        color.set(
-          f.id === p.fleetId ? '#e9e8ae' : p.game.players.find((v) => v.id === f.owner)?.color || '#c8d9e6',
-        );
+        color.set(f.id === p.fleetId ? '#e9e8ae' : indices.players.get(f.owner)?.color || '#c8d9e6');
+        if (markerCount < 4096) {
+          dummy.position.copy(center).add(offset.set(0, -7, 0));
+          dummy.rotation.set(0, 0, 0);
+          dummy.scale.setScalar(f.id === p.fleetId ? 1.4 : 1);
+          dummy.updateMatrix();
+          instanceMatrix(fleetMarkers, markerCount, dummy.matrix);
+          instanceColor(fleetMarkers, markerCount, color);
+          fleetMarkers.userData.fleets[markerCount++] = f.id;
+        }
         for (let i = 0; i < nShips && counts[f.type] < 4096; i++) {
-          const n = counts[f.type]++,
+          const n = counts[f.type],
             row = Math.floor(Math.sqrt(i)),
             col = i - row * row;
           dummy.position.copy(center).add(offset.set((col - row) * 20, 0, row * 28));
-          dummy.rotation.set(0, exit ? Math.atan2(-exit.direction.x, -exit.direction.z) : -a, 0);
+          dummy.rotation.set(
+            0,
+            exit ? Math.atan2(-exit.direction.x, -exit.direction.z) : yaw,
+            Math.max(-0.22, Math.min(0.22, (-turn * speed) / 160)),
+          );
           const scale = f.id === p.fleetId ? 1.45 : 1.2;
           dummy.scale.setScalar(scale);
           dummy.updateMatrix();
-          mesh.setMatrixAt(n, dummy.matrix);
-          mesh.setColorAt(n, color);
-          mesh.userData.fleets[n] = f.id;
-          dummy.translateZ(9 * scale);
-          dummy.scale.set(1, 1, 3);
-          dummy.updateMatrix();
-          engines.setMatrixAt(engineCount++, dummy.matrix);
+          if (batch?.model.ready) batch.model.add(dummy.matrix, f.id);
+          else {
+            counts[f.type]++;
+            instanceMatrix(mesh, n, dummy.matrix);
+            instanceColor(mesh, n, color);
+            mesh.userData.fleets[n] = f.id;
+            dummy.translateZ(9 * scale);
+            dummy.scale.set(1, 1, 3);
+            dummy.updateMatrix();
+            instanceMatrix(engines, engineCount++, dummy.matrix);
+          }
         }
       }
       for (const [kind, mesh] of shipMeshes) {
         mesh.count = counts[kind];
         mesh.boundingSphere = null; // Recompute picking bounds lazily after formations move or grow.
-        mesh.instanceMatrix.needsUpdate = true;
-        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+        flushInstances(mesh);
       }
+      modelLibrary.setTime(t);
+      for (const { model, operating } of modelBatches.values()) model.end(t, operating);
+      fleetMarkers.count = markerCount;
+      preview.visible = !!p.previewPoint;
+      if (p.previewPoint) preview.position.set(p.previewPoint.x, p.previewPoint.y, p.previewPoint.z);
+      const navigatingFleet = p.game.fleets.find(
+        (f) => f.id === p.fleetId && f.owner === p.game.me.id && f.systemId === p.system.id,
+      );
+      const nav = navigatingFleet?.navigation;
+      let pathCount = 0;
+      const addPoint = (q: Point3) => {
+        if (pathCount < 65) {
+          pathPositions.set([q.x, q.y, q.z], pathCount * 3);
+          pathCount++;
+        }
+      };
+      if (nav && (nav.orders.length || nav.phase === 'braking')) {
+        for (let i = 0; i <= 24; i++)
+          addPoint(localPosition(nav.motion, t + (Math.max(0, nav.motion.finishAt - t) * i) / 24));
+        for (const order of nav.orders.slice(1)) {
+          if (order.type === 'move') break;
+          if (order.type === 'local_move' && order.systemId === p.system.id) addPoint(order.point);
+        }
+      }
+      pathGeo.setDrawRange(0, pathCount);
+      pathGeo.attributes.position.needsUpdate = true;
+      pathLine.visible = pathCount > 1;
+      fleetMarkers.boundingSphere = null;
+      flushInstances(fleetMarkers);
       engines.count = engineCount;
-      engines.instanceMatrix.needsUpdate = true;
+      flushInstances(engines);
       if (lastReset !== p.reset) {
         lastReset = p.reset;
         controls.reset();
@@ -618,7 +896,11 @@ export function SystemScene(props: Props) {
           }
         }
       }
+      profiler.begin();
       hud.present(() => composer.render(delta));
+      profiler.end(
+        takeInstanceUploadBytes() + [...modelBatches.values()].reduce((n, b) => n + b.model.uploadBytes, 0),
+      );
     };
     animation = requestAnimationFrame(animate);
     return () => {
@@ -641,6 +923,7 @@ export function SystemScene(props: Props) {
       renderer.domElement.remove();
     };
   }, [
+    props.bodies,
     props.system.id,
     props.system.name,
     props.system.colonyName,

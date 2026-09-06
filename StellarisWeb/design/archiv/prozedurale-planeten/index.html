@@ -1,0 +1,1521 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Prozedurale Planeten – archivierter Entwurf</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="Prozedurale Planeten – archivierter Entwurf" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot; data-visualize-standalone&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Prozedurale Planeten – archivierter Entwurf&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled=&quot;true&quot;]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled=&quot;true&quot;] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed=&quot;true&quot;],
+  [aria-selected=&quot;true&quot;],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type=&quot;file&quot;]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type=&quot;color&quot;] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type=&quot;date&quot;],
+    [type=&quot;datetime-local&quot;],
+    [type=&quot;month&quot;],
+    [type=&quot;time&quot;],
+    [type=&quot;week&quot;]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: &quot;&quot;;
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;planet-sketch&quot; aria-label=&quot;Prozedurale Koloniewelten&quot;&gt;
+&lt;style&gt;
+#planet-sketch{container-type:inline-size;--ps-bg:light-dark(#edf2f1,#101922);--ps-panel:light-dark(#fff,#17232d);--ps-line:light-dark(#cbd8d4,#30424b);--ps-ink:light-dark(#243d37,#e5efec);--ps-muted:light-dark(#586d66,#a1b5b0);--ps-accent:light-dark(#246449,#c2e1a4);--ps-soft:light-dark(#e1edde,#293d30);font:14px &#x27;Segoe UI&#x27;,sans-serif;color:var(--ps-ink);background:var(--ps-bg);border:1px solid var(--ps-line);border-radius:12px;overflow:hidden}
+#planet-sketch *{box-sizing:border-box}#planet-sketch button{font:inherit;color:inherit;cursor:pointer;background:var(--ps-panel);border:1px solid var(--ps-line);border-radius:6px;padding:9px 13px}#planet-sketch button:hover{border-color:var(--ps-accent)}#planet-sketch button[aria-pressed=true]{color:var(--ps-accent);border-color:var(--ps-accent);background:var(--ps-soft)}#planet-sketch button:disabled{opacity:.45;cursor:default}#planet-sketch .ps-top{padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--ps-line)}#planet-sketch .ps-brand{font-size:11px;letter-spacing:3px;color:var(--ps-muted)}#planet-sketch .ps-stats{display:flex;gap:19px;flex-wrap:wrap;font-variant-numeric:tabular-nums;font-size:13px}#planet-sketch .ps-stats span{display:flex;gap:7px;align-items:center}#planet-sketch i[data-lucide]{width:16px;height:16px;display:inline-block}#planet-sketch svg.lucide{width:16px;height:16px;flex-shrink:0}#planet-sketch .ps-worlds{display:flex;gap:8px;padding:13px 20px;align-items:center;flex-wrap:wrap}#planet-sketch .ps-worlds button{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 13px}#planet-sketch .ps-worlds small{display:block;margin-top:3px;color:var(--ps-muted);font-size:11px}#planet-sketch .ps-thumb{width:34px;height:34px;border-radius:50%;background:#243d40;box-shadow:inset -10px -4px 10px #041118cc,inset 1px 0 2px #eef5e599;background-size:180% 120%;flex-shrink:0}#planet-sketch #ps-new{margin-left:auto;background:transparent;font-size:12px;gap:8px}#planet-sketch .ps-stage{position:relative;background:#0d202c;aspect-ratio:1.9;isolation:isolate}#planet-sketch .ps-stage&gt;canvas{width:100%;height:100%;display:block;position:absolute;inset:0}#planet-sketch .ps-stage::after{content:&#x27;&#x27;;position:absolute;inset:0;box-shadow:inset 0 0 80px #00151d5c;pointer-events:none}#planet-sketch .ps-maplabel{position:absolute;left:19px;top:17px;color:#dcece8;letter-spacing:2px;font-size:11px;pointer-events:none;text-shadow:0 2px 6px #071622}#planet-sketch .ps-maplabel b{font-weight:500}#planet-sketch .ps-maplabel span{display:block;color:#b2c9c2;font-size:11px;margin-top:7px;letter-spacing:.5px}#planet-sketch .ps-site{position:absolute;transform:translate(-50%,-50%);width:40px;min-height:40px;padding:6px!important;background:#142831ee!important;border:1px solid #b5c8bc70!important;color:#e6f0e5!important;display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;box-shadow:0 4px 12px #04131c60;z-index:2}#planet-sketch .ps-site[aria-pressed=true]{background:#d5e9b8!important;color:#1c382d!important;border-color:#eff8dc!important;box-shadow:0 0 0 5px #d7ebbd20,0 4px 14px #08152299}#planet-sketch .ps-site.empty{width:30px;min-height:30px;border-style:dashed!important;border-radius:50%;background:#102734aa!important}#planet-sketch .ps-site.empty[aria-pressed=true]{background:#d5e9b8!important}#planet-sketch .ps-site small{font:11px &#x27;Segoe UI&#x27;,sans-serif;white-space:nowrap}#planet-sketch .ps-site .ps-symbol{font-size:16px;line-height:16px;font-weight:500}#planet-sketch .ps-statusline{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:11px 20px;border-bottom:1px solid var(--ps-line);font-size:12px;color:var(--ps-muted)}#planet-sketch .ps-dot{display:inline-block;width:7px;height:7px;background:var(--ps-accent);border-radius:50%;margin-right:6px}#planet-sketch .ps-statusline button{margin-left:auto;padding:3px 9px;background:transparent;font-size:11px;border:0}#planet-sketch .ps-build{padding:18px 20px;display:grid;grid-template-columns:1fr 1.45fr;gap:24px;align-items:center}#planet-sketch h3{font-size:21px;font-weight:400;letter-spacing:-.5px;margin:0 0 6px}#planet-sketch .ps-regioninfo{font-size:12px;color:var(--ps-muted)}#planet-sketch .ps-existing{display:flex;gap:5px;margin-top:13px;flex-wrap:wrap}#planet-sketch .ps-existing button{padding:7px 9px;font-size:12px}#planet-sketch .ps-empty-slot{padding:7px 10px;border:1px dashed var(--ps-line);border-radius:5px;color:var(--ps-muted);font-size:12px}#planet-sketch .ps-buildchoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#planet-sketch .ps-buildchoices button{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:13px;min-width:0}#planet-sketch .ps-buildchoices .ps-choicehead{display:flex;gap:8px;align-items:center}#planet-sketch .ps-buildchoices small{font-size:11px;color:var(--ps-muted)}#planet-sketch .ps-lastline{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:0 20px 14px;color:var(--ps-muted);font-size:11px}#planet-sketch .ps-footstate{color:var(--ps-accent)}
+@container(max-width:740px){#planet-sketch .ps-build{grid-template-columns:1fr;gap:16px}#planet-sketch .ps-stage{aspect-ratio:1.45}#planet-sketch .ps-site{width:34px;min-height:36px}#planet-sketch .ps-worlds{gap:5px;padding:10px 12px}#planet-sketch .ps-worlds button{padding:7px 9px}#planet-sketch .ps-thumb{width:27px;height:27px}}
+@container(max-width:440px){#planet-sketch .ps-stage{aspect-ratio:.95}#planet-sketch .ps-top{padding:12px;gap:9px}#planet-sketch .ps-stats{gap:12px;font-size:12px}#planet-sketch .ps-worlds button{flex:1;justify-content:center;font-size:12px;padding:7px 5px;gap:5px}#planet-sketch .ps-thumb{display:none}#planet-sketch #ps-new{flex-basis:100%;font-size:11px;padding:5px}#planet-sketch .ps-worlds small{font-size:11px}#planet-sketch .ps-build{padding:16px 12px}#planet-sketch .ps-buildchoices{gap:5px}#planet-sketch .ps-buildchoices button{padding:10px 8px;font-size:12px}#planet-sketch .ps-choicehead{gap:5px!important}#planet-sketch .ps-statusline{padding:10px 12px;gap:9px}#planet-sketch .ps-maplabel{left:12px;top:12px;letter-spacing:1px}#planet-sketch .ps-site{width:32px;min-height:32px}#planet-sketch .ps-site.empty{width:28px;min-height:28px}}
+@media(pointer:coarse){#planet-sketch .ps-site::before{content:&#x27;&#x27;;position:absolute;width:44px;height:44px;left:50%;top:50%;transform:translate(-50%,-50%)}#planet-sketch .ps-buildchoices button{min-height:70px}}
+&lt;/style&gt;
+&lt;div class=&quot;ps-top&quot;&gt;&lt;span class=&quot;ps-brand&quot;&gt;SINGULARITY / KOLONIEN&lt;/span&gt;&lt;div class=&quot;ps-stats&quot; aria-live=&quot;polite&quot;&gt;&lt;span id=&quot;ps-pops&quot;&gt;&lt;/span&gt;&lt;span id=&quot;ps-energy&quot;&gt;&lt;/span&gt;&lt;span id=&quot;ps-minerals&quot;&gt;&lt;/span&gt;&lt;span id=&quot;ps-science&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;nav class=&quot;ps-worlds&quot; aria-label=&quot;Planet auswählen&quot;&gt;
+&lt;button type=&quot;button&quot; data-world=&quot;0&quot; aria-pressed=&quot;true&quot;&gt;&lt;span class=&quot;ps-thumb&quot; id=&quot;ps-thumb0&quot; aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;&lt;span&gt;Nacre&lt;small&gt;Kontinental&lt;/small&gt;&lt;/span&gt;&lt;/button&gt;
+&lt;button type=&quot;button&quot; data-world=&quot;1&quot; aria-pressed=&quot;false&quot;&gt;&lt;span class=&quot;ps-thumb&quot; id=&quot;ps-thumb1&quot; aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;&lt;span&gt;Khepri&lt;small&gt;Vulkanisch&lt;/small&gt;&lt;/span&gt;&lt;/button&gt;
+&lt;button type=&quot;button&quot; data-world=&quot;2&quot; aria-pressed=&quot;false&quot;&gt;&lt;span class=&quot;ps-thumb&quot; id=&quot;ps-thumb2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;&lt;span&gt;Pelagia&lt;small&gt;Archipel&lt;/small&gt;&lt;/span&gt;&lt;/button&gt;
+&lt;button type=&quot;button&quot; id=&quot;ps-new&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;↻&lt;/span&gt; Weitere Welt&lt;/button&gt;
+&lt;/nav&gt;
+&lt;div class=&quot;ps-stage&quot; id=&quot;ps-stage&quot;&gt;&lt;canvas id=&quot;ps-terrain&quot; role=&quot;img&quot; aria-label=&quot;Prozedural erzeugte Planetenlandschaft&quot;&gt;&lt;/canvas&gt;&lt;canvas id=&quot;ps-overlay&quot; aria-hidden=&quot;true&quot;&gt;&lt;/canvas&gt;&lt;div class=&quot;ps-maplabel&quot;&gt;&lt;b id=&quot;ps-type&quot;&gt;&lt;/b&gt;&lt;span id=&quot;ps-seed&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div id=&quot;ps-sites&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;ps-statusline&quot;&gt;&lt;span&gt;&lt;i class=&quot;ps-dot&quot;&gt;&lt;/i&gt;&lt;span id=&quot;ps-employed&quot;&gt;&lt;/span&gt;&lt;/span&gt;&lt;span id=&quot;ps-free&quot;&gt;&lt;/span&gt;&lt;button type=&quot;button&quot; id=&quot;ps-borders&quot; aria-pressed=&quot;true&quot;&gt;Regionen&lt;/button&gt;&lt;/div&gt;
+&lt;section class=&quot;ps-build&quot; aria-label=&quot;Distrikte bauen&quot;&gt;&lt;div&gt;&lt;h3 id=&quot;ps-regionname&quot;&gt;&lt;/h3&gt;&lt;div class=&quot;ps-regioninfo&quot; id=&quot;ps-feature&quot;&gt;&lt;/div&gt;&lt;div class=&quot;ps-existing&quot; id=&quot;ps-existing&quot; aria-label=&quot;Distriktplätze&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;ps-buildchoices&quot;&gt;
+&lt;button type=&quot;button&quot; data-build=&quot;mine&quot;&gt;&lt;span class=&quot;ps-choicehead&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;◇&lt;/span&gt; Mine&lt;/span&gt;&lt;small&gt;2 Jobs · Mineralien&lt;/small&gt;&lt;/button&gt;
+&lt;button type=&quot;button&quot; data-build=&quot;power&quot;&gt;&lt;span class=&quot;ps-choicehead&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;ϟ&lt;/span&gt; Kraftwerk&lt;/span&gt;&lt;small&gt;2 Jobs · Energie&lt;/small&gt;&lt;/button&gt;
+&lt;button type=&quot;button&quot; data-build=&quot;lab&quot;&gt;&lt;span class=&quot;ps-choicehead&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;⌬&lt;/span&gt; Labor&lt;/span&gt;&lt;small&gt;2 Jobs · Forschung&lt;/small&gt;&lt;/button&gt;
+&lt;/div&gt;&lt;/section&gt;&lt;div class=&quot;ps-lastline&quot;&gt;&lt;span id=&quot;ps-message&quot; class=&quot;ps-footstate&quot; aria-live=&quot;polite&quot;&gt;Region wählen · Distrikt platzieren&lt;/span&gt;&lt;span&gt;Mockup · Ertrag/Zyklus&lt;/span&gt;&lt;/div&gt;
+&lt;script&gt;
+(()=&gt;{
+ const root=document.getElementById(&#x27;planet-sketch&#x27;),$=id=&gt;root.querySelector(&#x27;#&#x27;+id);
+ const W=880,H=500,N=W*H,clamp=(v,a=0,b=1)=&gt;Math.max(a,Math.min(b,v)),mix=(a,b,t)=&gt;a+(b-a)*t;
+ const kinds=[{name:&#x27;Nacre&#x27;,type:&#x27;Kontinentalwelt&#x27;,seed:7341,sea:.50,scale:3.6,count:11},{name:&#x27;Khepri&#x27;,type:&#x27;Vulkanwelt&#x27;,seed:28109,sea:.29,scale:4.2,count:9},{name:&#x27;Pelagia&#x27;,type:&#x27;Inselwelt&#x27;,seed:16037,sea:.565,scale:6.3,count:10}];
+ const specs={mine:{name:&#x27;Mine&#x27;,symbol:&#x27;◇&#x27;,key:1,base:3},power:{name:&#x27;Kraftwerk&#x27;,symbol:&#x27;ϟ&#x27;,key:0,base:4},lab:{name:&#x27;Labor&#x27;,symbol:&#x27;⌬&#x27;,key:2,base:3}};
+ const state={world:0,selected:0,borders:true,relief:1},cache=new Map();
+ function hash(x,y,s){let z=Math.imul(x,374761393)^Math.imul(y,668265263)^Math.imul(s,1442695041);z=Math.imul(z^(z&gt;&gt;&gt;13),1274126177);return ((z^(z&gt;&gt;&gt;16))&gt;&gt;&gt;0)/4294967295;}
+ function rng(seed){return ()=&gt;{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed&gt;&gt;&gt;15,1|seed);t=t+Math.imul(t^t&gt;&gt;&gt;7,61|t)^t;return ((t^t&gt;&gt;&gt;14)&gt;&gt;&gt;0)/4294967296;};}
+ function noise(x,y,s){const a=Math.floor(x),b=Math.floor(y);let u=x-a,v=y-b;u=u*u*(3-2*u);v=v*v*(3-2*v);return mix(mix(hash(a,b,s),hash(a+1,b,s),u),mix(hash(a,b+1,s),hash(a+1,b+1,s),u),v);}
+ function fbm(x,y,s){let sum=0,amp=.53;for(let o=0;o&lt;5;o++){sum+=amp*noise(x,y,s+o*83);x=x*2.03+7.1;y=y*2.03+3.7;amp*=.48;}return sum/.992;}
+ function blend(a,b,t){return a.map((v,i)=&gt;mix(v,b[i],clamp(t)));}
+ function generate(k,index){
+   const random=rng(k.seed),elev=new Float32Array(N),wet=new Float32Array(N),ridge=new Float32Array(N),craters=[];
+   if(index===1)for(let i=0;i&lt;12;i++)craters.push({x:random()*.9+.05,y:random()*.84+.08,r:random()*.065+.021});
+   for(let y=0;y&lt;H;y++)for(let x=0;x&lt;W;x++){
+     const u=x/W,v=y/H,p=y*W+x,dx=noise(u*3,v*3,k.seed+19)-.5,dy=noise(u*3+40,v*3,k.seed+47)-.5;
+     let e=fbm(u*k.scale*1.8+dx*.9,v*k.scale+dy*.9,k.seed);
+     if(index===0)e+=.055*Math.cos((v-.5)*5);
+     if(index===2)e+=.035*Math.sin(u*17+v*5);
+     if(index===1)for(const c of craters){const d=Math.hypot((u-c.x)*1.76,v-c.y)/c.r;if(d&lt;1.4)e+=.09*Math.exp(-(((d-.95)*9)**2))-.16*Math.exp(-((d*1.65)**4));}
+     elev[p]=e;wet[p]=noise(u*13+60,v*9+20,k.seed+555);ridge[p]=Math.abs(noise(u*46+dx*5,v*28+dy*5,k.seed+94)-.5)*2;
+   }
+   const candidates=[];
+   for(let y=55;y&lt;H-35;y+=8)for(let x=35;x&lt;W-35;x+=8){if(y&lt;100&amp;&amp;x&lt;300)continue;const e=elev[y*W+x];if(e&gt;k.sea+.025&amp;&amp;e&lt;k.sea+.24)candidates.push({x,y,e});}
+   // Farthest-point sampling on actual dry terrain; no shared marker positions.
+   const sites=[];if(!candidates.length)throw new Error(&#x27;Seed has no suitable land&#x27;);
+   let first=candidates[Math.floor(random()*candidates.length)];
+   const middle=candidates.filter(p=&gt;p.x&gt;W*.25&amp;&amp;p.x&lt;W*.72&amp;&amp;p.y&gt;H*.25&amp;&amp;p.y&lt;H*.75);if(middle.length)first=middle[Math.floor(random()*middle.length)];sites.push(first);
+   while(sites.length&lt;k.count){let best=null,score=-1;for(const p of candidates){let distance=Infinity;for(const s of sites)distance=Math.min(distance,((p.x-s.x)/W)**2+((p.y-s.y)/H)**2);const d=distance*(.92+hash(p.x,p.y,k.seed)*.16);if(d&gt;score){score=d;best=p;}}if(score&lt;.008)break;sites.push(best);}
+   const features=index===0?[&#x27;Flussdelta&#x27;,&#x27;Erzader&#x27;,&#x27;Hochplateau&#x27;,&#x27;Urwald&#x27;,&#x27;Kristallfeld&#x27;]:index===1?[&#x27;Basalthöhlen&#x27;,&#x27;Erzader&#x27;,&#x27;Geothermie&#x27;,&#x27;Krater&#x27;,&#x27;Obsidian&#x27;]:[&#x27;Lagune&#x27;,&#x27;Riff&#x27;,&#x27;Tiefenerz&#x27;,&#x27;Atoll&#x27;,&#x27;Thermalquelle&#x27;];
+   const prefixes=index===0?[&#x27;Grün&#x27;,&#x27;Sonnen&#x27;,&#x27;Nebel&#x27;,&#x27;Silber&#x27;,&#x27;Nord&#x27;,&#x27;Farn&#x27;]:index===1?[&#x27;Aschen&#x27;,&#x27;Glut&#x27;,&#x27;Eisen&#x27;,&#x27;Rauch&#x27;,&#x27;Schlacke&#x27;,&#x27;Feuer&#x27;]:[&#x27;Perlen&#x27;,&#x27;Wellen&#x27;,&#x27;Korallen&#x27;,&#x27;Tiefen&#x27;,&#x27;Wind&#x27;,&#x27;Gezeiten&#x27;];
+   const suffixes=index===0?[&#x27;hain&#x27;,&#x27;tal&#x27;,&#x27;küste&#x27;,&#x27;höhe&#x27;,&#x27;bucht&#x27;,&#x27;mark&#x27;]:index===1?[&#x27;grat&#x27;,&#x27;bruch&#x27;,&#x27;krater&#x27;,&#x27;rücken&#x27;,&#x27;grund&#x27;,&#x27;spalte&#x27;]:[&#x27;riff&#x27;,&#x27;kap&#x27;,&#x27;bank&#x27;,&#x27;hafen&#x27;,&#x27;bucht&#x27;,&#x27;insel&#x27;];
+   const usedNames=new Set();
+   sites.forEach((s,i)=&gt;{s.id=i;s.feature=features[Math.floor(random()*features.length)];let suffix=Math.floor(random()*suffixes.length);s.name=prefixes[i%prefixes.length]+suffixes[suffix];while(usedNames.has(s.name)){suffix=(suffix+1)%suffixes.length;s.name=prefixes[i%prefixes.length]+suffixes[suffix];}usedNames.add(s.name);s.slots=index===2?2:(s.e&gt;k.sea+.19?2:3);s.buildings=i&lt;3?[[&#x27;power&#x27;,&#x27;mine&#x27;],[&#x27;mine&#x27;,&#x27;lab&#x27;],[&#x27;power&#x27;,&#x27;lab&#x27;]][i]:[];s.bonus=/Erz|erz/.test(s.feature)?&#x27;mine&#x27;:/Geothermie|Thermal/.test(s.feature)?&#x27;power&#x27;:/Krater|Kristall|Riff/.test(s.feature)?&#x27;lab&#x27;:null;});
+   const owners=new Int16Array(N).fill(-1),boundaries=[];
+   for(let y=0;y&lt;H;y++)for(let x=0;x&lt;W;x++){const p=y*W+x;if(elev[p]&lt;=k.sea)continue;let best=0,min=Infinity;for(let i=0;i&lt;sites.length;i++){const d=(x-sites[i].x)**2+(y-sites[i].y)**2;if(d&lt;min){best=i;min=d;}}owners[p]=best;}
+   for(let y=1;y&lt;H-1;y++)for(let x=1;x&lt;W-1;x++){const p=y*W+x,o=owners[p];if(o&gt;=0&amp;&amp;((owners[p+1]&gt;=0&amp;&amp;o!==owners[p+1])||(owners[p+W]&gt;=0&amp;&amp;o!==owners[p+W])))boundaries.push(p);}
+   const world={k,index,elev,wet,ridge,owners,boundaries,sites,pops:18,selected:0};world.texture=paint(world);return world;
+ }
+ function paint(w){
+   const canvas=document.createElement(&#x27;canvas&#x27;);canvas.width=W;canvas.height=H;const ctx=canvas.getContext(&#x27;2d&#x27;),img=ctx.createImageData(W,H),data=img.data,sea=w.k.sea;
+   for(let y=0;y&lt;H;y++)for(let x=0;x&lt;W;x++){
+     const p=y*W+x,e=w.elev[p],h=e-sea,r=w.ridge[p],moisture=w.wet[p],lat=Math.abs(y/H-.5)*2;let color;
+     if(w.index===1){
+       color=blend([43,39,38],[143,104,74],clamp((e-.22)*2.8));
+       if(h&lt;.015)color=blend([56,26,24],[224,86,34],clamp((h+.02)*19));
+       if(Math.abs(h)&lt;.007)color=[245,160,65];
+       if(e&gt;.62)color=blend(color,[189,172,139],(e-.62)*3);
+     }else if(h&lt;0){
+       color=blend(w.index===2?[14,40,61]:[15,35,51],w.index===2?[53,154,151]:[53,105,113],Math.pow(clamp(1+h*10),3));
+       if(h&gt;-.015)color=blend(color,[113,183,166],(h+.015)*35);
+     }else{
+       const coastal=w.index===2?[204,195,140]:[154,158,111];
+       if(h&lt;.025)color=blend(coastal,[77,113,74],h/.025);
+       else if(h&lt;.135)color=blend([95,126,79],[34,76,61],moisture*.75+r*.22);
+       else if(h&lt;.24)color=blend([79,100,77],[141,142,118],(h-.135)*8);
+       else color=blend([141,147,130],[223,230,216],(h-.24)*7);
+       if(w.index===0&amp;&amp;lat&gt;.82)color=blend(color,[208,225,219],clamp((lat-.82)*5+(h-.07)*2));
+       if(h&gt;.03&amp;&amp;h&lt;.15&amp;&amp;moisture&gt;.52&amp;&amp;hash(x,y,w.k.seed+78)&gt;.64)color=color.map(v=&gt;v*.79);
+     }
+     const slope=(w.elev[Math.max(0,y-1)*W+Math.max(0,x-1)]-w.elev[Math.min(H-1,y+1)*W+Math.min(W-1,x+1)]);
+     const shade=h&gt;0||w.index===1?clamp(1+slope*22*state.relief,.48,1.5):1;
+     const grain=.96+hash(x,y,w.k.seed)*.08,at=p*4;for(let c=0;c&lt;3;c++)data[at+c]=clamp(color[c]*shade*grain,0,255);data[at+3]=255;
+   }
+   ctx.putImageData(img,0,0);return canvas;
+ }
+ function world(){const k=kinds[state.world],key=state.world+&#x27;:&#x27;+k.seed;if(!cache.has(key))cache.set(key,generate(k,state.world));return cache.get(key);}
+ function jobs(w){let remaining=w.pops;const yields=[0,0,0];w.sites.forEach(s=&gt;{s.workers=0;s.buildings.forEach(b=&gt;{const occupied=Math.min(2,remaining);remaining-=occupied;s.workers+=occupied;yields[specs[b].key]+=occupied*specs[b].base*(s.bonus===b?1.25:1);yields[0]-=.5;});});return{remaining,yields};}
+ function drawOverlay(w){
+   const c=$(&#x27;ps-overlay&#x27;);c.width=W;c.height=H;const ctx=c.getContext(&#x27;2d&#x27;),selected=state.selected;
+   const img=ctx.createImageData(W,H);for(let p=0;p&lt;N;p++){if(w.owners[p]!==selected)continue;const n=p*4;img.data[n]=218;img.data[n+1]=238;img.data[n+2]=186;img.data[n+3]=28;}
+   for(const p of w.boundaries){const n=p*4,chosen=w.owners[p]===selected||w.owners[p+1]===selected||w.owners[p+W]===selected;if(!state.borders&amp;&amp;!chosen)continue;img.data[n]=chosen?235:196;img.data[n+1]=chosen?246:220;img.data[n+2]=chosen?195:210;img.data[n+3]=chosen?185:65;}
+   ctx.putImageData(img,0,0);
+   // Tiny physical settlement footprints, grown from placed districts.
+   for(const s of w.sites)if(s.buildings.length){const random=rng(w.k.seed+s.id*121);for(let i=0;i&lt;s.buildings.length*8;i++){const x=s.x+(random()-.5)*50,y=s.y+(random()-.5)*35,ww=3+random()*5,hh=4+random()*8;ctx.fillStyle=&#x27;#142128bb&#x27;;ctx.fillRect(x+2,y+3,ww,hh);ctx.fillStyle=&#x27;#b8d2c1&#x27;;ctx.fillRect(x,y,ww,hh);ctx.fillStyle=&#x27;#e9edca&#x27;;ctx.fillRect(x,y,ww,2);}}
+ }
+ function render(message){
+   const w=world();state.selected=clamp(state.selected,0,w.sites.length-1);w.selected=state.selected;const j=jobs(w),s=w.sites[state.selected],fmt=n=&gt;n.toLocaleString(&#x27;de-DE&#x27;,{maximumFractionDigits:1});
+   $(&#x27;ps-terrain&#x27;).width=W;$(&#x27;ps-terrain&#x27;).height=H;$(&#x27;ps-terrain&#x27;).getContext(&#x27;2d&#x27;).drawImage(w.texture,0,0);drawOverlay(w);
+   $(&#x27;ps-type&#x27;).textContent=w.k.name.toUpperCase();$(&#x27;ps-seed&#x27;).textContent=w.k.type+&#x27; · &#x27;+w.sites.length+&#x27; Regionen · #&#x27;+w.k.seed;
+   $(&#x27;ps-pops&#x27;).textContent=w.pops+&#x27; Pops&#x27;;$(&#x27;ps-energy&#x27;).textContent=&#x27;ϟ &#x27;+(j.yields[0]&gt;=0?&#x27;+&#x27;:&#x27;&#x27;)+fmt(j.yields[0]);$(&#x27;ps-minerals&#x27;).textContent=&#x27;◇ +&#x27;+fmt(j.yields[1]);$(&#x27;ps-science&#x27;).textContent=&#x27;⌬ +&#x27;+fmt(j.yields[2]);
+   $(&#x27;ps-employed&#x27;).textContent=(w.pops-j.remaining)+&#x27; beschäftigt&#x27;;$(&#x27;ps-free&#x27;).textContent=j.remaining+&#x27; freie Pops&#x27;;
+   $(&#x27;ps-sites&#x27;).innerHTML=w.sites.map((r,i)=&gt;&#x27;&lt;button type=&quot;button&quot; class=&quot;ps-site &#x27;+(!r.buildings.length?&#x27;empty&#x27;:&#x27;&#x27;)+&#x27;&quot; data-region=&quot;&#x27;+i+&#x27;&quot; aria-pressed=&quot;&#x27;+(i===state.selected)+&#x27;&quot; aria-label=&quot;&#x27;+r.name+&#x27;, &#x27;+r.feature+&#x27;, &#x27;+r.workers+&#x27; Pops, &#x27;+r.buildings.length+&#x27; von &#x27;+r.slots+&#x27; Distrikten&quot; style=&quot;left:&#x27;+r.x/W*100+&#x27;%;top:&#x27;+r.y/H*100+&#x27;%&quot;&gt;&lt;span class=&quot;ps-symbol&quot; aria-hidden=&quot;true&quot;&gt;&#x27;+(r.buildings.length?specs[r.buildings[0]].symbol:&#x27;+&#x27;)+&#x27;&lt;/span&gt;&#x27;+(r.buildings.length?&#x27;&lt;small&gt;&#x27;+r.workers+&#x27;/&#x27;+r.buildings.length*2+&#x27;&lt;/small&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;);
+   $(&#x27;ps-regionname&#x27;).textContent=s.name;$(&#x27;ps-feature&#x27;).textContent=s.feature+(s.bonus?&#x27; · +25 % &#x27;+{mine:&#x27;Mineralien&#x27;,power:&#x27;Energie&#x27;,lab:&#x27;Forschung&#x27;}[s.bonus]:&#x27;&#x27;)+&#x27; · &#x27;+s.slots+&#x27; Bauplätze&#x27;;
+   $(&#x27;ps-existing&#x27;).innerHTML=s.buildings.map((b,i)=&gt;&#x27;&lt;button type=&quot;button&quot; data-remove=&quot;&#x27;+i+&#x27;&quot; aria-label=&quot;&#x27;+specs[b].name+&#x27; aus Vorschau entfernen&quot;&gt;&#x27;+specs[b].symbol+&#x27; &#x27;+specs[b].name+&#x27; ×&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+Array.from({length:s.slots-s.buildings.length},()=&gt;&#x27;&lt;span class=&quot;ps-empty-slot&quot;&gt;+&lt;/span&gt;&#x27;).join(&#x27;&#x27;);
+   root.querySelectorAll(&#x27;[data-build]&#x27;).forEach(b=&gt;{b.disabled=s.buildings.length&gt;=s.slots;});root.querySelectorAll(&#x27;[data-world]&#x27;).forEach(b=&gt;b.setAttribute(&#x27;aria-pressed&#x27;,String(Number(b.dataset.world)===state.world)));$(&#x27;ps-borders&#x27;).setAttribute(&#x27;aria-pressed&#x27;,String(state.borders));
+   $(&#x27;ps-message&#x27;).textContent=message||&#x27;Region wählen · Distrikt platzieren&#x27;;
+   $(&#x27;ps-thumb&#x27;+state.world).style.backgroundImage=&#x27;url(&#x27;+w.texture.toDataURL()+&#x27;)&#x27;;
+ }
+ root.addEventListener(&#x27;click&#x27;,ev=&gt;{const b=ev.target.closest(&#x27;button&#x27;);if(!b||!root.contains(b))return;let message,focus;
+   if(b.dataset.world!==undefined){state.world=Number(b.dataset.world);state.selected=world().selected;}
+   if(b.dataset.region!==undefined){state.selected=Number(b.dataset.region);focus=&#x27;[data-region=&quot;&#x27;+state.selected+&#x27;&quot;]&#x27;;}
+   if(b.id===&#x27;ps-new&#x27;){const k=kinds[state.world];cache.delete(state.world+&#x27;:&#x27;+k.seed);k.seed+=7919;state.selected=0;}
+   if(b.id===&#x27;ps-borders&#x27;)state.borders=!state.borders;
+   const w=world(),s=w.sites[state.selected];
+   if(b.dataset.build&amp;&amp;s.buildings.length&lt;s.slots){s.buildings.push(b.dataset.build);const result=jobs(w);message=specs[b.dataset.build].name+&#x27; platziert · &#x27;+(s.workers&lt;s.buildings.length*2?&#x27;Arbeitskräfte fehlen&#x27;:result.remaining+&#x27; freie Pops&#x27;);focus=&#x27;[data-region=&quot;&#x27;+state.selected+&#x27;&quot;]&#x27;;}
+   if(b.dataset.remove!==undefined){s.buildings.splice(Number(b.dataset.remove),1);message=&#x27;Distrikt aus Vorschau entfernt&#x27;;focus=&#x27;[data-region=&quot;&#x27;+state.selected+&#x27;&quot;]&#x27;;}
+   render(message);if(focus)root.querySelector(focus)?.focus();
+ });
+ render();
+ for(let i=0;i&lt;kinds.length;i++){const key=i+&#x27;:&#x27;+kinds[i].seed;if(!cache.has(key))cache.set(key,generate(kinds[i],i));$(&#x27;ps-thumb&#x27;+i).style.backgroundImage=&#x27;url(&#x27;+cache.get(key).texture.toDataURL()+&#x27;)&#x27;;}
+ if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:()=&gt;{for(const w of cache.values())w.texture=paint(w);render();}});tweak.addSlider(state,&#x27;relief&#x27;,{label:&#x27;Geländerelief&#x27;,min:0,max:1.8,step:.1});tweak.addToggle(state,&#x27;borders&#x27;,{label:&#x27;Regionsgrenzen&#x27;});}
+})();
+&lt;/script&gt;
+&lt;/div&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) =&gt; {
+    lastPointerWasTouch =
+      event.type === &quot;pointerdown&quot; &amp;&amp; event.pointerType === &quot;touch&quot;;
+  };
+  const handleTouchClick = (event) =&gt; {
+    const isTouch = event.pointerType === &quot;touch&quot; || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch &amp;&amp; activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() =&gt; {
+      if (activeTrigger === trigger &amp;&amp; !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) =&gt; {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerdown&quot;, handlePointer);
+    document.removeEventListener(&quot;pointercancel&quot;, handlePointer);
+    document.removeEventListener(&quot;click&quot;, handleTouchClick);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerdown&quot;, handlePointer);
+  document.addEventListener(&quot;pointercancel&quot;, handlePointer);
+  document.addEventListener(&quot;click&quot;, handleTouchClick);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-tabs&quot;&gt;
+(() =&gt; {
+  const selector = &#x27;.nav[role=&quot;tablist&quot;] [role=&quot;tab&quot;]&#x27;;
+  const disabled = &#x27;:disabled,[aria-disabled=&quot;true&quot;]&#x27;;
+  const selectTab = (selected) =&gt; {
+    const panelId = selected.getAttribute(&quot;aria-controls&quot;);
+    for (const tab of selected.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;)) {
+      const active = tab === selected;
+      tab.classList.toggle(&quot;active&quot;, active);
+      tab.setAttribute(&quot;aria-selected&quot;, String(active));
+      const id = tab.getAttribute(&quot;aria-controls&quot;);
+      const panel = id &amp;&amp; document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden &amp;&amp; selected.id) {
+          panel.setAttribute(&quot;aria-labelledby&quot;, selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) =&gt; {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === &quot;click&quot;) {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest(&#x27;[role=&quot;tablist&quot;]&#x27;).querySelectorAll(&#x27;[role=&quot;tab&quot;]&#x27;),
+    ).filter((candidate) =&gt; !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === &quot;ArrowRight&quot; || event.key === &quot;ArrowDown&quot;) {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === &quot;ArrowLeft&quot; || event.key === &quot;ArrowUp&quot;) {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === &quot;Home&quot;) {
+      next = 0;
+    } else if (event.key === &quot;End&quot;) {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll(&#x27;.nav[role=&quot;tablist&quot;]&#x27;)) {
+    const selected =
+      list.querySelector(&#x27;[role=&quot;tab&quot;][aria-selected=&quot;true&quot;]&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;].active&#x27;) ??
+      list.querySelector(&#x27;[role=&quot;tab&quot;]&#x27;);
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener(&quot;click&quot;, interact);
+  document.addEventListener(&quot;keydown&quot;, interact);
+  window.addEventListener(&quot;pagehide&quot;, () =&gt; {
+    document.removeEventListener(&quot;click&quot;, interact);
+    document.removeEventListener(&quot;keydown&quot;, interact);
+  }, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

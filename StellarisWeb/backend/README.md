@@ -73,21 +73,23 @@ Gefechte verwenden lineare Zielzuweisung statt eines Vergleichs jedes Schiffes m
 
 | System | Aufrufabstand in Echtzeit | Verarbeitung |
 |---|---|---|
-| Strategische Bewegung / Aufträge | 250 ms | Nur fällige Ankünfte und Jobabschlüsse über Indizes |
-| Wirtschaft | 1 s | Ganze Produktionszyklen von vier Spielsekunden; aggregierte Pop-Erträge |
-| KI | 200 ms | Höchstens vier fällige Planer pro Aufruf; individuelle, versetzte Fünf-Spielsekunden-Fristen |
-| Kampf | 100 ms | Schritte von 200 Spiel-ms; höchstens vier Nachholschritte pro Gefecht/Aufruf |
+| Strategische Bewegung / Aufträge | 250 ms | Einmal je neuem Spieltag: fällige Ankünfte und Jobabschlüsse über Indizes |
+| Wirtschaft | 1 s | Ganze Produktionszyklen von vier Spieltagen; aggregierte Pop-Erträge |
+| KI | 200 ms | Einmal je neuem Spieltag, höchstens vier fällige Planer; individuelle, versetzte Fünf-Spieltage-Fristen |
+| Kampf | 100 ms | Ein persistierter Zustand je ganzem Spieltag; fünf interne Integrationsschritte je Tag, höchstens vier Tage Nachholen pro Aufruf |
 | Gefechtsübersicht | Frühestens nach 1 s | Zusammenfassung aus dem Kampf, unabhängig vom Spieltempo; Rückzug, Ende und Pause aktualisieren sofort |
 
 Die KI im Lastprototyp patrouilliert mit bis zu acht bereiten Flotten je Entscheidung. Sie ist eine repräsentative Grundlast, noch keine vollständige 4X-KI.
 
 Die normale Spiel-KI in `game-ai.ts` nutzt stattdessen dieselben validierten Spielbefehle wie Menschen: eine rotierende Flottenentscheidung und eine unabhängige Wirtschaftsentscheidung pro Planungsbesuch. Der normale Spieleinstieg unterstützt 25 Plätze; das Labor darf seine Lastgrößen unabhängig konfigurieren.
 
-Eine gemeinsame Uhr steuert 0,5×, 1×, 2× oder 4× sowie Pause. Kurse und Aufträge bleiben auf der Spielzeitachse; ein Tempowechsel schreibt deshalb nicht alle Schiffe um. Jobfortschritt wird aus Arbeitsstand, Zeitpunkt und Rate rekonstruiert. Forschung verbessert Produktion und Auftragsraten; vor einem Ratenwechsel wird bereits geleistete Arbeit abgerechnet. Fertige Schiffe werden nur einer passenden gedockten Flotte zugewiesen, sonst einer neuen Flotte an einer eigenen Kolonie. Abschlüsse sind dauerhaft markiert und werden nicht erneut ausgeführt.
+Die verbindliche Zeiteinheit ist der **ganze Spieltag**. Bei 1× vergeht ein Spieltag pro Echtzeitsekunde. Die kürzeren Scheduler-Intervalle dienen dem zeitnahen Ausführen fälliger Tage; sie erzeugen keine zusätzlichen Simulationsstände innerhalb eines Tages. Bestehende Bruchteilsstände erreichen beim nächsten Tick die nächste Tagesgrenze. Neue Ankünfte und Fristen werden auf den nächsten ganzen Tag aufgerundet.
 
-Die Uhr verwendet einen serverseitigen Zeitanker und läuft im Prototyp auch ohne verbundene Spieler weiter. Nach **ungeplantem Ausfall ohne vorherige Pause** verstreicht die Zeit zwischen den Ankern weiter: Produktion und Ankünfte holen auf; Gefechte holen begrenzt nach, und der Rückstand bleibt sichtbar. Für reguläres Stoppen/Updates zuerst `backend:clock … pause` verwenden. Automatische Ausfallpause, zulässiger maximaler Nachholrückstand und Befehlsannahme während langer Wiederherstellung sind vor einem Produktionsbetrieb noch festzulegen. Auf verschiedenen Geräten braucht die visuelle Extrapolation außerdem eine gemessene Serverzeitabweichung; derzeit setzt das Labor eine passende lokale Wanduhr voraus. Spielbefehle übernehmen keine Clientzeit.
+Eine gemeinsame Uhr steuert 0,5×, 1×, 2× oder 4× sowie Pause. Ihr Anker erhält Tagesbruchteile über Pause und Tempowechsel hinweg. Kurse und Aufträge bleiben auf der Spielzeitachse; ein Tempowechsel schreibt deshalb nicht alle Schiffe um. Jobfortschritt wird aus Arbeitsstand, Zeitpunkt und Rate rekonstruiert. Forschung verbessert Produktion und Auftragsraten; vor einem Ratenwechsel wird bereits geleistete Arbeit abgerechnet. Fertige Schiffe werden nur einer passenden gedockten Flotte zugewiesen, sonst einer neuen Flotte an einer eigenen Kolonie. Abschlüsse sind dauerhaft markiert und werden nicht erneut ausgeführt.
 
-Normale Partien pausieren automatisch mit dem letzten getrennten Spieler und setzen nur eine solche automatische Pause beim Wiederbeitritt fort. Der Host wechselt zum nächsten verbundenen Spieler. Mehrere Verbindungen derselben Identität werden gezählt; ein einzelner geschlossener Tab entfernt keine weiterhin verbundene Identität. Ein erzwungener Serverneustart mit vorher pausierter Partie wurde auf erhaltene Spielstände und bereinigte Verbindungen geprüft. Längerer Ausfall während laufender Simulation und Geräte mit stark abweichender Wanduhr sind weiterhin gesonderte Betriebsfälle.
+Die Uhr verwendet einen serverseitigen Zeitanker und läuft im Prototyp auch ohne verbundene Spieler weiter. Nach **ungeplantem Ausfall ohne vorherige Pause** verstreicht die Zeit zwischen den Ankern weiter: Produktion und Ankünfte holen auf; Gefechte holen begrenzt nach, und der Rückstand bleibt sichtbar. Für reguläres Stoppen/Updates zuerst `backend:clock … pause` verwenden. Automatische Ausfallpause, zulässiger maximaler Nachholrückstand und Befehlsannahme während langer Wiederherstellung sind vor einem Produktionsbetrieb noch festzulegen. Die Client-Uhr misst Serverzeit und RTT über die nur lesende Prozedur `sampleClock` und läuft anschließend mit `performance.now()`. Abweichende lokale Kalenderuhren verändern die Darstellung nicht. Reise- und Orbitalpositionen verwenden Tagesbruchteile. Gefechte interpolieren vollständige Tagesstände mit an Empfangsintervall und Jitter angepasster Verzögerung; Extrapolation ist auf 150 ms Echtzeit begrenzt. Verbindungsverlust friert die Anzeigeuhr ein, Wiederverbinden beginnt mit einem neuen Anker. Spielbefehle übernehmen keine Clientzeit.
+
+Normale Partien pausieren automatisch mit dem letzten getrennten Spieler und setzen nur eine solche automatische Pause beim Wiederbeitritt fort. Der Host wechselt zum nächsten verbundenen Spieler. Mehrere Verbindungen derselben Identität werden gezählt; ein einzelner geschlossener Tab entfernt keine weiterhin verbundene Identität. Ein erzwungener Serverneustart mit vorher pausierter Partie wurde auf erhaltene Spielstände und bereinigte Verbindungen geprüft. Längerer Ausfall während laufender Simulation bleibt ein gesonderter Betriebsfall. Tests decken lokale Uhren mit ±30 Sekunden Abweichung, Tempowechsel, Pause und Wiederverbinden ab.
 
 ### Sichtbarkeit und Hot Joins
 
@@ -109,7 +111,7 @@ Zusammengehörige Initialabonnements werden mit einem `subscribe([...])` angeleg
 
 ### Kompakter Gefechtstransport
 
-Die Optimierung ändert ausschließlich die übertragenen Ansichten; die privaten Simulationszeilen, f32-Positionen, Ziele, Waffentermine und die Kampftaktung bleiben gleich. Es gibt keine Quantisierung und keine ausgelassenen Simulationsschritte. Neue Views sind additiv und benötigen keine Konvertierung gespeicherter Teilnehmer. Vor Verwendung des aktualisierten Labors bestehende Labordatenbanken mit `npm run backend:publish -- <name>` aktualisieren; bestehende Saves niemals löschen oder neu seeden.
+Die ursprüngliche Transportoptimierung änderte ausschließlich die übertragenen Ansichten; die privaten Simulationszeilen, f32-Positionen, Ziele, Waffentermine blieben dabei gleich. Seit der Tagesumstellung werden fünf interne Kampfschritte gemeinsam als ein Tagesstand persistiert. Es gibt keine Quantisierung und keine ausgelassenen Simulationsschritte. Neue Views sind additiv und benötigen keine Konvertierung gespeicherter Teilnehmer. Vor Verwendung des aktualisierten Labors bestehende Labordatenbanken mit `npm run backend:publish -- <name>` aktualisieren; bestehende Saves niemals löschen oder neu seeden.
 
 Browser und Lastclient verwenden standardmäßig Gzip auf SpacetimeDB-Nachrichtenebene. `backend/transport.ts` entpackt komprimierte und unkomprimierte Nachrichten in Empfangsreihenfolge. Ein kleines Folgeupdate darf einen großen Initialsnapshot nicht überholen. Bei beschädigten Daten oder mehr als 64 MiB Empfangsrückstand/entpackter Einzelnachricht wird die Verbindung geschlossen; keine Transaktion wird still übersprungen. Wiederverbinden lädt den aktuellen konsistenten Snapshot. Diese Transportgrenze ist keine festgelegte Schiffsobergrenze. Ein automatischer Reconnect im Labor ist weiterhin ausstehend.
 
@@ -193,11 +195,19 @@ Es wurde kein Convex eingeführt und kein Wechsel auf Rust vorausgesetzt.
 
 ### Himmelskörper und Systemanlagen
 
-`shared/celestial.ts` definiert einen deterministischen Orbitalatlas. Seine lokalen Slots sind dauerhafte Bauadressen: bestehende Slots dürfen bei späteren Katalogänderungen nicht umgeordnet oder neu verwendet werden. Die Körper werden bei Bedarf aus dem System abgeleitet; beim Galaxiebeitritt werden keine tausenden dekorativen Bahndaten übertragen.
+`shared/systemGeneration.ts` erzeugt den anfänglichen Körperbestand neuer Galaxien. Anschließend sind `game_object` und `game_object_catalog` autoritativ: Körper haben feste IDs, Revisionen, Klima und gespeicherte Bahnen. Entfernte IDs werden innerhalb einer Partie nicht wiederverwendet. Detailabonnements laden nur das geöffnete System; Browser und Bauprüfung erzeugen keine Ersatzkörper. [Objektmodell](reports/SYSTEM-OBJECTS.md).
 
 Die private Tabelle `game_site` speichert Besitzer, Körper, Anlagentyp, Ausbaustufe, gezahlte Kosten, Baufrist und Produktionsanker. `site_build` und `site_cancel` sind autoritative Spielbefehle. Der strategische Scheduler beendet fällige Bauaufträge über den Fristenindex. Die Wirtschaft rechnet abgeschlossene Produktionszyklen ab, einschließlich des aktiven Krisenfaktors. Bei Verlust einer Hauptkolonie werden deren Systemanlagen zusammen mit der übrigen Infrastruktur entfernt.
 
-`visible_game_sites` liefert alle eigenen Anlagen für die Wirtschaftsübersicht sowie fertiggestellte fremde Anlagen ausschließlich in aktuell sichtbaren Systemen. Fremde Bauaufträge und Kosten werden nicht freigegeben. Ein neuer Körper-/Anlagenbau fordert keine individuellen Schiffspositionen an. Die Erweiterung ist additiv und benötigt keinen Spielstandreset. [Prüfbericht](reports/SYSTEM-VIEW.md).
+`visible_game_sites` liefert alle eigenen Anlagen für die Wirtschaftsübersicht sowie fertiggestellte fremde Anlagen ausschließlich in aktuell sichtbaren Systemen. Fremde Bauaufträge und Kosten werden nicht freigegeben. Ein neuer Körper-/Anlagenbau fordert keine individuellen Schiffspositionen an. [Prüfbericht](reports/SYSTEM-VIEW.md).
+
+`game_terraform` speichert private Projekte mit gezahlten Kosten und indizierten Spielzeitfristen. `start_terraforming` prüft Forschung, Besitz, Erkundung, Körperrevision und Ressourcen; `cancel_terraforming` erstattet einmalig 50 %. Der strategische Tick aktualisiert beim Abschluss denselben Planeten. Bei Hauptwelten werden Wirtschaft und Bevölkerungswachstum zuerst mit dem alten Klima abgerechnet und danach die neuen Produktionsraten gesetzt. `my_terraform_projects` liefert ausschließlich eigene Projekte. [Terraforming-Prüfung](reports/TERRAFORMING.md).
+
+### Spielstände bei Schemaänderungen
+
+Freie Systemflüge und Auftragsketten verwenden `game_navigation` mit lokaler Flugbahn, privater Warteschlange und Erkundungsfortschritt. `game_command` reiht Befehle ein und prüft situationsabhängige Voraussetzungen bei Ausführung. Der strategische Tick beendet Flüge und lässt Forschungsschiffe alle aktiven Himmelskörper besuchen. Stationen verwenden feste `position`-Koordinaten im gespeicherten Objekt, vorhandene Anlagenbaufristen und Produktionsregeln. Details: [Systemnavigation und Stationen](reports/SYSTEM-NAVIGATION.md).
+
+Abwärtskompatibilität ist ausdrücklich keine Anforderung. Für inkompatible Änderungen den Gateway stoppen, `npm run backend:build` und `npm run backend:reset-games` ausführen, anschließend Gateway starten und neue Partien gründen. Das Reset-Werkzeug löscht ausschließlich die in `data/native-sectors.json` registrierten `singularity-game-*`-Datenbanken über die native CLI und entfernt erfolgreiche Löschungen aus der Registry. Reichs-/Speziesvorlagen und Laborwelten bleiben erhalten. `DATA_DIR` und `SPACETIME_HTTP` erlauben eine andere lokale Konfiguration. Vorhandene Module nur bei kompatiblen Änderungen mit `backend:update-games` aktualisieren.
 
 ## Verwendete Primärdokumentation
 

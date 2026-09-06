@@ -1,0 +1,201 @@
+.model-hangar {
+  min-height: 100vh;
+  padding: 32px clamp(16px, 4vw, 70px);
+  background: radial-gradient(ellipse at 70% 0, #182838, #080e16 65%);
+  color: #d9e6ec;
+  font-family: Inter, system-ui, sans-serif;
+}
+.model-hangar header > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #9ec5d0;
+  text-decoration: none;
+  margin-bottom: 28px;
+}
+.model-hangar header .eyebrow {
+  display: block;
+  color: #80bbae;
+  letter-spacing: 0.2em;
+}
+.model-hangar h1 {
+  font-size: 38px;
+  font-weight: 400;
+  margin: 9px 0;
+}
+.model-hangar p {
+  color: #91a9b5;
+  line-height: 1.6;
+}
+.model-hangar nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 26px 0;
+}
+.model-hangar button,
+.model-hangar select {
+  border: 1px solid #304451;
+  border-radius: 6px;
+  background: #111e29;
+  color: #c9dce5;
+  padding: 10px 14px;
+  font: inherit;
+}
+.model-hangar button {
+  cursor: pointer;
+}
+.model-hangar button:hover {
+  background: #213843;
+}
+.model-hangar button[aria-pressed='true'] {
+  border-color: #79cdbb;
+  background: #1d3b3c;
+  color: #c0ffed;
+}
+.model-hangar :focus-visible {
+  outline: 2px solid #b6f1df;
+  outline-offset: 3px;
+}
+.hangar-workbench {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 20px;
+}
+.hangar-workbench aside {
+  background: #0c1823;
+  border: 1px solid #263946;
+  padding: 20px;
+  border-radius: 10px;
+}
+.hangar-workbench h2 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+}
+.hangar-models {
+  display: grid;
+  gap: 6px;
+  max-height: 570px;
+  overflow: auto;
+}
+.hangar-models button {
+  text-align: left;
+  padding: 11px 12px;
+}
+.hangar-models button span {
+  display: block;
+  color: #7f9aaa;
+  font-size: 11px;
+  margin-top: 5px;
+}
+.hangar-stage {
+  min-width: 0;
+  position: relative;
+  background: #080f19;
+  border: 1px solid #263946;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.hangar-caption {
+  position: absolute;
+  top: 22px;
+  left: 24px;
+  z-index: 1;
+  pointer-events: none;
+}
+.hangar-caption span {
+  display: block;
+  font-size: 12px;
+  color: #8ca7b7;
+  margin-top: 7px;
+}
+.hangar-preview {
+  height: 560px;
+  min-height: 320px;
+  position: relative;
+}
+.hangar-preview canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.hangar-preview > p {
+  position: absolute;
+  top: 45%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 2;
+}
+.hangar-controls {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #213543;
+  flex-wrap: wrap;
+}
+.hangar-controls label {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #8faab5;
+}
+.hangar-controls select {
+  max-width: 100%;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+.hangar-controls button {
+  height: 38px;
+  display: grid;
+  place-items: center;
+}
+.hangar-hint {
+  font-size: 11px;
+  padding: 0 20px 6px;
+  margin: 0;
+}
+.hangar-mobile-label {
+  display: none;
+}
+@media (max-width: 760px) {
+  .hangar-workbench {
+    grid-template-columns: 1fr;
+  }
+  .hangar-models {
+    display: none;
+  }
+  .hangar-mobile-label {
+    display: grid;
+    gap: 8px;
+    color: #8faab5;
+    font-size: 12px;
+  }
+  .hangar-preview {
+    height: 430px;
+  }
+  .hangar-controls {
+    padding: 12px;
+    gap: 8px;
+  }
+  .hangar-controls label:first-of-type {
+    max-width: 65%;
+  }
+  .model-hangar nav button {
+    flex: 1;
+    min-width: 28%;
+  }
+  .model-hangar {
+    padding: 20px 12px;
+  }
+  .model-hangar h1 {
+    font-size: 30px;
+  }
+}
+.hangar-canvas {
+  width: 100%;
+  height: 100%;
+}

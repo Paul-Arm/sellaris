@@ -1,0 +1,74 @@
+.terraforming-panel {
+  padding: 16px 0;
+  border-top: 1px solid #8096aa30;
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+.terraforming-panel h3 {
+  font-size: 13px;
+  color: #b8d5c8;
+  margin: 0;
+}
+.terraforming-panel p,
+.terraforming-panel label {
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+}
+.terraforming-panel small {
+  color: #8da1ad;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.terraforming-panel label {
+  display: grid;
+  gap: 5px;
+}
+.terraforming-panel select {
+  width: 100%;
+  min-width: 0;
+  color: #dce9ed;
+  background: #141c28;
+  border: 1px solid #789a8d66;
+  padding: 9px;
+  border-radius: 4px;
+}
+.terraforming-panel button {
+  padding: 10px;
+  background: #466b5430;
+  color: #d0e5da;
+  border: 1px solid #8eaf9e77;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.terraforming-panel button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.terraforming-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+.terraforming-panel caption {
+  text-align: left;
+  color: #9ab0bc;
+  padding-bottom: 7px;
+}
+.terraforming-panel th,
+.terraforming-panel td {
+  text-align: right;
+  padding: 4px;
+  font-weight: 400;
+}
+.terraforming-panel th:first-child {
+  text-align: left;
+}
+.terraforming-panel progress {
+  width: 100%;
+  accent-color: #95c4a5;
+}
+.terraforming-panel [role='alert'] {
+  color: #efab9e;
+}

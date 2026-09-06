@@ -1,4 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
+import type { Client } from '../backend/client';
+import { useSystemObjects } from './useSystemObjects';
+import type { StoredBody } from '../shared/systemObjects';
+import { TerraformingPanel } from './TerraformingPanel';
+import { NavigationPanel, PointInputs } from './NavigationPanel';
+import { constructionFleet, type Point3 } from '../shared/navigation';
+import { SystemContextMenu } from './SystemContextMenu';
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -21,20 +28,57 @@ import {
   Zap,
 } from 'lucide-react';
 import type { GameCommand, GameView, Resource, StarSystem } from '../shared/game';
-import {
-  BODY_NAMES,
-  FACILITIES,
-  facilitySpec,
-  facilityYield,
-  systemBodies,
-  type Facility,
-} from '../shared/celestial';
+import { BODY_NAMES, FACILITIES, facilitySpec, facilityYield, type Facility } from '../shared/celestial';
 import { crisisProductionFactor } from '../shared/stories';
-import { SystemScene } from './SystemSpaceScene';
+import { SystemScene, type SystemTarget } from './SystemSpaceScene';
 import './system-view.css';
 
 const icons = { energy: Zap, minerals: Diamond, science: FlaskConical };
 const format = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 1 });
+function BodyName({ body, client, disabled }: { body: StoredBody; client: Client; disabled: boolean }) {
+  const [editing, setEditing] = useState(false),
+    [name, setName] = useState(body.name);
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  if (!editing)
+    return (
+      <button disabled={disabled} onClick={() => setEditing(true)}>
+        Umbenennen
+      </button>
+    );
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        setBusy(true);
+        setError('');
+        void client.conn.reducers
+          .renameBody({ objectId: body.objectId, revision: body.revision, name })
+          .then(() => setEditing(false))
+          .catch((e) => setError(String(e)))
+          .finally(() => setBusy(false));
+      }}
+    >
+      <label>
+        Objektname
+        <input
+          autoFocus
+          maxLength={60}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={busy || disabled}
+        />
+      </label>
+      <button type="submit" disabled={busy || disabled || !name.trim()}>
+        Speichern
+      </button>
+      <button type="button" disabled={busy} onClick={() => setEditing(false)}>
+        Abbrechen
+      </button>
+      {error && <p role="alert">{error}</p>}
+    </form>
+  );
+}
 function Amounts({ values }: { values: { energy: number; minerals: number; science: number } }) {
   return (
     <span className="site-amounts">
@@ -65,7 +109,9 @@ export function SystemView({
   onCourse,
   onBattle,
   onNavigate,
+  client,
 }: {
+  client: Client | null;
   game: GameView;
   system: StarSystem;
   fleetId: string | null;
@@ -81,22 +127,30 @@ export function SystemView({
 }) {
   const [selection, setSelection] = useState<{ slot: number; fleet: string | null }>({
     slot: system.kind === 'star' ? 1 : 0,
-    fleet: null,
+    fleet: game.fleets.find((f) => f.id === fleetId)?.navigation?.orders.length ? fleetId : null,
   });
+  const [context, setContext] = useState<{ target: SystemTarget; x: number; y: number } | null>(null);
+  const closeContext = useCallback(() => setContext(null), []);
+  const [point, setPoint] = useState<Point3>({ x: 500, y: 80, z: 300 });
+  const [picking, setPicking] = useState(false),
+    [stationMode, setStationMode] = useState(false);
+  const [stationFacility, setStationFacility] = useState<'habitat' | 'research'>('research');
   const [zoom, setZoom] = useState(1),
     [zoomStep, setZoomStep] = useState(0),
     [bloom, setBloom] = useState(true),
     [contours, setContours] = useState(true),
     [reset, setReset] = useState(0),
     [focusSelection, setFocusSelection] = useState(0);
-  const bodies = useMemo(
-    () => systemBodies(system),
-    [system.id, system.name, system.kind, system.class, system.color, system.planet, system.colonyName],
-  );
+  const objects = useSystemObjects(client, system.id);
+  const bodies = objects.bodies || [];
   const body = bodies.find((b) => b.slot === selection.slot) || bodies[0];
   const fleets = game.fleets.filter((f) => f.systemId === system.id && !f.route.length);
-  const selectedFleet = fleets.find((f) => f.id === selection.fleet);
-  const site = game.sites?.find((s) => s.systemId === system.id && s.bodySlot === body.slot);
+  const fleetChoices = game.fleets.filter(
+    (f) => f.systemId === system.id || (f.id === fleetId && f.owner === game.me.id),
+  );
+  const selectedFleet = game.fleets.find((f) => f.id === selection.fleet);
+  const builder = constructionFleet(game, system.id, selectedFleet?.id);
+  const site = game.sites?.find((s) => s.systemId === system.id && s.bodySlot === body?.slot);
   const own = system.owner === game.me.id,
     surveyed = game.me.surveyed.includes(system.id);
   const ownFleet = fleets.find((f) => f.owner === game.me.id && !f.battleId);
@@ -106,18 +160,64 @@ export function SystemView({
   const disabled = !connected || !!game.winner;
   const factor = Math.min(1, ...(game.crises || []).map((c) => crisisProductionFactor(c.phase, c.shielded)));
   const chooseFleet = (id: string) => {
+    closeContext();
     onFleet(id);
     setSelection((s) => ({ ...s, fleet: id }));
+    setStationMode(false);
+    setPicking(false);
+  };
+  const chooseBody = (slot: number) => {
+    closeContext();
+    setSelection({ slot, fleet: null });
+    setStationMode(false);
+    setPicking(false);
   };
   const projectRemaining = site ? Math.max(0, site.finishAt - game.tick) : 0;
+  const issueConstruction = (c: GameCommand) => {
+    if (c.type === 'site_build' || c.type === 'station_place') {
+      if (!builder) return;
+      command({ ...c, fleetId: builder.id, append: true });
+      chooseFleet(builder.id);
+    } else command(c);
+  };
+  if (!body)
+    return (
+      <div className="system-view">
+        <div className="system-loading" role="status">
+          <p>
+            {objects.error ||
+              (objects.bodies
+                ? 'Dieses System enthält keine aktiven Himmelskörper.'
+                : 'Systemobjekte werden geladen …')}
+          </p>
+          <button onClick={onBack}>Zur Galaxie</button>
+        </div>
+      </div>
+    );
   return (
     <div className="system-view">
       <SystemScene
         game={game}
         system={system}
+        bodies={bodies}
+        placement={picking ? point : undefined}
+        previewPoint={stationMode || picking ? point : undefined}
+        onPoint={(p) => setPoint({ ...p, y: point.y })}
+        onContext={(target, x, y) => setContext({ target, x, y })}
+        onMove={(p, append) => {
+          closeContext();
+          if (
+            !disabled &&
+            selectedFleet?.owner === game.me.id &&
+            selectedFleet.systemId === system.id &&
+            !selectedFleet.route.length &&
+            !selectedFleet.battleId
+          )
+            command({ type: 'local_move', fleetId: selectedFleet.id, systemId: system.id, point: p, append });
+        }}
         selectedBody={selectedFleet ? -1 : body.slot}
         fleetId={fleetId}
-        onBody={(slot) => setSelection({ slot, fleet: null })}
+        onBody={chooseBody}
         onFleet={chooseFleet}
         zoomStep={zoomStep}
         onZoom={setZoom}
@@ -127,6 +227,22 @@ export function SystemView({
         reset={reset}
         focusSelection={focusSelection}
       />
+      {own && surveyed && (
+        <button
+          className="station-placement-toggle"
+          onClick={() => {
+            setStationMode((v) => !v);
+            setPicking(false);
+          }}
+        >
+          Freie Station platzieren
+        </button>
+      )}
+      {picking && (
+        <div className="system-placement">
+          Stationsposition wählen · In den Systemraum klicken · Höhe {point.y}
+        </div>
+      )}
       <div className="system-render-controls" aria-label="Kartendarstellung">
         <span>RAUMZEIT / 3D</span>
         <button
@@ -152,11 +268,15 @@ export function SystemView({
           {fleets.reduce((n, f) => n + (f.shipCount || 1), 0)} SCHIFFE IM SYSTEM
         </span>
         <div>
-          {fleets.map((f) => (
+          {fleetChoices.map((f) => (
             <button
               key={f.id}
               className={selection.fleet === f.id ? 'active' : ''}
               onClick={() => chooseFleet(f.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setContext({ target: { kind: 'fleet', id: f.id }, x: e.clientX, y: e.clientY });
+              }}
             >
               <i style={{ background: game.players.find((p) => p.id === f.owner)?.color }} />
               {f.name}
@@ -174,7 +294,63 @@ export function SystemView({
         )}
       </div>
       <aside className="body-inspector" aria-label="Systemobjekt verwalten">
-        {selectedFleet ? (
+        {stationMode ? (
+          <section className="navigation-panel" aria-label="Stationsplatzierung">
+            <h2>Freie Station</h2>
+            <p>
+              Feste Position im Systemraum. Die Markierung zeigt den Bauplatz; Bau erst mit „Station
+              errichten“.
+            </p>
+            <PointInputs point={point} setPoint={setPoint} />
+            <button aria-pressed={picking} onClick={() => setPicking((v) => !v)}>
+              {picking ? 'Zielwahl beenden' : 'Position auf der Karte wählen'}
+            </button>
+            <label>
+              Stationstyp
+              <select
+                value={stationFacility}
+                onChange={(e) => setStationFacility(e.target.value as 'habitat' | 'research')}
+              >
+                <option value="research">Forschungsstation</option>
+                <option value="habitat">Außenposten</option>
+              </select>
+            </label>
+            <p>
+              {FACILITIES[stationFacility].cost.energy} Energie · {FACILITIES[stationFacility].cost.minerals}{' '}
+              Mineralien · {FACILITIES[stationFacility].days} Tage
+            </p>
+            <button
+              disabled={disabled || !builder}
+              onClick={() =>
+                issueConstruction({
+                  type: 'station_place',
+                  systemId: system.id,
+                  point,
+                  facility: stationFacility,
+                })
+              }
+            >
+              Station errichten
+            </button>
+            <small>
+              {builder
+                ? `${builder.name} fliegt zuerst zum Bauplatz. Kosten werden bei Baustart fällig.`
+                : 'Ein eigenes Schiff im System wird benötigt.'}
+            </small>
+            <small>
+              Abstand zu Körpern, Stationen und Umlaufbahnen erforderlich. Maximal 24 freie Stationen je
+              System. Bau, Ausbau und Abbruch erfolgen anschließend am neuen Objekt.
+            </small>
+            <button
+              onClick={() => {
+                setStationMode(false);
+                setPicking(false);
+              }}
+            >
+              Zurück zur Auswahl
+            </button>
+          </section>
+        ) : selectedFleet ? (
           <>
             <div className="body-hero fleet">
               <Rocket size={54} strokeWidth={0.7} />
@@ -198,8 +374,14 @@ export function SystemView({
               {selectedFleet.battleId
                 ? 'Im Gefecht gebunden.'
                 : selectedFleet.task
-                  ? `${selectedFleet.task.type === 'scan' ? 'Systemuntersuchung' : 'Kolonisierung'} · ${Math.ceil(selectedFleet.task.remaining)} s`
-                  : 'Bereit im System. Die Formation zeigt den ruhenden Verband.'}
+                  ? selectedFleet.task.type === 'scan' && selectedFleet.navigation
+                    ? `Erkundung · ${selectedFleet.navigation.visited.length}/${selectedFleet.navigation.totalBodies} Körper`
+                    : `${selectedFleet.task.type === 'scan' ? 'Systemuntersuchung' : 'Kolonisierung'} · ${Math.ceil(selectedFleet.task.remaining)} T`
+                  : selectedFleet.navigation?.orders.length
+                    ? 'Flugauftrag aktiv.'
+                    : selectedFleet.navigation?.phase === 'braking'
+                      ? 'Schiff bremst ab.'
+                    : 'Bereit im System.'}
             </p>
             {(selectedFleet.shipCount || 1) >
               Math.min(
@@ -227,6 +409,15 @@ export function SystemView({
                 </button>
               </div>
             )}
+            {selectedFleet.owner === game.me.id && (
+              <NavigationPanel
+                key={selectedFleet.id}
+                fleet={selectedFleet}
+                game={game}
+                command={command}
+                disabled={disabled}
+              />
+            )}
           </>
         ) : (
           <>
@@ -241,17 +432,37 @@ export function SystemView({
                 {surveyed ? 'KARTIERT' : 'UNERFORSCHT'}
               </span>
               <h2>{body.name}</h2>
+              {own && !body.main && body.slot !== 0 && client && (
+                <BodyName
+                  key={`${body.objectId}:${body.revision}`}
+                  body={body}
+                  client={client}
+                  disabled={disabled}
+                />
+              )}
             </div>
             <p>{body.description}</p>
+            {own && body.kind === 'planet' && client && (
+              <TerraformingPanel
+                key={body.objectId}
+                body={body}
+                client={client}
+                game={game}
+                system={system}
+                disabled={disabled}
+              />
+            )}
             <div className="body-facts">
               <span>
                 Standort{' '}
                 <b>
-                  {body.parent !== undefined
-                    ? `Mond von ${bodies.find((b) => b.slot === body.parent)?.name}`
-                    : body.orbit
-                      ? 'Systemorbit'
-                      : 'Zentraler Körper'}
+                  {body.position
+                    ? `${Math.round(body.position.x)} / ${Math.round(body.position.y)} / ${Math.round(body.position.z)}`
+                    : body.parent !== undefined
+                      ? `Mond von ${bodies.find((b) => b.slot === body.parent)?.name}`
+                      : body.orbit
+                        ? 'Systemorbit'
+                        : 'Zentraler Körper'}
                 </b>
               </span>
               <span>
@@ -276,7 +487,7 @@ export function SystemView({
                   onClick={() => scout && command({ type: 'scan', fleetId: scout.id })}
                 >
                   <ScanLine size={15} />
-                  System untersuchen · 8 s
+                  Alle Himmelskörper erkunden
                 </button>
                 {!scout && <small>Ein freies Forschungsschiff muss vor Ort sein.</small>}
               </div>
@@ -295,6 +506,11 @@ export function SystemView({
               <Hammer size={14} />
               <h3>{site?.level ? 'Anlage ausbauen' : 'Körper erschließen'}</h3>
             </div>
+            <p className="body-hint">
+              {builder
+                ? `${builder.name} übernimmt den Anflug. Bau und Kostenbuchung starten erst in der Nähe des Körpers.`
+                : 'Zum Bauen wird ein eigenes Schiff im System benötigt.'}
+            </p>
             {!allowed && (
               <p className="body-hint">
                 {!surveyed
@@ -323,7 +539,7 @@ export function SystemView({
                       value={Math.max(0, game.tick - site.startedAt)}
                     />
                     <div>
-                      <strong>{Math.ceil(projectRemaining)} s</strong>
+                      <strong>{Math.ceil(projectRemaining)} T</strong>
                       <small>{game.paused ? 'Bau pausiert' : 'Im Bau'}</small>
                       <button
                         aria-label="Anlagenbau abbrechen"
@@ -357,14 +573,14 @@ export function SystemView({
                             </header>
                             <p>{def.description}</p>
                             <div className="facility-yield">
-                              <small>Ertrag pro Stufe / 4 s</small>
+                              <small>Ertrag pro Stufe / 4 Tage</small>
                               <Amounts values={facilityYield(id, 1, factor)} />
                             </div>
                             <button
                               className="secondary-button"
-                              disabled={disabled || !allowed || !affordable || max}
+                              disabled={disabled || !allowed || !affordable || max || !builder}
                               onClick={() =>
-                                command({
+                                issueConstruction({
                                   type: 'site_build',
                                   systemId: system.id,
                                   bodySlot: body.slot,
@@ -382,7 +598,7 @@ export function SystemView({
                                   <Hammer size={13} />
                                   <span>{level ? 'Ausbauen' : 'Errichten'}</span>
                                   <Amounts values={spec.cost} />
-                                  <small>{spec.seconds} s</small>
+                                  <small>{spec.days} T</small>
                                 </>
                               )}
                             </button>
@@ -421,7 +637,11 @@ export function SystemView({
             <button
               key={b.slot}
               aria-pressed={!selectedFleet && body.slot === b.slot}
-              onClick={() => setSelection({ slot: b.slot, fleet: null })}
+              onClick={() => chooseBody(b.slot)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setContext({ target: { kind: 'body', slot: b.slot }, x: e.clientX, y: e.clientY });
+              }}
             >
               <i className={b.kind} style={{ background: b.color }} />
               <span>
@@ -441,12 +661,28 @@ export function SystemView({
           ))}
         </div>
       </nav>
+      {context && (
+        <SystemContextMenu
+          {...context}
+          game={game}
+          system={system}
+          bodies={bodies}
+          fleet={selectedFleet}
+          disabled={disabled}
+          command={issueConstruction}
+          close={closeContext}
+          onBody={chooseBody}
+          onFleet={chooseFleet}
+          onNavigate={onNavigate}
+          onColony={onColony}
+        />
+      )}
       <div className="system-controls">
         <button onClick={onBack}>
           <ArrowLeft size={14} />
           Galaxie
         </button>
-        <span>Ziehen: drehen · Rechts ziehen: verschieben · Mausrad: Zoom</span>
+        <span>Rechtsklick: Befehle · Umschalt: anhängen · Ziehen: drehen · Rechts ziehen: verschieben</span>
         <button
           aria-label="Auswahl in Nahansicht"
           onClick={() => {

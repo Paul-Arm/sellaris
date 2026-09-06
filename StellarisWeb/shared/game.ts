@@ -31,6 +31,7 @@ import {
   empireModifiers,
   populationGrowth,
   planReform,
+  planShipSet,
   planSpeciesModification,
   REFORM_COST,
   MODIFICATION_COST,
@@ -43,7 +44,7 @@ export const WIN_SYSTEMS = 8;
 export const COLORS = ['#9c91ff', '#58d9cf', '#f3b36b', '#ed7d9a'];
 export type Resource = 'energy' | 'minerals' | 'science';
 export type ShipType = 'scout' | 'colony' | 'corvette';
-export type TechId = 'propulsion' | 'extraction' | 'weapons';
+export type TechId = 'propulsion' | 'extraction' | 'weapons' | 'terraforming';
 export type Resources = Record<Resource, number>;
 export const SHIPS: Record<ShipType, { name: string; cost: Resources; time: number; power: number }> = {
   scout: { name: 'Forschungsschiff', cost: { energy: 60, minerals: 80, science: 0 }, time: 12, power: 10 },
@@ -69,6 +70,12 @@ export const TECHS: Record<TechId, { name: string; description: string; cost: nu
     cost: 150,
     time: 45,
   },
+  terraforming: {
+    name: 'Klimagestaltung',
+    description: 'Ermöglicht Terraforming eigener Planeten in neun bewohnbare Klimaklassen.',
+    cost: 250,
+    time: 60,
+  },
 };
 export interface StarSystem {
   productionFactor?: number;
@@ -90,6 +97,8 @@ export interface StarSystem {
   colonyName?: string;
 }
 export interface Fleet {
+  navigation?: import('./navigation').FleetNavigation;
+  journey?: import('../backend/domain').Journey;
   nativeId?: number;
   shipCount?: number;
   battleId?: number;
@@ -146,13 +155,23 @@ export type GameCommand =
   | import('./diplomacy').DiplomacyCommand
   | import('./stories').StoryCommand
   | import('./celestial').SiteCommand
-  | { type: 'move'; fleetId: string; systemId: string }
-  | { type: 'scan' | 'colonize'; fleetId: string }
+  | { type: 'move'; fleetId: string; systemId: string; append?: boolean }
+  | { type: 'scan' | 'colonize'; fleetId: string; append?: boolean }
+  | {
+      type: 'local_move';
+      fleetId: string;
+      systemId: string;
+      point: import('./navigation').Point3;
+      append?: boolean;
+    }
+  | { type: 'fleet_stop'; fleetId: string }
+  | { type: 'fleet_remove_order'; fleetId: string; index: number }
   | { type: 'build'; ship: ShipType; systemId: string }
   | { type: 'mine'; systemId: string }
   | { type: 'research'; tech: TechId }
   | ColonyCommand
   | { type: 'empire_reform'; government: Government; revision: number }
+  | { type: 'empire_ship_set'; shipSet: import('./shipSets').ShipSet; revision: number }
   | { type: 'species_modify'; sourceId: string; design: SpeciesDesign; colonyIds: string[]; revision: number }
   | { type: 'add_ai' }
   | { type: 'pause' }
@@ -165,8 +184,11 @@ export interface PublicPlayer {
   colonies: number;
   ai?: boolean;
   flag?: FlagDesign;
+  shipSet?: import('./shipSets').ShipSet;
 }
 export interface GameView extends Omit<GameState, 'players'> {
+  /** Client-only monotonic timeline. Never used for authoritative game decisions. */
+  displayClock?: { now(at?: number): number; readonly paused: boolean; readonly speed: number };
   sites?: import('./celestial').BodySite[];
   decisions?: import('./stories').StoryDecision[];
   crises?: import('./stories').CrisisView[];
@@ -457,6 +479,10 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
   if (!player) throw new Error('Spieler nicht gefunden.');
   if (game.winner) throw new Error('Diese Partie ist beendet. Erstelle einen neuen Sektor.');
   if (!cmd || typeof cmd !== 'object') throw new Error('Ungültiger Befehl.');
+  if (cmd.type === 'empire_ship_set') {
+    player.empire = planShipSet(player.empire!, cmd.shipSet, game.tick, cmd.revision);
+    return;
+  }
   if (cmd.type === 'empire_reform') {
     const next = planReform(player.empire!, cmd.government, game.tick, cmd.revision);
     spend(player, REFORM_COST);
@@ -559,7 +585,8 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
   if (fleet.route.length || fleet.task) throw new Error('Diese Flotte führt bereits einen Auftrag aus.');
   const system = game.systems.find((s) => s.id === fleet.systemId)!;
   if (cmd.type === 'move') {
-    if (cmd.systemId === fleet.systemId) throw new Error('Die Flotte befindet sich bereits in diesem System.');
+    if (cmd.systemId === fleet.systemId)
+      throw new Error('Die Flotte befindet sich bereits in diesem System.');
     if (!player.discovered.includes(cmd.systemId)) throw new Error('Unbekanntes Zielsystem.');
     const route = fleetRoute(game, fleet, cmd.systemId);
     if (!route?.length) throw new Error('Wähle ein anderes erreichbares System.');
@@ -987,6 +1014,7 @@ export function viewFor(game: GameState, playerId: string): GameView {
       colonies: game.systems.filter((s) => s.owner === p.id).length,
       ai: !!p.ai,
       flag: structuredClone(flagForEmpire(p.empire?.design ?? p)),
+      shipSet: p.empire?.design.shipSet ?? 'prisma',
     })),
     me,
   };

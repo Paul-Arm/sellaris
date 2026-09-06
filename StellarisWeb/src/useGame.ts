@@ -3,7 +3,7 @@ import type { GameCommand, GameView } from '../shared/game';
 import type { EmpireLibrary, LibraryMutation } from '../shared/empires';
 import type { GalaxySettings } from '../shared/galaxySettings';
 import { connect as connectNative, subscribe, type Client } from '../backend/client';
-import { GAME_QUERIES, gameView } from '../backend/game-client';
+import { GAME_QUERIES, observeGame } from '../backend/game-client';
 import { BattleDetailSubscription } from '../backend/detail-subscriptions';
 
 type NativeSession = { code: string; database: string; token?: string; ticket?: string };
@@ -43,6 +43,7 @@ export function useGame() {
       /* The current connection still has a private profile. */
     }
     let stopped = false;
+    let unobserve = () => {};
     let retry: ReturnType<typeof setTimeout>;
     let attempts = 0;
     let nativeRetry: ReturnType<typeof setTimeout>,
@@ -51,6 +52,7 @@ export function useGame() {
     async function attachNative(saved: NativeSession) {
       clearTimeout(nativeRetry);
       const generation = ++nativeGeneration;
+      unobserve();
       details.current?.dispose();
       details.current = null;
       native.current?.conn.disconnect();
@@ -97,7 +99,7 @@ export function useGame() {
         nativeAttempts = 0;
         details.current = new BattleDetailSubscription(client);
         setNativeClient(client);
-        setState(gameView(client));
+        unobserve = observeGame(client, setState);
         setConnected(true);
         setError('');
         inviteRef.current = '';
@@ -187,12 +189,18 @@ export function useGame() {
       ws.onerror = () => ws.close();
     }
     connect();
+    // Only the day/readout changes here; atlas, fleets, JSON and indices stay untouched.
     const nativeFrames = setInterval(() => {
-      if (native.current?.conn.isActive && nativeClientReady()) setState(gameView(native.current));
-    }, 250);
-    function nativeClientReady() {
-      return !!details.current;
-    }
+      const client = native.current;
+      if (!client?.conn.isActive || !details.current) return;
+      const tick = Math.floor(client.clock.now());
+      setState((view) =>
+        view &&
+        (view.tick !== tick || view.paused !== client.clock.paused || view.speed !== client.clock.rate)
+          ? { ...view, tick, paused: client.clock.paused, speed: client.clock.rate }
+          : view,
+      );
+    }, 100);
     const ping = setInterval(() => {
       if (socket.current?.readyState === WebSocket.OPEN)
         socket.current.send(JSON.stringify({ type: 'ping', sent: Date.now() }));
@@ -202,6 +210,7 @@ export function useGame() {
       nativeGeneration++;
       clearTimeout(nativeRetry);
       clearInterval(nativeFrames);
+      unobserve();
       details.current?.dispose();
       native.current?.conn.disconnect();
       native.current = null;

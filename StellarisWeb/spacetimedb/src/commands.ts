@@ -61,6 +61,11 @@ export const splitFleet = db.reducer(
   (ctx, { fleetId, shipIds }) => {
     const owner = member(ctx);
     const f = ownedFleet(ctx, fleetId, owner);
+    if (
+      ctx.db.gameNavigation.id.find(f.id)?.ordersJson &&
+      ctx.db.gameNavigation.id.find(f.id)!.ordersJson !== '[]'
+    )
+      throw new SenderError('Stoppe zuerst die Flottenaufträge.');
     if (f.battleId || f.route.length || !f.systemId)
       throw new SenderError('Split requires an idle fleet in a system');
     if (
@@ -109,6 +114,12 @@ export const mergeFleets = db.reducer(
     const owner = member(ctx);
     const source = ownedFleet(ctx, sourceId, owner),
       target = ownedFleet(ctx, targetId, owner);
+    for (const id of [sourceId, targetId])
+      if (
+        ctx.db.gameNavigation.id.find(id)?.ordersJson &&
+        ctx.db.gameNavigation.id.find(id)!.ordersJson !== '[]'
+      )
+        throw new SenderError('Stoppe zuerst die Flottenaufträge.');
     if (
       source.id === target.id ||
       source.battleId ||
@@ -139,6 +150,7 @@ export const mergeFleets = db.reducer(
     if (ctx.db.gameSettings.id.find(1)) {
       ctx.db.gameFleet.id.delete(sourceId);
       ctx.db.gameFleetCondition.id.delete(sourceId);
+      ctx.db.gameNavigation.id.delete(sourceId);
       for (const d of ctx.db.gameDamaged.fleetId.filter(sourceId))
         ctx.db.gameDamaged.id.update({ ...d, fleetId: targetId });
       refreshFleetCondition(ctx, targetId);

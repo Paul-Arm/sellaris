@@ -6,5 +6,8 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all procedure arg schemas
+import * as SampleClockProcedure from "../sample_clock_procedure";
 
+export type SampleClockArgs = __Infer<typeof SampleClockProcedure.params>;
+export type SampleClockResult = __Infer<typeof SampleClockProcedure.returnType>;
 

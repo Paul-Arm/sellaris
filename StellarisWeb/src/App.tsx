@@ -1,3 +1,4 @@
+import { gameIndices } from './game-indices';
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Activity,
@@ -95,9 +96,14 @@ function shipIcon(type: ShipType) {
 function fleetStatus(f: Fleet, game: GameView) {
   if (f.battleId) return `Gefecht ${f.battleId} · ${f.shipCount ?? 1} Schiffe`;
   if (f.task?.blocked) return 'Feindkontakt · Auftrag wartet';
+  if (f.navigation?.motion.paused) return 'Feindkontakt · Flug wartet';
   if (f.route.length) return `Unterwegs nach ${game.systems.find((s) => s.id === f.route.at(-1))?.name}`;
   if (f.task)
-    return `${f.task.type === 'scan' ? 'Untersuchung' : 'Kolonisierung'} · ${Math.ceil(f.task.remaining)} s`;
+    return f.task.type === 'scan' && f.navigation
+      ? `Erkundung · ${f.navigation.visited.length}/${f.navigation.totalBodies} Körper`
+      : `${f.task.type === 'scan' ? 'Untersuchung' : 'Kolonisierung'} · ${Math.ceil(f.task.remaining)} T`;
+  if (f.navigation?.orders.length)
+    return `Systemflug · ${f.navigation.orders.length} ${f.navigation.orders.length === 1 ? 'Auftrag' : 'Aufträge'}`;
   return game.systems.find((s) => s.id === f.systemId)?.name || 'Bereit';
 }
 export function App() {
@@ -320,6 +326,13 @@ export function App() {
           <button title="Spielanleitung" aria-label="Spielanleitung" onClick={() => setModal('help')}>
             <CircleHelp size={20} />
           </button>
+          <button
+            title="Designhangar"
+            aria-label="Designhangar"
+            onClick={() => window.open('/models', '_blank', 'noopener')}
+          >
+            <Rocket size={20} />
+          </button>
           <span className="version">α 0.2</span>
         </div>
       </aside>
@@ -334,7 +347,7 @@ export function App() {
               <button
                 className={`resource ${r}`}
                 key={r}
-                title={`${resourceNames[r]} · +${rates[r]} pro 4 Spielsekunden`}
+                title={`${resourceNames[r]} · +${rates[r]} pro 4 Spieltage`}
                 onClick={() => setModal('empire')}
                 aria-label={`${resourceNames[r]}: Wirtschaftsübersicht öffnen`}
               >
@@ -398,6 +411,7 @@ export function App() {
             ) : mode === 'system' ? (
               <Suspense fallback={<div className="system-loading">Systemansicht wird geladen …</div>}>
                 <SystemView
+                  client={net.nativeClient}
                   key={system.id}
                   game={game}
                   system={system}
@@ -518,12 +532,21 @@ export function App() {
                       className={fleetTab === 'idle' ? 'active' : ''}
                       onClick={() => setFleetTab('idle')}
                     >
-                      Verfügbar<span>{ownFleets.filter((f) => !f.route.length && !f.task).length}</span>
+                      Verfügbar
+                      <span>
+                        {
+                          ownFleets.filter((f) => !f.route.length && !f.task && !f.navigation?.orders.length)
+                            .length
+                        }
+                      </span>
                     </button>
                   </div>
                   <div className="fleet-list">
                     {ownFleets
-                      .filter((f) => fleetTab === 'all' || (!f.route.length && !f.task))
+                      .filter(
+                        (f) =>
+                          fleetTab === 'all' || (!f.route.length && !f.task && !f.navigation?.orders.length),
+                      )
                       .map((f) => {
                         const Icon = shipIcon(f.type);
                         return (
@@ -548,7 +571,9 @@ export function App() {
                               </strong>
                               <span>{fleetStatus(f, game)}</span>
                               {(f.task || f.route.length > 0) && (
-                                <Progress value={f.task ? 1 - f.task.remaining / f.task.total : f.progress} />
+                                <Progress
+                                  value={() => (f.task ? 1 - f.task.remaining / f.task.total : f.progress)}
+                                />
                               )}
                             </div>
                             <span className={`small-dot ${f.route.length || f.task ? 'amber' : ''}`} />
@@ -570,7 +595,7 @@ export function App() {
                       {game.me.research ? TECHS[game.me.research.id].name : 'Die nächste Entdeckung'}
                     </strong>
                     {game.me.research ? (
-                      <Progress value={1 - game.me.research.remaining / game.me.research.total} />
+                      <Progress value={() => 1 - game.me.research!.remaining / game.me.research!.total} />
                     ) : (
                       <span className="muted">Technologie auswählen</span>
                     )}
@@ -623,8 +648,8 @@ export function App() {
                   </div>
                   <svg viewBox="0 0 250 108" aria-label="Sektorminimap">
                     {game.links.map(([a, b]) => {
-                      const x = game.systems.find((s) => s.id === a)!,
-                        y = game.systems.find((s) => s.id === b)!;
+                      const x = gameIndices(game).systems.get(a)!,
+                        y = gameIndices(game).systems.get(b)!;
                       return (
                         <line
                           key={a + b}
@@ -811,7 +836,7 @@ export function App() {
         </div>
         <span className="footer-hint">
           {mode === 'system' && !showTactics
-            ? 'Ziehen: Kamera drehen · Rechts ziehen: verschieben · Mausrad: Zoom'
+            ? 'Rechtsklick: Flugziel / Objektaktionen · Umschalt: anhängen · Rechts ziehen: verschieben'
             : 'Ziehen: Karte bewegen · Scrollen: Zoom · Rechtsklick: Flottenziel'}
         </span>
       </footer>
@@ -947,7 +972,7 @@ export function App() {
                       ? 'Nur der Host kann einen KI-Gegner hinzufügen.'
                       : game.players.length >= (game.capacity || 4)
                         ? 'Alle Imperiumsplätze sind belegt.'
-                        : 'Belegt einen Spielerplatz. Offensiven gegen andere Imperien beginnen frühestens nach 150 Spielsekunden.'}
+                        : 'Belegt einen Spielerplatz. Offensiven gegen andere Imperien beginnen frühestens nach 150 Spieltagen.'}
                   </p>
                 </div>
               )}
@@ -1044,26 +1069,37 @@ export function App() {
                   const t = TECHS[id],
                     done = game.me.techs.includes(id),
                     active = game.me.research?.id === id;
-                  const Icon = [Orbit, Diamond, Zap][i];
+                  const Icon = { propulsion: Orbit, extraction: Diamond, weapons: Zap, terraforming: Globe2 }[
+                    id
+                  ];
                   return (
                     <div key={id} className={`tech-card ${active ? 'researching' : ''}`}>
                       <span className="tech-icon">
                         <Icon size={26} strokeWidth={1.3} />
                       </span>
                       <div>
-                        <span className="eyebrow">{['ANTRIEBSTECHNIK', 'INDUSTRIE', 'MILITÄR'][i]}</span>
+                        <span className="eyebrow">
+                          {
+                            {
+                              propulsion: 'ANTRIEBSTECHNIK',
+                              extraction: 'INDUSTRIE',
+                              weapons: 'MILITÄR',
+                              terraforming: 'PLANETENGESTALTUNG',
+                            }[id]
+                          }
+                        </span>
                         <h3>{t.name}</h3>
                         <p>{t.description}</p>
                         {active ? (
                           <>
-                            <Progress value={1 - game.me.research!.remaining / t.time} />
+                            <Progress value={() => 1 - game.me.research!.remaining / t.time} />
                             <span className="tech-time">
                               Noch{' '}
                               {Math.ceil(
                                 game.me.research!.remaining /
                                   Math.max(0.1, 1 + empireModifiers(game.me.empire).research),
                               )}{' '}
-                              Spielsekunden
+                              Spieltage
                             </span>
                           </>
                         ) : (
@@ -1134,7 +1170,7 @@ export function App() {
                 </div>
               </div>
               <h3 className="modal-subtitle">
-                Produktion pro Zyklus <span>4 Spielsekunden</span>
+                Produktion pro Zyklus <span>4 Spieltage</span>
               </h3>
               <div className="economy-table">
                 <div className="economy-base">
@@ -1425,9 +1461,9 @@ function SystemPanel({
                 : selectedTask.type === 'scan'
                   ? 'System wird untersucht'
                   : 'Kolonie wird gegründet'}{' '}
-              <b>{Math.ceil(selectedTask.remaining)} s</b>
+              <b>{Math.ceil(selectedTask.remaining)} T</b>
             </span>
-            <Progress value={1 - selectedTask.remaining / selectedTask.total} />
+            <Progress value={() => 1 - selectedTask.remaining / selectedTask.total} />
           </div>
         )}
         {fleet && fleet.systemId !== s.id && (
@@ -1452,7 +1488,7 @@ function SystemPanel({
             }
             onClick={() => send({ type: 'scan', fleetId: fleet!.id })}
           >
-            <ScanLine size={15} /> System untersuchen <span>8 s</span>
+            <ScanLine size={15} /> Alle Himmelskörper erkunden
           </button>
         )}
         {!own && !s.owner && s.kind === 'star' && (
@@ -1505,7 +1541,9 @@ function SystemPanel({
                   )}{' '}
                   s
                 </strong>
-                <Progress value={1 - s.colony.construction.remaining / s.colony.construction.total} />
+                <Progress
+                  value={() => 1 - s.colony!.construction!.remaining / s.colony!.construction!.total}
+                />
               </div>
             )}
             <button className="primary-button wide" onClick={() => setYardOpen(!yardOpen)}>
@@ -1547,20 +1585,10 @@ function SystemPanel({
             )}
             <button
               className="secondary-button wide"
-              disabled={
-                s.mined || game.me.resources.energy < 50 || game.me.resources.minerals < 100 || !!game.winner
-              }
-              onClick={() => send({ type: 'mine', systemId: s.id })}
+              onClick={onMode}
             >
-              {s.mined ? <Check size={14} /> : <Diamond size={14} />}{' '}
-              {s.mined ? 'Bergbaustation aktiv' : 'Bergbaustation'}
-              <span>
-                {!s.mined && (
-                  <>
-                    50 <Zap size={10} /> 100 <Diamond size={10} />
-                  </>
-                )}
-              </span>
+              <Diamond size={14} /> Bergbau im System verwalten
+              <span><ArrowUpRight size={14} /></span>
             </button>
           </>
         )}
@@ -1576,10 +1604,10 @@ function SystemPanel({
               <span>{SHIPS[q.type].name}</span>
               <strong>
                 {i === 0
-                  ? `${Math.ceil(q.remaining / Math.max(0.1, 1 + empireModifiers(game.me.empire).construction))} s`
+                  ? `${Math.ceil(q.remaining / Math.max(0.1, 1 + empireModifiers(game.me.empire).construction))} T`
                   : 'Wartet'}
               </strong>
-              {i === 0 && <Progress value={1 - q.remaining / q.total} />}
+              {i === 0 && <Progress value={() => 1 - q.remaining / q.total} />}
             </div>
           ))}
         </div>
@@ -1608,16 +1636,37 @@ function SystemPanel({
     </div>
   );
 }
-function Progress({ value }: { value: number }) {
+function Progress({ value }: { value: number | (() => number) }) {
+  const root = useRef<HTMLDivElement>(null),
+    latest = useRef(value);
+  latest.current = value;
+  const percent = () =>
+    Math.min(1, Math.max(0, typeof latest.current === 'function' ? latest.current() : latest.current)) * 100;
+  useEffect(() => {
+    if (typeof value !== 'function') return;
+    let frame = 0,
+      last = 0;
+    const update = (now: number) => {
+      frame = requestAnimationFrame(update);
+      if (document.hidden || now - last < 50 || !root.current) return;
+      last = now;
+      const amount = percent();
+      (root.current.firstElementChild as HTMLElement).style.width = `${amount}%`;
+      root.current.setAttribute('aria-valuenow', String(Math.round(amount)));
+    };
+    frame = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frame);
+  }, [typeof value]);
   return (
     <div
+      ref={root}
       className="progress"
       role="progressbar"
-      aria-valuenow={Math.round(Math.min(1, Math.max(0, value)) * 100)}
+      aria-valuenow={Math.round(percent())}
       aria-valuemin={0}
       aria-valuemax={100}
     >
-      <span style={{ width: `${Math.min(1, Math.max(0, value)) * 100}%` }} />
+      <span style={{ width: `${percent()}%` }} />
     </div>
   );
 }

@@ -34,6 +34,7 @@ import './empires.css';
 import { flagForEmpire } from '../shared/flags';
 import { EmpireFlag } from './EmpireFlag';
 import { FlagEditor } from './FlagEditor';
+import { SHIP_SETS, isShipSet, shipSetFor } from '../shared/shipSets';
 
 type Draft = { kind: 'empires'; value: EmpireTemplate } | { kind: 'species'; value: SpeciesTemplate };
 type Step = 'identity' | 'flag' | 'government' | 'origin' | 'species' | 'lore';
@@ -359,6 +360,18 @@ export function EmpireLibrary({
                           onChange={(systemName) => editEmpire({ ...empire, systemName })}
                         />
                       </div>
+                      <SelectField
+                        label="Schiffs- und Stationsdesign"
+                        value={shipSetFor(empire)}
+                        options={SHIP_SETS}
+                        onChange={(shipSet) => {
+                          if (isShipSet(shipSet)) editEmpire({ ...empire, shipSet });
+                        }}
+                      />
+                      <p className="archive-note">{SHIP_SETS[shipSetFor(empire)].description}</p>
+                      <a href="/models" target="_blank" rel="noreferrer">
+                        Alle Modelle im Designhangar ansehen ↗
+                      </a>
                       <div className="archive-row">
                         <Field
                           label="Herrschername"

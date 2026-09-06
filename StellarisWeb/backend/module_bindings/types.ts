@@ -136,6 +136,15 @@ export const Clock = __t.object("Clock", {
 });
 export type Clock = __Infer<typeof Clock>;
 
+export const ClockSample = __t.object("ClockSample", {
+  gameTime: __t.f64(),
+  wallTime: __t.f64(),
+  speed: __t.f64(),
+  paused: __t.bool(),
+  serverTime: __t.f64(),
+});
+export type ClockSample = __Infer<typeof ClockSample>;
+
 export const Cohort = __t.object("Cohort", {
   id: __t.u32(),
   colonyId: __t.u32(),
@@ -279,6 +288,12 @@ export type Focus = __Infer<typeof Focus>;
 export const FocusedBattle = __t.object("FocusedBattle", {});
 export type FocusedBattle = __Infer<typeof FocusedBattle>;
 
+export const FocusedObjectSystems = __t.object("FocusedObjectSystems", {});
+export type FocusedObjectSystems = __Infer<typeof FocusedObjectSystems>;
+
+export const FocusedSystemObjects = __t.object("FocusedSystemObjects", {});
+export type FocusedSystemObjects = __Infer<typeof FocusedSystemObjects>;
+
 export const GalaxyFleets = __t.object("GalaxyFleets", {});
 export type GalaxyFleets = __Infer<typeof GalaxyFleets>;
 
@@ -357,6 +372,7 @@ export const GameFleetInfo = __t.object("GameFleetInfo", {});
 export type GameFleetInfo = __Infer<typeof GameFleetInfo>;
 
 export const GameFleetInfoRow = __t.object("GameFleetInfoRow", {
+  navigationJson: __t.string(),
   id: __t.u32(),
   externalId: __t.string(),
   kind: __t.string(),
@@ -397,6 +413,45 @@ export const GameLane = __t.object("GameLane", {
 });
 export type GameLane = __Infer<typeof GameLane>;
 
+export const GameNavigation = __t.object("GameNavigation", {
+  id: __t.u32(),
+  systemId: __t.u32(),
+  motionJson: __t.string(),
+  ordersJson: __t.string(),
+  phase: __t.string(),
+  visited: __t.array(__t.u32()),
+  targetSlot: __t.u32(),
+  totalBodies: __t.u32(),
+  dueTick: __t.u64(),
+});
+export type GameNavigation = __Infer<typeof GameNavigation>;
+
+export const GameObject = __t.object("GameObject", {
+  id: __t.string(),
+  systemId: __t.u32(),
+  slot: __t.u32(),
+  revision: __t.u32(),
+  state: __t.string(),
+  changedAt: __t.f64(),
+  parentId: __t.string(),
+  bodyJson: __t.string(),
+});
+export type GameObject = __Infer<typeof GameObject>;
+
+export const GameObjectCatalog = __t.object("GameObjectCatalog", {
+  id: __t.u32(),
+  nextSlot: __t.u32(),
+  mainObjectId: __t.string(),
+});
+export type GameObjectCatalog = __Infer<typeof GameObjectCatalog>;
+
+export const GameObjectFocus = __t.object("GameObjectFocus", {
+  id: __t.string(),
+  identity: __t.identity(),
+  systemId: __t.u32(),
+});
+export type GameObjectFocus = __Infer<typeof GameObjectFocus>;
+
 export const GameOffer = __t.object("GameOffer", {
   id: __t.u32(),
   get give() {
@@ -427,6 +482,7 @@ export const GamePlayerSummary = __t.object("GamePlayerSummary", {
   homeId: __t.u32(),
   colonies: __t.u32(),
   flagJson: __t.string(),
+  shipSet: __t.string(),
 });
 export type GamePlayerSummary = __Infer<typeof GamePlayerSummary>;
 
@@ -506,6 +562,21 @@ export const GameSystem = __t.object("GameSystem", {
 });
 export type GameSystem = __Infer<typeof GameSystem>;
 
+export const GameTerraform = __t.object("GameTerraform", {
+  id: __t.string(),
+  systemId: __t.u32(),
+  empireId: __t.u32(),
+  from: __t.string(),
+  target: __t.string(),
+  startedAt: __t.f64(),
+  finishAt: __t.f64(),
+  finishTick: __t.u64(),
+  paidEnergy: __t.f64(),
+  paidMinerals: __t.f64(),
+  paidScience: __t.f64(),
+});
+export type GameTerraform = __Infer<typeof GameTerraform>;
+
 export const GameTicket = __t.object("GameTicket", {
   ticket: __t.string(),
   empireId: __t.u32(),
@@ -563,6 +634,9 @@ export type MyGameStories = __Infer<typeof MyGameStories>;
 
 export const MyJobs = __t.object("MyJobs", {});
 export type MyJobs = __Infer<typeof MyJobs>;
+
+export const MyTerraformProjects = __t.object("MyTerraformProjects", {});
+export type MyTerraformProjects = __Infer<typeof MyTerraformProjects>;
 
 export const MyTrade = __t.object("MyTrade", {});
 export type MyTrade = __Infer<typeof MyTrade>;

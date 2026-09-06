@@ -29,6 +29,7 @@ void main() {
   vec3 spill = vec3(0.);
   float potential = 18.;
   for (int i = 0; i < 10; i++) {
+    if(wells[i].w<=0.) continue;
     float r = length(fieldDomain - wells[i].xy) / max(wells[i].z, 1.);
     float power = step(.1, wells[i].w);
     float core = exp(-r*r*2.5) * power;

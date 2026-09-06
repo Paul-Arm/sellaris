@@ -13,14 +13,15 @@ import {
 import { instantiateEmpire, type EmpireState } from '../../shared/empireState';
 import { ORIGINS, ENVIRONMENTS } from '../../shared/empireCatalog';
 import { db, type Context } from './tables';
-import { admin, NEVER, now, tickAt, wallNow } from './rules';
+import { admin, NEVER, now, clockNow, tickAt, wallNow } from './rules';
 import { schedule } from './seed';
 import { addJob, event, makeShip, updateColony } from './game-model';
 import { publishBattleReport } from './battle-reports';
 import { ensureStoryWorld, storyForNewEmpire } from './game-stories';
+import { ensureSystemObjects } from './game-objects';
 
 export function gameClock(ctx: Context, paused: boolean, speed = ctx.db.clock.id.find(1)!.speed) {
-  const at = now(ctx),
+  const at = clockNow(ctx),
     clock = ctx.db.clock.id.find(1)!;
   ctx.db.clock.id.update({ ...clock, gameTime: at, wallTime: wallNow(ctx), paused, speed });
   if (paused)
@@ -53,6 +54,7 @@ export const gameConnected = db.clientConnected((ctx) => {
 export const gameDisconnected = db.clientDisconnected((ctx) => {
   const config = ctx.db.gameSettings.id.find(1);
   if (!config || !ctx.connectionId) return;
+  ctx.db.gameObjectFocus.id.delete(ctx.connectionId.toHexString());
   const entry = ctx.db.gameConnection.id.find(ctx.connectionId.toHexString());
   if (!entry) return;
   ctx.db.gameConnection.id.delete(entry.id);
@@ -240,6 +242,7 @@ export const initializeGame = db.reducer(
         text: l.text,
         tone: l.tone,
       });
+    ensureSystemObjects(ctx);
     ensureStoryWorld(ctx);
     schedule(ctx);
     const runtime = ctx.db.runtime.name.find('economy')!;

@@ -11,6 +11,7 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
+  navigationJson: __t.string().name("navigation_json"),
   id: __t.u32().primaryKey(),
   externalId: __t.string().name("external_id"),
   kind: __t.string(),

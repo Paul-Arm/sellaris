@@ -36,7 +36,9 @@ import {
 // Import all reducer arg schemas
 import ActivateReducer from "./activate_reducer";
 import CancelJobReducer from "./cancel_job_reducer";
+import CancelTerraformingReducer from "./cancel_terraforming_reducer";
 import ConfigureReducer from "./configure_reducer";
+import FocusSystemObjectsReducer from "./focus_system_objects_reducer";
 import GameCommandReducer from "./game_command_reducer";
 import InitializeBattleReportsReducer from "./initialize_battle_reports_reducer";
 import InitializeDiplomacyReducer from "./initialize_diplomacy_reducer";
@@ -46,6 +48,7 @@ import JoinEmpireReducer from "./join_empire_reducer";
 import MergeFleetsReducer from "./merge_fleets_reducer";
 import MoveFleetReducer from "./move_fleet_reducer";
 import RedeemGameSeatReducer from "./redeem_game_seat_reducer";
+import RenameBodyReducer from "./rename_body_reducer";
 import ReserveGameSeatReducer from "./reserve_game_seat_reducer";
 import SeedShipsReducer from "./seed_ships_reducer";
 import SetAutomationReducer from "./set_automation_reducer";
@@ -53,9 +56,11 @@ import SetClockReducer from "./set_clock_reducer";
 import SetFocusReducer from "./set_focus_reducer";
 import SplitFleetReducer from "./split_fleet_reducer";
 import StartJobReducer from "./start_job_reducer";
+import StartTerraformingReducer from "./start_terraforming_reducer";
 import WithdrawFleetReducer from "./withdraw_fleet_reducer";
 
 // Import all procedure arg schemas
+import * as SampleClockProcedure from "./sample_clock_procedure";
 
 // Import all table schema definitions
 import BattleMotionRow from "./battle_motion_table";
@@ -68,6 +73,8 @@ import DiagnosticsRow from "./diagnostics_table";
 import EmpireSummaryRow from "./empire_summary_table";
 import FleetShipsRow from "./fleet_ships_table";
 import FocusedBattleRow from "./focused_battle_table";
+import FocusedObjectSystemsRow from "./focused_object_systems_table";
+import FocusedSystemObjectsRow from "./focused_system_objects_table";
 import GalaxyFleetsRow from "./galaxy_fleets_table";
 import GameAtlasRow from "./game_atlas_table";
 import GameCrisisRow from "./game_crisis_table";
@@ -88,6 +95,7 @@ import MyGameOffersRow from "./my_game_offers_table";
 import MyGamePlayerRow from "./my_game_player_table";
 import MyGameStoriesRow from "./my_game_stories_table";
 import MyJobsRow from "./my_jobs_table";
+import MyTerraformProjectsRow from "./my_terraform_projects_table";
 import MyTradeRow from "./my_trade_table";
 import MyTreatiesRow from "./my_treaties_table";
 import ScenarioRow from "./scenario_table";
@@ -268,6 +276,20 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, FocusedBattleRow),
+  focusedObjectSystems: __table({
+    name: 'focused_object_systems',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, FocusedObjectSystemsRow),
+  focusedSystemObjects: __table({
+    name: 'focused_system_objects',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, FocusedSystemObjectsRow),
   galaxyFleets: __table({
     name: 'galaxy_fleets',
     indexes: [
@@ -373,6 +395,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyJobsRow),
+  myTerraformProjects: __table({
+    name: 'my_terraform_projects',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyTerraformProjectsRow),
   myTrade: __table({
     name: 'my_trade',
     indexes: [
@@ -414,7 +443,9 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("activate", ActivateReducer),
   __reducerSchema("cancel_job", CancelJobReducer),
+  __reducerSchema("cancel_terraforming", CancelTerraformingReducer),
   __reducerSchema("configure", ConfigureReducer),
+  __reducerSchema("focus_system_objects", FocusSystemObjectsReducer),
   __reducerSchema("game_command", GameCommandReducer),
   __reducerSchema("initialize_battle_reports", InitializeBattleReportsReducer),
   __reducerSchema("initialize_diplomacy", InitializeDiplomacyReducer),
@@ -424,6 +455,7 @@ const reducersSchema = __reducers(
   __reducerSchema("merge_fleets", MergeFleetsReducer),
   __reducerSchema("move_fleet", MoveFleetReducer),
   __reducerSchema("redeem_game_seat", RedeemGameSeatReducer),
+  __reducerSchema("rename_body", RenameBodyReducer),
   __reducerSchema("reserve_game_seat", ReserveGameSeatReducer),
   __reducerSchema("seed_ships", SeedShipsReducer),
   __reducerSchema("set_automation", SetAutomationReducer),
@@ -431,11 +463,13 @@ const reducersSchema = __reducers(
   __reducerSchema("set_focus", SetFocusReducer),
   __reducerSchema("split_fleet", SplitFleetReducer),
   __reducerSchema("start_job", StartJobReducer),
+  __reducerSchema("start_terraforming", StartTerraformingReducer),
   __reducerSchema("withdraw_fleet", WithdrawFleetReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
 const proceduresSchema = __procedures(
+  __procedureSchema("sample_clock", SampleClockProcedure.params, SampleClockProcedure.returnType),
 );
 
 /** The remote SpacetimeDB module schema, both runtime and type information. */

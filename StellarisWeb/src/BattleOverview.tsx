@@ -90,8 +90,8 @@ export function BattleOverview({
                     title="Effektiver Hüllen- und Schildschaden nach Panzerung, ohne Overkill. Rückzüge zählen nicht als Schaden und senken nur die im Gefecht gebundenen HP."
                   >
                     {systemNames
-                      ? `${Math.max(0, Math.floor(b.sampledAt - b.baselineAt))} Spielsekunden erfasst`
-                      : `Messbeginn: ${b.baselineAt.toFixed(1)} s · Stand: ${b.sampledAt.toFixed(1)} s`}
+                      ? `${Math.max(0, Math.floor(b.sampledAt - b.baselineAt))} Spieltage erfasst`
+                      : `Messbeginn: Tag ${Math.floor(b.baselineAt)} · Stand: Tag ${Math.floor(b.sampledAt)}`}
                   </small>
                 </>
               ) : (

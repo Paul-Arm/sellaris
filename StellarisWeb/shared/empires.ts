@@ -1,4 +1,5 @@
 import { cloneData } from './clone';
+import { SHIP_SETS, type ShipSet } from './shipSets';
 import {
   AUTHORITIES,
   CIVICS,
@@ -54,6 +55,7 @@ export interface EmpireDesign {
   emblem: keyof typeof EMBLEMS;
   flag?: FlagDesign;
   shipPrefix: string;
+  shipSet?: ShipSet;
   rulerName: string;
   rulerTitle: string;
   homeworldName: string;
@@ -220,6 +222,7 @@ export function parseEmpireTemplate(value: unknown, species: SpeciesTemplate[]):
     emblem: flag.emblem,
     flag,
     shipPrefix: text(o.shipPrefix, 'Schiffspräfix', 12),
+    shipSet: o.shipSet === undefined ? 'prisma' : choice(SHIP_SETS, o.shipSet, 'Schiffsdesign'),
     rulerName: text(o.rulerName, 'Herrschername', 48),
     rulerTitle: text(o.rulerTitle, 'Herrschertitel', 48),
     homeworldName: text(o.homeworldName, 'Heimatwelt', 48, true),
@@ -283,6 +286,7 @@ export function newEmpire(
     color: '#9c91ff',
     emblem: 'orbit',
     shipPrefix: 'ISS',
+    shipSet: kind === 'machine' ? 'nexus' : kind === 'hive' ? 'parallax' : 'prisma',
     rulerName: '',
     rulerTitle: 'Präsidentin',
     homeworldName: 'Erde',

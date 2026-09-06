@@ -1,9 +1,12 @@
 node_modules/
+__pycache__/
+*.pyc
 dist/
 data/
 .env
 *.log
 artifacts/
+.worktrees/
 .npm-cache/
 .tools/
 .spacetime/

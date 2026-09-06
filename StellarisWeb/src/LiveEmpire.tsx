@@ -4,7 +4,8 @@ import { AUTHORITIES, EMPIRE_KINDS, ORIGINS, ENVIRONMENTS, TRAITS } from '../sha
 import { parseGovernment, parseSpeciesDesign, type SpeciesDesign } from '../shared/empires';
 import { empireModifiers, MODIFICATION_COST, REFORM_COST } from '../shared/empireState';
 import type { GameCommand, GameView } from '../shared/game';
-import { EffectList, GovernmentFields, SpeciesFields } from './EmpireFields';
+import { EffectList, GovernmentFields, SpeciesFields, SelectField } from './EmpireFields';
+import { SHIP_SETS, isShipSet, shipSetFor } from '../shared/shipSets';
 import { flagForEmpire } from '../shared/flags';
 import { EmpireFlag } from './EmpireFlag';
 import './empires.css';
@@ -84,6 +85,24 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
             </div>
           </div>
           {empire.design.description && <p className="archive-note">{empire.design.description}</p>}
+          <fieldset disabled={!!game.winner} style={{ border: 0, padding: 0 }}>
+            <SelectField
+              label="Schiffs- und Stationsdesign"
+              value={shipSetFor(empire.design)}
+              options={SHIP_SETS}
+              onChange={(shipSet) => {
+                if (isShipSet(shipSet))
+                  command({ type: 'empire_ship_set', shipSet, revision: empire.revision });
+              }}
+            />
+          </fieldset>
+          <p className="archive-note">
+            {SHIP_SETS[shipSetFor(empire.design)].description} Der Wechsel ist kostenlos und verändert keine
+            Spielwerte.{' '}
+            <a href="/models" target="_blank" rel="noreferrer">
+              Designhangar öffnen ↗
+            </a>
+          </p>
           {empire.design.lore && <p className="living-lore">{empire.design.lore}</p>}
           <EffectList effects={empireModifiers(empire)} />
           <p className="archive-note">
@@ -116,7 +135,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
         <>
           <p className="archive-note">
             Passe Regierung, Ethiken und Staatselemente dieser Partie an. Ursprung und grundlegender Reichstyp
-            bleiben erhalten. Kosten: 100 Energie + 150 Forschung. Danach 120 Spielsekunden Wartezeit.
+            bleiben erhalten. Kosten: 100 Energie + 150 Forschung. Danach 120 Spieltage Wartezeit.
           </p>
           <GovernmentFields value={government} onChange={setGovernment} lockKind />
           {validation && (
@@ -205,7 +224,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
               <p className="archive-note">
                 Die Variante erhält ein Budget von 4 Merkmalspunkten. Nur die gewählten Kolonien wechseln zur
                 neuen Abstammungslinie. Kosten: 120 Mineralien + 300 Forschung. Wartezeit danach: 240
-                Spielsekunden.
+                Spieltage.
               </p>
               <SpeciesFields value={variant} onChange={setVariant} budget={4} lockKind showLore={false} />
               <fieldset className="variant-colonies">

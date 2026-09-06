@@ -37,7 +37,7 @@ type Well = { x: number; y: number; z: number; w: number };
 
 /** Asteroid fields and their decorative belts never deform or illuminate the sheet. */
 export function bodyGravityWell(body: CelestialBody): Well {
-  if (body.kind === 'asteroid') return { x: 0, y: 0, z: 1, w: 0 };
+  if (body.kind === 'asteroid' || body.kind === 'station') return { x: 0, y: 0, z: 1, w: 0 };
   return {
     x: 0,
     y: 0,
@@ -129,6 +129,7 @@ uniform float mouthHeights[PORTAL_COUNT];
 vec3 spacetimeSurface(vec2 p) {
   vec3 result=vec3(-18.,0.,0.);
   for(int i=0;i<10;i++) {
+    if(wells[i].w<=0.) continue;
     vec2 d=p-wells[i].xy;
     float width=max(1.,wells[i].z), q=1.+dot(d,d)/(width*width);
     result.x-=wells[i].w/sqrt(q);

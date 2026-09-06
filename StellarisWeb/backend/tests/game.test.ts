@@ -49,6 +49,7 @@ test('production galaxy: founding, private state and command ownership', { timeo
     });
     const library = starterLibrary(),
       template = snapshotTemplate(library, library.empires[0].id);
+    template.empire.shipSet = 'vektor';
     for (const [client, id] of [
       [a, 'player-a'],
       [b, 'player-b'],
@@ -66,6 +67,20 @@ test('production galaxy: founding, private state and command ownership', { timeo
     await delay(40);
     assert.equal(a.conn.db.star.count(), 1000n);
     assert.equal(a.conn.db.gamePlayers.count(), 2n);
+    assert(gameView(a)!.players.every((p) => p.shipSet === 'vektor'));
+    assert(gameView(b)!.players.every((p) => p.shipSet === 'vektor'));
+    assert.equal(gameView(a)!.me.empire!.design.shipSet, 'vektor');
+    const appearanceRevision = gameView(a)!.me.empire!.revision;
+    await issue(a, { type: 'empire_ship_set', shipSet: 'aureole', revision: appearanceRevision });
+    await until(
+      () => gameView(b)!.players.find((p) => p.id === 'player-a')?.shipSet === 'aureole',
+      'design change reaches other players',
+    );
+    assert.equal(gameView(b)!.me.empire!.design.shipSet, 'vektor', 'another player keeps their own design');
+    await assert.rejects(
+      issue(a, { type: 'empire_ship_set', shipSet: 'bastion', revision: appearanceRevision }),
+      /zwischenzeitlich/,
+    );
     assert.equal([...a.conn.db.myGamePlayer.iter()][0].externalId, 'player-a');
     assert.equal([...b.conn.db.myGamePlayer.iter()][0].externalId, 'player-b');
     assert.equal(a.conn.db.fleetShips.count(), 0n);
@@ -86,7 +101,10 @@ test('production galaxy: founding, private state and command ownership', { timeo
       issue(a, { type: 'move', fleetId: fleet.id, systemId: fleet.systemId }),
       /Die Flotte befindet sich bereits in diesem System\./,
     );
-    assert.deepEqual(gameView(a)!.fleets.find((f) => f.id === fleet.id), beforeMove);
+    assert.deepEqual(
+      gameView(a)!.fleets.find((f) => f.id === fleet.id),
+      beforeMove,
+    );
     await a.conn.reducers.gameCommand({
       commandJson: JSON.stringify({ type: 'research', tech: 'extraction' }),
     });
@@ -117,7 +135,7 @@ test('production galaxy: founding, private state and command ownership', { timeo
 
 test(
   'legacy migration retains identity, economy, work and routes; production, exploration, formations and hot reconnect',
-  { timeout: 45000 },
+  { timeout: 120000 },
   async () => {
     const database = `singularity-game-migration-${Date.now()}`;
     cli([
@@ -198,7 +216,7 @@ test(
         'imported route finishes',
       );
       await issue(a, { type: 'scan', fleetId: scout.id });
-      await until(() => gameView(a)!.me.surveyed.includes('s1'), 'survey finishes');
+      await until(() => gameView(a)!.me.surveyed.includes('s1'), 'survey finishes', 90000);
       await issue(a, { type: 'colonize', fleetId: colony.id });
       await until(() => gameView(a)!.systems.find((s) => s.id === 's1')!.owner === p.id, 'colony finishes');
       assert(!gameView(a)!.fleets.some((f) => f.id === colony.id), 'colony ship consumed exactly once');
@@ -298,47 +316,51 @@ test(
   },
 );
 
-test('native AI progresses its economy and civilian missions independently', { timeout: 40000 }, async () => {
-  const database = `singularity-game-ai-${Date.now()}`;
-  cli([
-    'publish',
-    database,
-    '--server',
-    'http://127.0.0.1:3100',
-    '--js-path',
-    'spacetimedb/dist/bundle.js',
-    '--yes=skip-login',
-  ]);
-  const game = createGame('A1B2C3'),
-    p = addPlayer(game, 'ai-test', 'Planner');
-  game.paused = true;
-  p.ai = { startedAt: 0, nextDecision: 0 } as typeof p.ai;
-  p.resources = { energy: 2000, minerals: 2000, science: 1000 };
-  const admin = await connect(database, { token: adminToken() }),
-    a = await connect(database);
-  try {
-    await admin.conn.reducers.initializeGame({
-      code: game.code,
-      seed: 42,
-      sourceJson: JSON.stringify(game),
-      migrationKey: 'ai',
-    });
-    await seat(admin, a, p.id);
-    await admin.conn.reducers.setClock({ paused: false, speed: 4 });
-    await until(
-      () =>
-        gameView(a)!.players[0].colonies >= 2 &&
-        gameView(a)!.me.techs.length > 0 &&
-        gameView(a)!.fleets.some((f) => f.type === 'corvette' && f.shipCount! > 1),
-      'AI researches, reinforces and colonizes',
-      30000,
-    );
-  } finally {
-    await admin.conn.reducers.setClock({ paused: true, speed: 1 });
-    a.conn.disconnect();
-    admin.conn.disconnect();
-  }
-});
+test(
+  'native AI progresses its economy and civilian missions independently',
+  { timeout: 120000 },
+  async () => {
+    const database = `singularity-game-ai-${Date.now()}`;
+    cli([
+      'publish',
+      database,
+      '--server',
+      'http://127.0.0.1:3100',
+      '--js-path',
+      'spacetimedb/dist/bundle.js',
+      '--yes=skip-login',
+    ]);
+    const game = createGame('A1B2C3'),
+      p = addPlayer(game, 'ai-test', 'Planner');
+    game.paused = true;
+    p.ai = { startedAt: 0, nextDecision: 0 } as typeof p.ai;
+    p.resources = { energy: 2000, minerals: 2000, science: 1000 };
+    const admin = await connect(database, { token: adminToken() }),
+      a = await connect(database);
+    try {
+      await admin.conn.reducers.initializeGame({
+        code: game.code,
+        seed: 42,
+        sourceJson: JSON.stringify(game),
+        migrationKey: 'ai',
+      });
+      await seat(admin, a, p.id);
+      await admin.conn.reducers.setClock({ paused: false, speed: 4 });
+      await until(
+        () =>
+          gameView(a)!.players[0].colonies >= 2 &&
+          gameView(a)!.me.techs.length > 0 &&
+          gameView(a)!.fleets.some((f) => f.type === 'corvette' && f.shipCount! > 1),
+        'AI researches, reinforces and colonizes',
+        90000,
+      );
+    } finally {
+      await admin.conn.reducers.setClock({ paused: true, speed: 1 });
+      a.conn.disconnect();
+      admin.conn.disconnect();
+    }
+  },
+);
 
 test(
   'completed legacy games remain viewable but cannot be resumed or acquire new players',

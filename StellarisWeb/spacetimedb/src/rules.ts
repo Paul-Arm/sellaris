@@ -1,12 +1,15 @@
 import { SenderError } from 'spacetimedb/server';
+import { gameDay, dueDay } from '../../shared/time';
 import { gameTimeAt, positionAt, progressAt } from '../../backend/domain';
 import { type Context, type ReadContext, type Fleet, type Ship } from './tables';
 import { ensureBattleReport, publishBattleReport } from './battle-reports';
 
 export const NEVER = 0xffff_ffff_ffff_ffffn;
-export const tickAt = (at: number) => BigInt(Math.ceil(at * 1000));
+// Keep the durable milliday encoding readable for old saves; new deadlines land on whole days.
+export const tickAt = (at: number) => BigInt(dueDay(at) * 1000);
 export const wallNow = (ctx: Context) => Number(ctx.timestamp.microsSinceUnixEpoch) / 1e6;
-export const now = (ctx: Context) => gameTimeAt(ctx.db.clock.id.find(1)!, wallNow(ctx));
+export const clockNow = (ctx: Context) => gameTimeAt(ctx.db.clock.id.find(1)!, wallNow(ctx));
+export const now = (ctx: Context) => gameDay(clockNow(ctx));
 export function admin(ctx: Context) {
   if (!ctx.db.administrator.id.find(1)?.identity.isEqual(ctx.sender))
     throw new SenderError('Administrator required');
@@ -53,7 +56,9 @@ export function move(ctx: Context, f: Fleet, route: number[], at: number) {
   for (const id of route) if (!ctx.db.star.id.find(id)) throw new SenderError('Unknown destination');
   const target = ctx.db.star.id.find(route[0])!;
   const current = positionAt(f, at);
-  const arrivesAt = at + Math.max(0.25, Math.hypot(target.x - current.x, target.y - current.y) / f.speed);
+  const arrivesAt = dueDay(
+    at + Math.max(1, Math.hypot(target.x - current.x, target.y - current.y) / f.speed),
+  );
   ctx.db.fleet.id.update({
     ...f,
     systemId: 0,
@@ -157,6 +162,7 @@ export function finishBattle(ctx: Context, battleId: number, at: number, peace =
       ctx.db.fleet.id.delete(f.id);
       if (ctx.db.gameSettings.id.find(1)) {
         ctx.db.gameFleet.id.delete(f.id);
+        ctx.db.gameNavigation.id.delete(f.id);
         ctx.db.gameFleetCondition.id.delete(f.id);
         for (const d of ctx.db.gameDamaged.fleetId.filter(f.id)) ctx.db.gameDamaged.id.delete(d.id);
       }

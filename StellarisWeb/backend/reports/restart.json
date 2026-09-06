@@ -1,6 +1,6 @@
 {
-  "measuredAt": "2026-09-05T20:44:58.952Z",
-  "database": "singularity-restart-1788641095273",
+  "measuredAt": "2026-09-06T21:05:41.388Z",
+  "database": "singularity-restart-1788728737614",
   "result": "pass",
   "assertion": "Identical durable snapshots after forced process termination, same identity, scheduled battle resumed",
   "retained": [

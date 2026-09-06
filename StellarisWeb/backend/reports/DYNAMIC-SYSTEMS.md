@@ -1,8 +1,8 @@
 # Veränderbare Sternsysteme
 
-Status: Umsetzungsvorschlag. Persistente Himmelskörper, Terraforming, Megastrukturen und freie Stationsplatzierung sind noch nicht implementiert.
+Status: Persistente Himmelskörper, Detailabonnements, Umbenennung, Terraforming, freie Systemflüge, Befehlswarteschlangen, Körpererkundung und freie Stationsplatzierung sind implementiert; siehe [SYSTEM-OBJECTS.md](SYSTEM-OBJECTS.md), [TERRAFORMING.md](TERRAFORMING.md) und [SYSTEM-NAVIGATION.md](SYSTEM-NAVIGATION.md). Der folgende Text beschreibt die historische Ausgangslage und das weiterführende Zielmodell. Als Nächstes folgen Megastrukturen und Sternveränderungen. Alte Galaxien dürfen laut Nutzer gelöscht werden; Migration und Abwärtskompatibilität sind keine Anforderung.
 
-## Ausgangspunkt
+## Historischer Ausgangspunkt vor persistenten Objekten
 
 Die Galaxie, Besitzverhältnisse, Wirtschaft und Bauaufträge liegen in SpacetimeDB. Die einzelnen Himmelskörper werden bisher durch `shared/celestial.ts:systemBodies` aus Systemdaten abgeleitet. Dieselbe Funktion läuft im Browser und bei der serverseitigen Anlagenprüfung. Änderungen am Generator ändern dadurch auch die Darstellung bestehender Partien.
 
@@ -57,12 +57,11 @@ Bahnen bleiben effizient: Der Server speichert Bahnelemente und Referenzzeitpunk
 
 Detailabonnements werden auf das betrachtete System und die serverseitig erlaubte Sichtbarkeit begrenzt. Die Galaxiekarte erhält nur die nötige Zusammenfassung. Das bisherige Limit von zehn Gravitationseinträgen wird vom Objektbestand entkoppelt: Der Renderer verwendet ein begrenztes Darstellungsbudget für relevante Quellen, ohne die Anzahl der Spielobjekte zu begrenzen.
 
-## Einführung ohne neuen Spielstand
+## Einführung mit neuen Spielständen
 
-1. Additive Tabellen, interne Objektänderungsfunktionen und Versionsmarker ergänzen. Den bisherigen Generator als versionierten Import für alte Systeme einfrieren.
-2. Bestehende Körper einmalig materialisieren. Eine eindeutige Zuordnung `(systemId, alter bodySlot) → objectId` übernimmt Anlagen und Hauptkolonien. Ein erneuter Migrationslauf erzeugt keine Duplikate und überschreibt keine bereits veränderten Objekte.
-3. Servervalidierung und Browser auf die gespeicherten Objekte umstellen. Den Generator anschließend nur beim Erstellen neuer Systeme einsetzen; ein leerer Objektbestand darf nicht als Aufforderung zur Neuerzeugung verstanden werden.
-4. Versionsmarker und bestehende Aktualisierung der Galaxie-Module verbinden. Diese Backendänderung benötigt ein Modulupdate samt Migration; ein reines Browser-Neuladen reicht dafür nicht.
-5. Auf dem neuen Modell zunächst freie Stationen und Terraforming, danach mehrstufige Megastrukturen und Sternereignisse einführen. Mehrere Kolonien pro System erfordern außerdem die Anpassung von Wirtschaft, KI, Siegbedingungen und Flottenzielen an Körper-IDs.
+1. Tabellen und interne Objektänderungsfunktionen direkt weiterentwickeln. Keine eingefrorenen Generatoren oder Migrationen für alte Galaxien ergänzen.
+2. Den aktuellen Generator nur beim Erstellen neuer Systeme einsetzen. Ein leerer Objektbestand ist keine Aufforderung zur Neuerzeugung.
+3. Bei inkompatiblen Schemaänderungen alte Galaxien löschen und neue Partien erzeugen. Reichs- und Speziesvorlagen bleiben bestehen.
+4. Nach Terraforming freie Stationen, danach mehrstufige Megastrukturen und Sternereignisse einführen. Mehrere Kolonien pro System erfordern außerdem die Anpassung von Wirtschaft, KI, Siegbedingungen und Flottenzielen an Körper-IDs.
 
-Die erste technische Etappe ist eine beobachtbare Kette: Ein serverseitiger Test fügt einen Körper hinzu, verändert ihn und entfernt ihn wieder; zwei verbundene Clients übernehmen jeden Schritt, und Wiederverbindung sowie Datenbankneustart erhalten den letzten Zustand. Danach prüfen Integrationstests bestehende Anlagen nach Migration, veraltete Befehle, parallele Bauversuche, Platzierungskollisionen, Projektabbrüche und zerstörte Elternkörper.
+Die erste technische Etappe ist eine beobachtbare Kette: Ein serverseitiger Test fügt einen Körper hinzu, verändert ihn und entfernt ihn wieder; zwei verbundene Clients übernehmen jeden Schritt, und Wiederverbindung sowie Datenbankneustart erhalten den letzten Zustand. Weitere Integrationstests prüfen veraltete Befehle, parallele Bauversuche, Platzierungskollisionen, Projektabbrüche und zerstörte Elternkörper.

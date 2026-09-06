@@ -4,6 +4,53 @@
   background: #080b12;
   overflow: hidden;
 }
+.system-context-menu {
+  position: fixed;
+  z-index: 100;
+  width: min(290px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 6px;
+  background: #101b29fa;
+  border: 1px solid #779ca6;
+  border-radius: 6px;
+  box-shadow: 0 12px 40px #0009;
+  display: grid;
+  gap: 3px;
+  color: #dbe9ed;
+}
+.system-context-menu > strong {
+  padding: 8px;
+  font-size: 13px;
+}
+.system-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 9px;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.system-context-menu button:hover,
+.system-context-menu button:focus-visible {
+  background: #294452;
+  outline: 1px solid #8fbfc6;
+}
+.system-context-menu button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.system-context-menu small {
+  display: block;
+  color: #a2bac7;
+  font-size: 10px;
+  margin-top: 4px;
+}
 .system-scene {
   position: absolute;
   inset: 0 340px 0 0;

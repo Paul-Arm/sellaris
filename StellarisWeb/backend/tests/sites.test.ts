@@ -13,7 +13,7 @@ const issue = async (c: Client, cmd: GameCommand) => {
   await delay(65);
   await c.conn.reducers.gameCommand({ commandJson: JSON.stringify(cmd) });
 };
-async function until(predicate: () => boolean, timeout = 10000) {
+async function until(predicate: () => boolean, timeout = 30000) {
   const end = Date.now() + timeout;
   while (!predicate()) {
     assert(Date.now() < end, 'installation state timed out');
@@ -22,7 +22,7 @@ async function until(predicate: () => boolean, timeout = 10000) {
 }
 test(
   'orbital construction validates bodies and ownership, persists parallel work, credits real production and refunds once',
-  { timeout: 50000 },
+  { timeout: 150000 },
   async () => {
     const database = `singularity-game-sites-${Date.now()}`;
     cli([
@@ -71,6 +71,10 @@ test(
         home = gameView(a)!.me.home;
       const funds = () => ({ ...gameView(a)!.me.resources });
       const initial = funds();
+      await assert.rejects(
+        issue(a, { type: 'mine', systemId: home }),
+        'retired instant mining cannot bypass ship proximity',
+      );
       await assert.rejects(issue(b, { type: 'site_build', systemId: home, bodySlot: 0, facility: 'solar' }));
       await assert.rejects(
         issue(b, { type: 'site_build', systemId: pb.home, bodySlot: 0, facility: 'solar' }),
@@ -83,6 +87,9 @@ test(
       await issue(a, { type: 'site_build', systemId: home, bodySlot: 2, facility: 'habitat' });
       await issue(a, { type: 'site_build', systemId: home, bodySlot: 4, facility: 'mine' });
       await issue(a, { type: 'site_build', systemId: rift.id, bodySlot: 0, facility: 'research' });
+      await admin.conn.reducers.setClock({ paused: false, speed: 4 });
+      await until(() => gameView(a)!.sites!.length === 4);
+      await admin.conn.reducers.setClock({ paused: true, speed: 4 });
       assert.equal(gameView(a)!.sites!.length, 4);
       assert.equal(gameView(b)!.sites!.length, 0, 'remote foreign sites and construction are private');
       const pending = gameView(a)!.sites!.find((s) => s.bodySlot === 4)!;
@@ -96,8 +103,8 @@ test(
       clients.push(recovered);
       await subscribe(recovered.conn, GAME_QUERIES);
       assert.deepEqual(
-        gameView(recovered)!.sites,
-        gameView(a)!.sites,
+        [...gameView(recovered)!.sites!].sort((a, b) => a.id.localeCompare(b.id)),
+        [...gameView(a)!.sites!].sort((a, b) => a.id.localeCompare(b.id)),
         'paused construction reconstructs on reconnect',
       );
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
@@ -142,6 +149,9 @@ test(
       assert(Math.abs(funds().energy - startFunds.energy - baseEnergy - colonyEnergy - siteEnergy) < 1e-6);
       const solar = gameView(a)!.sites!.find((s) => s.facility === 'solar')!;
       await issue(a, { type: 'site_build', systemId: home, bodySlot: 0, facility: 'solar' });
+      await admin.conn.reducers.setClock({ paused: false, speed: 4 });
+      await until(() => !!gameView(a)!.sites!.find((s) => s.id === solar.id)?.building);
+      await admin.conn.reducers.setClock({ paused: true, speed: 4 });
       const beforeUpgradeCancel = funds();
       await issue(a, { type: 'site_cancel', siteId: solar.id });
       assert.equal(gameView(a)!.sites!.find((s) => s.id === solar.id)!.level, 1);

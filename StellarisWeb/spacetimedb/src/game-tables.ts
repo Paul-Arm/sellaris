@@ -169,7 +169,73 @@ export const gameSite = table(
     lastProducedAt: t.f64(),
   },
 );
+export const gameTerraform = table(
+  {},
+  {
+    id: t.string().primaryKey(),
+    systemId: t.u32().index('btree'),
+    empireId: t.u32().index('btree'),
+    from: t.string(),
+    target: t.string(),
+    startedAt: t.f64(),
+    finishAt: t.f64(),
+    finishTick: t.u64().index('btree'),
+    paidEnergy: t.f64(),
+    paidMinerals: t.f64(),
+    paidScience: t.f64(),
+  },
+);
+// Allocates slots permanently, including removed objects.
+export const gameObjectCatalog = table(
+  {},
+  {
+    id: t.u32().primaryKey(),
+    nextSlot: t.u32(),
+    mainObjectId: t.string(),
+  },
+);
+export const gameObject = table(
+  {},
+  {
+    id: t.string().primaryKey(),
+    systemId: t.u32().index('btree'),
+    slot: t.u32(),
+    revision: t.u32(),
+    state: t.string(),
+    changedAt: t.f64(),
+    parentId: t.string(),
+    bodyJson: t.string(),
+  },
+);
+// Per connection: two tabs using the same identity can inspect different systems.
+export const gameObjectFocus = table(
+  {},
+  {
+    id: t.string().primaryKey(),
+    identity: t.identity().index('btree'),
+    systemId: t.u32(),
+  },
+);
+export const gameNavigation = table(
+  {},
+  {
+    id: t.u32().primaryKey(),
+    systemId: t.u32(),
+    motionJson: t.string(),
+    ordersJson: t.string(),
+    phase: t.string(),
+    visited: t.array(t.u32()),
+    targetSlot: t.u32(),
+    totalBodies: t.u32(),
+    dueTick: t.u64().index('btree'),
+  },
+);
 export const gameTables = {
+  gameNavigation,
+  gameTerraform,
+  gameObjectCatalog,
+  gameObject,
+  gameObjectFocus,
   gameSite,
   gameStory,
   gameCrisis,

@@ -241,7 +241,7 @@ test('invalid and unaffordable reforms leave both state and resources untouched'
   assert.throws(
     () =>
       command(game, player.id, { type: 'empire_reform', government: governmentFor('regular'), revision: 2 }),
-    /Spielsekunden/,
+    /Spieltagen/,
   );
   assert.equal(JSON.stringify(game), after);
   game.tick = 121;
@@ -297,7 +297,7 @@ test('species variants convert only selected own populations and affect their pr
         colonyIds: [home.id],
         revision: 2,
       }),
-    /Spielsekunden/,
+    /Spieltagen/,
   );
 });
 test('malicious species targets and unresearched modifications are atomic; other players cannot read lineage', () => {

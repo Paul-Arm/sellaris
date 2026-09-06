@@ -125,9 +125,11 @@ test(
           a.conn.db.battleRoster.onUpdate(onRoster);
           try {
             await admin.conn.reducers.setClock({ paused: false, speed: 1 });
-            await delay(900);
+            // Motion is committed at whole-day boundaries, not within the first 900 ms.
+            await waitFor(() => motionUpdates > 0, 'First daily combat snapshot');
             await admin.conn.reducers.setClock({ paused: true, speed: 1 });
             await waitFor(() => motionUpdates > 0, 'Compact motion must advance');
+            assert(Number.isInteger(a.conn.db.focusedBattle.id.find(1)!.simulatedAt));
             assert.deepEqual(failures, []);
             assert.equal(rosterUpdates, 0, 'Movement must not resend unchanged affiliation');
             assert.equal(checkCompactBattle(a, 1, true), 40);

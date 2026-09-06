@@ -29,6 +29,7 @@ export function destroyGameFleet(ctx: Context, id: number) {
   ctx.db.fleet.id.delete(id);
   ctx.db.gameFleet.id.delete(id);
   ctx.db.gameFleetCondition.id.delete(id);
+  ctx.db.gameNavigation.id.delete(id);
   ctx.db.arrival.fleetId.delete(id);
 }
 export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[number], at: number) {

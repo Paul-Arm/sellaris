@@ -135,6 +135,9 @@ void main(){
 
 /** Curved null rays and disk intersections are integrated per pixel before bloom and tone mapping. */
 export class BlackHolePass extends Pass {
+  private readonly frustum = new THREE.Frustum();
+  private readonly influence = new THREE.Sphere();
+  private readonly projection = new THREE.Matrix4();
   private readonly material: THREE.ShaderMaterial;
   private readonly quad: FullScreenQuad;
   private readonly backdrop = new THREE.WebGLRenderTarget(1, 1, {
@@ -189,6 +192,15 @@ export class BlackHolePass extends Pass {
     writeBuffer: THREE.WebGLRenderTarget,
     readBuffer: THREE.WebGLRenderTarget,
   ) {
+    const uniforms = this.material.uniforms;
+    this.anchor.getWorldPosition(this.influence.center);
+    // The fragment shader's impact cutoff is bounded by this conservative world sphere.
+    this.influence.radius = uniforms.rs.value * (DISK_OUTER_RADIUS + 5);
+    this.frustum.setFromProjectionMatrix(
+      this.projection.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse),
+    );
+    this.needsSwap = this.frustum.intersectsSphere(this.influence);
+    if (!this.needsSwap) return; // Keep the composer's input; no backdrop render, resolve or ray pass.
     // Layer 1 contains only the coordinate sheet and distant stars. No fleet, body or HUD
     // can be duplicated by lensing this texture. Restore the camera even on a render error.
     const mask = this.camera.layers.mask;

@@ -2,7 +2,7 @@
 
 Ein spielbarer Multiplayer-4X-RTS-Prototyp für den Browser. Inspiriert von interstellarer Strategie, Gravitationskonturen und leuchtenden Raumzeit-Anomalien. Eigenständige Gestaltung, keine Stellaris-Assets.
 
-**Das normale Spiel verwendet SpacetimeDB.** Neue Galaxien enthalten wahlweise 400, 700 oder 1.000 Systeme und bis zu 25 menschliche/KI-Imperien. Wirtschaft, Forschung, Reisen, Kolonisierung, Diplomatie und Gefechte liegen dauerhaft im nativen Backend. Die Node-Schicht vermittelt Lobby, private Vorlagen und Browserzugriff. Der alte Node-Spielserver und automatische Import sind entfernt; bereits übernommene Galaxien und native Sitzungen bleiben erhalten. [Diplomatie und Prüfung](backend/reports/DIPLOMACY.md), [Architektur](backend/README.md), [Ausbauplan](PLAN.md).
+**Das normale Spiel verwendet SpacetimeDB.** Neue Galaxien enthalten wahlweise 400, 700 oder 1.000 Systeme und bis zu 25 menschliche/KI-Imperien. Wirtschaft, Forschung, Reisen, Kolonisierung, Diplomatie und Gefechte liegen dauerhaft im nativen Backend. Die Node-Schicht vermittelt Lobby, private Vorlagen und Browserzugriff. Der alte Node-Spielserver und automatische Import sind entfernt. Bei inkompatiblen Entwicklungsänderungen werden alte Galaxien gelöscht und neue Partien begonnen; Abwärtskompatibilität ist keine Anforderung. [Diplomatie und Prüfung](backend/reports/DIPLOMACY.md), [Architektur](backend/README.md), [Ausbauplan](PLAN.md).
 
 ## Starten
 
@@ -35,23 +35,28 @@ Die Spielsimulation läuft auf deinem Server. Der Host steuert Pause und Tempo. 
 
 Ziel: **8 Kolonien** kontrollieren.
 
-- **Erkunden:** `ISS Horizon` wählen → `Kurs setzen` → `Alpha Centauri`. Nach Ankunft im rechten Panel `System untersuchen` (8 Spielsekunden).
-- **Expandieren:** `ISS Genesis` in das untersuchte System schicken → `Kolonie gründen`. Kosten: 80 Energie + 80 Mineralien. Das Kolonieschiff wird nach 12 Spielsekunden zur Kolonie.
-- **Wirtschaft:** Kolonien produzieren alle vier Spielsekunden Ressourcen. Eine Bergbaustation kostet 50 Energie + 100 Mineralien und verdoppelt die lokalen Energie- und Mineralienerträge.
+- **Erkunden:** Forschungsschiff in ein Zielsystem schicken → **Alle Himmelskörper erkunden**. Das Schiff fliegt Sterne, Planeten, Monde, Asteroidenfelder und Ruinen nacheinander an und untersucht jeden Körper vor Ort. Die Dauer ergibt sich aus dem Flugweg und einem Spieltag Untersuchung je Körper. Bauplätze und Forschungsbonus werden erst nach der vollständigen Route freigegeben.
+- **Freie Flüge und Warteschlange:** In der Systemansicht eine eigene Flotte wählen → **Flugaufträge**. X/Z auf der Karte wählen, Höhe Y festlegen und **Position anfliegen**. **Aufträge anhängen** verbindet bis zu 32 lokale Flüge, Hyperraumreisen, Erkundungen und Kolonisierungen. Wartende Aufträge können einzeln entfernt werden. **Stoppen** leert die Liste; ein laufender Hyperraumabschnitt endet am nächsten System. Verbände bewegen sich gemeinsam.
+- **Freie Stationen:** Im eigenen untersuchten System **Freie Station platzieren** öffnen, Position und Höhe wählen, Forschungsstation oder Außenposten auswählen und errichten. Die Vorschau bucht keine Kosten. Körper, Stationen und Umlaufbahnen benötigen Abstand. Nach Bauabschluss liefert die Station Produktion und kann wie eine Körperanlage ausgebaut werden.
+- **Expandieren:** `ISS Genesis` in das untersuchte System schicken → `Kolonie gründen`. Kosten: 80 Energie + 80 Mineralien. Das Kolonieschiff wird nach 12 Spieltagen zur Kolonie.
+- **Wirtschaft:** Kolonien produzieren alle vier Spieltage Ressourcen. Eine Bergbaustation kostet 50 Energie + 100 Mineralien und verdoppelt die lokalen Energie- und Mineralienerträge.
 - **Raumwerft:** Eigene Kolonie wählen → Raumwerft → Forschungsschiff, Kolonieschiff oder Korvette bauen. Die Warteschlange arbeitet nacheinander; maximal fünf Aufträge.
-- **Forschung:** Drei Technologien verbessern Antrieb, Rohstoffproduktion und Kampfkraft. Forschungspunkte werden beim Start verbraucht.
+- **Forschung:** Vier Technologien verbessern Antrieb, Rohstoffproduktion und Kampfkraft oder schalten Terraforming frei. Forschungspunkte werden beim Start verbraucht.
 - **Kampf:** Korvetten greifen im selben System Kriegsgegner und deren Verteidigung automatisch an. Friedliche Reiche können einander passieren. Wächter besiegst du mit Korvetten. Fällt eine Kolonialverteidigung, wird das System unabhängig und kann neu kolonisiert werden. Zerstörte Schiffe gehen verloren.
-- **Diplomatie:** Handschlag-Symbol links öffnen. Krieg ausdrücklich erklären, Frieden anbieten und als Empfänger annehmen oder ablehnen. Angenommener Frieden beendet gemeinsame Gefechte sofort und schützt 120 Spielsekunden vor erneutem Krieg.
-- **Handel:** Energie, Mineralien und Forschung direkt tauschen. Die angebotenen Mengen werden sofort reserviert, der Tausch wird bei Annahme atomar ausgeführt. Ablehnung, Rücknahme, Krieg oder Ablauf erstatten die Reservierung genau einmal. Angebote gelten 60 Spielsekunden; Pause hält Fristen an. Nur die beiden Vertragspartner sehen die Konditionen.
+- **Diplomatie:** Handschlag-Symbol links öffnen. Krieg ausdrücklich erklären, Frieden anbieten und als Empfänger annehmen oder ablehnen. Angenommener Frieden beendet gemeinsame Gefechte sofort und schützt 120 Spieltage vor erneutem Krieg.
+- **Handel:** Energie, Mineralien und Forschung direkt tauschen. Die angebotenen Mengen werden sofort reserviert, der Tausch wird bei Annahme atomar ausgeführt. Ablehnung, Rücknahme, Krieg oder Ablauf erstatten die Reservierung genau einmal. Angebote gelten 60 Spieltage; Pause hält Fristen an. Nur die beiden Vertragspartner sehen die Konditionen.
 - **Anomalien:** Die erstmalige Untersuchung einer unberührten Anomalie liefert 90 Forschung. Reguläre Untersuchungen liefern 25. Schwarze Löcher und Raumzeitrisse sind nicht kolonisierbar.
-- **Ereignisse:** Das Funksymbol links öffnet das **Lagezentrum**. Anomalie-Archive und deine erste neue Außenkolonie bieten Entscheidungen mit sichtbaren Kosten und Erträgen. Nach 90 Spielsekunden wird eine kostenlose Standardoption gewählt. Abgeschlossene Entscheidungen bleiben im Verlauf.
-- **Resonanzkaskade:** Nach 180 Spielsekunden beginnt die Vorwarnung; eine Untersuchung des goldenen Risses kann sie früher auslösen. Ohne Eindämmung sinkt die Kolonieproduktion nach 120 weiteren Spielsekunden um 25 %, nach nochmals 120 um 50 %. Die Grundversorgung bleibt erhalten. 120 Energie schützen alle eigenen heutigen und künftigen Kolonien. Ein Stabilisierungspaket kostet 60 Energie und 30 Forschung. Gemeinsam sind `3 + ceil(Imperienzahl / 2)` Pakete erforderlich; spätere Beitritte erhöhen dieses Ziel nicht. Erfolgreiche Eindämmung beendet die Krise und vergütet jeden Beitrag mit 40 Forschung. Fristen, Beiträge, Schutz und Entscheidungen überstehen Pause und Wiederverbindung.
+- **Ereignisse:** Das Funksymbol links öffnet das **Lagezentrum**. Anomalie-Archive und deine erste neue Außenkolonie bieten Entscheidungen mit sichtbaren Kosten und Erträgen. Nach 90 Spieltagen wird eine kostenlose Standardoption gewählt. Abgeschlossene Entscheidungen bleiben im Verlauf.
+- **Resonanzkaskade:** Nach 180 Spieltagen beginnt die Vorwarnung; eine Untersuchung des goldenen Risses kann sie früher auslösen. Ohne Eindämmung sinkt die Kolonieproduktion nach 120 weiteren Spieltagen um 25 %, nach nochmals 120 um 50 %. Die Grundversorgung bleibt erhalten. 120 Energie schützen alle eigenen heutigen und künftigen Kolonien. Ein Stabilisierungspaket kostet 60 Energie und 30 Forschung. Gemeinsam sind `3 + ceil(Imperienzahl / 2)` Pakete erforderlich; spätere Beitritte erhöhen dieses Ziel nicht. Erfolgreiche Eindämmung beendet die Krise und vergütet jeden Beitrag mit 40 Forschung. Fristen, Beiträge, Schutz und Entscheidungen überstehen Pause und Wiederverbindung.
 - **Navigation:** Über die Systemsuche Sterne und Kolonien finden und direkt zentrieren. Enter wählt den ersten Treffer. Bei aktiver Zielwahl kann so auch ein Flottenziel gewählt werden.
 - **Verbände:** Neue Korvetten verstärken einen passenden eigenen Verband an der Werft. Über **Verband verwalten** einzelne Schiffe auswählen, abteilen und ruhende militärische Verbände am selben Ort vereinen. Im Kampf ist zunächst ein Rückzug erforderlich.
 - **Gefechtsansicht:** Status, Verluste, Hülle/Schilde und verursachter Schaden erscheinen als gedrosselte Übersicht. **Gefecht ansehen** öffnet die taktische Systemansicht; beim Verlassen werden die individuellen Kampfbewegungen abbestellt.
 - **Systemansicht:** Ein System doppelklicken oder **Systemansicht öffnen** wählen. Sterne, Planeten, Monde, Gasriesen, Asteroiden und Ruinen lassen sich direkt oder über den Systematlas auswählen. Sichtbare Flotten stehen als Schiffsmodelle im System; die Nahansicht zentriert Körper oder Verband. Die Hauptwelt öffnet weiterhin die Kolonieverwaltung.
+- **Systembefehle:** Rechtsklick in den freien Raum setzt das Flugziel des ausgewählten eigenen Verbands, Umschalt + Rechtsklick hängt es an. Rechtsklick auf Objekte oder ihre Beschriftungen öffnet passende Aktionen, etwa Sternenbasis oder Bergbaustation bauen. Das separate Flugziel-Menü entfällt. Systemflüge behalten bei Kurswechseln ihren Schwung, drehen in Kurven ein und haben einen Bremsweg; 800 Einheiten dauern aus dem Stand bei 1× zehn Sekunden. Bauaufträge schicken das ausgewählte eigene Schiff zuerst zum Bauplatz. Bau und Kostenbuchung beginnen erst in Reichweite.
 - **3D-Kamera:** Links ziehen dreht und neigt die Perspektive, rechts ziehen verschiebt sie, das Mausrad zoomt. Die Fadenkreuz-Schaltflächen fokussieren die Auswahl beziehungsweise setzen die Kamera zurück. Hyperlane-Zugänge sind als türkis leuchtende Wurmlöcher in die Raumzeitfläche eingebettet. In der aktuellen Experimentvariante stehen die Öffnungen senkrecht, mit ihrem Mittelpunkt auf Höhe der lokalen Raumzeitfläche. Die Fläche und ihre Konturen biegen sich weich zum Portal und laufen hinter ihm als längere, flachere Rampe nach außen aus; der animierte Tunnel führt ebenfalls nach außen. Die Zugänge liegen nahe dem Systemrand. Ihre verlängerten Routen führen durch die Mittelachse der Trichter und schließen weiter außen weich an die lokale Fläche an; die Trichterwände verdecken dahinterliegende Linienabschnitte. Ihre Richtung entspricht den echten Verbindungen; eng benachbarte Öffnungen sind unter Berücksichtigung ihrer Ausläufe radial versetzt. Ein Klick auf den Zugang oder seine seitliche Beschriftung öffnet das Nachbarsystem. **Konturen** und **Licht** schalten Gravitationslinien beziehungsweise Bloom um.
-- **Systemanlagen:** Nach Untersuchung im eigenen Sternsystem einen Körper auswählen und eine passende Anlage errichten. Sonnenkollektoren liefern Energie, Förderanlagen Mineralien, Forschungsstationen Forschung; Außenposten und Atmosphärenkollektoren liefern gemischte Erträge. Jeder Körper hat einen Anlagenplatz mit drei Ausbaustufen. Mehrere Körper können parallel bebaut werden, ein Abbruch erstattet einmalig 50 %. An unbesetzten Rissen und Schwarzen Löchern ermöglicht eine eigene Flotte vor Ort den Bau. Anlagen liefern alle vier Spielsekunden Erträge, unterliegen der Resonanzkrise und erscheinen separat in der Wirtschaftsübersicht.
+- **Systemanlagen:** Nach Untersuchung im eigenen Sternsystem einen Körper auswählen und eine passende Anlage errichten. Sonnenkollektoren liefern Energie, Förderanlagen Mineralien, Forschungsstationen Forschung; Außenposten und Atmosphärenkollektoren liefern gemischte Erträge. Jeder Körper hat einen Anlagenplatz mit drei Ausbaustufen. Mehrere Körper können parallel bebaut werden, ein Abbruch erstattet einmalig 50 %. An unbesetzten Rissen und Schwarzen Löchern ermöglicht eine eigene Flotte vor Ort den Bau. Anlagen liefern alle vier Spieltage Erträge, unterliegen der Resonanzkrise und erscheinen separat in der Wirtschaftsübersicht.
+- **Objektnamen:** Eigene Nebenwelten, Monde und weitere Nebenobjekte in der Systemansicht auswählen → **Umbenennen**. Namen und Himmelskörper werden dauerhaft gespeichert und mit Mitspielern synchronisiert. Anlagen bleiben an derselben Objekt-ID. [Speicherung und Prüfungen](backend/reports/SYSTEM-OBJECTS.md).
+- **Terraforming:** „Klimagestaltung“ erforschen, einen eigenen untersuchten Planeten in der Systemansicht auswählen und das Zielklima festlegen. Die Vorschau zeigt Bewohnbarkeit, Kosten und auf Hauptwelten die Kolonieerträge. Pause hält Projekte an, Abbruch erstattet 50 %. Nebenwelten haben noch keine eigene Bevölkerung; dort ändern sich Klima und Aussehen. [Regeln und Prüfungen](backend/reports/TERRAFORMING.md).
 
 Die Sternenkarte ist öffentlich. Untersuchte Systeme zeigen ihre Rohstoffe. Fremde Flotten sind nur dort sichtbar, wo eigene Flotten oder Kolonien sind. Territorien und Koloniezahlen sind öffentlich.
 
@@ -67,18 +72,18 @@ Eigene Welt auswählen → **Kolonie verwalten**. Alternativ das Planetensymbol 
 
 | Ausbau | Ertrag pro Stufe | Erste Stufe | Bauzeit |
 |---|---|---|---|
-| Fusionsreaktor | +4 Energie / Zyklus | 50 Energie, 100 Mineralien | 16 s |
-| Orbitalindustrie | +4 Mineralien / Zyklus | 80 Energie, 80 Mineralien | 18 s |
-| Quantenlabor | +3 Forschung / Zyklus | 90 Energie, 120 Mineralien | 22 s |
-| Schildbastion | +40 Verteidigung, +1 Hüllenreparatur / s | 60 Energie, 120 Mineralien | 20 s |
+| Fusionsreaktor | +4 Energie / Zyklus | 50 Energie, 100 Mineralien | 16 Tage |
+| Orbitalindustrie | +4 Mineralien / Zyklus | 80 Energie, 80 Mineralien | 18 Tage |
+| Quantenlabor | +3 Forschung / Zyklus | 90 Energie, 120 Mineralien | 22 Tage |
+| Schildbastion | +40 Verteidigung, +1 Hüllenreparatur / Tag | 60 Energie, 120 Mineralien | 20 Tage |
 
-Jeder Ausbau hat drei Stufen, die jeweils einen Distrikt belegen. Weitere Stufen kosten 65 % der Grundkosten zusätzlich pro bestehender Stufe und brauchen jeweils acht Sekunden länger. Abbrechen erstattet einmalig 50 % der bezahlten Kosten.
+Jeder Ausbau hat drei Stufen, die jeweils einen Distrikt belegen. Weitere Stufen kosten 65 % der Grundkosten zusätzlich pro bestehender Stufe und brauchen jeweils acht Spieltage länger. Abbrechen erstattet einmalig 50 % der bezahlten Kosten.
 
-Hauptwelten starten mit 6 Mrd. Einwohnern, neue Kolonien mit 2 Mrd. Die Bevölkerung wächst alle 240 Spielsekunden um 1 Mrd., bis maximal 12 Mrd. Die Distriktkapazität ist `4 + floor(Bevölkerung / 2)`, maximal zehn. Bevölkerung repräsentiert in diesem Stand das Ausbaupotenzial; eine Arbeitsplatzzuteilung gibt es noch nicht.
+Hauptwelten starten mit 6 Mrd. Einwohnern, neue Kolonien mit 2 Mrd. Die Bevölkerung wächst alle 240 Spieltage um 1 Mrd., bis maximal 12 Mrd. Die Distriktkapazität ist `4 + floor(Bevölkerung / 2)`, maximal zehn. Bevölkerung repräsentiert in diesem Stand das Ausbaupotenzial; eine Arbeitsplatzzuteilung gibt es noch nicht.
 
 **Schwerpunkte:** Ausgewogen lässt alle Erträge unverändert. Energie, Industrie oder Forschung erhöhen den jeweiligen Ertrag um 40 % und senken die beiden anderen um 15 %. Bergbau verdoppelt die natürlichen Energie-/Mineralienvorkommen; Ausbau-Erträge werden anschließend addiert. Danach folgen Schwerpunkt und Technologiebonus. Die Wirtschaftsübersicht (auf eine Ressource oben klicken) zeigt jede Kolonie, die Grundversorgung und die Summe.
 
-**Reparatur:** In eigenen, feindfreien Systemen regenerieren Schiffe 1,5 Hülle/s plus 1 pro Bastionstufe. Kolonialverteidigung regeneriert 0,75/s bis zum aktuellen Maximum. Bei Verlust einer Kolonie gehen Infrastruktur und planetare Bauaufträge verloren. Zivile Routen vermeiden feindliche Verteidigung. Untersuchung und Kolonisierung warten bei feindlichen Korvetten im System.
+**Reparatur:** In eigenen, feindfreien Systemen regenerieren Schiffe 1,5 Hülle/Tag plus 1 pro Bastionstufe. Kolonialverteidigung regeneriert 0,75/Tag bis zum aktuellen Maximum. Bei Verlust einer Kolonie gehen Infrastruktur und planetare Bauaufträge verloren. Zivile Routen vermeiden feindliche Verteidigung. Untersuchung und Kolonisierung warten bei feindlichen Korvetten im System.
 
 **KI:** Multiplayer-Dialog → **KI-Imperium hinzufügen**. Nur der Host kann freie Plätze mit KI besetzen. Die KI erkundet, kolonisiert, forscht, baut ihre Wirtschaft aus und führt Korvettenverbände. Es gelten dieselben Befehle, Kosten und Produktionsregeln wie für Menschen. Sie greift nur erklärte Kriegsgegner an und erklärt derzeit nicht selbst Krieg. Friedensangebote nimmt sie an; bezahlbare Tauschgeschäfte akzeptiert sie ab gleichem Wert (Energie 1, Mineralien 1,2, Forschung 2). Eine differenziertere Außenpolitik ist ein späterer Ausbauschritt.
 
@@ -97,14 +102,37 @@ KI-Imperien pausieren mit dem Sektor und halten einen menschenleeren Raum nicht 
 
 ## Architektur
 
+### Schiffs- und Stationsdesigns
+
+Alle sechs Sets **PRISMA, AUREOLE, BASTION, PARALLAX, NEXUS und VEKTOR** sind als 120 GLB-Modelle
+mit 204 Animationsclips eingebunden. Das Reichsmenü und die Reichsvorlagen bieten die Auswahl
+**Schiffs- und Stationsdesign**. Der kostenlose Wechsel einer laufenden Partie wird dauerhaft
+gespeichert und an Mitspieler übertragen; vorhandene Partien ohne Auswahl verwenden PRISMA.
+
+Das Raketensymbol unten links öffnet den **Designhangar** unter `/models`: alle Schiffe,
+Stationsstufen, Plattformen und Megastrukturen lassen sich drehen, vergrößern und mit ihren
+Animationsclips ansehen. Die System- und Gefechtsansicht verwenden die GLBs für die vorhandenen
+Schiffstypen. Körperanlagen und Kolonieausbauten erhalten passende Stations-/Megastrukturmodelle.
+Animationen folgen Pause und Spieltempo. Weitere Militärklassen von Fregatte bis Titan sind als
+Modelle im Hangar verfügbar; ihre eigene Bau- und Kampflogik ist noch offen.
+
+[Modellzuordnungen, Originalpakete und Import](public/models/README.md).
+
+Für die erstmalige Übernahme in andere bestehende Datenbanken benötigt die erweiterte öffentliche
+Reichsansicht `npm run backend:update-games -- --break-clients`; anschließend alle Clients neu laden.
+Das Update-Werkzeug verbietet das Löschen von Daten ausdrücklich. Die hier registrierten acht
+Galaxien wurden bereits aktualisiert.
+
 - `src/`: React + TypeScript, HTML/CSS-Kommandopanels; Canvas-Overlay für Sterne, Hyperraumverbindungen und Flotten.
-- `src/GalaxyMap.tsx`: Three.js-Shader für Rauschen, Gravitationskonturen und Anomalien; Canvas-Fallback. Strategische Anzeige derzeit auf 30 FPS begrenzt, mit lokaler Reiseinterpolation. `LabScene.tsx` zeichnet geöffnete Gefechte mit Instancing ohne diese Begrenzung. Die gemeldeten 165 FPS waren die Displaygrenze des Nutzers, keine gemessene Leistungsobergrenze.
+- `src/GalaxyMap.tsx`: Three.js-Shader für Rauschen, Gravitationskonturen und Anomalien; Canvas-Fallback. Kamera, Marker und Klickflächen folgen gemeinsam jedem Displayframe. Nur die ruhende Hintergrundanimation ist auf 30 Hz begrenzt. Reisen werden aus der synchronisierten Spieluhr pro Frame berechnet; `LabScene.tsx` interpoliert gepufferte Gefechtstage und verwendet gemeinsame Instanzpuffer. Die gemeldeten 165 FPS waren die Displaygrenze des Nutzers, keine gemessene Leistungsobergrenze.
 - `shared/game.ts`: reine Spielregeln, Wegsuche, Produktion, Bau, Forschung, Kolonisierung, Sichtbarkeit und gleichzeitige Schadensberechnung.
 - `shared/colonies.ts`: additive Spielstandmigration, Bevölkerung, Ausbauten, Schwerpunkte und einheitliche Produktionsberechnung. `src/ColonyManager.tsx` enthält die Kolonieverwaltung.
 - `spacetimedb/src/game-*.ts`: Native Spieltabellen, Reducer, Sichtbarkeit, Produktion, Kolonien, Reichsänderungen und KI. `commands.ts`, `rules.ts` und `simulation.ts` teilen das geprüfte Flotten-/Gefechtsfundament mit dem Labor.
 - `server/index.ts`, `nativeGateway.ts`, `nativeProxy.ts`: Private Vorlagenbibliothek, einmalige Sitzplatz-Tickets, native Galaxie-Provisionierung, statische Dateien und WebSocket-Weiterleitung. Kein eigener Spieltick, kein Welt-Snapshot-Versand und keine alten Sitzungs-/Befehlswege.
 - `backend/game-client.ts`: Projektion der berechtigten Abonnements in das React-Spielmodell. Kein Versand vollständiger Weltzustände durch Node für native Partien.
 - `.spacetime/data/`: Dauerhafte SpacetimeDB-Daten. `data/native-sectors.json`: Zuordnung der Raumcodes. Alte Node-Speicher wurden einmalig nach `data/archive/node-backend-2026-09-05/` verschoben und werden nicht mehr geladen oder fortgeschrieben. `data/empire-libraries.json` enthält die private Vorlagenbibliothek.
+
+**Zeit und Optimierungen:** Der Server verarbeitet ganze Spieltage. Bei 1× vergeht ein Spieltag pro Echtzeitsekunde; der Client verwendet Tagesbruchteile für flüssige Bewegung. [Umsetzung, Messwerte und Prüfgrenzen](backend/reports/OPTIMIZATIONS-2026-09-06.md).
 
 Rendering-Dokumentation: [Three.js ShaderMaterial](https://threejs.org/docs/pages/ShaderMaterial.html). Transport: [ws](https://github.com/websockets/ws).
 

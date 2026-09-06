@@ -3,7 +3,7 @@ import { ArrowLeft, Activity, Radio, Orbit, Cpu, Network, Crosshair, RefreshCw }
 import { connect, join, subscribe, GALAXY_QUERIES, type Client } from '../backend/client';
 import { BattleDetailSubscription } from '../backend/detail-subscriptions';
 import { BattleOverview } from './BattleOverview';
-import { gameTimeAt, progressAt } from '../backend/domain';
+import { progressAt } from '../backend/domain';
 import { LabScene, type FrameStats } from './LabScene';
 import './backend-lab.css';
 
@@ -159,7 +159,7 @@ export function BackendLab() {
   const ships = client ? [...client.conn.db.fleetShips.iter()] : [];
   const participants = client ? Number(client.conn.db.battleRoster.count()) : 0;
   const anchor = client?.conn.db.clock.id.find(1);
-  const at = anchor ? gameTimeAt(anchor, Date.now() / 1000) : 0;
+  const at = client?.clock.now() ?? 0;
   const jobs = client ? [...client.conn.db.myJobs.iter()].filter((j) => j.status === 'active') : [];
   useEffect(() => {
     window.__singularityLab = {
@@ -299,7 +299,7 @@ export function BackendLab() {
                 </button>
               )}
             </div>
-            <span>{anchor?.paused ? 'PAUSIERT' : `${at.toFixed(1)} s SPIELZEIT`}</span>
+            <span>{anchor?.paused ? 'PAUSIERT' : `${at.toFixed(1)} T SPIELZEIT`}</span>
           </div>
           {client ? (
             <LabScene client={client} mode={mode} battleId={battleId} onStats={setStats} />

@@ -30,6 +30,7 @@ const mime: Record<string, string> = {
   '.png': 'image/png',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
+  '.glb': 'model/gltf-binary',
 };
 const server = createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');

@@ -1,0 +1,128 @@
+<div id="planet-sketch" aria-label="Prozedurale Koloniewelten">
+<style>
+#planet-sketch{container-type:inline-size;--ps-bg:light-dark(#edf2f1,#101922);--ps-panel:light-dark(#fff,#17232d);--ps-line:light-dark(#cbd8d4,#30424b);--ps-ink:light-dark(#243d37,#e5efec);--ps-muted:light-dark(#586d66,#a1b5b0);--ps-accent:light-dark(#246449,#c2e1a4);--ps-soft:light-dark(#e1edde,#293d30);font:14px 'Segoe UI',sans-serif;color:var(--ps-ink);background:var(--ps-bg);border:1px solid var(--ps-line);border-radius:12px;overflow:hidden}
+#planet-sketch *{box-sizing:border-box}#planet-sketch button{font:inherit;color:inherit;cursor:pointer;background:var(--ps-panel);border:1px solid var(--ps-line);border-radius:6px;padding:9px 13px}#planet-sketch button:hover{border-color:var(--ps-accent)}#planet-sketch button[aria-pressed=true]{color:var(--ps-accent);border-color:var(--ps-accent);background:var(--ps-soft)}#planet-sketch button:disabled{opacity:.45;cursor:default}#planet-sketch .ps-top{padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--ps-line)}#planet-sketch .ps-brand{font-size:11px;letter-spacing:3px;color:var(--ps-muted)}#planet-sketch .ps-stats{display:flex;gap:19px;flex-wrap:wrap;font-variant-numeric:tabular-nums;font-size:13px}#planet-sketch .ps-stats span{display:flex;gap:7px;align-items:center}#planet-sketch i[data-lucide]{width:16px;height:16px;display:inline-block}#planet-sketch svg.lucide{width:16px;height:16px;flex-shrink:0}#planet-sketch .ps-worlds{display:flex;gap:8px;padding:13px 20px;align-items:center;flex-wrap:wrap}#planet-sketch .ps-worlds button{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 13px}#planet-sketch .ps-worlds small{display:block;margin-top:3px;color:var(--ps-muted);font-size:11px}#planet-sketch .ps-thumb{width:34px;height:34px;border-radius:50%;background:#243d40;box-shadow:inset -10px -4px 10px #041118cc,inset 1px 0 2px #eef5e599;background-size:180% 120%;flex-shrink:0}#planet-sketch #ps-new{margin-left:auto;background:transparent;font-size:12px;gap:8px}#planet-sketch .ps-stage{position:relative;background:#0d202c;aspect-ratio:1.9;isolation:isolate}#planet-sketch .ps-stage>canvas{width:100%;height:100%;display:block;position:absolute;inset:0}#planet-sketch .ps-stage::after{content:'';position:absolute;inset:0;box-shadow:inset 0 0 80px #00151d5c;pointer-events:none}#planet-sketch .ps-maplabel{position:absolute;left:19px;top:17px;color:#dcece8;letter-spacing:2px;font-size:11px;pointer-events:none;text-shadow:0 2px 6px #071622}#planet-sketch .ps-maplabel b{font-weight:500}#planet-sketch .ps-maplabel span{display:block;color:#b2c9c2;font-size:11px;margin-top:7px;letter-spacing:.5px}#planet-sketch .ps-site{position:absolute;transform:translate(-50%,-50%);width:40px;min-height:40px;padding:6px!important;background:#142831ee!important;border:1px solid #b5c8bc70!important;color:#e6f0e5!important;display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;box-shadow:0 4px 12px #04131c60;z-index:2}#planet-sketch .ps-site[aria-pressed=true]{background:#d5e9b8!important;color:#1c382d!important;border-color:#eff8dc!important;box-shadow:0 0 0 5px #d7ebbd20,0 4px 14px #08152299}#planet-sketch .ps-site.empty{width:30px;min-height:30px;border-style:dashed!important;border-radius:50%;background:#102734aa!important}#planet-sketch .ps-site.empty[aria-pressed=true]{background:#d5e9b8!important}#planet-sketch .ps-site small{font:11px 'Segoe UI',sans-serif;white-space:nowrap}#planet-sketch .ps-site .ps-symbol{font-size:16px;line-height:16px;font-weight:500}#planet-sketch .ps-statusline{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:11px 20px;border-bottom:1px solid var(--ps-line);font-size:12px;color:var(--ps-muted)}#planet-sketch .ps-dot{display:inline-block;width:7px;height:7px;background:var(--ps-accent);border-radius:50%;margin-right:6px}#planet-sketch .ps-statusline button{margin-left:auto;padding:3px 9px;background:transparent;font-size:11px;border:0}#planet-sketch .ps-build{padding:18px 20px;display:grid;grid-template-columns:1fr 1.45fr;gap:24px;align-items:center}#planet-sketch h3{font-size:21px;font-weight:400;letter-spacing:-.5px;margin:0 0 6px}#planet-sketch .ps-regioninfo{font-size:12px;color:var(--ps-muted)}#planet-sketch .ps-existing{display:flex;gap:5px;margin-top:13px;flex-wrap:wrap}#planet-sketch .ps-existing button{padding:7px 9px;font-size:12px}#planet-sketch .ps-empty-slot{padding:7px 10px;border:1px dashed var(--ps-line);border-radius:5px;color:var(--ps-muted);font-size:12px}#planet-sketch .ps-buildchoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#planet-sketch .ps-buildchoices button{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:13px;min-width:0}#planet-sketch .ps-buildchoices .ps-choicehead{display:flex;gap:8px;align-items:center}#planet-sketch .ps-buildchoices small{font-size:11px;color:var(--ps-muted)}#planet-sketch .ps-lastline{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:0 20px 14px;color:var(--ps-muted);font-size:11px}#planet-sketch .ps-footstate{color:var(--ps-accent)}
+@container(max-width:740px){#planet-sketch .ps-build{grid-template-columns:1fr;gap:16px}#planet-sketch .ps-stage{aspect-ratio:1.45}#planet-sketch .ps-site{width:34px;min-height:36px}#planet-sketch .ps-worlds{gap:5px;padding:10px 12px}#planet-sketch .ps-worlds button{padding:7px 9px}#planet-sketch .ps-thumb{width:27px;height:27px}}
+@container(max-width:440px){#planet-sketch .ps-stage{aspect-ratio:.95}#planet-sketch .ps-top{padding:12px;gap:9px}#planet-sketch .ps-stats{gap:12px;font-size:12px}#planet-sketch .ps-worlds button{flex:1;justify-content:center;font-size:12px;padding:7px 5px;gap:5px}#planet-sketch .ps-thumb{display:none}#planet-sketch #ps-new{flex-basis:100%;font-size:11px;padding:5px}#planet-sketch .ps-worlds small{font-size:11px}#planet-sketch .ps-build{padding:16px 12px}#planet-sketch .ps-buildchoices{gap:5px}#planet-sketch .ps-buildchoices button{padding:10px 8px;font-size:12px}#planet-sketch .ps-choicehead{gap:5px!important}#planet-sketch .ps-statusline{padding:10px 12px;gap:9px}#planet-sketch .ps-maplabel{left:12px;top:12px;letter-spacing:1px}#planet-sketch .ps-site{width:32px;min-height:32px}#planet-sketch .ps-site.empty{width:28px;min-height:28px}}
+@media(pointer:coarse){#planet-sketch .ps-site::before{content:'';position:absolute;width:44px;height:44px;left:50%;top:50%;transform:translate(-50%,-50%)}#planet-sketch .ps-buildchoices button{min-height:70px}}
+</style>
+<div class="ps-top"><span class="ps-brand">SINGULARITY / KOLONIEN</span><div class="ps-stats" aria-live="polite"><span id="ps-pops"></span><span id="ps-energy"></span><span id="ps-minerals"></span><span id="ps-science"></span></div></div>
+<nav class="ps-worlds" aria-label="Planet auswählen">
+<button type="button" data-world="0" aria-pressed="true"><span class="ps-thumb" id="ps-thumb0" aria-hidden="true"></span><span>Nacre<small>Kontinental</small></span></button>
+<button type="button" data-world="1" aria-pressed="false"><span class="ps-thumb" id="ps-thumb1" aria-hidden="true"></span><span>Khepri<small>Vulkanisch</small></span></button>
+<button type="button" data-world="2" aria-pressed="false"><span class="ps-thumb" id="ps-thumb2" aria-hidden="true"></span><span>Pelagia<small>Archipel</small></span></button>
+<button type="button" id="ps-new"><span aria-hidden="true">↻</span> Weitere Welt</button>
+</nav>
+<div class="ps-stage" id="ps-stage"><canvas id="ps-terrain" role="img" aria-label="Prozedural erzeugte Planetenlandschaft"></canvas><canvas id="ps-overlay" aria-hidden="true"></canvas><div class="ps-maplabel"><b id="ps-type"></b><span id="ps-seed"></span></div><div id="ps-sites"></div></div>
+<div class="ps-statusline"><span><i class="ps-dot"></i><span id="ps-employed"></span></span><span id="ps-free"></span><button type="button" id="ps-borders" aria-pressed="true">Regionen</button></div>
+<section class="ps-build" aria-label="Distrikte bauen"><div><h3 id="ps-regionname"></h3><div class="ps-regioninfo" id="ps-feature"></div><div class="ps-existing" id="ps-existing" aria-label="Distriktplätze"></div></div><div class="ps-buildchoices">
+<button type="button" data-build="mine"><span class="ps-choicehead"><span aria-hidden="true">◇</span> Mine</span><small>2 Jobs · Mineralien</small></button>
+<button type="button" data-build="power"><span class="ps-choicehead"><span aria-hidden="true">ϟ</span> Kraftwerk</span><small>2 Jobs · Energie</small></button>
+<button type="button" data-build="lab"><span class="ps-choicehead"><span aria-hidden="true">⌬</span> Labor</span><small>2 Jobs · Forschung</small></button>
+</div></section><div class="ps-lastline"><span id="ps-message" class="ps-footstate" aria-live="polite">Region wählen · Distrikt platzieren</span><span>Mockup · Ertrag/Zyklus</span></div>
+<script>
+(()=>{
+ const root=document.getElementById('planet-sketch'),$=id=>root.querySelector('#'+id);
+ const W=880,H=500,N=W*H,clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),mix=(a,b,t)=>a+(b-a)*t;
+ const kinds=[{name:'Nacre',type:'Kontinentalwelt',seed:7341,sea:.50,scale:3.6,count:11},{name:'Khepri',type:'Vulkanwelt',seed:28109,sea:.29,scale:4.2,count:9},{name:'Pelagia',type:'Inselwelt',seed:16037,sea:.565,scale:6.3,count:10}];
+ const specs={mine:{name:'Mine',symbol:'◇',key:1,base:3},power:{name:'Kraftwerk',symbol:'ϟ',key:0,base:4},lab:{name:'Labor',symbol:'⌬',key:2,base:3}};
+ const state={world:0,selected:0,borders:true,relief:1},cache=new Map();
+ function hash(x,y,s){let z=Math.imul(x,374761393)^Math.imul(y,668265263)^Math.imul(s,1442695041);z=Math.imul(z^(z>>>13),1274126177);return ((z^(z>>>16))>>>0)/4294967295;}
+ function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+ function noise(x,y,s){const a=Math.floor(x),b=Math.floor(y);let u=x-a,v=y-b;u=u*u*(3-2*u);v=v*v*(3-2*v);return mix(mix(hash(a,b,s),hash(a+1,b,s),u),mix(hash(a,b+1,s),hash(a+1,b+1,s),u),v);}
+ function fbm(x,y,s){let sum=0,amp=.53;for(let o=0;o<5;o++){sum+=amp*noise(x,y,s+o*83);x=x*2.03+7.1;y=y*2.03+3.7;amp*=.48;}return sum/.992;}
+ function blend(a,b,t){return a.map((v,i)=>mix(v,b[i],clamp(t)));}
+ function generate(k,index){
+   const random=rng(k.seed),elev=new Float32Array(N),wet=new Float32Array(N),ridge=new Float32Array(N),craters=[];
+   if(index===1)for(let i=0;i<12;i++)craters.push({x:random()*.9+.05,y:random()*.84+.08,r:random()*.065+.021});
+   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+     const u=x/W,v=y/H,p=y*W+x,dx=noise(u*3,v*3,k.seed+19)-.5,dy=noise(u*3+40,v*3,k.seed+47)-.5;
+     let e=fbm(u*k.scale*1.8+dx*.9,v*k.scale+dy*.9,k.seed);
+     if(index===0)e+=.055*Math.cos((v-.5)*5);
+     if(index===2)e+=.035*Math.sin(u*17+v*5);
+     if(index===1)for(const c of craters){const d=Math.hypot((u-c.x)*1.76,v-c.y)/c.r;if(d<1.4)e+=.09*Math.exp(-(((d-.95)*9)**2))-.16*Math.exp(-((d*1.65)**4));}
+     elev[p]=e;wet[p]=noise(u*13+60,v*9+20,k.seed+555);ridge[p]=Math.abs(noise(u*46+dx*5,v*28+dy*5,k.seed+94)-.5)*2;
+   }
+   const candidates=[];
+   for(let y=55;y<H-35;y+=8)for(let x=35;x<W-35;x+=8){if(y<100&&x<300)continue;const e=elev[y*W+x];if(e>k.sea+.025&&e<k.sea+.24)candidates.push({x,y,e});}
+   // Farthest-point sampling on actual dry terrain; no shared marker positions.
+   const sites=[];if(!candidates.length)throw new Error('Seed has no suitable land');
+   let first=candidates[Math.floor(random()*candidates.length)];
+   const middle=candidates.filter(p=>p.x>W*.25&&p.x<W*.72&&p.y>H*.25&&p.y<H*.75);if(middle.length)first=middle[Math.floor(random()*middle.length)];sites.push(first);
+   while(sites.length<k.count){let best=null,score=-1;for(const p of candidates){let distance=Infinity;for(const s of sites)distance=Math.min(distance,((p.x-s.x)/W)**2+((p.y-s.y)/H)**2);const d=distance*(.92+hash(p.x,p.y,k.seed)*.16);if(d>score){score=d;best=p;}}if(score<.008)break;sites.push(best);}
+   const features=index===0?['Flussdelta','Erzader','Hochplateau','Urwald','Kristallfeld']:index===1?['Basalthöhlen','Erzader','Geothermie','Krater','Obsidian']:['Lagune','Riff','Tiefenerz','Atoll','Thermalquelle'];
+   const prefixes=index===0?['Grün','Sonnen','Nebel','Silber','Nord','Farn']:index===1?['Aschen','Glut','Eisen','Rauch','Schlacke','Feuer']:['Perlen','Wellen','Korallen','Tiefen','Wind','Gezeiten'];
+   const suffixes=index===0?['hain','tal','küste','höhe','bucht','mark']:index===1?['grat','bruch','krater','rücken','grund','spalte']:['riff','kap','bank','hafen','bucht','insel'];
+   const usedNames=new Set();
+   sites.forEach((s,i)=>{s.id=i;s.feature=features[Math.floor(random()*features.length)];let suffix=Math.floor(random()*suffixes.length);s.name=prefixes[i%prefixes.length]+suffixes[suffix];while(usedNames.has(s.name)){suffix=(suffix+1)%suffixes.length;s.name=prefixes[i%prefixes.length]+suffixes[suffix];}usedNames.add(s.name);s.slots=index===2?2:(s.e>k.sea+.19?2:3);s.buildings=i<3?[['power','mine'],['mine','lab'],['power','lab']][i]:[];s.bonus=/Erz|erz/.test(s.feature)?'mine':/Geothermie|Thermal/.test(s.feature)?'power':/Krater|Kristall|Riff/.test(s.feature)?'lab':null;});
+   const owners=new Int16Array(N).fill(-1),boundaries=[];
+   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const p=y*W+x;if(elev[p]<=k.sea)continue;let best=0,min=Infinity;for(let i=0;i<sites.length;i++){const d=(x-sites[i].x)**2+(y-sites[i].y)**2;if(d<min){best=i;min=d;}}owners[p]=best;}
+   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const p=y*W+x,o=owners[p];if(o>=0&&((owners[p+1]>=0&&o!==owners[p+1])||(owners[p+W]>=0&&o!==owners[p+W])))boundaries.push(p);}
+   const world={k,index,elev,wet,ridge,owners,boundaries,sites,pops:18,selected:0};world.texture=paint(world);return world;
+ }
+ function paint(w){
+   const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d'),img=ctx.createImageData(W,H),data=img.data,sea=w.k.sea;
+   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+     const p=y*W+x,e=w.elev[p],h=e-sea,r=w.ridge[p],moisture=w.wet[p],lat=Math.abs(y/H-.5)*2;let color;
+     if(w.index===1){
+       color=blend([43,39,38],[143,104,74],clamp((e-.22)*2.8));
+       if(h<.015)color=blend([56,26,24],[224,86,34],clamp((h+.02)*19));
+       if(Math.abs(h)<.007)color=[245,160,65];
+       if(e>.62)color=blend(color,[189,172,139],(e-.62)*3);
+     }else if(h<0){
+       color=blend(w.index===2?[14,40,61]:[15,35,51],w.index===2?[53,154,151]:[53,105,113],Math.pow(clamp(1+h*10),3));
+       if(h>-.015)color=blend(color,[113,183,166],(h+.015)*35);
+     }else{
+       const coastal=w.index===2?[204,195,140]:[154,158,111];
+       if(h<.025)color=blend(coastal,[77,113,74],h/.025);
+       else if(h<.135)color=blend([95,126,79],[34,76,61],moisture*.75+r*.22);
+       else if(h<.24)color=blend([79,100,77],[141,142,118],(h-.135)*8);
+       else color=blend([141,147,130],[223,230,216],(h-.24)*7);
+       if(w.index===0&&lat>.82)color=blend(color,[208,225,219],clamp((lat-.82)*5+(h-.07)*2));
+       if(h>.03&&h<.15&&moisture>.52&&hash(x,y,w.k.seed+78)>.64)color=color.map(v=>v*.79);
+     }
+     const slope=(w.elev[Math.max(0,y-1)*W+Math.max(0,x-1)]-w.elev[Math.min(H-1,y+1)*W+Math.min(W-1,x+1)]);
+     const shade=h>0||w.index===1?clamp(1+slope*22*state.relief,.48,1.5):1;
+     const grain=.96+hash(x,y,w.k.seed)*.08,at=p*4;for(let c=0;c<3;c++)data[at+c]=clamp(color[c]*shade*grain,0,255);data[at+3]=255;
+   }
+   ctx.putImageData(img,0,0);return canvas;
+ }
+ function world(){const k=kinds[state.world],key=state.world+':'+k.seed;if(!cache.has(key))cache.set(key,generate(k,state.world));return cache.get(key);}
+ function jobs(w){let remaining=w.pops;const yields=[0,0,0];w.sites.forEach(s=>{s.workers=0;s.buildings.forEach(b=>{const occupied=Math.min(2,remaining);remaining-=occupied;s.workers+=occupied;yields[specs[b].key]+=occupied*specs[b].base*(s.bonus===b?1.25:1);yields[0]-=.5;});});return{remaining,yields};}
+ function drawOverlay(w){
+   const c=$('ps-overlay');c.width=W;c.height=H;const ctx=c.getContext('2d'),selected=state.selected;
+   const img=ctx.createImageData(W,H);for(let p=0;p<N;p++){if(w.owners[p]!==selected)continue;const n=p*4;img.data[n]=218;img.data[n+1]=238;img.data[n+2]=186;img.data[n+3]=28;}
+   for(const p of w.boundaries){const n=p*4,chosen=w.owners[p]===selected||w.owners[p+1]===selected||w.owners[p+W]===selected;if(!state.borders&&!chosen)continue;img.data[n]=chosen?235:196;img.data[n+1]=chosen?246:220;img.data[n+2]=chosen?195:210;img.data[n+3]=chosen?185:65;}
+   ctx.putImageData(img,0,0);
+   // Tiny physical settlement footprints, grown from placed districts.
+   for(const s of w.sites)if(s.buildings.length){const random=rng(w.k.seed+s.id*121);for(let i=0;i<s.buildings.length*8;i++){const x=s.x+(random()-.5)*50,y=s.y+(random()-.5)*35,ww=3+random()*5,hh=4+random()*8;ctx.fillStyle='#142128bb';ctx.fillRect(x+2,y+3,ww,hh);ctx.fillStyle='#b8d2c1';ctx.fillRect(x,y,ww,hh);ctx.fillStyle='#e9edca';ctx.fillRect(x,y,ww,2);}}
+ }
+ function render(message){
+   const w=world();state.selected=clamp(state.selected,0,w.sites.length-1);w.selected=state.selected;const j=jobs(w),s=w.sites[state.selected],fmt=n=>n.toLocaleString('de-DE',{maximumFractionDigits:1});
+   $('ps-terrain').width=W;$('ps-terrain').height=H;$('ps-terrain').getContext('2d').drawImage(w.texture,0,0);drawOverlay(w);
+   $('ps-type').textContent=w.k.name.toUpperCase();$('ps-seed').textContent=w.k.type+' · '+w.sites.length+' Regionen · #'+w.k.seed;
+   $('ps-pops').textContent=w.pops+' Pops';$('ps-energy').textContent='ϟ '+(j.yields[0]>=0?'+':'')+fmt(j.yields[0]);$('ps-minerals').textContent='◇ +'+fmt(j.yields[1]);$('ps-science').textContent='⌬ +'+fmt(j.yields[2]);
+   $('ps-employed').textContent=(w.pops-j.remaining)+' beschäftigt';$('ps-free').textContent=j.remaining+' freie Pops';
+   $('ps-sites').innerHTML=w.sites.map((r,i)=>'<button type="button" class="ps-site '+(!r.buildings.length?'empty':'')+'" data-region="'+i+'" aria-pressed="'+(i===state.selected)+'" aria-label="'+r.name+', '+r.feature+', '+r.workers+' Pops, '+r.buildings.length+' von '+r.slots+' Distrikten" style="left:'+r.x/W*100+'%;top:'+r.y/H*100+'%"><span class="ps-symbol" aria-hidden="true">'+(r.buildings.length?specs[r.buildings[0]].symbol:'+')+'</span>'+(r.buildings.length?'<small>'+r.workers+'/'+r.buildings.length*2+'</small>':'')+'</button>').join('');
+   $('ps-regionname').textContent=s.name;$('ps-feature').textContent=s.feature+(s.bonus?' · +25 % '+{mine:'Mineralien',power:'Energie',lab:'Forschung'}[s.bonus]:'')+' · '+s.slots+' Bauplätze';
+   $('ps-existing').innerHTML=s.buildings.map((b,i)=>'<button type="button" data-remove="'+i+'" aria-label="'+specs[b].name+' aus Vorschau entfernen">'+specs[b].symbol+' '+specs[b].name+' ×</button>').join('')+Array.from({length:s.slots-s.buildings.length},()=>'<span class="ps-empty-slot">+</span>').join('');
+   root.querySelectorAll('[data-build]').forEach(b=>{b.disabled=s.buildings.length>=s.slots;});root.querySelectorAll('[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.world)===state.world)));$('ps-borders').setAttribute('aria-pressed',String(state.borders));
+   $('ps-message').textContent=message||'Region wählen · Distrikt platzieren';
+   $('ps-thumb'+state.world).style.backgroundImage='url('+w.texture.toDataURL()+')';
+ }
+ root.addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b||!root.contains(b))return;let message,focus;
+   if(b.dataset.world!==undefined){state.world=Number(b.dataset.world);state.selected=world().selected;}
+   if(b.dataset.region!==undefined){state.selected=Number(b.dataset.region);focus='[data-region="'+state.selected+'"]';}
+   if(b.id==='ps-new'){const k=kinds[state.world];cache.delete(state.world+':'+k.seed);k.seed+=7919;state.selected=0;}
+   if(b.id==='ps-borders')state.borders=!state.borders;
+   const w=world(),s=w.sites[state.selected];
+   if(b.dataset.build&&s.buildings.length<s.slots){s.buildings.push(b.dataset.build);const result=jobs(w);message=specs[b.dataset.build].name+' platziert · '+(s.workers<s.buildings.length*2?'Arbeitskräfte fehlen':result.remaining+' freie Pops');focus='[data-region="'+state.selected+'"]';}
+   if(b.dataset.remove!==undefined){s.buildings.splice(Number(b.dataset.remove),1);message='Distrikt aus Vorschau entfernt';focus='[data-region="'+state.selected+'"]';}
+   render(message);if(focus)root.querySelector(focus)?.focus();
+ });
+ render();
+ for(let i=0;i<kinds.length;i++){const key=i+':'+kinds[i].seed;if(!cache.has(key))cache.set(key,generate(kinds[i],i));$('ps-thumb'+i).style.backgroundImage='url('+cache.get(key).texture.toDataURL()+')';}
+ if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:()=>{for(const w of cache.values())w.texture=paint(w);render();}});tweak.addSlider(state,'relief',{label:'Geländerelief',min:0,max:1.8,step:.1});tweak.addToggle(state,'borders',{label:'Regionsgrenzen'});}
+})();
+</script>
+</div>

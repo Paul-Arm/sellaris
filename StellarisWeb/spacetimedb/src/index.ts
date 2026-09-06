@@ -1,5 +1,8 @@
 import { db } from './tables';
+export { sampleClock } from './clock';
 export default db;
+export { renameBody, focusSystemObjects, focusedSystemObjects, focusedObjectSystems } from './game-objects';
+export { startTerraforming, cancelTerraforming, myTerraformProjects } from './game-terraforming';
 export { visibleGameSites } from './game-views';
 export {
   initializeGame,

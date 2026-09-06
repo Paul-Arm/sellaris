@@ -1,5 +1,9 @@
 # Ausbauplan
 
+## Geltende Vorgabe
+
+Alte Galaxien dürfen für die Entwicklung gelöscht werden. Abwärtskompatibilität ist keine Anforderung; inkompatible Spielstände werden durch neue Partien ersetzt. Diese Vorgabe ersetzt die Erhaltungszusagen der historischen Umsetzungsberichte.
+
 ## Erledigt
 
 - Browser-Spiel mit Erkundung, Kolonisierung, Kolonieausbau und KI.
@@ -74,11 +78,42 @@ Nachweis: [SYSTEM-VIEW.md](backend/reports/SYSTEM-VIEW.md).
 - Generator- und Kartografietests, echter Gateway-/Datenbank-Durchlauf mit gewählten Parametern und Wiederherstellung sowie Browserkontrollen.
 - Alte Galaxien werden nicht umverteilt. Echter Fog of War folgt separat und muss die bisher öffentliche Karte, Erkundung und Server-Views gemeinsam ändern.
 
+## Umgesetzt: Persistente Systemobjekte – erste Etappe
+
+- Himmelskörper mit unveränderlichen IDs, Revision, Lebenszyklus, Elternbezug und gespeicherten Bahnen/Darstellungsdaten in SpacetimeDB.
+- Neue Galaxien speichern ihren Körperbestand einmalig aus dem aktuellen Generator. Leere Systeme bleiben leer; es gibt keinen Importpfad für alte Körperbestände.
+- Bauprüfung verwendet gespeicherte aktive Körper und unterstützt weitere Plätze jenseits der alten Slots 0–8. Das Gravitationseffektbudget begrenzt keine Spielobjekte.
+- Die Systemansicht lädt nur die Details des geöffneten Systems. Eigene Nebenwelten, Monde und andere Nebenobjekte können mit Besitz- und Revisionsprüfung dauerhaft umbenannt werden.
+- Interne Funktionen für neue und entfernte Nebenobjekte; entfernte IDs werden nie wiederverwendet. Abhängige Monde, Kolonien oder Anlagen verhindern die Entfernung, bis eine eigene Ereignisregel ihre Folgen behandelt.
+- Nachweis und noch offene Teile des Zielmodells: [Persistente Systemobjekte](backend/reports/SYSTEM-OBJECTS.md).
+
+## Umgesetzt: Terraforming
+
+- Forschung „Klimagestaltung“ schaltet die neun Klimaklassen für eigene untersuchte Planeten frei.
+- Dauerhafte Projekte mit atomaren Kosten, parallelem Anlagenbau, Spielzeitfristen und einmaliger 50-%-Erstattung bei Abbruch. Systemverlust beendet Projekte ohne Erstattung.
+- Hauptwelten erhalten neue Bewohnbarkeit, Wachstums- und Kolonieerträge; Namen, IDs, Bahnen, Bevölkerung und Ausbauten bleiben erhalten. Nebenwelten ändern zunächst Klima und Aussehen, ohne eigene Bevölkerung.
+- Die Systemansicht zeigt Zielklima, Kosten, Ertragsvorschau und Fortschritt. Private Projektansichten, Pause, Wiederverbindung und Datenbankneustart sind geprüft.
+- Die zehn bisherigen lokalen Galaxien wurden auf Nutzerfreigabe gelöscht. Eingefrorene Generatoren und die Körpermigration sind entfernt; Reichs- und Speziesvorlagen bleiben erhalten.
+- Details und Prüfungen: [Terraforming](backend/reports/TERRAFORMING.md).
+
+## Umgesetzt: Freie Systemflüge, Auftragsketten und Stationen
+
+- Nutzerergänzung: Schiffe können frei im System fliegen, Befehle werden eingereiht und Forschungsschiffe erkunden alle Himmelskörper durch tatsächliche Anflüge.
+- Autoritative lokale Flugbahnen mit X/Y/Z-Ziel, sichtbarer Interpolation und Flugpfad. Bestehende Verbände bewegen sich gemeinsam; Abteilungen werden über die Verbandsverwaltung gebildet.
+- Bis zu 32 Aufträge je Flotte: Systemflug, Hyperraumreise, Erkundung und Kolonisierung. Wartende Aufträge einzeln entfernen oder stoppen und leeren. Kosten entstehen bei Ausführung; ein ungültig gewordenes Folgeziel wird mit Meldung übersprungen.
+- Erkundung fliegt die aktiven Himmelskörper einschließlich Monde, Asteroidenfelder und Ruinen nacheinander an. Erst nach der vollständigen Route werden Bauplätze und Forschungsbonus freigegeben. KI nutzt dieselbe Route.
+- Feste Stationspositionen mit Vorschau, Höhenwahl, Kosten, Bauzeit und Prüfung von Systemgrenzen, Abständen und Umlaufbahnen. Freie Forschungsstationen und Außenposten nutzen bestehende Ausbau-/Produktionsregeln.
+- Pause, private Warteschlangen, Wiederverbindung, Datenbankneustart und parallele Aufträge geprüft. Details: [Systemnavigation und Stationen](backend/reports/SYSTEM-NAVIGATION.md).
+
 ## Danach
 
-- Veränderbare Systemobjekte dauerhaft im Backend speichern; bestehende Körperplätze und Kolonien migrieren. Darauf Terraforming, freie Stationsplatzierung, Megastrukturen und Sternveränderungen aufbauen. Architekturvorschlag: [Veränderbare Sternsysteme](backend/reports/DYNAMIC-SYSTEMS.md).
+- Mehrstufige Megastrukturen und Sternveränderungen auf den persistenten Objekten aufbauen. Eigenständige Planetentabellen und die Folgen zerstörter Elternkörper ergänzen. Architekturvorschlag: [Veränderbare Sternsysteme](backend/reports/DYNAMIC-SYSTEMS.md).
 - Handelsrouten, langfristige Verträge, Bündnisse und differenziertere diplomatische KI ergänzen.
 - Mehrstufige Ereignisse, weitere Krisentypen und differenziertere Reaktionen der KI.
 - Taktik, Schiffsausrüstung und Beleuchtung ausbauen; Radiance Cascades separat prototypisieren und messen.
 
 Die langfristigen Systeme sind Ausbauschritte, keine Behauptung bereits fertiger Spielfunktionen.
+
+- [x] Systemsteuerung: direktes Flugziel per Rechtsklick, Warteschlange per Umschalt + Rechtsklick; separates Flugziel-Menü entfernt. Objekt-Kontextmenüs mit passenden Bauaktionen, Ausbau, Abbruch und Anflug; Sternenbasis als orbitale Versorgungsanlage.
+
+- [x] Trägheit beim Kurswechsel: Geschwindigkeit erhalten, gekrümmte Flugbahn, begrenzte Modelldrehung und Bremsweg. Orbitaler Anlagenbau/Ausbau und freie Stationen als Schiffsaufträge mit serverseitiger Nähenprüfung und Kostenbuchung erst bei Ankunft.

@@ -1,4 +1,4 @@
-/** Transport-independent simulation math. Time is always authoritative game seconds. */
+/** Transport-independent simulation math. Durations are in-game days; wallTime is real seconds. */
 export interface ClockAnchor {
   gameTime: number;
   wallTime: number;
@@ -174,4 +174,22 @@ export function combatStep(rows: Fighter[], at: number, dt: number) {
     if (r.hull === 0) killed.push(r);
   }
   return { updated, killed, hits: damage.size };
+}
+
+/** Integrate a day locally, then persist ONE atomic daily result. Internal motion /
+ * weapon integration retains the previous balance without durable sub-day ticks. */
+export function combatDay(rows: Fighter[], from: number, to: number) {
+  const final = new Map(rows.map((r) => [r.shipId, r]));
+  let alive = rows;
+  let hits = 0;
+  for (let at = from; at < to - 1e-8;) {
+    const dt = Math.min(0.2, to - at);
+    at += dt;
+    const result = combatStep(alive, at, dt);
+    result.updated.forEach((r) => final.set(r.shipId, r));
+    alive = result.updated.filter((r) => r.hull > 0);
+    hits += result.hits;
+  }
+  const updated = [...final.values()];
+  return { updated, killed: updated.filter((r) => r.hull <= 0), hits };
 }

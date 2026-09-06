@@ -1,11 +1,9 @@
 import { colonyRepair } from '../../shared/colonies';
 import { WIN_SYSTEMS } from '../../shared/game';
-import { maxDefense, type Colony } from '../../shared/colonies';
-import { environmentForPlanet } from '../../shared/empires';
-import { populationGrowth, type EmpireState } from '../../shared/empireState';
+import { maxDefense } from '../../shared/colonies';
 import { progressAt } from '../../backend/domain';
 import { type Context } from './tables';
-import { enterBattle, move, NEVER, now, tickAt, wallNow } from './rules';
+import { enterBattle, move, NEVER, now, clockNow, tickAt, wallNow } from './rules';
 import {
   dueJobs,
   event,
@@ -21,6 +19,8 @@ import { atWar } from './game-relations';
 import { expireDiplomacy } from './game-diplomacy';
 import { storyTick } from './game-stories';
 import { completeSites } from './game-sites';
+import { completeTerraforming } from './game-terraforming';
+import { navigationTick } from './game-navigation';
 
 function checkBattle(ctx: Context, systemId: number, at: number) {
   const present = [...ctx.db.fleet.systemId.filter(systemId)].filter(
@@ -39,15 +39,20 @@ function checkBattle(ctx: Context, systemId: number, at: number) {
     .filter((f) => [aggressor.empireId, enemy.empireId].includes(f.empireId))
     .map((f) => f.id);
   const battle = enterBattle(ctx, ids, systemId, at);
+  for (const id of ids) {
+    const n = ctx.db.gameNavigation.id.find(id);
+    if (n && n.ordersJson !== '[]') ctx.db.gameNavigation.id.update({ ...n, dueTick: tickAt(at) });
+  }
   for (const owner of [battle.attackers, battle.defenders])
     event(ctx, owner, `Gefecht ${battle.id} bei ${ctx.db.star.id.find(systemId)!.name}.`, 'warning');
 }
 export function gameStrategic(ctx: Context) {
+  completeTerraforming(ctx);
   completeSites(ctx);
   const at = now(ctx),
     clock = ctx.db.clock.id.find(1)!;
   if (wallNow(ctx) - clock.wallTime >= 1)
-    ctx.db.clock.id.update({ ...clock, gameTime: at, wallTime: wallNow(ctx) });
+    ctx.db.clock.id.update({ ...clock, gameTime: clockNow(ctx), wallTime: wallNow(ctx) });
   for (const a of [...ctx.db.arrival.dueTick.filter(dueJobs(at))]) {
     const f = ctx.db.fleet.id.find(a.fleetId);
     ctx.db.arrival.fleetId.delete(a.fleetId);
@@ -76,6 +81,8 @@ export function gameStrategic(ctx: Context) {
   }
   for (const kind of ['game_scan', 'game_colonize'])
     for (const j of ctx.db.job.kind.filter(kind)) {
+      if (kind === 'game_scan' && ctx.db.gameNavigation.id.find(j.targetId)?.phase.includes('survey'))
+        continue;
       if (!['active', 'blocked'].includes(j.status)) continue;
       const f = ctx.db.fleet.id.find(j.targetId);
       if (!f) {
@@ -101,6 +108,7 @@ export function gameStrategic(ctx: Context) {
     }
   for (const j of [...ctx.db.job.dueTick.filter(dueJobs(at))])
     if (j.status === 'active' && j.kind.startsWith('game_')) completeGameJob(ctx, j, at);
+  navigationTick(ctx);
   const config = ctx.db.gameSettings.id.find(1)!;
   for (const p of ctx.db.gamePlayer.iter())
     if ([...ctx.db.colony.empireId.filter(p.id)].length >= WIN_SYSTEMS) {
@@ -114,6 +122,7 @@ export function gameEconomy(ctx: Context) {
   const at = now(ctx),
     runtime = ctx.db.runtime.name.find('economy')!,
     dt = Math.max(0, Math.min(4, at - runtime.nextGameAt));
+  if (at <= runtime.nextGameAt) return;
   expireDiplomacy(ctx, at);
   storyTick(ctx);
   for (const p of ctx.db.gamePlayer.iter()) {

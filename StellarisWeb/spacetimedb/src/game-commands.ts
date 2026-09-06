@@ -20,14 +20,25 @@ import { DIPLOMACY_TYPES, type DiplomacyCommand } from '../../shared/diplomacy';
 import { applyDiplomacy } from './game-diplomacy';
 import { applyStoryCommand } from './game-stories';
 import { applySiteCommand } from './game-sites';
+import { applyNavigation, queueConstruction } from './game-navigation';
 
-export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand) {
+export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, executing = false) {
   const config = ctx.db.gameSettings.id.find(1);
   if (!config || config.winnerId) throw new SenderError('Partie nicht verfügbar.');
   if (!cmd || typeof cmd !== 'object') throw new SenderError('Ungültiger Befehl.');
+  if (cmd.type === 'mine')
+    throw new SenderError('Bergbaustationen werden am Systemobjekt mit einem Schiff gebaut.');
   const at = now(ctx);
-  if (cmd.type === 'site_build' || cmd.type === 'site_cancel') {
-    applySiteCommand(ctx, owner, cmd);
+  if (
+    !executing &&
+    ['move', 'scan', 'colonize', 'local_move', 'fleet_stop', 'fleet_remove_order'].includes(cmd.type)
+  ) {
+    applyNavigation(ctx, owner, cmd);
+    return;
+  }
+  if (cmd.type === 'site_build' || cmd.type === 'site_cancel' || cmd.type === 'station_place') {
+    if (cmd.type !== 'site_cancel' && !executing) queueConstruction(ctx, owner, cmd);
+    else applySiteCommand(ctx, owner, cmd);
     return;
   }
   if (cmd.type === 'resolve_decision' || cmd.type === 'crisis_action') {

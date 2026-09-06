@@ -7,10 +7,15 @@ import './colonies.css';
 const BackendLab = React.lazy(() =>
   import('./BackendLab').then((module) => ({ default: module.BackendLab })),
 );
+const ModelHangar = React.lazy(() => import('./ModelHangar').then((m) => ({ default: m.ModelHangar })));
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {location.pathname === '/lab' ? (
+    {location.pathname === '/models' ? (
+      <React.Suspense fallback={<div style={{ padding: 40 }}>Designhangar wird geladen …</div>}>
+        <ModelHangar />
+      </React.Suspense>
+    ) : location.pathname === '/lab' ? (
       <React.Suspense
         fallback={<div style={{ padding: 40, color: '#91b6ad' }}>Backend-Labor wird geladen …</div>}
       >

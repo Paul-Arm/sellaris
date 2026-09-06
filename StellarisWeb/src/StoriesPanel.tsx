@@ -20,7 +20,7 @@ function amounts(r: Resources) {
     .join(' · ');
 }
 const canPay = (funds: Resources, cost: Resources) => resourceKeys.every((k) => funds[k] >= cost[k]);
-const seconds = (deadline: number, tick: number) => `${Math.max(0, Math.ceil(deadline - tick))} s`;
+const daysRemaining = (deadline: number, tick: number) => `${Math.max(0, Math.ceil(deadline - tick))} T`;
 export function SituationSummary({ game, onOpen }: { game: GameView; onOpen: () => void }) {
   const open = game.decisions?.filter((d) => d.phase === 'pending').length || 0;
   const crisis = game.crises?.find((c) => !['dormant', 'contained'].includes(c.phase));
@@ -95,7 +95,7 @@ function CrisisCard({
         <div className="crisis-deadline">
           <Clock3 size={14} />
           <span>{c.phase === 'dormant' ? 'Erwartete Vorwarnung' : 'Nächste Eskalation'}</span>
-          <strong>{seconds(c.nextPhaseAt, game.tick)}</strong>
+          <strong>{daysRemaining(c.nextPhaseAt, game.tick)}</strong>
         </div>
       )}
       {live && (
@@ -218,7 +218,7 @@ export function StoriesPanel({
                 <span>{STORIES[d.kind]?.title || d.kind}</span>
                 <small>
                   {d.phase === 'pending'
-                    ? seconds(d.deadlineAt, game.tick)
+                    ? daysRemaining(d.deadlineAt, game.tick)
                     : d.phase === 'expired'
                       ? 'Automatisch'
                       : 'Abgeschlossen'}
@@ -239,7 +239,7 @@ export function StoriesPanel({
               <>
                 <div className="story-countdown">
                   <Clock3 size={14} />
-                  <span>Entscheidung in {seconds(active.deadlineAt, game.tick)}</span>
+                  <span>Entscheidung in {daysRemaining(active.deadlineAt, game.tick)}</span>
                 </div>
                 <div className="story-choices">
                   {(definition.choices as StoryChoice[]).map((option) => {

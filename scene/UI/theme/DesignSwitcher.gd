@@ -2,10 +2,10 @@ extends OptionButton
 
 func _ready() -> void:
 	name = "DesignSwitcher"
-	add_item("01  ·  Pastel / Painterly")
-	add_item("02  ·  Clean / Gravity Field")
+	add_item("01 / Observatory")
+	add_item("02 / Mission Control")
 	tooltip_text = "Switch visual design without restarting. F6 switches anywhere in the game."
-	custom_minimum_size = Vector2(230, 38)
+	custom_minimum_size = Vector2(160, 28)
 	size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_sync(SettingsManager.get_design_variant())
 	item_selected.connect(_select)

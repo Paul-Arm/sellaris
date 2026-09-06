@@ -26,8 +26,18 @@ func _ready() -> void:
 		assert(is_equal_approx(preview.camera_rig.get("_yaw_degrees"), 18.0))
 		var field := preview.get_node("Pivot/Bodies/GravityFieldMap") as GravityFieldMap
 		assert(field.body_records.size() == 4)
-		assert(field.cascade_views.size() == 4)
-		assert(preview.find_children("", "SubViewport", true, false).size() == 4, "Switching must not accumulate buffers")
+		assert(field.exit_records.size() == 2)
+		assert(field.find_children("PlanetRing", "", true, false).is_empty(), "Clean planets have no rings")
+		for exit_record in field.exit_records:
+			var point: Vector2 = exit_record["position"]
+			assert(point.normalized().is_equal_approx(exit_record["direction"]))
+			assert(field.exit_position(exit_record).y < -float(exit_record["depth"]), "Exits deform spacetime")
+			for body in field.body_records:
+				var body_point: Vector3 = body["position"]
+				assert(point.distance_to(Vector2(body_point.x, body_point.z)) > float(exit_record["width"]), "Exit distortion stays outside body anchors")
+		assert(field.cascade_views.is_empty(), "Direct map lighting needs no cascade buffers")
+		assert(preview.orbit_lines.get_child_count() == 0, "Clean design has no orbital lines")
+		assert(preview.find_children("", "SubViewport", true, false).is_empty(), "Switching must not accumulate buffers")
 		for body in field.body_records:
 			var marker := field.get_node("Marker_%s" % body["id"]) as Node3D
 			assert(marker.position.is_equal_approx(GravityFieldMap.visual_position(body, field.body_records)), "Marker and projected selection positions must agree")
@@ -66,6 +76,7 @@ static func fixture() -> Dictionary:
 			{"id": "world-a", "name": "Eidolon", "type": "planet", "planet_type": "terran", "size": 1.6, "orbit_radius": 44.0, "orbit_angle": 2.4, "seed": 45},
 			{"id": "world-b", "name": "Nacre", "type": "planet", "planet_type": "ice", "size": 1.3, "orbit_radius": 65.0, "orbit_angle": 5.7, "seed": 97}
 		],
+		"hyperlane_exits": [{"system_id": "neighbor-a", "name": "Vega", "direction": Vector2(-0.8, -0.6)}, {"system_id": "neighbor-b", "name": "Altair", "direction": Vector2(0.85, 0.53)}],
 		"space_renderables": {}, "owner_name": "Cygnan Accord",
 		"system_summary": {"star_count": 2, "star_class": "G / K", "planet_count": 2}
 	}

@@ -10,7 +10,7 @@ uniform vec4 bodies[32]; // x, z, radius, emitter strength
 uniform vec4 body_colors[32];
 uniform float map_extent = 100.0;
 const float PI2 = 6.28318530718;
-const int ATLAS = 128;
+const int ATLAS = 256;
 
 vec4 trace_interval(vec2 origin, vec2 direction, float start, float end) {
 	float nearest = end;

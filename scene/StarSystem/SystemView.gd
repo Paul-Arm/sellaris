@@ -27,6 +27,9 @@ const BODY_DETAILS_PANEL_SCRIPT: Script = preload("res://scene/StarSystem/System
 @onready var selection_popup_subtitle: Label = get_node_or_null("SelectionPopup/PopupMargin/PopupVBox/PopupSubtitle")
 @onready var selection_popup_body: Label = get_node_or_null("SelectionPopup/PopupMargin/PopupVBox/PopupBody")
 
+var _shared_ui_blocked := false
+var _atlas_interface: Control
+
 var _info_toggle: Button
 
 var _current_system_id: String = ""
@@ -40,6 +43,10 @@ var _suppress_runtime_entity_selection_signal: bool = false
 
 
 func _ready() -> void:
+	(preview_container as TextureRect).texture = preview_viewport.get_texture()
+	preview_container.gui_input.connect(_on_preview_gui_input)
+	_sync_render_size()
+	preview.camera_rig.pointer_position_provider = _preview_mouse_position
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if close_button != null:
@@ -65,11 +72,17 @@ func _ready() -> void:
 	row.move_child(_info_toggle, 2)
 	_info_toggle.toggled.connect(func(open: bool): get_node("RightPanel").visible = open)
 	SettingsManager.design_changed.connect(_apply_design)
+	_atlas_interface = preload("res://scene/UI/atlas/AtlasSystemInterface.gd").new()
+	_atlas_interface.host = self
+	add_child(_atlas_interface)
+	move_child(_atlas_interface, get_child_count() - 2)
+	resized.connect(_layout_design)
 	_apply_design(SettingsManager.get_design_variant())
 
 
 func _apply_design(variant: String) -> void:
 	var clean := variant == "clean"
+	_layout_design.call_deferred()
 	get_node("RightPanel").visible = not clean
 	_info_toggle.set_pressed_no_signal(not clean)
 	_info_toggle.visible = clean
@@ -78,7 +91,19 @@ func _apply_design(variant: String) -> void:
 
 
 func _process(_delta: float) -> void:
-	pass
+	if visible:
+		_sync_render_size()
+
+
+func _sync_render_size() -> void:
+	if preview_viewport == null or preview_container == null:
+		return
+	# Render at physical output pixels, independently of logical UI scaling.
+	var pixel_scale := (get_viewport().get_final_transform() * preview_container.get_global_transform_with_canvas()).get_scale().abs()
+	var output := preview_container.size * pixel_scale
+	var target := Vector2i(maxi(2, roundi(output.x)), maxi(2, roundi(output.y)))
+	if preview_viewport.size != target:
+		preview_viewport.size = target
 
 
 func show_system(system_details: Dictionary, neighbor_count: int) -> void:
@@ -188,7 +213,12 @@ func handle_view_input(event: InputEvent) -> void:
 	if event is InputEventMouse and _is_pointer_blocked_by_ui():
 		return
 	if preview != null:
-		preview.forward_input(event)
+		var forwarded := event
+		if event is InputEventMouse:
+			var factor := Vector2(preview_viewport.size) / preview_container.size.max(Vector2.ONE)
+			var mapping := Transform2D.IDENTITY.scaled(factor) * preview_container.get_global_transform().affine_inverse()
+			forwarded = event.xformed_by(mapping)
+		preview.forward_input(forwarded)
 
 
 func is_open() -> bool:
@@ -583,9 +613,14 @@ func _on_build_menu_hidden() -> void:
 	_set_preview_camera_blocked(false)
 
 
+func set_shared_ui_blocked(blocked: bool) -> void:
+	_shared_ui_blocked = blocked
+	_set_preview_camera_blocked(is_instance_valid(_build_menu) and _build_menu.visible)
+
+
 func _set_preview_camera_blocked(blocked: bool) -> void:
 	if preview != null and preview.has_method("set_camera_input_blocked"):
-		preview.call("set_camera_input_blocked", blocked)
+		preview.call("set_camera_input_blocked", blocked or _shared_ui_blocked)
 
 
 func _is_pointer_blocked_by_ui() -> bool:
@@ -634,3 +669,63 @@ func _update_system_labels(system_details: Dictionary, neighbor_count: int) -> v
 		special_text,
 		neighbor_count,
 	])
+
+
+func _preview_mouse_position() -> Vector2:
+	if not visible or _is_pointer_blocked_by_ui():
+		return Vector2(-1, -1)
+	return preview_container.get_local_mouse_position() * Vector2(preview_viewport.size) / preview_container.size.max(Vector2.ONE)
+
+
+func _on_preview_gui_input(event: InputEvent) -> void:
+	if not visible or preview == null:
+		return
+	# GUI events arrive in the texture's local coordinates and must not go
+	# through the root unhandled-input router a second time.
+	var factor := Vector2(preview_viewport.size) / preview_container.size.max(Vector2.ONE)
+	preview.forward_input(event.xformed_by(Transform2D.IDENTITY.scaled(factor)))
+	preview_container.accept_event()
+
+
+func _layout_design() -> void:
+	var header := get_node("HeaderMargin") as MarginContainer
+	var clean := DesignDirector.is_clean()
+	header.visible = not clean
+	if _atlas_interface != null: _atlas_interface.visible = clean
+	header.offset_left = 16 if clean else 88
+	header.offset_top = 56 if clean else 92
+	header.offset_right = -16 if clean else -28
+	header.offset_bottom = 98 if clean else 164
+	title_label.add_theme_font_size_override("font_size", 18 if clean else 34)
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title_label.get_parent().size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	subtitle_label.visible = not clean or size.x >= 1100
+	subtitle_label.add_theme_font_size_override("font_size", 10 if clean else 15)
+	close_button.text = "Galaxy" if clean else "Back"
+	var panel := get_node("RightPanel") as Control
+	panel.offset_left = -minf(290, size.x - 32) if clean else -360
+	panel.offset_top = 108 if clean else 190
+	panel.offset_right = -16 if clean else -24
+	panel.offset_bottom = -maxf(72, size.y - 480) if clean else -104
+	var scroll := panel.get_node_or_null("SummaryScroll") as ScrollContainer
+	if clean and scroll == null:
+		var margin := panel.get_node("RightMargin")
+		scroll = ScrollContainer.new()
+		scroll.name = "SummaryScroll"
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		panel.add_child(scroll)
+		margin.reparent(scroll)
+		margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	elif not clean and scroll != null:
+		scroll.get_child(0).reparent(panel)
+		panel.remove_child(scroll)
+		scroll.queue_free()
+	owner_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+func _input(event: InputEvent) -> void:
+	# Release must end dragging even if the pointer crossed a HUD or popup.
+	if visible and event is InputEventMouseButton and not event.pressed and event.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:
+		preview.camera_rig.cancel_camera_gestures()
+		if _is_pointer_blocked_by_ui():
+			preview.set("_right_down", false)

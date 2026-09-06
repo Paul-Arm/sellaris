@@ -184,9 +184,25 @@ func get_system_details(system_id: String) -> Dictionary:
 	details["intel_label"] = _get_active_system_intel_label(system_id)
 	details["has_full_intel"] = _has_full_intel_for_active_empire(system_id)
 	details["show_hyperlane_count"] = true
+	details["hyperlane_exits"] = _build_hyperlane_exits(system_id)
 	if not bool(details.get("has_full_intel", false)):
 		return _build_redacted_system_details(system_id, details)
 	return _decorate_system_details_with_anomalies(details)
+
+
+func _build_hyperlane_exits(system_id: String) -> Array[Dictionary]:
+	var exits: Array[Dictionary] = []
+	var origin := _get_system_position(system_id)
+	var neighbors: PackedStringArray = _state.galaxy_state.get_neighbor_system_ids(system_id).duplicate()
+	neighbors.sort()
+	for neighbor_id: String in neighbors:
+		var delta := _get_system_position(neighbor_id) - origin
+		var direction := Vector2(delta.x, delta.z)
+		if direction.length_squared() < 0.0001: continue
+		var known := _has_map_hint_for_active_empire(neighbor_id)
+		var record: Dictionary = _state.systems_by_id.get(neighbor_id, {})
+		exits.append({"system_id": neighbor_id, "name": str(record.get("name", neighbor_id)) if known else "Uncharted system", "direction": direction.normalized()})
+	return exits
 
 
 func resolve_system_details(system_id: String) -> Dictionary:
@@ -1897,6 +1913,7 @@ func _build_redacted_system_details(system_id: String, full_details: Dictionary)
 		"intel_label": str(full_details.get("intel_label", "Sensor Contact")),
 		"has_full_intel": false,
 		"is_redacted": true,
+		"hyperlane_exits": full_details.get("hyperlane_exits", []).duplicate(true),
 		"show_hyperlane_count": int(full_details.get("intel_level", GalaxyState.INTEL_SENSOR)) >= GalaxyState.INTEL_SENSOR,
 		"can_survey": int(full_details.get("intel_level", GalaxyState.INTEL_SENSOR)) >= GalaxyState.INTEL_SENSOR,
 		"system_summary": {

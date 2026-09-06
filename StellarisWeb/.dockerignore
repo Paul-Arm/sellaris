@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+artifacts
+.npm-cache
+.tools
+.spacetime
+spacetimedb/node_modules
+.git
+*.jpg
+*.png
+*.import

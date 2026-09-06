@@ -24,21 +24,23 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 color = Color(0.00784314, 0.0117647, 0.0235294, 1)
 
-[node name="PreviewViewportContainer" type="SubViewportContainer" parent="." unique_id=115721285]
+[node name="PreviewViewportContainer" type="TextureRect" parent="." unique_id=115721285]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-stretch = true
+mouse_filter = 0
+expand_mode = 1
 material = SubResource("ShaderMaterial_pastel")
 
 [node name="PreviewViewport" type="SubViewport" parent="PreviewViewportContainer" unique_id=1883033310]
 own_world_3d = true
-handle_input_locally = false
+handle_input_locally = true
 size = Vector2i(1152, 648)
 render_target_update_mode = 4
 

@@ -1,0 +1,821 @@
+{
+  "schemaVersion": 2,
+  "measuredAt": "2026-09-05T16:43:14.568Z",
+  "database": "singularity-bench-network-heavy-1788626528789",
+  "databaseIdentity": "c200a9a1c0424c1699f0cecfd8b46517d6eb0e8b8bcb46c2b091c7a0594f26f5",
+  "spacetimedbVersion": "2.10.0",
+  "simulationSha256": "e189597b347911815fc9d762532aee50365828a64dc0a77222b6cc3ec00252de",
+  "clientSha256": "f346a1389d90e74a4fac2429c01789c7441922c92d99372eed2a7f600e771442",
+  "hardware": {
+    "platform": "win32",
+    "osRelease": "10.0.26200",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700K",
+    "logicalCpus": 20,
+    "ramGiB": 31.760337829589844,
+    "node": "v24.18.0",
+    "network": "loopback; server and load clients on same machine"
+  },
+  "scenario": {
+    "seed": 42,
+    "systems": 1000,
+    "empires": 25,
+    "fleetsPerEmpire": 50,
+    "shipsPerEmpire": 3000,
+    "battleCount": 1,
+    "battleFleetsPerSide": 25,
+    "cohortsPerColony": 4,
+    "popsPerCohort": 100
+  },
+  "workload": {
+    "totalShips": 75000,
+    "totalFleets": 1250,
+    "colonies": 250,
+    "battleParticipantsAtStart": 3000,
+    "connectedIdentities": 25,
+    "connectedClients": 25,
+    "battleCopiesPerIdentity": 1,
+    "activeAiPlanners": 25,
+    "detailedBattleClients": 1,
+    "detail": "compact",
+    "compression": "none",
+    "productionCycleGameSeconds": 4,
+    "combatStepGameSeconds": 0.2
+  },
+  "seedingMs": 656.759,
+  "measuredSeconds": 60.0389216,
+  "joins": {
+    "hotJoinMs": {
+      "count": 25,
+      "p50": 15.678499999999985,
+      "p95": 75.4023000000002,
+      "max": 1052.443
+    },
+    "replicaJoinMs": {
+      "count": 0,
+      "p50": null,
+      "p95": null,
+      "max": null
+    },
+    "reconnectMs": {
+      "count": 24,
+      "p50": 31.68370000000141,
+      "p95": 32.684000000001106,
+      "max": 1038.4385999999995
+    },
+    "samples": [
+      {
+        "kind": "hot-join",
+        "mode": "battle",
+        "ms": 1052.443,
+        "bytes": 245674,
+        "battleStep": 0
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 29.76229999999987,
+        "bytes": 52581,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.242099999999937,
+        "bytes": 50534,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.244700000000194,
+        "bytes": 50534,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 16.20049999999992,
+        "bytes": 50534,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.514299999999821,
+        "bytes": 50534,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.056700000000092,
+        "bytes": 50534,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.601900000000114,
+        "bytes": 50534,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 75.4023000000002,
+        "bytes": 50728,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 17.49509999999964,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 29.716899999999896,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 17.184299999999894,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.51050000000032,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.623000000000047,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.757200000000012,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 60.0324999999998,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 17.696500000000015,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.12059999999974,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.244599999999991,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.558899999999994,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.717399999999998,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.067800000000261,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.678499999999985,
+        "bytes": 50584,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.93600000000015,
+        "bytes": 50657,
+        "battleStep": null
+      },
+      {
+        "kind": "hot-join",
+        "mode": "galaxy",
+        "ms": 15.600400000000263,
+        "bytes": 50657,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "battle",
+        "ms": 1038.4385999999995,
+        "bytes": 245413,
+        "battleStep": 36
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 32.545099999999366,
+        "bytes": 52343,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 14.50840000000062,
+        "bytes": 50296,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 16.98910000000069,
+        "bytes": 50296,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 32.059799999999086,
+        "bytes": 50296,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 16.364300000001094,
+        "bytes": 50296,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 16.598599999997532,
+        "bytes": 50296,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 31.88379999999961,
+        "bytes": 50296,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 31.396100000001752,
+        "bytes": 50296,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 31.933100000002014,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 31.32890000000043,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 32.345799999995506,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 32.07800000000134,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 11.446299999995972,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 32.190999999998894,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 16.13600000000588,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 31.96990000000369,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 31.68370000000141,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 16.288100000005215,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 31.744400000003225,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 32.684000000001106,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 15.992200000000594,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 18.4574999999968,
+        "bytes": 50346,
+        "battleStep": null
+      },
+      {
+        "kind": "reconnect",
+        "mode": "galaxy",
+        "ms": 11.209000000002561,
+        "bytes": 50395,
+        "battleStep": null
+      }
+    ]
+  },
+  "schedulerLagMs": {
+    "strategic": {
+      "count": 227,
+      "p50": 231.61231879858235,
+      "p95": 250.66423933336068,
+      "max": 262.1467573423679
+    },
+    "economy": {
+      "count": 227,
+      "p50": 34.075021743774414,
+      "p95": 72.61919975280762,
+      "max": 72.61919975280762
+    },
+    "combat": {
+      "count": 227,
+      "p50": 0,
+      "p95": 11.91797256469726,
+      "max": 17.455005645751946
+    },
+    "ai": {
+      "count": 227,
+      "p50": 4.68121719360326,
+      "p95": 201.09209632873615,
+      "max": 235.3150310516341
+    }
+  },
+  "nativeReducers": [
+    {
+      "reducer": "strategic_tick",
+      "calls": 241,
+      "meanExecutionAndSubscriptionMs": 3.7228838174273857,
+      "p95UpperBoundMs": 10,
+      "meanQueueWaitMs": null
+    },
+    {
+      "reducer": "economy_tick",
+      "calls": 60,
+      "meanExecutionAndSubscriptionMs": 3.6797833333333334,
+      "p95UpperBoundMs": 25,
+      "meanQueueWaitMs": null
+    },
+    {
+      "reducer": "combat_tick",
+      "calls": 602,
+      "meanExecutionAndSubscriptionMs": 17.499409966777414,
+      "p95UpperBoundMs": 50,
+      "meanQueueWaitMs": null
+    },
+    {
+      "reducer": "ai_tick",
+      "calls": 301,
+      "meanExecutionAndSubscriptionMs": 1.0487534883720937,
+      "p95UpperBoundMs": 5,
+      "meanQueueWaitMs": null
+    }
+  ],
+  "scheduledReducerMeanQueueWaitMs": 0.001185548172757472,
+  "network": {
+    "receivedBytes": 50585452,
+    "sentBytes": 9002,
+    "downstreamKiBPerSecond": 822.7971814328856,
+    "perClient": [
+      {
+        "empireId": 1,
+        "mode": "battle",
+        "receivedBytes": 48105814,
+        "sentBytes": 492,
+        "frames": 410,
+        "decodedBytes": 48105404,
+        "decodeMs": 0.21150000000034197,
+        "compressedFrames": 0,
+        "peakPendingBytes": 500094,
+        "initialSnapshotBytes": 245674,
+        "downstreamKiBPerSecond": 782.4646534686426
+      },
+      {
+        "empireId": 2,
+        "mode": "galaxy",
+        "receivedBytes": 144503,
+        "sentBytes": 370,
+        "frames": 422,
+        "decodedBytes": 144081,
+        "decodeMs": 0.35199999988253694,
+        "compressedFrames": 0,
+        "peakPendingBytes": 51895,
+        "initialSnapshotBytes": 52581,
+        "downstreamKiBPerSecond": 2.350412152264574
+      },
+      {
+        "empireId": 3,
+        "mode": "galaxy",
+        "receivedBytes": 103701,
+        "sentBytes": 370,
+        "frames": 141,
+        "decodedBytes": 103560,
+        "decodeMs": 0.03709999997590785,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49848,
+        "initialSnapshotBytes": 50534,
+        "downstreamKiBPerSecond": 1.686747614942171
+      },
+      {
+        "empireId": 4,
+        "mode": "galaxy",
+        "receivedBytes": 106528,
+        "sentBytes": 370,
+        "frames": 149,
+        "decodedBytes": 106379,
+        "decodeMs": 0.04039999996439292,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49848,
+        "initialSnapshotBytes": 50534,
+        "downstreamKiBPerSecond": 1.732730156165896
+      },
+      {
+        "empireId": 5,
+        "mode": "galaxy",
+        "receivedBytes": 103692,
+        "sentBytes": 370,
+        "frames": 144,
+        "decodedBytes": 103548,
+        "decodeMs": 0.04440000004342437,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49848,
+        "initialSnapshotBytes": 50534,
+        "downstreamKiBPerSecond": 1.6866012255290075
+      },
+      {
+        "empireId": 6,
+        "mode": "galaxy",
+        "receivedBytes": 102869,
+        "sentBytes": 370,
+        "frames": 135,
+        "decodedBytes": 102734,
+        "decodeMs": 0.044000000008054485,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49848,
+        "initialSnapshotBytes": 50534,
+        "downstreamKiBPerSecond": 1.6732147269697129
+      },
+      {
+        "empireId": 7,
+        "mode": "galaxy",
+        "receivedBytes": 105103,
+        "sentBytes": 370,
+        "frames": 145,
+        "decodedBytes": 104958,
+        "decodeMs": 0.052799999986746116,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49848,
+        "initialSnapshotBytes": 50534,
+        "downstreamKiBPerSecond": 1.7095518324149912
+      },
+      {
+        "empireId": 8,
+        "mode": "galaxy",
+        "receivedBytes": 102705,
+        "sentBytes": 370,
+        "frames": 136,
+        "decodedBytes": 102569,
+        "decodeMs": 0.03530000001501321,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49848,
+        "initialSnapshotBytes": 50534,
+        "downstreamKiBPerSecond": 1.670547186552065
+      },
+      {
+        "empireId": 9,
+        "mode": "galaxy",
+        "receivedBytes": 102073,
+        "sentBytes": 370,
+        "frames": 138,
+        "decodedBytes": 101935,
+        "decodeMs": 0.05629999999928259,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49848,
+        "initialSnapshotBytes": 50728,
+        "downstreamKiBPerSecond": 1.660267396649909
+      },
+      {
+        "empireId": 10,
+        "mode": "galaxy",
+        "receivedBytes": 102764,
+        "sentBytes": 370,
+        "frames": 132,
+        "decodedBytes": 102632,
+        "decodeMs": 0.044099999965510506,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6715068504828041
+      },
+      {
+        "empireId": 11,
+        "mode": "galaxy",
+        "receivedBytes": 102956,
+        "sentBytes": 370,
+        "frames": 145,
+        "decodedBytes": 102811,
+        "decodeMs": 0.045999999942068825,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6746298246302944
+      },
+      {
+        "empireId": 12,
+        "mode": "galaxy",
+        "receivedBytes": 101646,
+        "sentBytes": 370,
+        "frames": 138,
+        "decodedBytes": 101508,
+        "decodeMs": 0.04869999998663843,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6533220322698134
+      },
+      {
+        "empireId": 13,
+        "mode": "galaxy",
+        "receivedBytes": 102561,
+        "sentBytes": 370,
+        "frames": 138,
+        "decodedBytes": 102423,
+        "decodeMs": 0.03959999996914121,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6682049559414471
+      },
+      {
+        "empireId": 14,
+        "mode": "galaxy",
+        "receivedBytes": 103471,
+        "sentBytes": 370,
+        "frames": 146,
+        "decodedBytes": 103325,
+        "decodeMs": 0.04809999999451975,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6830065521613233
+      },
+      {
+        "empireId": 15,
+        "mode": "galaxy",
+        "receivedBytes": 102165,
+        "sentBytes": 370,
+        "frames": 137,
+        "decodedBytes": 102028,
+        "decodeMs": 0.04270000002452434,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6617638217622483
+      },
+      {
+        "empireId": 16,
+        "mode": "galaxy",
+        "receivedBytes": 103199,
+        "sentBytes": 370,
+        "frames": 139,
+        "decodedBytes": 103060,
+        "decodeMs": 0.05320000001574954,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.678582338785712
+      },
+      {
+        "empireId": 17,
+        "mode": "galaxy",
+        "receivedBytes": 103606,
+        "sentBytes": 370,
+        "frames": 142,
+        "decodedBytes": 103464,
+        "decodeMs": 0.0485999999791602,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6852023933587774
+      },
+      {
+        "empireId": 18,
+        "mode": "galaxy",
+        "receivedBytes": 105713,
+        "sentBytes": 370,
+        "frames": 143,
+        "decodedBytes": 105570,
+        "decodeMs": 0.048199999999269494,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.7194737815294137
+      },
+      {
+        "empireId": 19,
+        "mode": "galaxy",
+        "receivedBytes": 103806,
+        "sentBytes": 370,
+        "frames": 137,
+        "decodedBytes": 103669,
+        "decodeMs": 0.046700000020791776,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.68845549142908
+      },
+      {
+        "empireId": 20,
+        "mode": "galaxy",
+        "receivedBytes": 105822,
+        "sentBytes": 370,
+        "frames": 144,
+        "decodedBytes": 105678,
+        "decodeMs": 0.04810000000634318,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.7212467199777286
+      },
+      {
+        "empireId": 21,
+        "mode": "galaxy",
+        "receivedBytes": 105847,
+        "sentBytes": 370,
+        "frames": 142,
+        "decodedBytes": 105705,
+        "decodeMs": 0.042599999965204915,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.7216533572365162
+      },
+      {
+        "empireId": 22,
+        "mode": "galaxy",
+        "receivedBytes": 103733,
+        "sentBytes": 370,
+        "frames": 135,
+        "decodedBytes": 103598,
+        "decodeMs": 0.04310000003169989,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6872681106334195
+      },
+      {
+        "empireId": 23,
+        "mode": "galaxy",
+        "receivedBytes": 103292,
+        "sentBytes": 370,
+        "frames": 134,
+        "decodedBytes": 103158,
+        "decodeMs": 0.055499999985840986,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49898,
+        "initialSnapshotBytes": 50584,
+        "downstreamKiBPerSecond": 1.6800950293884025
+      },
+      {
+        "empireId": 24,
+        "mode": "galaxy",
+        "receivedBytes": 103142,
+        "sentBytes": 370,
+        "frames": 139,
+        "decodedBytes": 103003,
+        "decodeMs": 0.0500999999612759,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49947,
+        "initialSnapshotBytes": 50657,
+        "downstreamKiBPerSecond": 1.6776552058356757
+      },
+      {
+        "empireId": 25,
+        "mode": "galaxy",
+        "receivedBytes": 54741,
+        "sentBytes": 0,
+        "frames": 138,
+        "decodedBytes": 54603,
+        "decodeMs": 0.0813999999936641,
+        "compressedFrames": 0,
+        "peakPendingBytes": 49947,
+        "initialSnapshotBytes": 50657,
+        "downstreamKiBPerSecond": 0.8903892073321317
+      }
+    ],
+    "measurement": "WebSocket binary message bytes, including reconnect snapshots; excluding HTTP auth, TCP/TLS/WebSocket frame overhead"
+  },
+  "storage": {
+    "rowBytes": 35591908,
+    "indexBytes": 1739544,
+    "blobBytes": 1644031,
+    "messageLogBytes": 0,
+    "workerV8HeapBytes": 37601184
+  },
+  "loadGenerator": {
+    "eventLoopP95Ms": 16.334847,
+    "heapUsedMiB": 57.89356231689453
+  },
+  "assertions": {
+    "snapshotsChecked": 49,
+    "errors": []
+  },
+  "limitations": [
+    "Prototype combat: linear target assignment, strafing and weapon cooldowns; no projectiles/pathfinding/collision avoidance.",
+    "Short loopback test, no WAN latency/packet loss or long soak; browser FPS is recorded separately.",
+    "25k/75k are scenarios, not capacity limits. Full migration requires larger single battles, longer runs and deployment-hardware tests."
+  ]
+}

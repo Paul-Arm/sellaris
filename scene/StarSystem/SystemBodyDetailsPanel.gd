@@ -44,6 +44,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 	_build_ui()
+	resized.connect(_layout_design)
+	SettingsManager.design_changed.connect(func(_variant): _layout_design.call_deferred())
+	_layout_design.call_deferred()
 
 
 func open_details(selection_data: Dictionary, system_details: Dictionary, action_state: Dictionary = {}) -> void:
@@ -246,6 +249,8 @@ func _build_body_label(label_name: String, color: Color) -> Label:
 
 func _populate_visual() -> void:
 	_clear_visual()
+	if DesignDirector.is_clean():
+		return
 	var body_kind := _get_body_kind()
 	if body_kind == "planet":
 		_build_planet_preview()
@@ -708,3 +713,29 @@ func _resolve_points(record: Dictionary, points_key: String, fraction_key: Strin
 
 func _is_record_colonizable(record: Dictionary) -> bool:
 	return str(record.get("type", "")) == "planet" and (bool(record.get("is_colonizable", false)) or _resolve_points(record, "habitability_points", "habitability", 0) >= 45)
+
+
+func _layout_design() -> void:
+	if _panel == null:
+		return
+	var clean := DesignDirector.is_clean()
+	if not _body_record.is_empty():
+		_populate_visual()
+	var target_parent: Node = self if clean else get_node("PanelCenter")
+	if _panel.get_parent() != target_parent:
+		_panel.reparent(target_parent)
+	var body_row := _panel.get_node("ContentMargin/ContentVBox/BodyRow")
+	body_row.get_node("VisualFrame").visible = not clean
+	_panel.custom_minimum_size = Vector2.ZERO if clean else PANEL_MIN_SIZE
+	if clean:
+		_panel.set_meta("atlas_ui", true)
+		preload("res://scene/UI/atlas/AtlasStyle.gd").adopt(_panel)
+		_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		_panel.size = Vector2(286, maxf(220, size.y - 206))
+		_panel.position = Vector2(size.x - _panel.size.x - 24, 142)
+	else:
+		preload("res://scene/UI/atlas/AtlasStyle.gd").release(_panel)
+		_panel.remove_meta("atlas_ui")
+		DesignDirector.call_deferred("_refresh_controls", _panel)
+		_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		get_node("PanelCenter").queue_sort()

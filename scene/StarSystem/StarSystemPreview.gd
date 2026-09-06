@@ -6,6 +6,7 @@ signal movement_order_requested(selection_data: Dictionary, target_local_positio
 signal build_menu_requested(builder_unit_id: String, body_context: Dictionary, options: Array[Dictionary], screen_position: Vector2)
 
 const SYSTEM_SKY_SHADER: Shader = preload("res://scene/StarSystem/SystemSkyBackdrop.gdshader")
+const CLEAN_SKY_SHADER: Shader = preload("res://scene/StarSystem/design/GalacticSky.gdshader")
 const SYSTEM_RUNTIME_PLACEHOLDER_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemRuntimePlaceholderRenderer.gd")
 const SYSTEM_COMBAT_EFFECTS_RENDERER_SCRIPT: Script = preload("res://scene/StarSystem/SystemCombatEffectsRenderer.gd")
 const SYSTEM_SELECTABLE_COMPONENT_SCRIPT: Script = preload("res://scene/StarSystem/SystemSelectableComponent.gd")
@@ -27,6 +28,10 @@ const INVALID_COMMAND_TARGET := Vector3(INF, INF, INF)
 @onready var orbit_lines: Node3D = $Pivot/OrbitLines
 @onready var bodies: Node3D = $Pivot/Bodies
 @onready var effects: Node3D = $Pivot/Effects
+
+var _right_press_position := Vector2.ZERO
+var _right_dragged := false
+var _right_down := false
 
 var _has_content: bool = false
 var _current_system_details: Dictionary = {}
@@ -74,11 +79,13 @@ func _apply_environment_design() -> void:
 	if world == null or world.environment == null:
 		return
 	var clean := DesignDirector.is_clean()
-	world.environment.background_mode = Environment.BG_COLOR if clean else Environment.BG_SKY
+	world.environment.background_mode = Environment.BG_SKY
 	world.environment.background_color = Color(0.003, 0.006, 0.010)
 	world.environment.ambient_light_energy = 0.35 if clean else 0.55
-	world.environment.glow_intensity = 0.6 if clean else 0.22
-	world.environment.glow_bloom = 0.15 if clean else 0.08
+	world.environment.glow_intensity = 0.65 if clean else 0.22
+	world.environment.glow_bloom = 0.0 if clean else 0.08
+	if _sky_material != null:
+		_sky_material.shader = CLEAN_SKY_SHADER if clean else SYSTEM_SKY_SHADER
 
 
 # Procedural starfield + nebula backdrop, seeded per system in
@@ -123,16 +130,26 @@ func _input(event: InputEvent) -> void:
 	if _is_pointer_over_gui():
 		return
 
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+	if event is InputEventMouseMotion and _right_down:
+		_right_dragged = _right_dragged or event.position.distance_to(_right_press_position) > 5.0
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		if event.pressed:
+			_right_press_position = event.position
+			_right_dragged = false
+			_right_down = true
+			return # Camera receives the press in _unhandled_input.
+		var was_down := _right_down
+		_right_down = false
+		_cancel_camera_gestures()
+		if not was_down or _right_dragged:
+			return
 		var build_target := _pick_selectable_at_screen_position(event.position)
 		if _try_emit_build_menu(build_target, event.position):
-			_cancel_camera_gestures()
 			get_viewport().set_input_as_handled()
 			return
 		var command_target: Vector3 = _get_command_target_at_screen_position(event.position)
 		if command_target != INVALID_COMMAND_TARGET:
 			movement_order_requested.emit(get_selected_command_entity(), command_target)
-			_cancel_camera_gestures()
 			get_viewport().set_input_as_handled()
 		return
 
@@ -183,7 +200,8 @@ func set_system_details(system_details: Dictionary) -> void:
 		var orbital_radius: float = float(orbital.get("orbit_radius", 0.0))
 		var orbital_position := _get_orbit_position(orbital)
 		max_radius = maxf(max_radius, orbital_radius + float(orbital.get("size", 1.0)) * 7.0 + float(orbital.get("orbit_width", 0.0)))
-		_build_orbit_ring(orbital_radius, float(orbital.get("vertical_offset", 0.0)), _get_orbit_color(orbital))
+		if not DesignDirector.is_clean():
+			_build_orbit_ring(orbital_radius, float(orbital.get("vertical_offset", 0.0)), _get_orbit_color(orbital))
 		_build_orbital_visual(orbital, orbital_position)
 		_build_body_deposit_label(orbital, orbital_position)
 		_register_orbital_selectable(orbital, orbital_position)
@@ -203,6 +221,8 @@ func set_system_details(system_details: Dictionary) -> void:
 
 
 func clear_preview() -> void:
+	_right_down = false
+	_cancel_camera_gestures()
 	_current_system_details.clear()
 	_clear_preview_nodes()
 	_clear_selectables()
@@ -971,8 +991,6 @@ func _build_orbital_visual(orbital: Dictionary, orbital_position: Vector3) -> vo
 	var orbital_type: String = str(orbital.get("type", ORBITAL_TYPE_PLANET))
 	match orbital_type:
 		ORBITAL_TYPE_ASTEROID_BELT:
-			if DesignDirector.is_clean():
-				return
 			_build_asteroid_belt(orbital)
 		ORBITAL_TYPE_STRUCTURE:
 			_build_structure(orbital, orbital_position)
@@ -1171,7 +1189,7 @@ func _get_orbit_position(body: Dictionary) -> Vector3:
 
 func _set_camera_distance(distance: float) -> void:
 	if camera_rig.has_method("configure_view"):
-		camera_rig.configure_view(Vector3.ZERO, distance, -34.0, 0.0)
+		camera_rig.configure_view(Vector3.ZERO, distance * (1.5 if DesignDirector.is_clean() else 1.0), -44.0 if DesignDirector.is_clean() else -34.0, 0.0)
 		return
 	camera_rig.position = Vector3(0.0, distance * 0.42, distance)
 	camera.look_at(Vector3.ZERO, Vector3.UP)

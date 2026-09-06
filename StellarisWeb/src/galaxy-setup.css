@@ -1,0 +1,87 @@
+.galaxy-setup {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.85fr) minmax(0, 1.3fr);
+  gap: 22px;
+  padding: 18px;
+  margin: 25px 0 16px;
+  border: 1px solid #b4c1e32b;
+  border-radius: 8px;
+  background: linear-gradient(140deg, #a99ee909, #10172480);
+}
+.galaxy-setup legend {
+  padding: 0 8px;
+  font-size: 9px;
+  letter-spacing: 1.7px;
+  color: #b6afd2;
+}
+.galaxy-setup-preview {
+  align-self: center;
+  text-align: center;
+  min-width: 0;
+}
+.galaxy-setup-preview svg {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 0 4px #8b7cc444);
+}
+.galaxy-setup-preview > span {
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: #8791aa;
+}
+.galaxy-setup-fields {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+.galaxy-setup-fields > label,
+.galaxy-setup-fields > span {
+  font-size: 8px;
+  letter-spacing: 1.2px;
+  color: #abb4ca;
+}
+.galaxy-setup-fields select {
+  width: 100%;
+  padding: 10px;
+  color: #e3deef;
+  background: #141a28;
+  border: 1px solid #aaa4cc40;
+  border-radius: 5px;
+  font: inherit;
+}
+.galaxy-setup-fields p {
+  font-size: 10px;
+  color: #929db5;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+.galaxy-options {
+  display: flex;
+  gap: 5px;
+}
+.galaxy-options button {
+  flex: 1;
+  padding: 9px 5px;
+  border: 1px solid #9c9aba2b;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #aab3c8;
+}
+.galaxy-options button[aria-pressed='true'] {
+  color: #ebe5ff;
+  background: #9c87dd2b;
+  border-color: #b4a0ed88;
+}
+.galaxy-setup:disabled {
+  opacity: 0.6;
+}
+@media (max-width: 620px) {
+  .galaxy-setup {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    padding: 14px;
+  }
+  .galaxy-setup-preview svg {
+    max-height: 115px;
+  }
+}

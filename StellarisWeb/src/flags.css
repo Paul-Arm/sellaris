@@ -1,0 +1,247 @@
+.empire-flag {
+  display: block;
+  flex-shrink: 0;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  border-radius: 2px;
+}
+.flag-editor {
+  display: grid;
+  gap: 22px;
+}
+.flag-preview-stage {
+  padding: 22px;
+  background: radial-gradient(ellipse at center, #33385266, transparent 75%), #070d17;
+  border: 1px solid #9fabc521;
+  border-radius: 6px;
+}
+.flag-preview-stage > .eyebrow {
+  display: block;
+  margin-bottom: 25px;
+  font-size: 8px;
+  color: #7e8aa3;
+  letter-spacing: 1.8px;
+}
+.flag-preview-stage > .empire-flag {
+  width: 100%;
+  box-shadow: 0 15px 30px #0006;
+  border-radius: 0;
+}
+.flag-preview-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 21px;
+  color: #6f7c96;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+.flag-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.flag-toolbar .secondary-button {
+  font-size: 10px;
+  padding: 8px 10px;
+}
+.flag-presets,
+.flag-patterns,
+.flag-symbols {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.flag-presets {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.flag-patterns,
+.flag-symbols {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.flag-presets legend,
+.flag-patterns legend,
+.flag-symbols legend {
+  margin-bottom: 13px;
+  font-size: 10px;
+  color: #9da9bf;
+  letter-spacing: 0.6px;
+}
+.flag-presets button,
+.flag-patterns button,
+.flag-symbols button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 10px 8px;
+  background: #101827;
+  border: 1px solid #8599b425;
+  border-radius: 4px;
+  color: #8f9db6;
+  min-width: 0;
+}
+.flag-presets button:hover,
+.flag-patterns button:hover,
+.flag-symbols button:hover {
+  border-color: #a596d877;
+}
+.flag-patterns button.selected,
+.flag-symbols button.selected {
+  background: #a38cd017;
+  border-color: #c0a5ef88;
+  color: #ddd2f9;
+}
+.flag-presets button > span,
+.flag-patterns button > span,
+.flag-symbols button > span {
+  font-size: 9px;
+  line-height: 1.5;
+  text-align: center;
+}
+.flag-colors {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.flag-color-field {
+  display: grid;
+  gap: 10px;
+  font-size: 10px;
+  color: #9da9bf;
+  min-width: 0;
+}
+.flag-color-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #101827;
+  border: 1px solid #8599b42f;
+  border-radius: 4px;
+}
+.flag-color-input input[type='color'] {
+  flex: 0 0 27px;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+.flag-color-input code {
+  font: 9px monospace;
+  color: #a7b1c7;
+}
+.flag-range {
+  display: grid;
+  gap: 13px;
+  align-content: start;
+  font-size: 10px;
+  color: #9da9bf;
+}
+.flag-range > span {
+  display: flex;
+  justify-content: space-between;
+}
+.flag-range output {
+  font-family: monospace;
+  color: #c4b5e6;
+}
+.flag-range input {
+  width: 100%;
+  height: 18px;
+  accent-color: #b6a5e7;
+}
+.flag-scale-preview {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 0;
+  border-top: 1px solid #8a9bb426;
+}
+.flag-scale-preview > div {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.flag-scale-preview span {
+  font: 7px monospace;
+  letter-spacing: 0.7px;
+  color: #72829c;
+}
+.flag-scale-preview p {
+  font-size: 10px;
+  color: #8191ab;
+  line-height: 1.8;
+  margin: 0;
+}
+.archive-flag-preview {
+  margin: 24px 0;
+  padding: 15px 0;
+}
+.archive-flag-preview > .empire-flag {
+  width: 100%;
+  box-shadow: 0 8px 24px #0005;
+}
+.archive-mini-emblem:has(.empire-flag) {
+  width: 33px;
+}
+.empire-emblem:has(.empire-flag) {
+  background: transparent;
+  padding: 0;
+  min-width: 42px;
+}
+.living-header > .empire-flag {
+  width: 78px;
+  box-shadow: 0 4px 14px #0004;
+}
+.leaderboard strong .empire-flag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 10px;
+}
+@media (max-width: 700px) {
+  .flag-preview-stage {
+    padding: 14px;
+  }
+  .flag-presets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .flag-colors {
+    gap: 6px;
+  }
+  .flag-color-input {
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px 4px;
+  }
+  .flag-color-input input[type='color'] {
+    flex-basis: auto;
+    width: 100%;
+    height: 29px;
+  }
+  .flag-toolbar .secondary-button {
+    font-size: 9px;
+  }
+  .flag-scale-preview {
+    flex-wrap: wrap;
+  }
+  .flag-scale-preview p {
+    flex-basis: 100%;
+  }
+  .flag-range {
+    margin-bottom: 17px;
+  }
+  .archive-steps:has(button:nth-child(6)) button {
+    padding-inline: 4px;
+    font-size: 8px;
+  }
+}

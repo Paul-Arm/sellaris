@@ -13,9 +13,12 @@ var _host: Control = null
 
 func bind(host: Control) -> void:
 	_host = host
+	_host.get_viewport().size_changed.connect(_on_display_resized)
 
 
 func unbind() -> void:
+	if is_instance_valid(_host) and _host.get_viewport().size_changed.is_connected(_on_display_resized):
+		_host.get_viewport().size_changed.disconnect(_on_display_resized)
 	_host = null
 
 
@@ -38,8 +41,13 @@ func populate_settings_options() -> void:
 
 
 func refresh_display_settings() -> void:
+	if not is_instance_valid(_host) or _host.settings_resolution_option == null:
+		return
 	_host._is_syncing_settings_ui = true
 	_select_option_by_metadata(_host.settings_window_mode_option, SettingsManager.get_window_mode())
+	var windowed := SettingsManager.get_window_mode() == DisplayServer.WINDOW_MODE_WINDOWED
+	_host.settings_resolution_option.disabled = not windowed
+	_host.settings_resolution_option.tooltip_text = "Window size in pixels. Maximized and fullscreen use the display automatically."
 	_select_option_by_resolution(SettingsManager.get_resolution())
 	_select_option_by_metadata(_host.settings_aa_option, SettingsManager.get_msaa())
 	_host._is_syncing_settings_ui = false
@@ -65,6 +73,7 @@ func on_window_mode_selected(index: int) -> void:
 	SettingsManager.set_window_mode(int(_host.settings_window_mode_option.get_item_metadata(index)))
 	_host.settings_status_label.text = "Saved window mode: %s." % _host.settings_window_mode_option.get_item_text(index)
 	refresh_display_settings()
+	refresh_display_settings.call_deferred()
 
 
 func on_resolution_selected(index: int) -> void:
@@ -74,7 +83,7 @@ func on_resolution_selected(index: int) -> void:
 	if metadata is not Vector2i:
 		return
 	SettingsManager.set_resolution(metadata as Vector2i)
-	_host.settings_status_label.text = "Saved resolution: %s." % _host.settings_resolution_option.get_item_text(index)
+	_host.settings_status_label.text = "Window resolution: %dx%d." % [SettingsManager.get_resolution().x, SettingsManager.get_resolution().y]
 	refresh_display_settings()
 
 
@@ -115,3 +124,7 @@ func _select_option_by_resolution(expected_resolution: Vector2i) -> void:
 		expected_resolution
 	)
 	_host.settings_resolution_option.select(_host.settings_resolution_option.get_item_count() - 1)
+
+
+func _on_display_resized() -> void:
+	refresh_display_settings.call_deferred()

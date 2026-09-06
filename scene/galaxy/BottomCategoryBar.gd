@@ -695,7 +695,7 @@ func _build_context_text(category_id: String) -> String:
 func _refresh_responsive_layout() -> void:
 	if not is_node_ready():
 		return
-	var target_height: float = expanded_height if _expanded else collapsed_height
+	var target_height: float = (minf(180, size.y * 0.3) if _expanded else 40.0) if DesignDirector.is_clean() else (expanded_height if _expanded else collapsed_height)
 	dock_panel.custom_minimum_size = Vector2(_get_responsive_bar_width(), target_height)
 
 
@@ -716,7 +716,7 @@ func _set_expanded(expanded: bool, animate: bool = true) -> void:
 
 	var active_content := _get_active_page_content()
 	var start_height: float = dock_panel.custom_minimum_size.y
-	var end_height: float = expanded_height if next_expanded else collapsed_height
+	var end_height: float = (minf(180, size.y * 0.3) if next_expanded else 40.0) if DesignDirector.is_clean() else (expanded_height if next_expanded else collapsed_height)
 	_expanded = next_expanded
 	if DesignDirector.is_clean():
 		dock_panel.custom_minimum_size.x = _get_responsive_bar_width()

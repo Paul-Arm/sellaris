@@ -10,6 +10,8 @@ const PAGE_PRESETS := 1
 const PAGE_SETTINGS := 2
 const PAGE_MULTIPLAYER := 3
 
+var _atlas_menu: Control
+
 var content_tabs: TabContainer
 var landing_button: Button
 var singleplayer_button: Button
@@ -83,6 +85,9 @@ var _preset_system = MAIN_MENU_PRESET_SYSTEM_SCRIPT.new()
 
 
 func _ready() -> void:
+	SettingsManager.design_changed.connect(func(_variant): _layout_clean_menu.call_deferred())
+	resized.connect(_layout_clean_menu)
+	_layout_clean_menu.call_deferred()
 	_scene_setup.bind(self)
 	_species_system.bind(self)
 	_settings_system.bind(self)
@@ -241,6 +246,8 @@ func _close_delete_overlay() -> void:
 
 func _show_page(page_index: int) -> void:
 	content_tabs.current_tab = page_index
+	if _atlas_menu != null and _atlas_menu.active:
+		_atlas_menu.sync_page(page_index)
 	var pages: Array[Button] = [landing_button, presets_button, settings_button, multiplayer_button]
 	for index in range(pages.size()):
 		var selected: bool = index == page_index
@@ -380,3 +387,13 @@ func _install_observatory_menu() -> void:
 	var hero := content_tabs.get_node("LandingPage/LandingVBox/HeroPanel/MarginContainer/HeroVBox")
 	hero.get_node("HeroTitle").add_theme_font_size_override("font_size", 42)
 	hero.get_node("HeroText").custom_minimum_size.y = 64
+
+
+func _layout_clean_menu() -> void:
+	if not is_node_ready(): return
+	if _atlas_menu == null:
+		_atlas_menu = preload("res://scene/UI/atlas/AtlasMenu.gd").new()
+		_atlas_menu.host = self
+		add_child(_atlas_menu)
+		move_child(_atlas_menu, get_node("UiRoot").get_index() + 1)
+	_atlas_menu.activate(DesignDirector.is_clean())

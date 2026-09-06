@@ -1,0 +1,53 @@
+{
+  "measuredAt": "2026-09-05T16:24:07.585Z",
+  "database": "singularity-foundation",
+  "samples": [
+    {
+      "frames": {
+        "fps": 165.00994035785288,
+        "frameP95Ms": 6.200000047683716,
+        "samples": 1489,
+        "drawCalls": 3,
+        "objects": 76,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 (0x00002C02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "mode": "galaxy"
+      },
+      "viewport": "1600×1100 @1",
+      "systems": 1000,
+      "fleets": 76,
+      "participants": 0,
+      "visibility": "visible",
+      "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+      "measuredAt": "2026-09-05T16:23:22.339Z",
+      "clock": " Galaxie Gefecht90.0 s SPIELZEIT"
+    },
+    {
+      "frames": {
+        "fps": 164.9835016459019,
+        "frameP95Ms": 6.300000011920929,
+        "samples": 2153,
+        "drawCalls": 2,
+        "objects": 3000,
+        "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 (0x00002C02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "mode": "battle"
+      },
+      "viewport": "1600×1100 @1",
+      "systems": 1000,
+      "fleets": 75,
+      "participants": 3000,
+      "visibility": "visible",
+      "agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/152.0.0.0 Safari/537.36",
+      "measuredAt": "2026-09-05T16:20:15.893Z",
+      "clock": " Galaxie Gefecht27.4 s SPIELZEIT"
+    }
+  ],
+  "refreshRateCapHz": 165,
+  "capSource": "User confirmed that 165 FPS is the monitor refresh-rate cap.",
+  "interpretation": "The renderer reaches the 165-Hz/VSync cap. These are requestAnimationFrame intervals, not isolated GPU or CPU execution timings. No performance headroom or uncapped FPS can be inferred.",
+  "workload": "One connected browser; 1,000 systems, 75,000 stored ships, 3,000 participants in one ongoing battle; other load-test databases paused.",
+  "limitations": [
+    "Lab scene uses simple instanced geometry and a precomputed gravity field; full game effects are not included.",
+    "Browser measurements run separately from the 25-client load tests.",
+    "Not an uncapped GPU benchmark."
+  ]
+}

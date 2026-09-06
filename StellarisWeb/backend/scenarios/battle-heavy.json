@@ -1,0 +1,11 @@
+{
+  "seed": 42,
+  "systems": 1000,
+  "empires": 25,
+  "fleetsPerEmpire": 50,
+  "shipsPerEmpire": 3000,
+  "battleCount": 1,
+  "battleFleetsPerSide": 25,
+  "cohortsPerColony": 4,
+  "popsPerCohort": 100
+}

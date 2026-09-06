@@ -76,6 +76,8 @@ const MUSIC_TRACK_DROPDOWN_WIDTH := 260.0
 @onready var sim_pause_button: Button = $TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin/SimRow/SimPauseButton
 @onready var sim_speed_button: Button = $TopPanel/MarginContainer/TopBarRow/SimBox/SimMargin/SimRow/SimSpeedButton
 
+var _atlas_shell: Control
+
 var _is_syncing: bool = false
 var _top_chrome: GalaxyHudChrome = null
 var _active_empire_id: String = ""
@@ -95,6 +97,9 @@ func _ready() -> void:
 	_setup_resource_signals()
 	_rebuild_resource_chips()
 	_refresh_resource_ui()
+	resized.connect(_layout_clean_hud)
+	_setup_atlas.call_deferred()
+	_layout_clean_hud.call_deferred()
 
 	previous_track_button.pressed.connect(func() -> void: previous_track_requested.emit())
 	pause_track_button.pressed.connect(func() -> void: pause_track_requested.emit())
@@ -269,6 +274,7 @@ func _rebuild_resource_chips() -> void:
 		resource_row.remove_child(child)
 		child.queue_free()
 	_resource_chip_nodes.clear()
+	_layout_clean_hud.call_deferred()
 
 	for resource_id in _get_display_resource_ids():
 		var accent := _get_resource_accent(resource_id)
@@ -352,6 +358,7 @@ func _refresh_resource_ui() -> void:
 			net_label.text = _format_resource_delta(net) if has_active_empire else ""
 			net_label.add_theme_color_override("font_color", _get_delta_color(net, has_active_empire))
 		if chip != null:
+			chip.tooltip_text = "%s: %s | %s/month" % [_get_resource_display_name(resource_id), _format_resource_amount(amount), _format_resource_delta(net)]
 			chip.add_theme_stylebox_override(
 				"panel",
 				_build_resource_chip_style(_get_resource_accent(resource_id), has_active_empire, net < 0)
@@ -708,6 +715,44 @@ func _on_territory_core_opacity_slider_changed(value: float) -> void:
 
 
 func _apply_design(variant: String) -> void:
+	_layout_clean_hud.call_deferred()
 	music_box.visible = variant != "clean"
 	if variant == "clean":
 		music_track_dropdown.hide()
+
+
+func _layout_clean_hud() -> void:
+	if not is_node_ready():
+		return
+	var clean := DesignDirector.is_clean()
+	if _atlas_shell != null: _atlas_shell.activate(clean)
+	top_panel.visible = not clean
+	top_panel.offset_bottom = 42 if clean else 54
+	resource_box.custom_minimum_size.x = 0 if clean else RESOURCE_BAR_MIN_WIDTH
+	resource_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL if clean else Control.SIZE_SHRINK_END
+	resource_row.alignment = BoxContainer.ALIGNMENT_BEGIN if clean else BoxContainer.ALIGNMENT_CENTER
+	sim_box.custom_minimum_size.x = 190 if clean else 252
+	sim_date_label.custom_minimum_size.x = 92 if clean else 128
+	if _top_chrome != null:
+		_top_chrome.visible = not clean
+	if clean:
+		top_panel.add_theme_stylebox_override("panel", ObservatoryStyle.panel())
+	else:
+		top_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var chip_budget := (size.x - 240.0) / maxf(1.0, resource_row.get_child_count())
+	for chip in resource_row.get_children():
+		var row := chip.get_child(0).get_child(0)
+		# Icon + amount remain visible; names/nets collapse into tooltips.
+		row.get_child(1).visible = not clean or chip_budget >= 195
+		row.get_child(3).visible = not clean or chip_budget >= 135
+
+
+func _setup_atlas() -> void:
+	_atlas_shell = preload("res://scene/UI/atlas/AtlasGameShell.gd").new()
+	_atlas_shell.host = self
+	add_child(_atlas_shell)
+	move_child(_atlas_shell, 0)
+	_atlas_shell.activate(DesignDirector.is_clean())
+	var atlas_settings := preload("res://scene/UI/atlas/AtlasSettings.gd").new()
+	atlas_settings.host = self
+	settings_overlay.add_child(atlas_settings)

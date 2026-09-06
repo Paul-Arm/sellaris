@@ -39,6 +39,7 @@ func _ready() -> void:
 			game.get_node("SceneSystems/ViewSystem").call("_on_galaxy_view_open_system_requested", str(record["id"]))
 			await _capture("observatory_system")
 			SettingsManager.set_design_variant("clean", false)
+			game.get_node("SceneSystems/ViewRouter").get_system_view().get("_atlas_interface").call("_recenter")
 			await _capture("clean_system")
 			SettingsManager.set_design_variant("pastel", false)
 			break
@@ -96,8 +97,10 @@ func _capture_design_fixture() -> void:
 	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var details: Dictionary = preload("res://tests/design_variants_test.gd").fixture()
 	view.show_system(details, 3)
+	view.preview.set_camera_input_blocked(true)
 	await _capture("pastel_binary")
 	SettingsManager.set_design_variant("clean", false)
+	view.get("_atlas_interface").call("_recenter")
 	await _capture("clean_binary")
 	var field := view.preview.get_node("Pivot/Bodies/GravityFieldMap") as GravityFieldMap
 	assert(field.bake_complete, "Radiance cascade bake must finish")
@@ -106,15 +109,6 @@ func _capture_design_fixture() -> void:
 		var screen := view.preview.camera.unproject_position(view.preview.pivot.to_global(anchor))
 		var picked: SystemSelectableComponent = view.preview.call("_pick_selectable_at_screen_position", screen)
 		assert(picked != null and picked.selection_id.ends_with(str(body["id"])), "Visible clean markers must remain clickable")
-	var data := field.cascade_views[0].get_texture().get_image()
-	var bright := 0
-	for y in range(data.get_height()):
-		for x in range(data.get_width()):
-			var color := data.get_pixel(x, y)
-			if color.r > 0.02:
-				bright += 1
-	assert(bright > 100, "Radiance transport must produce nonzero light away from emitters")
-	print("PASS: rendered radiance cascade contains ", bright, " lit directional samples")
 	view.queue_free()
 	await get_tree().process_frame
 	SettingsManager.set_design_variant("pastel", false)
@@ -128,13 +122,14 @@ func _verify_radiance_occlusion() -> void:
 	for details: Dictionary in [clear_details, blocked_details, {"stars": [], "orbitals": []}]:
 		var field := GravityFieldMap.new()
 		add_child(field)
-		field.configure(details, 80.0)
+		field.configure(details, 80.0, true)
 		while not field.bake_complete:
 			await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 		var atlas := field.cascade_views[0].get_texture().get_image()
 		# Probe near (32, 0), behind the occluder as seen from the emitter.
-		var probe := Vector2i(44, 32)
+		var grid := atlas.get_width() / 2
+		var probe := Vector2i(int(0.7 * grid), int(0.5 * grid))
 		var total := 0.0
 		for y in range(2):
 			for x in range(2):

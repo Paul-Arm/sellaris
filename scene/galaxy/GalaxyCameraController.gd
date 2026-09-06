@@ -14,6 +14,8 @@ extends Node3D
 
 @onready var camera: Camera3D = $Camera3D
 
+var pointer_position_provider: Callable
+
 var _is_middle_dragging: bool = false
 var _is_right_dragging: bool = false
 var _camera_distance: float = 1400.0
@@ -132,7 +134,7 @@ func _get_edge_pan_input() -> Vector2:
 	if viewport_size.x <= edge_pan_margin * 2.0 or viewport_size.y <= edge_pan_margin * 2.0:
 		return Vector2.ZERO
 
-	var mouse_position := viewport.get_mouse_position()
+	var mouse_position: Vector2 = pointer_position_provider.call() if pointer_position_provider.is_valid() else viewport.get_mouse_position()
 	if not visible_rect.has_point(mouse_position):
 		return Vector2.ZERO
 

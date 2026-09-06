@@ -44,6 +44,8 @@ func _ready() -> void:
 	set_categories(DEFAULT_CATEGORIES)
 	set_active_category("anomalies")
 	_set_expanded(false, false)
+	SettingsManager.design_changed.connect(func(_variant): _set_expanded(_expanded, false))
+	get_viewport().size_changed.connect(func(): _set_expanded(_expanded, false))
 
 
 func set_categories(categories: Array) -> void:
@@ -223,9 +225,10 @@ func _set_expanded(expanded: bool, animate: bool = true) -> void:
 	if _expanded_area != null:
 		_expanded_area.visible = _expanded
 
-	var target_width := expanded_width if _expanded else collapsed_width
+	position.y = 112 if DesignDirector.is_clean() else 78
+	var target_width := (minf(expanded_width, get_viewport_rect().size.x - 28) if _expanded else 40.0) if DesignDirector.is_clean() else (expanded_width if _expanded else collapsed_width)
 	if not animate:
-		custom_minimum_size = Vector2(target_width, drawer_height if _expanded else 52.0)
+		custom_minimum_size = Vector2(target_width, _responsive_height())
 		size = custom_minimum_size
 		return
 
@@ -237,7 +240,7 @@ func _set_expanded(expanded: bool, animate: bool = true) -> void:
 
 
 func _set_drawer_width(value: float) -> void:
-	custom_minimum_size = Vector2(value, drawer_height if _expanded else 52.0)
+	custom_minimum_size = Vector2(value, _responsive_height())
 	size = custom_minimum_size
 
 
@@ -353,3 +356,9 @@ func _build_research_panel() -> Control:
 
 func _on_anomaly_open_requested(entry: Dictionary) -> void:
 	anomaly_open_requested.emit(entry)
+
+
+func _responsive_height() -> float:
+	if DesignDirector.is_clean():
+		return minf(drawer_height, get_viewport_rect().size.y - 190) if _expanded else 36.0
+	return drawer_height if _expanded else 52.0

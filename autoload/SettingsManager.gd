@@ -21,6 +21,7 @@ var _territory_core_opacity: float = DEFAULT_TERRITORY_CORE_OPACITY
 
 func _ready() -> void:
 	load_settings()
+	get_tree().node_added.connect(_on_render_node_added)
 
 
 func load_settings() -> void:
@@ -71,7 +72,7 @@ func set_music_volume(value: float) -> void:
 
 
 func get_window_mode() -> int:
-	return _window_mode
+	return _window_mode if DisplayServer.get_name() == "headless" else DisplayServer.window_get_mode()
 
 
 func set_window_mode(mode: int) -> void:
@@ -81,6 +82,12 @@ func set_window_mode(mode: int) -> void:
 
 
 func get_resolution() -> Vector2i:
+	if not _is_headless():
+		return DisplayServer.window_get_size()
+	return _resolution
+
+
+func get_windowed_resolution() -> Vector2i:
 	return _resolution
 
 
@@ -96,7 +103,7 @@ func get_msaa() -> int:
 
 func set_msaa(value: int) -> void:
 	_msaa = _normalize_msaa(value)
-	_apply_display_settings()
+	_apply_render_quality(get_tree().root)
 	save_settings()
 
 
@@ -123,21 +130,18 @@ func _apply_audio_settings() -> void:
 
 
 func _apply_display_settings() -> void:
+	_apply_render_quality(get_tree().root)
 	if _is_headless():
 		return
-
-	var root_window: Window = get_tree().root
-	root_window.msaa_2d = _msaa
-	root_window.msaa_3d = _msaa
 
 	match _window_mode:
 		DisplayServer.WINDOW_MODE_WINDOWED:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-			DisplayServer.window_set_size(_resolution)
+			DisplayServer.window_set_size(_fit_window_size(_resolution))
 			_center_window()
 		DisplayServer.WINDOW_MODE_MAXIMIZED:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-			DisplayServer.window_set_size(_resolution)
+			DisplayServer.window_set_size(_fit_window_size(_resolution))
 			_center_window()
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
 		_:
@@ -152,8 +156,8 @@ func _center_window() -> void:
 	var screen_size: Vector2i = DisplayServer.screen_get_size(screen_index)
 	var screen_position: Vector2i = DisplayServer.screen_get_position(screen_index)
 	var centered_position := screen_position + Vector2i(
-		maxi(0, int((screen_size.x - _resolution.x) / 2.0)),
-		maxi(0, int((screen_size.y - _resolution.y) / 2.0))
+		maxi(0, int((screen_size.x - DisplayServer.window_get_size().x) / 2.0)),
+		maxi(0, int((screen_size.y - DisplayServer.window_get_size().y) / 2.0))
 	)
 	DisplayServer.window_set_position(centered_position)
 
@@ -215,3 +219,33 @@ func set_design_variant(value: String, persist: bool = true) -> void:
 	if persist:
 		save_settings()
 	design_changed.emit(next)
+
+
+func _fit_window_size(requested: Vector2i) -> Vector2i:
+	var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen()).size
+	return Vector2i(mini(requested.x, usable.x), mini(requested.y, maxi(540, usable.y - 48)))
+
+
+func _on_render_node_added(node: Node) -> void:
+	if node is Viewport:
+		_apply_registered_viewport.call_deferred(weakref(node))
+
+
+func _apply_render_quality(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	if node is Viewport and not node.disable_3d:
+		var viewport := node as Viewport
+		viewport.msaa_2d = _msaa if viewport is Window else Viewport.MSAA_DISABLED
+		viewport.msaa_3d = _msaa
+		viewport.scaling_3d_scale = 1.0
+		viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+		viewport.use_taa = false
+	for child in node.get_children():
+		_apply_render_quality(child)
+
+
+func _apply_registered_viewport(reference: WeakRef) -> void:
+	var node: Node = reference.get_ref()
+	if node != null:
+		_apply_render_quality(node)

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+.env
+*.log
+artifacts/
+.npm-cache/
+.tools/
+.spacetime/
+spacetimedb/dist/
+spacetimedb/node_modules/

@@ -39,6 +39,7 @@ window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/size/mode=2
+window/dpi/allow_hidpi=true
 
 [gui]
 

@@ -1,0 +1,47 @@
+{
+  "name": "singularity-4x",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n SERVER,CLIENT \"tsx watch server/index.ts\" \"vite --host 0.0.0.0\"",
+    "build": "tsc --noEmit && vite build",
+    "start": "tsx server/index.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "check": "tsc --noEmit",
+    "format": "prettier --write src shared server tests backend/*.ts backend/tests spacetimedb/src vite.config.ts",
+    "backend:setup": "powershell -NoProfile -File backend/setup.ps1",
+    "backend:start": "node backend/tool.mjs start",
+    "backend:check": "tsc --noEmit -p spacetimedb && tsc --noEmit",
+    "backend:build": "tsc --noEmit -p spacetimedb && node backend/tool.mjs build",
+    "backend:publish": "node backend/tool.mjs publish",
+    "backend:update-games": "tsx backend/update-games.ts",
+    "backend:seed": "tsx backend/admin.ts",
+    "backend:clock": "tsx backend/control.ts",
+    "backend:test": "tsx --test --test-concurrency=1 backend/tests/*.test.ts",
+    "backend:bench": "tsx backend/benchmark.ts",
+    "backend:bench:overview": "tsx backend/benchmark-overview.ts",
+    "backend:initialize-reports": "tsx backend/initialize-reports.ts"
+  },
+  "dependencies": {
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "spacetimedb": "2.10.0",
+    "three": "^0.183.2",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.183.0",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.1.4",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.9.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}

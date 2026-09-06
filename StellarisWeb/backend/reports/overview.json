@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-09-05T17:19:02.080Z",
+  "database": "singularity-overview-bench-1788628702676",
+  "scenario": {
+    "seed": 42,
+    "systems": 1000,
+    "empires": 25,
+    "fleetsPerEmpire": 50,
+    "shipsPerEmpire": 3000,
+    "battleCount": 1,
+    "battleFleetsPerSide": 25,
+    "cohortsPerColony": 4,
+    "popsPerCohort": 100
+  },
+  "compression": "gzip",
+  "clients": 25,
+  "sourceSha256": "d014ea0a04a074335f63897a016f727a19fd6a64778cb0c4322a7e73f6b23ce3",
+  "phases": [
+    {
+      "mode": "overview-before",
+      "elapsed": 12.0075267,
+      "receivedKiBps": 0.6365636220071865,
+      "all25ClientsKiBps": 12.80170352442356,
+      "summaryUpdates": 10,
+      "detailUpdates": 0,
+      "simulatedFrom": 0.8,
+      "simulatedTo": 12.599999999999987,
+      "rows": {
+        "motion": 0,
+        "roster": 0,
+        "vitals": 0,
+        "ships": 0,
+        "battleClock": 0,
+        "legacyBattleClock": 0
+      }
+    },
+    {
+      "mode": "battle",
+      "elapsed": 12.002057,
+      "receivedKiBps": 334.67423933039146,
+      "all25ClientsKiBps": 343.1265665023087,
+      "summaryUpdates": 10,
+      "detailUpdates": 180000,
+      "simulatedFrom": 12.599999999999987,
+      "simulatedTo": 24.599999999999945,
+      "rows": {
+        "motion": 3000,
+        "roster": 3000,
+        "vitals": 3000,
+        "ships": 60,
+        "battleClock": 1,
+        "legacyBattleClock": 0
+      }
+    },
+    {
+      "mode": "overview-after",
+      "elapsed": 12.010853799999998,
+      "receivedKiBps": 0.47483093999529,
+      "all25ClientsKiBps": 7.0813229260187995,
+      "summaryUpdates": 10,
+      "detailUpdates": 0,
+      "simulatedFrom": 25.79999999999994,
+      "simulatedTo": 37.599999999999994,
+      "rows": {
+        "motion": 0,
+        "roster": 0,
+        "vitals": 0,
+        "ships": 0,
+        "battleClock": 0,
+        "legacyBattleClock": 0
+      }
+    }
+  ],
+  "open": {
+    "ms": 28.76469999999972,
+    "wireBytes": 79378
+  },
+  "lastStep": 127,
+  "rejoinedStep": 190,
+  "reductionPercent": 99.85812145537544
+}

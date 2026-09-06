@@ -696,6 +696,9 @@ func refresh_camera_input_block() -> void:
 	var block_galaxy_camera: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or _view_router.is_system_view_open() or modal_visible
 	_view_router.set_galaxy_camera_input_blocked(block_galaxy_camera)
 	var block_shared_ui: bool = _state.is_generating or _ui.loading_overlay.visible or _ui.empire_picker_overlay.visible or _ui.galaxy_hud.is_settings_visible() or modal_visible
+	var system_view := _view_router.get_system_view()
+	if system_view != null:
+		system_view.set_shared_ui_blocked(block_shared_ui)
 	_ui.bottom_category_bar.set_interaction_enabled(not block_shared_ui)
 	if _ui.empire_command_drawer != null:
 		_ui.empire_command_drawer.call("set_interaction_enabled", not block_shared_ui)

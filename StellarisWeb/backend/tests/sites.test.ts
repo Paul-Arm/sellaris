@@ -38,6 +38,11 @@ test(
     source.paused = true;
     const pa = addPlayer(source, 'a', 'Architect'),
       pb = addPlayer(source, 'b', 'Observer');
+    // Keep colony staffing constant while measuring the orbital installation ledger.
+    for (const system of source.systems)
+      for (const sector of system.colony?.sectors || [])
+        for (const district of sector.districts)
+          if (district.building === 'habitat') district.enabled = false;
     pa.resources = { energy: 3000, minerals: 3000, science: 1000 };
     pb.resources = { energy: 0, minerals: 0, science: 0 };
     const rift = source.systems.find((s) => s.kind === 'rift')!;
@@ -100,7 +105,12 @@ test(
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
       assert.deepEqual(gameView(a)!.me.installationIncome, { energy: 7, minerals: 2, science: 4 });
       // A production window is measured from authoritative per-site anchors, independent of tick timing.
-      await issue(a, { type: 'colony_focus', systemId: home, focus: 'balanced' });
+      await issue(a, {
+        type: 'colony_focus',
+        systemId: home,
+        focus: 'balanced',
+        revision: gameView(a)!.systems.find((s) => s.id === home)!.colony!.revision,
+      });
       const anchors = [...a.conn.db.visibleGameSites.iter()],
         startFunds = funds();
       const colonyAnchors = [...a.conn.db.myColonies.iter()],
@@ -108,7 +118,12 @@ test(
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
       await until(() => gameView(a)!.tick >= start + 8);
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
-      await issue(a, { type: 'colony_focus', systemId: home, focus: 'balanced' });
+      await issue(a, {
+        type: 'colony_focus',
+        systemId: home,
+        focus: 'balanced',
+        revision: gameView(a)!.systems.find((s) => s.id === home)!.colony!.revision,
+      });
       const end = gameView(a)!.tick;
       const baseEnergy = 2 * (Math.floor(end / 4) - Math.floor(start / 4));
       const colonyEnergy = colonyAnchors.reduce(

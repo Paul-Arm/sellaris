@@ -28,6 +28,9 @@ test('AI has no resource stipend and cannot progress a paused simulation', () =>
   command(game, 'p1', { type: 'add_ai' });
   const bot = game.players.find((p) => p.ai)!;
   bot.resources = { energy: 0, minerals: 0, science: 0 };
+  // Hold population steady so this isolates AI stipends from legitimate job growth.
+  const home = game.systems.find((s) => s.id === bot.home)!;
+  home.colony!.sectors[0].districts.find((d) => d.building === 'habitat')!.enabled = false;
   const rate = income(game, bot);
   advance(game, 6);
   for (const r of ['energy', 'minerals', 'science'] as const)

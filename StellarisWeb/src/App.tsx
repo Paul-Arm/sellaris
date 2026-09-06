@@ -861,7 +861,13 @@ export function App() {
             <DiplomacyPanel game={game} command={net.command} connected={net.connected} />
           )}
           {modal === 'colony' && game && (
-            <ColonyManager game={game} selected={selected} onSelect={setSelected} command={send} />
+            <ColonyManager
+              game={game}
+              selected={selected}
+              onSelect={setSelected}
+              command={send}
+              connected={net.connected}
+            />
           )}
           {modal === 'fleet' &&
             game &&

@@ -28,14 +28,14 @@ import {
   viewFor,
   type GameCommand,
 } from '../shared/game';
-import { colonyProduction, createColony, hydrateColonies } from '../shared/colonies';
+import { colonyProduction, createColony, assertColonies } from '../shared/colonies';
 
 function setup() {
   const library = starterLibrary();
   const snapshot = snapshotTemplate(library, 'empire-union');
   const game = createGame('EMPIRE');
   const player = addPlayer(game, 'owner', '', snapshot);
-  hydrateColonies(game);
+  assertColonies(game);
   return { library, snapshot, game, player, home: game.systems.find((s) => s.id === player.home)! };
 }
 test('all starter templates and all four empire kinds satisfy the shared rules', () => {

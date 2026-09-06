@@ -1,6 +1,6 @@
 import { Range } from 'spacetimedb/server';
 import { progressAt, positionAt } from '../../backend/domain';
-import { baseIncome, colonyProduction, type Colony } from '../../shared/colonies';
+import { baseIncome, colonyProduction, growColony, type Colony } from '../../shared/colonies';
 import {
   SHIPS,
   type GameState,
@@ -165,6 +165,18 @@ export function updateColony(ctx: Context, id: number, colony: Colony | null, ow
       happiness: 0.75,
     });
   refreshColonyRate(ctx, id, owner);
+}
+export function settlePopulation(ctx: Context, id: number, at = now(ctx), force = false) {
+  const meta = ctx.db.gameSystem.id.find(id)!,
+    owner = ctx.db.star.id.find(id)!.ownerId;
+  if (!owner || !meta.colonyJson) return;
+  const elapsed = Math.max(0, at - meta.growthAt);
+  if (elapsed <= 0 || (!force && elapsed < 4)) return;
+  const colony: Colony = JSON.parse(meta.colonyJson);
+  const empire: EmpireState = JSON.parse(ctx.db.gamePlayer.id.find(owner)!.empireJson);
+  growColony(colony, meta.planet, { empire }, elapsed);
+  ctx.db.gameSystem.id.update({ ...meta, growthAt: at });
+  updateColony(ctx, id, colony, owner);
 }
 export function refreshColonyRate(ctx: Context, id: number, owner: number) {
   const s = systemModel(ctx, id),

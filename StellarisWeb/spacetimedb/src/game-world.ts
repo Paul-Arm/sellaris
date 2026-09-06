@@ -1,7 +1,7 @@
 import { SenderError, t } from 'spacetimedb/server';
 import { createGalaxy } from '../../shared/galaxy';
 import { createColony } from '../../shared/colonies';
-import { hydrateColonies } from '../../shared/colonies';
+import { assertColonies } from '../../shared/colonies';
 import { hydrateEmpires, type GameState, type ShipType } from '../../shared/game';
 import {
   parseEmpireTemplate,
@@ -88,7 +88,7 @@ export const initializeGame = db.reducer(
       game.players.length > 25
     )
       throw new SenderError('Invalid source world');
-    hydrateColonies(game);
+    assertColonies(game);
     hydrateEmpires(game);
     const players = new Map(game.players.map((p, i) => [p.id, i + 1])),
       stars = new Map(game.systems.map((s, i) => [s.id, i + 1]));
@@ -307,7 +307,11 @@ export function foundEmpire(ctx: Context, externalId: string, snapshot: Template
     colonyName: instance.design.homeworldName,
     growthAt: at,
   });
-  const colony = createColony(true);
+  const colony = createColony(
+    true,
+    `${ctx.db.gameSettings.id.find(1)!.code}:${m.externalId}:1`,
+    ENVIRONMENTS[instance.species[0].environment].name,
+  );
   colony.population += origin.population;
   colony.populations = [{ speciesId: instance.primarySpeciesId, population: colony.population }];
   updateColony(ctx, home.id, colony, id);

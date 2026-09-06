@@ -39,6 +39,10 @@ async function fixture(configure: (game: GameState) => void) {
     const p = addPlayer(source, id, id);
     p.resources = { energy: 1000, minerals: 1000, science: 1000 };
   }
+  // Crisis ledger assertions isolate crisis factors from population growth.
+  for (const system of source.systems)
+    for (const sector of system.colony?.sectors || [])
+      for (const district of sector.districts) if (district.building === 'habitat') district.enabled = false;
   configure(source);
   const admin = await connect(database, { token: adminToken() }),
     clients = [admin];
@@ -186,14 +190,24 @@ test(
           bv.me,
         );
       assert.equal(bColony.energyRate, rate.energy, 'UI and authoritative colony rate agree');
-      await issue(b, { type: 'colony_focus', systemId: bv.me.home, focus: 'balanced' });
+      await issue(b, {
+        type: 'colony_focus',
+        systemId: bv.me.home,
+        focus: 'balanced',
+        revision: gameView(b)!.systems.find((s) => s.id === bv.me.home)!.colony!.revision,
+      });
       const start = gameView(b)!.tick,
         balance = funds(b),
         anchors = [...b.conn.db.myColonies.iter()];
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
       await until(() => gameView(b)!.tick > start + 8);
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
-      await issue(b, { type: 'colony_focus', systemId: bv.me.home, focus: 'balanced' });
+      await issue(b, {
+        type: 'colony_focus',
+        systemId: bv.me.home,
+        focus: 'balanced',
+        revision: gameView(b)!.systems.find((s) => s.id === bv.me.home)!.colony!.revision,
+      });
       const end = gameView(b)!.tick,
         base = baseIncome(gameView(b)!.me),
         updated = [...b.conn.db.myColonies.iter()];
@@ -231,8 +245,18 @@ test(
           gameView(newcomer)!.me,
         ).energy,
       );
-      await issue(a, { type: 'colony_focus', systemId: av.me.home, focus: 'balanced' });
-      await issue(b, { type: 'colony_focus', systemId: bv.me.home, focus: 'balanced' });
+      await issue(a, {
+        type: 'colony_focus',
+        systemId: av.me.home,
+        focus: 'balanced',
+        revision: gameView(a)!.systems.find((s) => s.id === av.me.home)!.colony!.revision,
+      });
+      await issue(b, {
+        type: 'colony_focus',
+        systemId: bv.me.home,
+        focus: 'balanced',
+        revision: gameView(b)!.systems.find((s) => s.id === bv.me.home)!.colony!.revision,
+      });
       const aBefore = funds(a),
         bBefore = funds(b);
       await issue(a, { type: 'crisis_action', crisisId: 1, action: 'contribute' });

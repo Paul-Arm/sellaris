@@ -1,17 +1,18 @@
 import {
   BUILDINGS,
-  FOCUSES,
   baseIncome,
   colonyProduction,
   createColony,
-  districtCapacity,
-  hydrateColonies,
+  assertColonies,
   maxDefense,
-  occupiedDistricts,
-  upgradeSpec,
-  type BuildingId,
+  colonyRepair,
+  applyColonyCommand,
+  completeColonyConstruction,
+  growColony,
+  planColonyDevelopment,
+  COLONY_COMMANDS,
   type Colony,
-  type ColonyFocus,
+  type ColonyCommand,
 } from './colonies';
 
 import { ORIGINS, ENVIRONMENTS } from './empireCatalog';
@@ -150,9 +151,7 @@ export type GameCommand =
   | { type: 'build'; ship: ShipType; systemId: string }
   | { type: 'mine'; systemId: string }
   | { type: 'research'; tech: TechId }
-  | { type: 'colony_upgrade'; systemId: string; building: BuildingId }
-  | { type: 'colony_focus'; systemId: string; focus: ColonyFocus }
-  | { type: 'colony_cancel'; systemId: string }
+  | ColonyCommand
   | { type: 'empire_reform'; government: Government; revision: number }
   | { type: 'species_modify'; sourceId: string; design: SpeciesDesign; colonyIds: string[]; revision: number }
   | { type: 'add_ai' }
@@ -373,7 +372,8 @@ export function addPlayer(game: GameState, id: string, name: string, template?: 
   const system = game.systems.find((s) => s.id === home)!;
   system.owner = id;
   system.defense = 30;
-  system.colony = createColony(true);
+  if (template) system.planet = ENVIRONMENTS[empire.species[0].environment].name;
+  system.colony = createColony(true, `${game.code}:${system.id}:1`, system.planet);
   system.colony.populations = [{ speciesId: empire.primarySpeciesId, population: system.colony.population }];
   if (template) {
     const origin = ORIGINS[empire.design.origin];
@@ -451,7 +451,7 @@ function startLeg(game: GameState, fleet: Fleet, player: Player) {
       Math.max(0.1, 1 + empireModifiers(player.empire).speed));
 }
 export function command(game: GameState, playerId: string, cmd: GameCommand) {
-  hydrateColonies(game);
+  assertColonies(game);
   hydrateEmpires(game);
   const player = game.players.find((p) => p.id === playerId);
   if (!player) throw new Error('Spieler nicht gefunden.');
@@ -498,39 +498,20 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
     addAI(game);
     return;
   }
-  if (cmd.type === 'colony_upgrade' || cmd.type === 'colony_focus' || cmd.type === 'colony_cancel') {
-    const system = game.systems.find((s) => s.id === cmd.systemId);
-    if (!system || system.owner !== playerId || !system.colony)
-      throw new Error('Dafür brauchst du eine eigene Kolonie.');
-    const colony = system.colony;
-    if (cmd.type === 'colony_focus') {
-      if (!Object.hasOwn(FOCUSES, cmd.focus)) throw new Error('Unbekannter Produktionsschwerpunkt.');
-      if (colony.focus === cmd.focus) return;
-      colony.focus = cmd.focus;
-      log(game, `${system.name} spezialisiert sich: ${FOCUSES[cmd.focus].name}.`, 'info', playerId);
-    } else if (cmd.type === 'colony_cancel') {
-      if (!colony.construction) throw new Error('Kein planetarer Bauauftrag aktiv.');
-      for (const r of Object.keys(colony.construction.cost) as Resource[])
-        player.resources[r] += colony.construction.cost[r] * 0.5;
-      colony.construction = null;
-      log(game, `Bau in ${system.name} abgebrochen. 50 % der Kosten erstattet.`, 'info', playerId);
-    } else {
-      if (!Object.hasOwn(BUILDINGS, cmd.building)) throw new Error('Unbekannter Kolonieausbau.');
-      if (colony.construction) throw new Error('In dieser Kolonie läuft bereits ein Ausbau.');
-      if (colony.buildings[cmd.building] >= BUILDINGS[cmd.building].maxLevel)
-        throw new Error('Maximale Ausbaustufe erreicht.');
-      if (occupiedDistricts(colony) >= districtCapacity(colony))
-        throw new Error('Alle verfügbaren Distrikte sind belegt. Mehr Bevölkerung schafft neue Bauplätze.');
-      const spec = upgradeSpec(colony, cmd.building);
-      spend(player, spec.cost);
-      colony.construction = {
-        building: cmd.building,
-        remaining: spec.time,
-        total: spec.time,
-        cost: spec.cost,
-      };
-      log(game, `${BUILDINGS[cmd.building].name} in ${system.name} in Bau.`, 'info', playerId);
-    }
+  if ((COLONY_COMMANDS as readonly string[]).includes(cmd.type)) {
+    const action = cmd as ColonyCommand;
+    const system = game.systems.find((s) => s.id === action.systemId);
+    if (!system) throw new Error('Dafür brauchst du eine eigene Kolonie.');
+    applyColonyCommand(system, player, action);
+    if (action.type === 'colony_build' || action.type === 'colony_upgrade')
+      log(
+        game,
+        BUILDINGS[system.colony!.construction!.building].name + ' in ' + system.name + ' in Bau.',
+        'info',
+        playerId,
+      );
+    if (action.type === 'colony_cancel')
+      log(game, 'Bau abgebrochen. 50 % der Kosten erstattet.', 'info', playerId);
     return;
   }
   if (cmd.type === 'pause' || cmd.type === 'speed') {
@@ -603,7 +584,7 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
   }
 }
 export function tickGame(game: GameState, elapsed: number) {
-  hydrateColonies(game);
+  assertColonies(game);
   hydrateEmpires(game);
   if (game.paused || game.winner) return;
   const dt = Math.max(0, Math.min(elapsed, 2)) * game.speed;
@@ -612,36 +593,18 @@ export function tickGame(game: GameState, elapsed: number) {
     if (!system.owner || !system.colony) continue;
     const colony = system.colony;
     const owner = game.players.find((p) => p.id === system.owner)!;
-    const groups = colony.populations!;
-    const total = Math.max(
-      0.01,
-      groups.reduce((sum, group) => sum + group.population, 0),
-    );
-    const growth = groups.map(
-      (group) =>
-        (dt / 240) *
-        (group.population / total) *
-        populationGrowth(owner.empire, group.speciesId, environmentForPlanet(system.planet)),
-    );
-    const increase = growth.reduce((sum, amount) => sum + amount, 0);
-    const scale = increase > 0 ? Math.min(1, Math.max(0, 12 - colony.population) / increase) : 0;
-    groups.forEach((group, index) => {
-      group.population += growth[index] * scale;
-    });
-    colony.population = Math.min(12, colony.population + increase * scale);
+    growColony(colony, system.planet, owner, dt);
     if (colony.construction) {
       colony.construction.remaining -= dt * Math.max(0.1, 1 + empireModifiers(owner.empire).construction);
       if (colony.construction.remaining <= 0) {
         const id = colony.construction.building;
-        colony.buildings[id]++;
-        if (id === 'bastion') system.defense = Math.min(maxDefense(system), system.defense + 40);
-        colony.construction = null;
-        log(
-          game,
-          `${BUILDINGS[id].name} Stufe ${colony.buildings[id]} in ${system.name} einsatzbereit.`,
-          'success',
-          system.owner,
+        const before = maxDefense(system);
+        completeColonyConstruction(colony);
+        system.defense = Math.min(
+          maxDefense(system),
+          system.defense + Math.max(0, maxDefense(system) - before),
         );
+        log(game, `${BUILDINGS[id].name} in ${system.name} einsatzbereit.`, 'success', system.owner);
       }
     }
   }
@@ -722,7 +685,7 @@ export function tickGame(game: GameState, elapsed: number) {
         } else if (!system.owner && system.defense === 0) {
           system.owner = player.id;
           system.defense = 30;
-          system.colony = createColony();
+          system.colony = createColony(false, `${game.code}:${system.id}:1`, system.planet);
           system.colonyName = `${system.name} Prime`;
           system.colony.populations = [
             { speciesId: player.empire!.primarySpeciesId, population: system.colony.population },
@@ -788,8 +751,7 @@ export function tickGame(game: GameState, elapsed: number) {
     }
     if (system.owner && !present.some((f) => f.owner !== system.owner)) {
       system.defense = Math.min(maxDefense(system), system.defense + dt * 0.75);
-      for (const f of present)
-        f.hp = Math.min(100, f.hp + dt * (1.5 + (system.colony?.buildings.bastion || 0)));
+      for (const f of present) f.hp = Math.min(100, f.hp + dt * colonyRepair(system));
     }
   }
   for (const f of game.fleets) {
@@ -987,20 +949,18 @@ function runAI(game: GameState, player: Player) {
     const unmined = ownSystems.find((s) => !s.mined);
     if (unmined) attempt({ type: 'mine', systemId: unmined.id });
     else {
-      const available = ownSystems.find(
-        (s) => s.colony && !s.colony.construction && occupiedDistricts(s.colony) < districtCapacity(s.colony),
-      );
-      if (available?.colony) {
-        const building = (['foundry', 'reactor', 'laboratory', 'bastion'] as BuildingId[]).sort(
-          (a, b) => available.colony!.buildings[a] - available.colony!.buildings[b],
-        )[0];
-        attempt({ type: 'colony_upgrade', systemId: available.id, building });
+      for (const system of ownSystems) {
+        const development = planColonyDevelopment(system);
+        if (development) {
+          attempt(development);
+          break;
+        }
       }
     }
   }
 }
 export function viewFor(game: GameState, playerId: string): GameView {
-  hydrateColonies(game);
+  assertColonies(game);
   hydrateEmpires(game);
   const me = game.players.find((p) => p.id === playerId)!;
   const visible = new Set([

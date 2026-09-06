@@ -141,7 +141,13 @@ test(
     p.queue[0].remaining = 1;
     command(game, p.id, { type: 'build', ship: 'corvette', systemId: p.home });
     p.queue[1].remaining = 1;
-    command(game, p.id, { type: 'colony_upgrade', systemId: p.home, building: 'reactor' });
+    command(game, p.id, {
+      type: 'colony_build',
+      systemId: p.home,
+      building: 'reactor',
+      sectorId: 3,
+      revision: 0,
+    });
     game.systems.find((s) => s.id === p.home)!.colony!.construction!.remaining = 2;
     const scout = game.fleets.find((f) => f.owner === p.id && f.type === 'scout')!,
       colony = game.fleets.find((f) => f.owner === p.id && f.type === 'colony')!;
@@ -197,7 +203,10 @@ test(
       await until(() => gameView(a)!.systems.find((s) => s.id === 's1')!.owner === p.id, 'colony finishes');
       assert(!gameView(a)!.fleets.some((f) => f.id === colony.id), 'colony ship consumed exactly once');
       assert(gameView(a)!.me.techs.includes('extraction'));
-      assert.equal(gameView(a)!.systems.find((s) => s.id === p.home)!.colony!.buildings.reactor, 1);
+      assert.equal(
+        gameView(a)!.systems.find((s) => s.id === p.home)!.colony!.sectors[3].districts[0].building,
+        'reactor',
+      );
       assert(gameView(a)!.me.resources.energy > p.resources.energy - 80, 'economy keeps producing');
       const fleet = gameView(a)!.fleets.find((f) => f.type === 'corvette')!;
       assert.equal(fleet.shipCount, 3, 'new ships reinforce existing military formation');
@@ -220,7 +229,12 @@ test(
       assert.equal(a.conn.db.fleetShips.count(), 0n);
       details.dispose();
       // Settle the last earned production cycle before measuring the exact reform debit.
-      await issue(a, { type: 'colony_focus', systemId: p.home, focus: 'balanced' });
+      await issue(a, {
+        type: 'colony_focus',
+        systemId: p.home,
+        focus: 'balanced',
+        revision: gameView(a)!.systems.find((s) => s.id === p.home)!.colony!.revision,
+      });
       const beforeReform = gameView(a)!.me,
         founding = JSON.stringify(beforeReform.empire!.founding);
       const government = {

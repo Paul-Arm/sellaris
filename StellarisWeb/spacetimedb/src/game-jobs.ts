@@ -1,9 +1,18 @@
 import { SHIPS, TECHS, type ShipType, type TechId } from '../../shared/game';
-import { createColony, type Colony } from '../../shared/colonies';
+import { createColony, completeColonyConstruction, maxDefense, type Colony } from '../../shared/colonies';
 import { empireModifiers, type EmpireState } from '../../shared/empireState';
 import { type Context } from './tables';
 import { NEVER, tickAt } from './rules';
-import { event, jobsFor, makeShip, refreshColonyRate, updateColony } from './game-model';
+import {
+  event,
+  jobsFor,
+  makeShip,
+  refreshColonyRate,
+  updateColony,
+  systemModel,
+  settleEconomy,
+  settlePopulation,
+} from './game-model';
 import { atWar } from './game-relations';
 import { openStory, surveyedStory } from './game-stories';
 
@@ -24,6 +33,8 @@ export function destroyGameFleet(ctx: Context, id: number) {
 }
 export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[number], at: number) {
   const p = ctx.db.gamePlayer.id.find(j.empireId)!;
+  if (j.kind === 'game_research' || j.kind === 'game_upgrade') settleEconomy(ctx, j.empireId, at);
+  if (j.kind === 'game_upgrade') settlePopulation(ctx, j.targetId, at, true);
   let status = 'complete';
   if (j.kind === 'game_research') {
     if (!p.techs.includes(j.topic)) ctx.db.gamePlayer.id.update({ ...p, techs: [...p.techs, j.topic] });
@@ -60,9 +71,13 @@ export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[numb
     if (star?.ownerId !== p.id || !m.colonyJson) status = 'cancelled';
     else {
       const c: Colony = JSON.parse(m.colonyJson);
-      c.buildings[j.topic as keyof Colony['buildings']]++;
-      c.construction = null;
-      if (j.topic === 'bastion') ctx.db.gameSystem.id.update({ ...m, defense: m.defense + 40 });
+      const before = maxDefense(systemModel(ctx, m.id));
+      completeColonyConstruction(c);
+      const after = maxDefense({ ...systemModel(ctx, m.id), colony: c });
+      ctx.db.gameSystem.id.update({
+        ...m,
+        defense: Math.min(after, m.defense + Math.max(0, after - before)),
+      });
       updateColony(ctx, m.id, c, p.id);
       event(ctx, p.id, `Kolonieausbau bei ${star.name} abgeschlossen.`, 'success');
     }
@@ -91,7 +106,11 @@ export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[numb
             colonyName: `${system.name} Prime`,
             growthAt: at,
           });
-          const c = createColony(),
+          const c = createColony(
+              false,
+              `${ctx.db.gameSettings.id.find(1)!.code}:${m.externalId}:1`,
+              m.planet,
+            ),
             instance: EmpireState = JSON.parse(p.empireJson);
           c.populations = [{ speciesId: instance.primarySpeciesId, population: c.population }];
           updateColony(ctx, system.id, c, p.id);

@@ -1,3 +1,4 @@
+import { colonyRepair } from '../../shared/colonies';
 import { WIN_SYSTEMS } from '../../shared/game';
 import { maxDefense, type Colony } from '../../shared/colonies';
 import { environmentForPlanet } from '../../shared/empires';
@@ -10,6 +11,7 @@ import {
   event,
   refreshFleetCondition,
   settleEconomy,
+  settlePopulation,
   systemModel,
   updateColony,
 } from './game-model';
@@ -116,31 +118,7 @@ export function gameEconomy(ctx: Context) {
   storyTick(ctx);
   for (const p of ctx.db.gamePlayer.iter()) {
     settleEconomy(ctx, p.id, at);
-    const empire: EmpireState = JSON.parse(p.empireJson);
-    for (const c of ctx.db.colony.empireId.filter(p.id)) {
-      const m = ctx.db.gameSystem.id.find(c.id)!;
-      if (!m.colonyJson) continue;
-      const colony: Colony = JSON.parse(m.colonyJson),
-        elapsed = Math.max(0, at - m.growthAt);
-      if (elapsed >= 4 && colony.population < 12) {
-        const groups = colony.populations || [],
-          total = colony.population;
-        for (const group of groups)
-          group.population +=
-            ((elapsed / 240) *
-              populationGrowth(empire, group.speciesId, environmentForPlanet(m.planet)) *
-              group.population) /
-            Math.max(0.001, total);
-        colony.population = Math.min(
-          12,
-          groups.reduce((n, g) => n + g.population, 0),
-        );
-        const sum = groups.reduce((n, g) => n + g.population, 0);
-        if (sum > 12) for (const group of groups) group.population *= 12 / sum;
-        ctx.db.gameSystem.id.update({ ...m, growthAt: at });
-        updateColony(ctx, m.id, colony, p.id);
-      }
-    }
+    for (const c of ctx.db.colony.empireId.filter(p.id)) settlePopulation(ctx, c.id, at);
   }
   const occupied = new Set<number>();
   for (const f of ctx.db.fleet.iter())
@@ -207,7 +185,7 @@ export function gameEconomy(ctx: Context) {
     )
       continue;
     const system = systemModel(ctx, f.systemId),
-      hull = Math.min(s.maxHull, s.hull + (1.5 + (system.colony?.buildings.bastion || 0)) * dt),
+      hull = Math.min(s.maxHull, s.hull + colonyRepair(system) * dt),
       shield = Math.min(s.maxShield, s.shield + dt * 3);
     ctx.db.ship.id.update({ ...s, hull, shield });
     if (hull === s.maxHull && shield === s.maxShield) ctx.db.gameDamaged.id.delete(d.id);

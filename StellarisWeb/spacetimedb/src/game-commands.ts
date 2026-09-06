@@ -12,6 +12,7 @@ import {
   jobsFor,
   refreshColonyRate,
   settleEconomy,
+  settlePopulation,
   updateColony,
 } from './game-model';
 import { foundEmpire, gameClock } from './game-world';
@@ -55,6 +56,10 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand) 
     return;
   }
   settleEconomy(ctx, owner, at);
+  if (cmd.type.startsWith('colony_') && 'systemId' in cmd) {
+    const meta = ctx.db.gameSystem.externalId.find(cmd.systemId);
+    if (meta && ctx.db.star.id.find(meta.id)?.ownerId === owner) settlePopulation(ctx, meta.id, at, true);
+  }
   const game = commandModel(ctx, owner),
     player = game.players[0],
     beforeEmpire = JSON.stringify(player.empire);
@@ -107,7 +112,7 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand) 
       player.queue.length > 1 ? 'queued' : 'active',
     );
   }
-  if (cmd.type === 'colony_upgrade') {
+  if (cmd.type === 'colony_build' || cmd.type === 'colony_upgrade') {
     const s = game.systems.find((s) => s.id === cmd.systemId)!,
       j = s.colony!.construction!;
     addJob(ctx, owner, 'game_upgrade', j.building, ctx.db.gameSystem.externalId.find(s.id)!.id, j.total);

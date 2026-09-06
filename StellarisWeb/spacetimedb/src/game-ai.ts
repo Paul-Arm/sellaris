@@ -1,3 +1,5 @@
+import { planColonyDevelopment } from '../../shared/colonies';
+import { systemModel } from './game-model';
 import { TECHS, type ShipType, type TechId } from '../../shared/game';
 import { type Context } from './tables';
 import { now, tickAt } from './rules';
@@ -109,12 +111,10 @@ export function gameAI(ctx: Context) {
       acted = act({ type: 'build', ship, systemId: home });
     }
     if (!acted && home) {
-      const buildings = ['reactor', 'foundry', 'laboratory', 'bastion'] as const;
-      act({
-        type: 'colony_upgrade',
-        systemId: home,
-        building: buildings[Math.floor(candidate.aiCursor / 3) % buildings.length],
-      });
+      for (const owned of ctx.db.colony.empireId.filter(owner)) {
+        const choice = planColonyDevelopment(systemModel(ctx, owned.id));
+        if (choice && act(choice)) break;
+      }
     }
     const current = ctx.db.empire.id.find(owner)!;
     ctx.db.empire.id.update({ ...current, nextDecisionTick: tickAt(at + 5), aiCursor: current.aiCursor + 1 });

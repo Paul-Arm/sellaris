@@ -1,3 +1,4 @@
+import { colonyEconomy } from '../shared/colonies';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -88,12 +89,19 @@ test('mining and research change real production and disallow duplicate spending
   const { game, p } = setup();
   const before = income(game, p);
   command(game, p.id, { type: 'mine', systemId: p.home });
-  assert.equal(income(game, p).energy, (before.energy - 2) * 2 + 2);
+  const home = game.systems.find((s) => s.id === p.home)!;
+  assert.equal(income(game, p).energy, before.energy + home.resources.energy);
   assert.throws(() => command(game, p.id, { type: 'mine', systemId: p.home }), /bereits/);
   command(game, p.id, { type: 'research', tech: 'extraction' });
   advance(game, 41);
   assert.ok(p.techs.includes('extraction'));
-  assert.equal(income(game, p).energy, ((before.energy - 2) * 2 + 2) * 1.5);
+  const current = colonyEconomy(home.colony!, home.planet, p);
+  assert.ok(
+    Math.abs(
+      income(game, p).energy -
+        ((current.output.energy + current.upkeep + home.resources.energy) * 1.5 - current.upkeep + 3),
+    ) < 1e-8,
+  );
   assert.throws(() => command(game, p.id, { type: 'research', tech: 'extraction' }), /Bereits/);
 });
 test('host pause is authoritative and build queues resolve sequentially', () => {

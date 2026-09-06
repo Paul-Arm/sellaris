@@ -77,13 +77,13 @@ export function systemBodies(
       core,
       body(
         4,
-        belt ? 'Trümmergürtel' : 'Trümmerfragment',
+        belt ? 'Trümmerwolke' : 'Trümmerfragment',
         'asteroid',
         165,
         16,
         '#b9cbd8',
         belt
-          ? 'Ein seltener Gürtel aus gebundenen Trümmern und metallhaltigem Material.'
+          ? 'Eine seltene, lockere Wolke gebundener Körper und metallhaltigen Materials.'
           : 'Ein kleiner, gebundener Verband metallhaltiger Fragmente.',
       ),
       body(
@@ -138,13 +138,13 @@ export function systemBodies(
     ),
     body(
       4,
-      belt ? (sol ? 'Ceres-Gürtel' : 'Metallgürtel') : sol ? 'Ceres' : 'Metallfragment',
+      belt ? (sol ? 'Ceres-Wolke' : 'Metallwolke') : sol ? 'Ceres' : 'Metallfragment',
       'asteroid',
       287,
       15,
       '#bdcfda',
       belt
-        ? 'Ein seltener Asteroidengürtel mit ergiebigen Metalladern.'
+        ? 'Eine seltene, lockere Wolke mineralreicher Körper mit ergiebigen Metalladern.'
         : 'Ein kompakter Verband mineralreicher Fragmente.',
     ),
     body(

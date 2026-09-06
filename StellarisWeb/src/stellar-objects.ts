@@ -4,7 +4,7 @@ import { bodyVertex } from './system-shaders';
 
 const surface = `
 uniform vec3 tint;
-uniform float emission, compact, time;
+uniform float emission, compact, time, starRadius;
 varying vec3 localP, worldP, worldN;
 float hash(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
 float noise(vec3 p){
@@ -27,7 +27,10 @@ void main(){
     color=mix(tint,vec3(1.),.25)*emission*(.65+.3*facing)+tint*poles*.32;
     color+=tint*pow(1.-facing,3.)*.25;
   }
-  gl_FragColor=vec4(color,1.);
+  // Keep a readable photosphere close up; the small overview disc needs more HDR energy.
+  float cameraDistance=length(cameraPosition-worldP)/starRadius;
+  float glowGain=mix(1.08,1.55,smoothstep(10.,35.,cameraDistance));
+  gl_FragColor=vec4(color*glowGain,1.);
 }`;
 
 const corona = `
@@ -36,12 +39,14 @@ uniform float time, strength;
 varying vec2 vUv;
 void main(){
   vec2 p=(vUv-.5)*2.; float r=length(p), a=atan(p.y,p.x);
-  float curl=sin(a*9.+sin(a*4.-time*.08)+time*.1)*.022;
-  float rim=exp(-abs(r-.52-curl)*75.);
+  float curl=sin(a*9.+sin(a*4.-time*.08)+time*.1)*.009;
+  // The photosphere ends at r=1/2.3; keep the corona attached to that silhouette.
+  float rim=exp(-abs(r-.445-curl)*65.);
   float strands=pow(.5+.5*sin(a*27.+sin(a*5.)-r*14.-time*.15),5.);
-  float wisps=exp(-abs(r-.61-curl)*20.)*strands;
-  float light=(rim*.65+wisps*.28)*strength;
-  gl_FragColor=vec4(tint*1.2,light*(1.-smoothstep(.8,1.,r)));
+  float wisps=exp(-abs(r-.51-curl)*20.)*strands;
+  float haze=exp(-max(0.,r-.435)*9.)*smoothstep(.38,.45,r);
+  float light=(rim*.8+wisps*.3+haze*.26)*strength;
+  gl_FragColor=vec4(tint*1.8,light*(1.-smoothstep(.8,1.,r)));
 }`;
 
 const jet = `
@@ -56,8 +61,15 @@ void main(){
   float volume=pow(clamp(abs(dot(normalize(jetN),normalize(cameraPosition-jetP))),0.,1.),.7);
   gl_FragColor=vec4(tint*1.25,fade*.26*flow*volume);
 }`;
-const planeVertex =
-  'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}';
+// Camera-facing optical glow, centered on the sphere and still depth-tested against bodies.
+const coronaVertex = `
+varying vec2 vUv;
+void main(){
+  vUv=uv;
+  vec4 center=modelViewMatrix*vec4(0.,0.,0.,1.);
+  center.xy+=position.xy;
+  gl_Position=projectionMatrix*center;
+}`;
 
 /** Stellar geometry and picking anchors. Black holes are rendered by BlackHolePass. */
 export function createStellarBody(
@@ -102,6 +114,7 @@ export function createStellarBody(
     : shader(surface, {
         tint: { value: surfaceTint },
         emission: { value: profile.emission },
+        starRadius: { value: body.radius },
         compact: { value: compact ? 1 : 0 },
         time,
       });
@@ -112,17 +125,15 @@ export function createStellarBody(
   axis.rotation.z = hole ? 0.28 : 0.42;
 
   if (!hole) {
-    const halo = mesh(
+    mesh(
       new THREE.PlaneGeometry(body.radius * 4.6, body.radius * 4.6),
       shader(
         corona,
         { tint: { value: surfaceTint }, strength: { value: profile.corona }, time },
         true,
-        planeVertex,
+        coronaVertex,
       ),
     );
-    halo.rotation.x = -Math.PI / 2;
-    halo.position.y = -body.radius * 0.35;
   }
   if (compact) {
     const magneticMat = new THREE.LineBasicMaterial({

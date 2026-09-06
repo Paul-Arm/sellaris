@@ -220,9 +220,10 @@ export function SystemScene(props: Props) {
         const label = hud.add('body', b.name, () => latest.current.onBody(b.slot));
         label.object.position.y = -b.radius - 10;
         visual.group.add(label.object);
-        const orbit = b.orbit
-          ? lineLoop(b.orbit, resources, '#a5bccc', b.parent === undefined ? 0.13 : 0.22)
-          : null;
+        const orbit =
+          b.orbit && b.kind !== 'asteroid'
+            ? lineLoop(b.orbit, resources, '#a5bccc', b.parent === undefined ? 0.13 : 0.22)
+            : null;
         if (orbit) scene.add(orbit);
         return [b.slot, { ...visual, label, orbit }] as const;
       }),
@@ -528,7 +529,13 @@ export function SystemScene(props: Props) {
             .copy(target)
             .addScaledVector(
               offset,
-              chosen ? Math.max(160, chosen.radius * (chosen.kind === 'blackhole' ? 16 : 9)) : 250,
+              chosen
+                ? Math.max(
+                    160,
+                    chosen.radius * (chosen.kind === 'blackhole' ? 16 : 9),
+                    chosen.kind === 'asteroid' && systemHasAsteroidBelt(p.system) ? 650 : 0,
+                  )
+                : 250,
             );
         }
       }

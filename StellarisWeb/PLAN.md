@@ -76,6 +76,7 @@ Nachweis: [SYSTEM-VIEW.md](backend/reports/SYSTEM-VIEW.md).
 
 ## Danach
 
+- Veränderbare Systemobjekte dauerhaft im Backend speichern; bestehende Körperplätze und Kolonien migrieren. Darauf Terraforming, freie Stationsplatzierung, Megastrukturen und Sternveränderungen aufbauen. Architekturvorschlag: [Veränderbare Sternsysteme](backend/reports/DYNAMIC-SYSTEMS.md).
 - Handelsrouten, langfristige Verträge, Bündnisse und differenziertere diplomatische KI ergänzen.
 - Mehrstufige Ereignisse, weitere Krisentypen und differenziertere Reaktionen der KI.
 - Taktik, Schiffsausrüstung und Beleuchtung ausbauen; Radiance Cascades separat prototypisieren und messen.

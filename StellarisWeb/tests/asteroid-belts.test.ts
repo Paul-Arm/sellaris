@@ -7,7 +7,7 @@ import { createAsteroidBelt } from '../src/asteroid-belts';
 import { bodyGravityWell, surfaceHeight } from '../src/spacetime-surface';
 import type { Disposable } from '../src/system-objects';
 
-test('belts are deterministic complete rings and fit between worlds', () => {
+test('asteroid clouds are deterministic, localized, three-dimensional and fit between worlds', () => {
   const resources: Disposable[] = [];
   try {
     const system = createGame('ABC123').systems.find((s) => s.kind === 'star' && systemHasAsteroidBelt(s))!;
@@ -19,21 +19,24 @@ test('belts are deterministic complete rings and fit between worlds', () => {
     assert.deepEqual(first.mesh.instanceMatrix.array, repeat.mesh.instanceMatrix.array);
     assert.deepEqual(first.mesh.instanceColor!.array, repeat.mesh.instanceColor!.array);
     assert.notDeepEqual(first.mesh.instanceMatrix.array, other.mesh.instanceMatrix.array);
-    assert(first.mesh.count >= 280 && first.mesh.count < 400);
+    assert(first.mesh.count >= 96 && first.mesh.count <= 160);
     const matrix = new THREE.Matrix4();
     const position = new THREE.Vector3();
-    const sectors = new Set<number>();
+    const bounds = new THREE.Box3();
     for (let i = 0; i < first.mesh.count; i++) {
       first.mesh.getMatrixAt(i, matrix);
       position.setFromMatrixPosition(matrix);
       const radius = Math.hypot(position.x, position.z);
-      assert(Math.abs(radius - field.orbit) <= 28);
-      assert(position.y >= -6.5 && position.y <= -1.5);
-      sectors.add(Math.floor(((Math.atan2(position.z, position.x) + Math.PI) / (Math.PI * 2)) * 24));
+      assert(Math.abs(radius - field.orbit) <= 60);
+      assert(Math.abs(Math.atan2(position.z, position.x)) * field.orbit <= 210);
+      assert(position.y >= -20 && position.y <= 16);
+      assert(Math.hypot(position.x - field.orbit, position.z) > field.radius + 10);
+      bounds.expandByPoint(position);
       for (const body of bodies.filter((b) => b.kind !== 'asteroid' && b.parent === undefined))
         assert(Math.abs(radius - body.orbit) > body.radius + 10);
     }
-    assert.equal(sectors.size, 24, 'debris covers the full ring');
+    assert(bounds.max.y - bounds.min.y > 20, 'the cloud has vertical depth');
+    assert(bounds.max.z - bounds.min.z > 200, 'the cloud spreads loosely around the anchor');
     first.animate(0);
     const initialRotation = first.group.rotation.y;
     first.animate(field.period);
@@ -43,7 +46,7 @@ test('belts are deterministic complete rings and fit between worlds', () => {
   }
 });
 
-test('complete belts are rare and stable while existing resource slots remain usable', () => {
+test('large asteroid clouds are rare and stable while existing resource slots remain usable', () => {
   for (const size of [400, 700, 1000]) {
     const systems = Array.from({ length: size }, (_, i) => ({ id: `s${i}` }));
     const withBelts = systems.filter(systemHasAsteroidBelt);
@@ -55,7 +58,7 @@ test('complete belts are rare and stable while existing resource slots remain us
     assert.equal(systemHasAsteroidBelt(system), systemHasAsteroidBelt(renamed));
     const field = systemBodies(system).find((b) => b.slot === 4)!;
     assert.equal(field.kind, 'asteroid', 'saved mining installations retain their address');
-    assert.equal(/gürtel/i.test(field.name), systemHasAsteroidBelt(system));
+    assert.equal(/wolke/i.test(field.name), systemHasAsteroidBelt(system));
   }
 });
 

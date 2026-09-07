@@ -1,5 +1,12 @@
 import { SenderError } from 'spacetimedb/server';
-import { FACILITIES, facilitySpec, type SiteCommand } from '../../shared/celestial';
+import { FACILITIES, facilitySpec, facilityFits, type SiteCommand } from '../../shared/celestial';
+import {
+  MEGASTRUCTURES,
+  isMegastructure,
+  megastructureHost,
+  megastructureStage,
+  megastructureTerritory,
+} from '../../shared/megastructures';
 import { storedSystemBodies, addSystemObject, removeSystemObject } from './game-objects';
 import {
   bodyPosition,
@@ -52,6 +59,55 @@ function requireBuilder(
 }
 export function applySiteCommand(ctx: Context, owner: number, cmd: SiteCommand, validateOnly = false) {
   const at = now(ctx);
+  if (cmd.type === 'megastructure_place') {
+    const system = ctx.db.gameSystem.externalId.find(cmd.systemId);
+    const star = system && ctx.db.star.id.find(system.id);
+    if (
+      !isMegastructure(cmd.facility) ||
+      !star ||
+      !system ||
+      !megastructureTerritory(cmd.facility, star.kind, star.ownerId, owner)
+    )
+      throw new SenderError(
+        'Megastruktur benötigt ein eigenes System oder ein unbeanspruchtes Schwarzes Loch.',
+      );
+    const definition = MEGASTRUCTURES[cmd.facility];
+    const player = ctx.db.gamePlayer.id.find(owner)!;
+    if (!player.surveyed.includes(system.id) || !player.techs.includes('megastructures'))
+      throw new SenderError('System untersuchen und Megakonstruktion erforschen.');
+    const bodies = storedSystemBodies(ctx, system.id),
+      host = bodies.find((b) => b.slot === cmd.bodySlot);
+    if (!host || !megastructureHost(cmd.facility, host)) throw new SenderError(definition.hostHint);
+    if (bodies.some((b) => b.megastructure && b.parent === host.slot))
+      throw new SenderError('An diesem Himmelskörper existiert bereits eine Megastruktur.');
+    settleEconomy(ctx, owner);
+    const cost = facilitySpec(cmd.facility, 0).cost,
+      empire = ctx.db.empire.id.find(owner)!;
+    if (empire.energy < cost.energy || empire.minerals < cost.minerals)
+      throw new SenderError('Nicht genug Rohstoffe.');
+    if (validateOnly) return;
+    requireBuilder(ctx, owner, cmd.fleetId, constructionTarget(ctx, cmd, at));
+    const row = addSystemObject(ctx, system.id, {
+      kind: 'station',
+      megastructure: cmd.facility,
+      parent: host.slot,
+      name: `${definition.name} ${host.name}`,
+      radius: host.radius,
+      orbit: 0,
+      phase: 0,
+      period: 1,
+      color: definition.color,
+      description: definition.description,
+    });
+    applySiteCommand(ctx, owner, {
+      type: 'site_build',
+      systemId: cmd.systemId,
+      bodySlot: row.slot,
+      facility: cmd.facility,
+      fleetId: cmd.fleetId,
+    });
+    return;
+  }
   if (cmd.type === 'station_place') {
     if (!validPoint(cmd.point) || !['habitat', 'research'].includes(cmd.facility))
       throw new SenderError('Ungültige Stationsposition.');
@@ -157,8 +213,13 @@ export function applySiteCommand(ctx: Context, owner: number, cmd: SiteCommand, 
       throw new SenderError('Für eine Außenstation muss eine eigene Flotte vor Ort sein.');
   }
   const body = storedSystemBodies(ctx, system.id).find((b) => b.slot === cmd.bodySlot);
-  if (!body || !FACILITIES[cmd.facility].kinds.includes(body.kind))
+  if (!body || !facilityFits(cmd.facility, body))
     throw new SenderError('Diese Anlage passt nicht zu diesem Himmelskörper.');
+  if (isMegastructure(cmd.facility)) {
+    const host = storedSystemBodies(ctx, system.id).find((b) => b.slot === body.parent);
+    if (!p.techs.includes('megastructures') || !host || !megastructureHost(cmd.facility, host))
+      throw new SenderError('Megakonstruktion und ein geeigneter aktiver Himmelskörper werden benötigt.');
+  }
   const id = `${system.id}:${body.slot}`,
     old = ctx.db.gameSite.id.find(id);
   if (old && old.empireId !== owner) throw new SenderError('Dieser Bauplatz gehört einem anderen Reich.');
@@ -201,7 +262,20 @@ export function completeSites(ctx: Context) {
   for (const site of [...ctx.db.gameSite.finishTick.filter(dueJobs(at))]) {
     if (!site.building) continue;
     const s = ctx.db.star.id.find(site.systemId)!;
-    if (s.kind === 'star' && s.ownerId !== site.empireId) {
+    const body = isMegastructure(site.facility)
+      ? storedSystemBodies(ctx, site.systemId).find((b) => b.slot === site.bodySlot)
+      : undefined;
+    const host = body
+      ? storedSystemBodies(ctx, site.systemId).find((b) => b.slot === body.parent)
+      : undefined;
+    if (
+      (s.kind === 'star' && s.ownerId !== site.empireId) ||
+      (isMegastructure(site.facility) &&
+        (!body ||
+          !host ||
+          !megastructureHost(site.facility, host) ||
+          !megastructureTerritory(site.facility, s.kind, s.ownerId, site.empireId)))
+    ) {
       // Retained stations are dormant until their owner's system is recovered.
       ctx.db.gameSite.id.update({
         ...site,
@@ -210,7 +284,7 @@ export function completeSites(ctx: Context) {
         paidEnergy: 0,
         paidMinerals: 0,
       });
-      event(ctx, site.empireId, 'Anlagenbau durch Verlust des Systems abgebrochen.', 'warning');
+      event(ctx, site.empireId, 'Anlagenbau durch Verlust des Systems oder Bauziels abgebrochen.', 'warning');
       continue;
     }
     settleEconomy(ctx, site.empireId, at);
@@ -226,7 +300,9 @@ export function completeSites(ctx: Context) {
     event(
       ctx,
       site.empireId,
-      `${FACILITIES[site.facility as keyof typeof FACILITIES].name} Stufe ${site.level + 1} einsatzbereit.`,
+      isMegastructure(site.facility)
+        ? `${FACILITIES[site.facility].name}: ${megastructureStage(site.facility, site.level + 1)} fertiggestellt.`
+        : `${FACILITIES[site.facility as keyof typeof FACILITIES].name} Stufe ${site.level + 1} einsatzbereit.`,
       'success',
     );
   }

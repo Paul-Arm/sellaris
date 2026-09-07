@@ -1,6 +1,7 @@
 import { Range } from 'spacetimedb/server';
 import { progressAt, positionAt } from '../../backend/domain';
-import { baseIncome, colonyProduction, growColony, type Colony } from '../../shared/colonies';
+import { baseIncome, colonyProduction, colonyEconomy, growColony, type Colony } from '../../shared/colonies';
+import { colonyPlanet } from '../../shared/planetColonies';
 import {
   SHIPS,
   type GameState,
@@ -17,6 +18,9 @@ import { atWar } from './game-relations';
 import { productionFactor } from './game-crisis-state';
 import { facilityYield, type Facility } from '../../shared/celestial';
 import { syncPrimaryObjects } from './game-objects';
+import { settlePlanetColonies } from './game-planet-colonies';
+import { stellarWeatherCycles } from '../../shared/stellarWeather';
+import { researchState, researchCapacity } from './game-research';
 
 export const dueJobs = (at: number) =>
   new Range<bigint>({ tag: 'included', value: 0n }, { tag: 'included', value: tickAt(at) });
@@ -30,6 +34,15 @@ export function systemModel(ctx: Context | ReadContext, id: number): StarSystem 
     m = ctx.db.gameSystem.id.find(id)!;
   return {
     id: m.externalId,
+    planetDefense: [...ctx.db.gamePlanetColony.systemId.filter(id)].reduce((total, c) => {
+      const body = ctx.db.gameObject.id.find(c.id);
+      return (
+        total +
+        (body?.state === 'active' && c.empireId === s.ownerId
+          ? colonyEconomy(JSON.parse(c.colonyJson), colonyPlanet(JSON.parse(body.bodyJson))).defense
+          : 0)
+      );
+    }, 0),
     name: s.name,
     x: s.x,
     y: s.y,
@@ -38,7 +51,7 @@ export function systemModel(ctx: Context | ReadContext, id: number): StarSystem 
     class: m.starClass,
     planet: m.planet,
     owner: s.ownerId ? ctx.db.gamePlayer.id.find(s.ownerId)!.externalId : null,
-    resources: { energy: m.energy, minerals: m.minerals, science: m.science },
+    resources: { energy: m.energy, minerals: m.minerals, data: m.data },
     productionFactor: s.ownerId ? productionFactor(ctx, s.ownerId) : 1,
     defense: m.defense,
     mined: m.mined,
@@ -57,8 +70,7 @@ export function playerModel(ctx: Context | ReadContext, owner: number, at: numbe
   const e = ctx.db.empire.id.find(owner)!,
     p = ctx.db.gamePlayer.id.find(owner)!,
     summary = ctx.db.empireSummary.id.find(owner)!;
-  const jobs = jobsFor(ctx, owner),
-    research = jobs.find((j) => j.kind === 'game_research');
+  const jobs = jobsFor(ctx, owner);
   const remaining = (j: (typeof jobs)[number]) =>
     j.workTotal - (j.status === 'active' ? progressAt(j, at) : j.workDone);
   return {
@@ -66,16 +78,15 @@ export function playerModel(ctx: Context | ReadContext, owner: number, at: numbe
     name: summary.name,
     color: `#${summary.color.toString(16).padStart(6, '0')}`,
     home: ctx.db.gameSystem.id.find(p.homeId)!.externalId,
-    resources: { energy: e.energy, minerals: e.minerals, science: e.science },
+    resources: { energy: e.energy, minerals: e.minerals, data: e.data },
     techs: p.techs as TechId[],
     surveyed: p.surveyed.map((id) => ctx.db.gameSystem.id.find(id)!.externalId),
     discovered: p.discovered.map((id) => ctx.db.gameSystem.id.find(id)!.externalId),
     empire: JSON.parse(p.empireJson),
     online: ctx.db.gamePresence.id.find(owner)?.online ?? false,
     ai: e.ai ? { startedAt: p.joinedAt, nextDecision: Number(e.nextDecisionTick) / 1000 } : undefined,
-    research: research
-      ? { id: research.topic as TechId, total: research.workTotal, remaining: remaining(research) }
-      : null,
+    research: researchState(ctx, owner),
+    compute: researchCapacity(ctx, owner),
     queue: jobs
       .filter((j) => j.kind === 'game_build')
       .map((j) => ({
@@ -105,7 +116,7 @@ export function commandModel(ctx: Context, owner: number): GameState {
     if (c?.construction) c.construction.remaining = j.workTotal - progressAt(j, at);
   }
   return {
-    version: 1,
+    version: 2,
     code: config.code,
     tick: at,
     speed: clock.speed,
@@ -153,6 +164,13 @@ export function updateColony(ctx: Context, id: number, colony: Colony | null, ow
   ctx.db.gameSystem.id.update({ ...m, colonyJson: colony ? JSON.stringify(colony) : '' });
   for (const c of ctx.db.cohort.colonyId.filter(id)) ctx.db.cohort.id.delete(c.id);
   if (!colony) {
+    for (const world of [...ctx.db.gamePlanetColony.systemId.filter(id)]) {
+      ctx.db.gamePlanetColony.id.delete(world.id);
+      for (const job of jobsFor(ctx, world.empireId).filter(
+        (j) => j.kind === 'game_planet_upgrade' && j.topic === world.id,
+      ))
+        ctx.db.job.id.update({ ...job, status: 'cancelled', dueTick: NEVER });
+    }
     for (const project of [...ctx.db.gameTerraform.systemId.filter(id)]) {
       ctx.db.gameTerraform.id.delete(project.id);
       event(
@@ -201,7 +219,7 @@ export function refreshColonyRate(ctx: Context, id: number, owner: number) {
     population: Math.round((s.colony?.population || 0) * 1000000),
     energyRate: rate.energy,
     mineralsRate: rate.minerals,
-    scienceRate: rate.science,
+    dataRate: rate.data,
     lastProducedAt: old?.lastProducedAt ?? now(ctx),
   };
   if (old) ctx.db.colony.id.update(row);
@@ -310,9 +328,7 @@ export function addJob(
     p = ctx.db.gamePlayer.id.find(owner)!;
   const mods = empireModifiers(JSON.parse(p.empireJson));
   const rate =
-    kind === 'game_research'
-      ? Math.max(0.1, 1 + mods.research)
-      : ['game_build', 'game_upgrade'].includes(kind)
+    ['game_build', 'game_upgrade', 'game_planet_upgrade'].includes(kind)
         ? Math.max(0.1, 1 + mods.construction)
         : 1;
   return ctx.db.job.insert({
@@ -336,15 +352,16 @@ export function settleEconomy(ctx: Context, owner: number, at = now(ctx)) {
   const anchor = ctx.db.gameIncome.id.find(owner)!;
   const cycles = Math.floor(Math.max(0, at - anchor.producedAt) / 4);
   if (cycles) ctx.db.gameIncome.id.update({ ...anchor, producedAt: anchor.producedAt + cycles * 4 });
-  let energy = base.energy * cycles,
-    minerals = base.minerals * cycles,
-    science = base.science * cycles;
+  const planets = settlePlanetColonies(ctx, owner, at);
+  let energy = base.energy * cycles + planets.energy,
+    minerals = base.minerals * cycles + planets.minerals,
+    data = base.data * cycles + planets.data;
   for (const c of ctx.db.colony.empireId.filter(owner)) {
     const n = Math.floor(Math.max(0, at - c.lastProducedAt) / 4);
     if (!n) continue;
     energy += c.energyRate * n;
     minerals += c.mineralsRate * n;
-    science += c.scienceRate * n;
+    data += c.dataRate * n;
     ctx.db.colony.id.update({ ...c, lastProducedAt: c.lastProducedAt + n * 4 });
   }
   const factor = productionFactor(ctx, owner);
@@ -354,17 +371,23 @@ export function settleEconomy(ctx: Context, owner: number, at = now(ctx)) {
     const star = ctx.db.star.id.find(site.systemId)!;
     if (star.kind !== 'star' || star.ownerId === owner) {
       const rate = facilityYield(site.facility as Facility, site.level, factor);
-      energy += rate.energy * n;
-      minerals += rate.minerals * n;
-      science += rate.science * n;
+      const effective = stellarWeatherCycles(
+        site.facility as Facility,
+        ctx.db.gameStellarWeather.id.find(site.systemId),
+        site.lastProducedAt,
+        n,
+      );
+      energy += rate.energy * effective;
+      minerals += rate.minerals * effective;
+      data += rate.data * effective;
     }
     ctx.db.gameSite.id.update({ ...site, lastProducedAt: site.lastProducedAt + n * 4 });
   }
-  if (energy || minerals || science)
+  if (energy || minerals || data)
     ctx.db.empire.id.update({
       ...e,
       energy: e.energy + energy,
       minerals: e.minerals + minerals,
-      science: e.science + science,
+      data: e.data + data,
     });
 }

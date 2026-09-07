@@ -2,8 +2,8 @@ import type { GameState, Player, Resource, Resources, StarSystem } from './game'
 import { colonyModifiers, populationGrowth, type PopulationGroup } from './empireState';
 import { environmentForPlanet } from './empires';
 
-export type BuildingId = 'habitat' | 'biosphere' | 'reactor' | 'foundry' | 'laboratory' | 'bastion';
-export type ColonyFocus = 'balanced' | 'energy' | 'minerals' | 'science';
+export type BuildingId = 'habitat' | 'biosphere' | 'reactor' | 'foundry' | 'laboratory' | 'bastion' | 'datacenter';
+export type ColonyFocus = 'balanced' | 'energy' | 'minerals' | 'data';
 export interface ColonyDistrict {
   id: number;
   building: BuildingId;
@@ -40,7 +40,7 @@ export interface Colony {
     cost: Resources;
   } | null;
 }
-type ColonyTarget = { systemId: string; revision: number };
+type ColonyTarget = { systemId: string; bodySlot?: number; revision: number };
 export type ColonyCommand = ColonyTarget &
   (
     | { type: 'colony_build'; sectorId: number; building: BuildingId }
@@ -74,6 +74,11 @@ export const BUILDINGS: Record<
     maxLevel: number;
   }
 > = {
+  datacenter: {
+    name: 'Rechenzentrum', description: 'Besetzte Jobs liefern je 2 Compute pro Spieltag für Forschung und Simulationen.',
+    jobs: 2, resource: null, perJob: 0, housing: 0, supply: 0, upkeep: 2,
+    cost: { energy: 100, minerals: 140, data: 0 }, time: 24, maxLevel: 3,
+  },
   habitat: {
     name: 'Habitat',
     description: 'Wohnraum für neue Pops.',
@@ -83,7 +88,7 @@ export const BUILDINGS: Record<
     housing: 8,
     supply: 0,
     upkeep: 0.5,
-    cost: { energy: 50, minerals: 90, science: 0 },
+    cost: { energy: 50, minerals: 90, data: 0 },
     time: 18,
     maxLevel: 3,
   },
@@ -96,7 +101,7 @@ export const BUILDINGS: Record<
     housing: 0,
     supply: 4,
     upkeep: 0.5,
-    cost: { energy: 40, minerals: 75, science: 0 },
+    cost: { energy: 40, minerals: 75, data: 0 },
     time: 16,
     maxLevel: 3,
   },
@@ -109,7 +114,7 @@ export const BUILDINGS: Record<
     housing: 0,
     supply: 0,
     upkeep: 0.5,
-    cost: { energy: 50, minerals: 100, science: 0 },
+    cost: { energy: 50, minerals: 100, data: 0 },
     time: 16,
     maxLevel: 3,
   },
@@ -122,20 +127,20 @@ export const BUILDINGS: Record<
     housing: 0,
     supply: 0,
     upkeep: 0.5,
-    cost: { energy: 80, minerals: 80, science: 0 },
+    cost: { energy: 80, minerals: 80, data: 0 },
     time: 18,
     maxLevel: 3,
   },
   laboratory: {
     name: 'Forschungscampus',
-    description: 'Forscher produzieren Forschung.',
+    description: 'Forscher erheben und archivieren Daten.',
     jobs: 2,
-    resource: 'science',
+    resource: 'data',
     perJob: 3,
     housing: 0,
     supply: 0,
     upkeep: 1,
-    cost: { energy: 90, minerals: 120, science: 0 },
+    cost: { energy: 90, minerals: 120, data: 0 },
     time: 22,
     maxLevel: 3,
   },
@@ -148,7 +153,7 @@ export const BUILDINGS: Record<
     housing: 0,
     supply: 0,
     upkeep: 1,
-    cost: { energy: 60, minerals: 120, science: 0 },
+    cost: { energy: 60, minerals: 120, data: 0 },
     time: 20,
     maxLevel: 3,
   },
@@ -157,12 +162,12 @@ export const FOCUSES: Record<ColonyFocus, { name: string; description: string }>
   balanced: { name: 'Ausgewogen', description: 'Verteilt Arbeitskräfte gleichmäßig auf produktive Jobs.' },
   energy: { name: 'Energie', description: 'Besetzt Energiejobs zuerst. Versorgung hat Vorrang.' },
   minerals: { name: 'Mineralien', description: 'Besetzt Förderjobs zuerst. Versorgung hat Vorrang.' },
-  science: { name: 'Forschung', description: 'Besetzt Forscherjobs zuerst. Versorgung hat Vorrang.' },
+  data: { name: 'Daten', description: 'Besetzt Forscherjobs zuerst. Versorgung hat Vorrang.' },
 };
 export const FEATURES = {
   fertile: { name: 'Fruchtbare Senke', description: '+20 % Versorgung', building: 'biosphere' },
   ore: { name: 'Erzvorkommen', description: '+20 % Mineralien', building: 'foundry' },
-  crystals: { name: 'Kristallfeld', description: '+20 % Forschung', building: 'laboratory' },
+  crystals: { name: 'Kristallfeld', description: '+20 % Daten', building: 'laboratory' },
   geothermal: { name: 'Geothermie', description: '+20 % Energie', building: 'reactor' },
   sheltered: { name: 'Geschützte Lage', description: '+2 Wohnraum je Habitatstufe', building: 'habitat' },
 } as const;
@@ -284,7 +289,7 @@ export function districtSpec(building: BuildingId, level = 1) {
     cost: {
       energy: Math.ceil(s.cost.energy * factor),
       minerals: Math.ceil(s.cost.minerals * factor),
-      science: 0,
+      data: 0,
     },
     time: s.time + (level - 1) * 8,
   };
@@ -304,6 +309,7 @@ export interface DistrictEconomy {
   upkeep: number;
 }
 export interface ColonyEconomy {
+  compute: number;
   districts: DistrictEconomy[];
   jobs: number;
   employed: number;
@@ -332,7 +338,7 @@ export function colonyEconomy(
       building: d.building,
       jobs: d.enabled ? BUILDINGS[d.building].jobs * d.level : 0,
       employed: 0,
-      output: { energy: 0, minerals: 0, science: 0 },
+      output: { energy: 0, minerals: 0, data: 0 },
       supply: 0,
       housing: d.enabled
         ? (BUILDINGS[d.building].housing + (s.feature === 'sheltered' && d.building === 'habitat' ? 2 : 0)) *
@@ -359,7 +365,7 @@ export function colonyEconomy(
     rows.filter((r) => r.building === 'bastion'),
     Infinity,
   );
-  const productive = rows.filter((r) => BUILDINGS[r.building].resource !== null);
+  const productive = rows.filter((r) => BUILDINGS[r.building].resource !== null || r.building === 'datacenter');
   if (c.focus !== 'balanced')
     allocate(
       productive.filter((r) => BUILDINGS[r.building].resource === c.focus),
@@ -369,7 +375,7 @@ export function colonyEconomy(
   allocate(farms, Infinity);
   const supply = farms.reduce((n, r) => n + r.employed * 4 * r.boost, 0),
     supplyFactor = population > 0 ? Math.min(1, supply / population) : 1;
-  const output: Resources = { energy: 0, minerals: 0, science: 0 };
+  const output: Resources = { energy: 0, minerals: 0, data: 0 };
   let defense = 0,
     upkeep = 0,
     housing = 0;
@@ -391,6 +397,7 @@ export function colonyEconomy(
   }
   output.energy -= upkeep;
   return {
+    compute: rows.filter((r) => r.building === 'datacenter').reduce((n, r) => n + r.employed * 2 * Math.max(0.25, supplyFactor), 0),
     districts: rows,
     jobs: rows.reduce((n, r) => n + r.jobs, 0),
     employed: population - available,
@@ -462,7 +469,7 @@ export function applyColonyCommand(system: StarSystem, player: Player, cmd: Colo
     c.focus = cmd.focus;
   } else if (cmd.type === 'colony_cancel') {
     if (!c.construction) throw new Error('Kein planetarer Bauauftrag aktiv.');
-    for (const r of ['energy', 'minerals', 'science'] as const)
+    for (const r of ['energy', 'minerals', 'data'] as const)
       player.resources[r] += c.construction.cost[r] * 0.5;
     c.construction = null;
   } else {
@@ -488,9 +495,9 @@ export function applyColonyCommand(system: StarSystem, player: Player, cmd: Colo
       const level = d ? d.level + 1 : 1;
       if (level > BUILDINGS[building].maxLevel) throw new Error('Maximale Ausbaustufe erreicht.');
       const spec = districtSpec(building, level);
-      for (const r of ['energy', 'minerals', 'science'] as const)
+      for (const r of ['energy', 'minerals', 'data'] as const)
         if (player.resources[r] < spec.cost[r]) throw new Error('Nicht genügend Rohstoffe.');
-      for (const r of ['energy', 'minerals', 'science'] as const) player.resources[r] -= spec.cost[r];
+      for (const r of ['energy', 'minerals', 'data'] as const) player.resources[r] -= spec.cost[r];
       c.construction = {
         sectorId: sector.id,
         districtId: d?.id ?? null,
@@ -508,7 +515,7 @@ export function applyColonyCommand(system: StarSystem, player: Player, cmd: Colo
 export function colonyProduction(system: StarSystem, player: Pick<Player, 'techs' | 'empire'>): Resources {
   const c = system.colony,
     economy = c ? colonyEconomy(c, system.planet, player) : null,
-    output: Resources = economy ? { ...economy.output } : { energy: 0, minerals: 0, science: 0 };
+    output: Resources = economy ? { ...economy.output } : { energy: 0, minerals: 0, data: 0 };
   // The explicit orbital mining installation retains its independent system yield.
   if (system.mined) {
     output.energy += system.resources.energy;
@@ -519,20 +526,20 @@ export function colonyProduction(system: StarSystem, player: Pick<Player, 'techs
     output.energy = (output.energy + upkeep) * 1.5 - upkeep;
     output.minerals *= 1.5;
   }
-  for (const r of ['energy', 'minerals', 'science'] as const)
+  for (const r of ['energy', 'minerals', 'data'] as const)
     if (output[r] > 0) output[r] *= system.productionFactor ?? 1;
   return output;
 }
 export function baseIncome(player: Pick<Player, 'techs'>): Resources {
   return player.techs.includes('extraction')
-    ? { energy: 3, minerals: 1.5, science: 1 }
-    : { energy: 2, minerals: 1, science: 1 };
+    ? { energy: 3, minerals: 1.5, data: 1 }
+    : { energy: 2, minerals: 1, data: 1 };
 }
 export function maxDefense(s: StarSystem) {
-  return 30 + (s.colony ? colonyEconomy(s.colony, s.planet).defense : 0);
+  return 30 + (s.planetDefense || 0) + (s.colony ? colonyEconomy(s.colony, s.planet).defense : 0);
 }
 export function colonyRepair(s: StarSystem) {
-  return 1.5 + (s.colony ? colonyEconomy(s.colony, s.planet).repair : 0);
+  return 1.5 + (s.planetDefense || 0) / 40 + (s.colony ? colonyEconomy(s.colony, s.planet).repair : 0);
 }
 /** One bounded AI choice, shared by the local simulation and native backend. */
 export function planColonyDevelopment(s: StarSystem): ColonyCommand | null {

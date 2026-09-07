@@ -16,6 +16,8 @@ import {
 } from './colonies';
 
 import { ORIGINS, ENVIRONMENTS } from './empireCatalog';
+import { TECHS, applyResearch, advanceResearch, baseCompute, newResearch, type TechId, type ResearchProgram } from './research';
+import { colonyEconomy } from './planetaryEconomy';
 import { flagForEmpire, type FlagDesign } from './flags';
 import {
   environmentForPlanet,
@@ -38,46 +40,23 @@ import {
   type EmpireState,
 } from './empireState';
 
-export const VERSION = 1;
+export const VERSION = 2;
 export const WORLD = { width: 1600, height: 1050 };
 export const WIN_SYSTEMS = 8;
 export const COLORS = ['#9c91ff', '#58d9cf', '#f3b36b', '#ed7d9a'];
-export type Resource = 'energy' | 'minerals' | 'science';
+export type Resource = 'energy' | 'minerals' | 'data';
 export type ShipType = 'scout' | 'colony' | 'corvette';
-export type TechId = 'propulsion' | 'extraction' | 'weapons' | 'terraforming';
+export type { TechId } from './research';
 export type Resources = Record<Resource, number>;
 export const SHIPS: Record<ShipType, { name: string; cost: Resources; time: number; power: number }> = {
-  scout: { name: 'Forschungsschiff', cost: { energy: 60, minerals: 80, science: 0 }, time: 12, power: 10 },
-  colony: { name: 'Kolonieschiff', cost: { energy: 100, minerals: 150, science: 0 }, time: 20, power: 12 },
-  corvette: { name: 'Korvette', cost: { energy: 60, minerals: 100, science: 0 }, time: 15, power: 65 },
+  scout: { name: 'Forschungsschiff', cost: { energy: 60, minerals: 80, data: 0 }, time: 12, power: 10 },
+  colony: { name: 'Kolonieschiff', cost: { energy: 100, minerals: 150, data: 0 }, time: 20, power: 12 },
+  corvette: { name: 'Korvette', cost: { energy: 60, minerals: 100, data: 0 }, time: 15, power: 65 },
 };
-export const TECHS: Record<TechId, { name: string; description: string; cost: number; time: number }> = {
-  propulsion: {
-    name: 'Raumfaltung',
-    description: 'Flotten reisen 35 % schneller durch den Hyperraum.',
-    cost: 100,
-    time: 35,
-  },
-  extraction: {
-    name: 'Quantenextraktion',
-    description: 'Alle Kolonien produzieren 50 % mehr Energie und Mineralien.',
-    cost: 120,
-    time: 40,
-  },
-  weapons: {
-    name: 'Plasmalanzen',
-    description: 'Die Kampfkraft aller Schiffe steigt um 40 %.',
-    cost: 150,
-    time: 45,
-  },
-  terraforming: {
-    name: 'Klimagestaltung',
-    description: 'Ermöglicht Terraforming eigener Planeten in neun bewohnbare Klimaklassen.',
-    cost: 250,
-    time: 60,
-  },
-};
+export { TECHS } from './research';
 export interface StarSystem {
+  stellarWeather?: import('./stellarWeather').StellarWeather;
+  planetDefense?: number;
   productionFactor?: number;
   id: string;
   name: string;
@@ -114,6 +93,7 @@ export interface Fleet {
   task: { type: 'scan' | 'colonize'; remaining: number; total: number; blocked?: boolean } | null;
 }
 export interface Player {
+  planetIncome?: Resources;
   installationIncome?: Resources;
   id: string;
   name: string;
@@ -123,7 +103,9 @@ export interface Player {
   discovered: string[];
   surveyed: string[];
   techs: TechId[];
-  research: { id: TechId; remaining: number; total: number } | null;
+  research: ResearchProgram;
+  compute?: number;
+  synthesisIncome?: number;
   queue: { type: ShipType; systemId: string; remaining: number; total: number }[];
   online: boolean;
   ai?: { startedAt: number; nextDecision: number };
@@ -152,11 +134,12 @@ export interface GameState {
   winner: string | null;
 }
 export type GameCommand =
+  | import('./stellarProjects').StellarCommand
   | import('./diplomacy').DiplomacyCommand
   | import('./stories').StoryCommand
   | import('./celestial').SiteCommand
   | { type: 'move'; fleetId: string; systemId: string; append?: boolean }
-  | { type: 'scan' | 'colonize'; fleetId: string; append?: boolean }
+  | { type: 'scan' | 'colonize'; fleetId: string; bodySlot?: number; systemId?: string; append?: boolean }
   | {
       type: 'local_move';
       fleetId: string;
@@ -168,7 +151,7 @@ export type GameCommand =
   | { type: 'fleet_remove_order'; fleetId: string; index: number }
   | { type: 'build'; ship: ShipType; systemId: string }
   | { type: 'mine'; systemId: string }
-  | { type: 'research'; tech: TechId }
+  | import('./research').ResearchCommand
   | ColonyCommand
   | { type: 'empire_reform'; government: Government; revision: number }
   | { type: 'empire_ship_set'; shipSet: import('./shipSets').ShipSet; revision: number }
@@ -187,9 +170,11 @@ export interface PublicPlayer {
   shipSet?: import('./shipSets').ShipSet;
 }
 export interface GameView extends Omit<GameState, 'players'> {
+  planetColonies?: import('./planetColonies').PlanetColony[];
   /** Client-only monotonic timeline. Never used for authoritative game decisions. */
   displayClock?: { now(at?: number): number; readonly paused: boolean; readonly speed: number };
   sites?: import('./celestial').BodySite[];
+  stellarProjects?: import('./stellarProjects').StellarProject[];
   decisions?: import('./stories').StoryDecision[];
   crises?: import('./stories').CrisisView[];
   relations?: import('./diplomacy').Relation[];
@@ -295,7 +280,7 @@ export function createGame(code: string): GameState {
     class: starClass,
     planet: ['Kontinentalwelt', 'Ozeanwelt', 'Wüstenwelt', 'Alpine Welt', 'Savannenwelt'][i % 5],
     owner: null,
-    resources: { energy: 3 + (i % 5), minerals: 2 + ((i * 3) % 5), science: 1 + (i % 3) },
+    resources: { energy: 3 + (i % 5), minerals: 2 + ((i * 3) % 5), data: 1 + (i % 3) },
     defense: [10, 13, 22, 24].includes(i) ? 85 : 0,
     mined: false,
     anomaly: [1, 7, 11, 18, 21].includes(i),
@@ -312,7 +297,7 @@ export function createGame(code: string): GameState {
       class: 'Raumzeit-Anomalie',
       planet: 'Nicht kolonisierbar',
       owner: null,
-      resources: { energy: 0, minerals: 0, science: 0 },
+      resources: { energy: 0, minerals: 0, data: 0 },
       defense: 0,
       mined: false,
       anomaly: true,
@@ -328,7 +313,7 @@ export function createGame(code: string): GameState {
       class: 'Schwarzes Loch',
       planet: 'Nicht kolonisierbar',
       owner: null,
-      resources: { energy: 0, minerals: 0, science: 0 },
+      resources: { energy: 0, minerals: 0, data: 0 },
       defense: 0,
       mined: false,
       anomaly: true,
@@ -381,11 +366,11 @@ export function addPlayer(game: GameState, id: string, name: string, template?: 
     empire,
     home,
     color: template ? empire.design.color : COLORS[game.players.length],
-    resources: { energy: 420, minerals: 360, science: 130 },
+    resources: { energy: 420, minerals: 360, data: 130 },
     discovered: [],
     surveyed: [home],
     techs: [],
-    research: null,
+    research: newResearch(),
     queue: [],
     online: true,
   };
@@ -435,12 +420,15 @@ export function addPlayer(game: GameState, id: string, name: string, template?: 
 }
 export function income(game: Pick<GameState, 'systems'>, player: Player): Resources {
   const result = baseIncome(player);
-  for (const resource of Object.keys(result) as Resource[])
+  for (const resource of Object.keys(result) as Resource[]) {
     result[resource] += player.installationIncome?.[resource] || 0;
+    result[resource] += player.planetIncome?.[resource] || 0;
+  }
   for (const s of game.systems.filter((s) => s.owner === player.id)) {
     const production = colonyProduction(s, player);
     for (const resource of Object.keys(result) as Resource[]) result[resource] += production[resource];
   }
+  result.data += player.synthesisIncome || 0;
   return result;
 }
 export function pathfind(game: Pick<GameState, 'links'>, from: string, to: string): string[] | null {
@@ -549,14 +537,8 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
     }
     return;
   }
-  if (cmd.type === 'research') {
-    if (!Object.hasOwn(TECHS, cmd.tech)) throw new Error('Unbekannte Technologie.');
-    if (player.research) throw new Error('Eine Forschung läuft bereits.');
-    if (player.techs.includes(cmd.tech)) throw new Error('Bereits erforscht.');
-    const tech = TECHS[cmd.tech];
-    spend(player, { energy: 0, minerals: 0, science: tech.cost });
-    player.research = { id: cmd.tech, remaining: tech.time, total: tech.time };
-    log(game, `Forschung begonnen: ${tech.name}.`, 'info', playerId);
+  if (cmd.type === 'research' || cmd.type === 'research_weight' || cmd.type === 'research_synthesis') {
+    applyResearch(player, cmd);
     return;
   }
   if (cmd.type === 'build' || cmd.type === 'mine') {
@@ -564,7 +546,7 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
     if (!system || system.owner !== playerId) throw new Error('Dafür brauchst du eine eigene Kolonie.');
     if (cmd.type === 'mine') {
       if (system.mined) throw new Error('Bergbaustation bereits gebaut.');
-      spend(player, { energy: 50, minerals: 100, science: 0 });
+      spend(player, { energy: 50, minerals: 100, data: 0 });
       system.mined = true;
       log(game, `Bergbaustation in ${system.name} einsatzbereit.`, 'success', playerId);
     } else {
@@ -606,7 +588,7 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
     if (!player.surveyed.includes(system.id))
       throw new Error('Untersuche das System zuerst mit einem Forschungsschiff.');
     if (system.defense > 0) throw new Error('Besiege zuerst die Wächter dieses Systems.');
-    spend(player, { energy: 80, minerals: 80, science: 0 });
+    spend(player, { energy: 80, minerals: 80, data: 0 });
     fleet.task = { type: 'colonize', remaining: 12, total: 12 };
   }
 }
@@ -638,14 +620,10 @@ export function tickGame(game: GameState, elapsed: number) {
   for (const player of game.players) {
     const rate = income(game, player);
     for (const r of Object.keys(rate) as Resource[]) player.resources[r] += (rate[r] * dt) / 4;
-    if (player.research) {
-      player.research.remaining -= dt * Math.max(0.1, 1 + empireModifiers(player.empire).research);
-      if (player.research.remaining <= 0) {
-        player.techs.push(player.research.id);
-        log(game, `Forschung abgeschlossen: ${TECHS[player.research.id].name}.`, 'success', player.id);
-        player.research = null;
-      }
-    }
+    const compute = (baseCompute(player.techs) + game.systems.filter((s) => s.owner === player.id && s.colony)
+      .reduce((n, s) => n + colonyEconomy(s.colony!, s.planet, player).compute, 0)) * Math.max(0.1, 1 + empireModifiers(player.empire).research);
+    for (const tech of advanceResearch(player, compute, dt))
+      log(game, `Forschung abgeschlossen: ${TECHS[tech].name}.`, 'success', player.id);
     const construction = player.queue[0];
     if (construction) {
       const yard = game.systems.find((s) => s.id === construction.systemId)!;
@@ -705,9 +683,9 @@ export function tickGame(game: GameState, elapsed: number) {
           if (!player.surveyed.includes(system.id)) {
             player.surveyed.push(system.id);
             const bonus = system.anomaly && !system.studied ? 90 : 25;
-            player.resources.science += bonus;
+            player.resources.data += bonus;
             if (system.anomaly) system.studied = true;
-            log(game, `${system.name} untersucht. +${bonus} Forschung.`, 'success', player.id);
+            log(game, `${system.name} untersucht. +${bonus} Daten.`, 'success', player.id);
           }
         } else if (!system.owner && system.defense === 0) {
           system.owner = player.id;
@@ -968,7 +946,7 @@ function runAI(game: GameState, player: Player) {
             : null;
     if (target) attempt({ type: 'build', ship: target, systemId: yard.id });
   }
-  if (!player.research) {
+  if (!player.research.projects.length) {
     const next = (['extraction', 'propulsion', 'weapons'] as TechId[]).find((t) => !player.techs.includes(t));
     if (next) attempt({ type: 'research', tech: next });
   }
@@ -1002,7 +980,7 @@ export function viewFor(game: GameState, playerId: string): GameView {
       resources:
         me.surveyed.includes(s.id) || visible.has(s.id)
           ? s.resources
-          : { energy: 0, minerals: 0, science: 0 },
+          : { energy: 0, minerals: 0, data: 0 },
     })),
     fleets: game.fleets.filter((f) => f.owner === playerId || visible.has(f.systemId)),
     log: game.log.filter((l) => !l.playerId || l.playerId === playerId),

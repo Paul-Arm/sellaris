@@ -27,14 +27,15 @@ test('AI has no resource stipend and cannot progress a paused simulation', () =>
   const game = setup();
   command(game, 'p1', { type: 'add_ai' });
   const bot = game.players.find((p) => p.ai)!;
-  bot.resources = { energy: 0, minerals: 0, science: 0 };
+  bot.resources = { energy: 0, minerals: 0, data: 0 };
   // Hold population steady so this isolates AI stipends from legitimate job growth.
   const home = game.systems.find((s) => s.id === bot.home)!;
   home.colony!.sectors[0].districts.find((d) => d.building === 'habitat')!.enabled = false;
   const rate = income(game, bot);
   advance(game, 6);
-  for (const r of ['energy', 'minerals', 'science'] as const)
+  for (const r of ['energy', 'minerals'] as const)
     assert.ok(Math.abs(bot.resources[r] - rate[r] * 1.5) < 1e-8);
+  assert.ok(Math.abs(bot.resources.data - (rate.data * 1.5 + 6)) < 1e-8, 'idle base Compute produces one data per day');
   const frozen = JSON.stringify(game);
   command(game, 'p1', { type: 'pause' });
   const afterPause = JSON.stringify(game);

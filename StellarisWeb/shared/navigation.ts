@@ -14,11 +14,17 @@ export interface LocalMotion {
   finishAt: number;
 }
 export type FleetOrder =
+  | {
+      type: 'megastructure_place';
+      systemId: string;
+      bodySlot: number;
+      facility: import('./megastructures').Megastructure;
+    }
   | { type: 'move'; systemId: string }
   | { type: 'local_move'; systemId: string; point: Point3 }
   | { type: 'site_build'; systemId: string; bodySlot: number; facility: import('./celestial').Facility }
   | { type: 'station_place'; systemId: string; point: Point3; facility: 'research' | 'habitat' }
-  | { type: 'scan' | 'colonize' };
+  | { type: 'scan' | 'colonize'; bodySlot?: number; systemId?: string };
 export interface FleetNavigation {
   motion: LocalMotion;
   orders: FleetOrder[];

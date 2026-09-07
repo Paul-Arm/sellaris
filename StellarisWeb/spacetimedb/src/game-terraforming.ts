@@ -32,7 +32,7 @@ export const startTerraforming = db.reducer(
     if (
       empire.energy < spec.cost.energy ||
       empire.minerals < spec.cost.minerals ||
-      empire.science < spec.cost.science
+      empire.data < spec.cost.data
     )
       throw new SenderError('Nicht genug Rohstoffe für Terraforming.');
     const at = now(ctx);
@@ -40,7 +40,7 @@ export const startTerraforming = db.reducer(
       ...empire,
       energy: empire.energy - spec.cost.energy,
       minerals: empire.minerals - spec.cost.minerals,
-      science: empire.science - spec.cost.science,
+      data: empire.data - spec.cost.data,
     });
     ctx.db.gameTerraform.insert({
       id: objectId,
@@ -53,7 +53,7 @@ export const startTerraforming = db.reducer(
       finishTick: tickAt(at + spec.days),
       paidEnergy: spec.cost.energy,
       paidMinerals: spec.cost.minerals,
-      paidScience: spec.cost.science,
+      paidData: spec.cost.data,
     });
     event(ctx, owner, `Terraforming bei ${body.name}: Ziel ${ENVIRONMENTS[target].name}.`);
   },
@@ -71,7 +71,7 @@ export const cancelTerraforming = db.reducer({ objectId: t.string() }, (ctx, { o
     ...empire,
     energy: empire.energy + project.paidEnergy / 2,
     minerals: empire.minerals + project.paidMinerals / 2,
-    science: empire.science + project.paidScience / 2,
+    data: empire.data + project.paidData / 2,
   });
   ctx.db.gameTerraform.id.delete(objectId);
   event(ctx, owner, 'Terraforming abgebrochen. 50 % aller Projektkosten erstattet.');

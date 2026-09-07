@@ -254,7 +254,7 @@ strong {
 .minerals {
   color: #b29cde;
 }
-.science {
+.data {
   color: #88b8d8;
 }
 .fleet-resource {
@@ -2990,5 +2990,128 @@ kbd {
   *:after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* Keep both inventories available at small window heights. */
+.left-panel {
+  gap: 10px;
+}
+.left-panel .empire-card {
+  padding-bottom: 10px;
+}
+.left-panel .objective-card {
+  padding: 9px 10px;
+}
+.left-panel .objective-card p {
+  margin: 6px 0;
+}
+.left-panel .colony-section,
+.left-panel .fleet-section {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 135px;
+  max-height: none;
+  overflow: hidden;
+}
+.left-panel .research-shortcut {
+  margin-top: 0;
+  padding: 8px 10px;
+}
+.left-panel .event-feed {
+  flex: none;
+  margin-top: 0;
+  padding-top: 8px;
+}
+.left-panel .event-row {
+  display: none;
+}
+.left-panel .event-feed .log-button {
+  margin-top: 7px;
+}
+.system-panel {
+  padding: 12px 14px 0;
+}
+.system-title {
+  margin-top: 7px;
+}
+.system-title h2 {
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+.system-title > div > span {
+  font-size: 11px;
+}
+.system-panel-top .eyebrow {
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.system-badges {
+  margin-top: 10px;
+}
+.system-facts {
+  margin-top: 14px;
+}
+.system-facts > div,
+.system-facts strong {
+  font-size: 11px;
+}
+.system-production .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+.system-panel .wide,
+.system-view-link {
+  font-size: 12px;
+}
+.local-fleets {
+  max-height: 260px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.local-fleets > .section-label {
+  position: sticky;
+  top: 0;
+  background: #171e2d;
+  padding: 8px 0;
+  z-index: 1;
+}
+.local-fleets button {
+  min-height: 32px;
+  font-size: 12px;
+}
+.local-fleets button > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.local-fleets.detail-list {
+  height: 250px;
+  padding: 8px 0;
+  overflow: hidden;
+}
+.local-fleets .detail-list-search button {
+  width: 24px;
+  min-height: 26px;
+  padding: 0;
+}
+@media (max-height: 720px) {
+  .left-panel {
+    gap: 7px;
+    overflow-y: auto;
+    pointer-events: auto;
+  }
+  .left-panel .colony-section,
+  .left-panel .fleet-section {
+    min-height: 125px;
+  }
+  .left-panel .empire-card .eyebrow {
+    display: none;
+  }
+  .left-panel .objective-card {
+    padding: 5px 8px;
+  }
+  .left-panel .objective-card p {
+    display: none;
   }
 }

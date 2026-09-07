@@ -15,6 +15,9 @@ import {
 } from './game-model';
 import { atWar } from './game-relations';
 import { openStory, surveyedStory } from './game-stories';
+import { completeStellarProject } from './game-stellar';
+import { discoverStellarWeather } from './game-stellar-weather';
+import { completePlanetColony, completePlanetUpgrade } from './game-planet-colonies';
 
 export function contested(ctx: Context, systemId: number, owner: number) {
   return [...ctx.db.fleet.systemId.filter(systemId)].some(
@@ -34,24 +37,13 @@ export function destroyGameFleet(ctx: Context, id: number) {
 }
 export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[number], at: number) {
   const p = ctx.db.gamePlayer.id.find(j.empireId)!;
-  if (j.kind === 'game_research' || j.kind === 'game_upgrade') settleEconomy(ctx, j.empireId, at);
+  if (j.kind === 'game_upgrade') settleEconomy(ctx, j.empireId, at);
   if (j.kind === 'game_upgrade') settlePopulation(ctx, j.targetId, at, true);
   let status = 'complete';
-  if (j.kind === 'game_research') {
-    if (!p.techs.includes(j.topic)) ctx.db.gamePlayer.id.update({ ...p, techs: [...p.techs, j.topic] });
-    for (const c of ctx.db.colony.empireId.filter(p.id)) refreshColonyRate(ctx, c.id, p.id);
-    if (j.topic === 'weapons') {
-      const mods = empireModifiers(JSON.parse(p.empireJson));
-      for (const s of ctx.db.ship.empireId.filter(p.id)) {
-        if (s.design !== 'corvette') continue;
-        const weapons = s.weapons.map((w) => ({ ...w, damage: 6.5 * 1.4 * Math.max(0.1, 1 + mods.damage) }));
-        ctx.db.ship.id.update({ ...s, weapons });
-        const fighter = ctx.db.participant.shipId.find(s.id);
-        if (fighter)
-          ctx.db.participant.shipId.update({ ...fighter, damage: weapons.reduce((n, w) => n + w.damage, 0) });
-      }
-    }
-    event(ctx, p.id, `${TECHS[j.topic as TechId].name} erforscht.`, 'success');
+  if (j.kind === 'game_planet_upgrade') {
+    status = completePlanetUpgrade(ctx, p.id, j.topic, at);
+  } else if (j.kind === 'game_stellar') {
+    status = completeStellarProject(ctx, j, at);
   } else if (j.kind === 'game_build') {
     const system = ctx.db.star.id.find(j.targetId);
     if (system?.ownerId !== p.id) status = 'cancelled';
@@ -93,13 +85,22 @@ export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[numb
           const bonus = m.anomaly && !m.studied ? 90 : 25,
             e = ctx.db.empire.id.find(p.id)!;
           ctx.db.gamePlayer.id.update({ ...p, surveyed: [...p.surveyed, system.id] });
-          ctx.db.empire.id.update({ ...e, science: e.science + bonus });
+          ctx.db.empire.id.update({ ...e, data: e.data + bonus });
           if (m.anomaly) ctx.db.gameSystem.id.update({ ...m, studied: true });
-          event(ctx, p.id, `${system.name} untersucht. +${bonus} Forschung.`, 'success');
+          event(ctx, p.id, `${system.name} untersucht. +${bonus} Daten.`, 'success');
           surveyedStory(ctx, p.id, system.id, !m.studied);
+          discoverStellarWeather(ctx, system.id);
         }
       } else if (j.kind === 'game_colonize') {
-        if (!system.ownerId && m.defense <= 0) {
+        if (j.topic) {
+          if (completePlanetColony(ctx, p.id, j.topic, f.id, at)) destroyGameFleet(ctx, f.id);
+          else {
+            const e = ctx.db.empire.id.find(p.id)!;
+            ctx.db.empire.id.update({ ...e, energy: e.energy + 80, minerals: e.minerals + 80 });
+            status = 'cancelled';
+            event(ctx, p.id, 'Planetenkolonisierung abgebrochen; Kosten erstattet.', 'warning');
+          }
+        } else if (!system.ownerId && m.defense <= 0) {
           ctx.db.star.id.update({ ...system, ownerId: p.id });
           ctx.db.gameSystem.id.update({
             ...m,

@@ -18,9 +18,11 @@ import { completeGameJob, contested, destroyGameFleet } from './game-jobs';
 import { atWar } from './game-relations';
 import { expireDiplomacy } from './game-diplomacy';
 import { storyTick } from './game-stories';
+import { stellarWeatherTick } from './game-stellar-weather';
 import { completeSites } from './game-sites';
 import { completeTerraforming } from './game-terraforming';
 import { navigationTick } from './game-navigation';
+import { settleResearch } from './game-research';
 
 function checkBattle(ctx: Context, systemId: number, at: number) {
   const present = [...ctx.db.fleet.systemId.filter(systemId)].filter(
@@ -47,6 +49,7 @@ function checkBattle(ctx: Context, systemId: number, at: number) {
     event(ctx, owner, `Gefecht ${battle.id} bei ${ctx.db.star.id.find(systemId)!.name}.`, 'warning');
 }
 export function gameStrategic(ctx: Context) {
+  for (const p of ctx.db.gamePlayer.iter()) settleResearch(ctx, p.id);
   completeTerraforming(ctx);
   completeSites(ctx);
   const at = now(ctx),
@@ -125,6 +128,7 @@ export function gameEconomy(ctx: Context) {
   if (at <= runtime.nextGameAt) return;
   expireDiplomacy(ctx, at);
   storyTick(ctx);
+  stellarWeatherTick(ctx);
   for (const p of ctx.db.gamePlayer.iter()) {
     settleEconomy(ctx, p.id, at);
     for (const c of ctx.db.colony.empireId.filter(p.id)) settlePopulation(ctx, c.id, at);

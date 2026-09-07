@@ -1,3 +1,4 @@
+import { DetailList } from './DetailList';
 import { useEffect, useState } from 'react';
 import type { Client } from '../backend/client';
 import type { Fleet, GameView } from '../shared/game';
@@ -22,6 +23,7 @@ export function NativeFleetPanel({
     setTarget('');
   }, [fleet.id]);
   const ships = [...client.conn.db.fleetShips.iter()].filter((s) => s.fleetId === fleet.nativeId);
+  const selectedShips = selection.filter((id) => ships.some((ship) => ship.id === id));
   const targets = game.fleets.filter(
     (f) =>
       f.owner === game.me.id &&
@@ -61,12 +63,33 @@ export function NativeFleetPanel({
           Aus Gefecht zurückziehen
         </button>
       ) : null}
-      <div className="native-ship-list" aria-label="Schiffe auswählen">
-        {!ships.length && <p>Schiffsdaten werden geladen …</p>}
-        {ships.map((ship) => (
-          <label key={ship.id}>
+      <div className="ship-selection-tools">
+        <span>
+          {selectedShips.length} / {ships.length} ausgewählt
+        </span>
+        <button disabled={busy || !ships.length} onClick={() => setSelection(ships.map((ship) => ship.id))}>
+          Alle auswählen
+        </button>
+        <button disabled={busy || !selectedShips.length} onClick={() => setSelection([])}>
+          Auswahl aufheben
+        </button>
+      </div>
+      <DetailList
+        key={fleet.id}
+        label="Schiffe"
+        items={ships}
+        getKey={(ship) => ship.id}
+        getName={(ship) => ship.name}
+        getSearchText={(ship) =>
+          `${ship.name} ${SHIPS[ship.design as keyof typeof SHIPS]?.name || ship.design}`
+        }
+        empty="Schiffsdaten werden geladen …"
+      >
+        {(ship) => (
+          <label className="ship-select-row" key={ship.id} title={ship.name}>
             <input
               type="checkbox"
+              disabled={busy}
               checked={selection.includes(ship.id)}
               onChange={(e) =>
                 setSelection((s) => (e.target.checked ? [...s, ship.id] : s.filter((id) => id !== ship.id)))
@@ -83,20 +106,22 @@ export function NativeFleetPanel({
               <small>Hülle · {Math.round(ship.shield)} Schilde</small>
             </strong>
           </label>
-        ))}
-      </div>
+        )}
+      </DetailList>
       <button
         className="secondary-button"
-        disabled={busy || !idle || selection.length === 0 || selection.length >= ships.length}
+        disabled={busy || !idle || selectedShips.length === 0 || selectedShips.length >= ships.length}
         onClick={() =>
-          void action(() => client.conn.reducers.splitFleet({ fleetId: fleet.nativeId!, shipIds: selection }))
+          void action(() =>
+            client.conn.reducers.splitFleet({ fleetId: fleet.nativeId!, shipIds: selectedShips }),
+          )
         }
       >
         Ausgewählte Schiffe abteilen
       </button>
       {fleet.type === 'corvette' && (
         <div className="native-merge">
-          <label htmlFor="merge-target">Mit eigenem Verband im selben System vereinen</label>
+          <label htmlFor="merge-target">Zielverband im System</label>
           <select id="merge-target" value={target} onChange={(e) => setTarget(e.target.value)}>
             <option value="">Zielverband wählen</option>
             {targets.map((f) => (

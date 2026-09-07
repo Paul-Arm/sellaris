@@ -50,10 +50,10 @@ test(
     const pb = addPlayer(source, 'b', 'Visitor');
     const pc = addPlayer(source, 'c', 'Impoverished');
     pc.techs.push('terraforming');
-    pc.resources = { energy: 0, minerals: 0, science: 0 };
+    pc.resources = { energy: 0, minerals: 0, data: 0 };
     pa.techs.push('terraforming');
-    pa.resources = { energy: 10000, minerals: 10000, science: 10000 };
-    pb.resources = { energy: 0, minerals: 0, science: 0 };
+    pa.resources = { energy: 10000, minerals: 10000, data: 10000 };
+    pb.resources = { energy: 0, minerals: 0, data: 0 };
     const homeSource = source.systems.find((s) => s.id === pa.home)!;
     homeSource.planet = 'Wüstenwelt';
     source.paused = true;
@@ -84,7 +84,7 @@ test(
         poor.conn.reducers.startTerraforming({ objectId: `${poorHome}:1`, revision: 1, target: 'ocean' }),
         /Rohstoffe/,
       );
-      assert.deepEqual(gameView(poor)!.me.resources, { energy: 0, minerals: 0, science: 0 });
+      assert.deepEqual(gameView(poor)!.me.resources, { energy: 0, minerals: 0, data: 0 });
       await new SystemSubscription(a).focus(home);
       await new SystemSubscription(b).focus(home);
       const bodies = () => objectBodies(a.conn.db.focusedSystemObjects.iter());
@@ -111,7 +111,7 @@ test(
       assert.deepEqual(funds(), {
         energy: initial.energy - spec.cost.energy,
         minerals: initial.minerals - spec.cost.minerals,
-        science: initial.science - spec.cost.science,
+        data: initial.data - spec.cost.data,
       });
       assert.equal(
         b.conn.db.myTerraformProjects.count(),
@@ -125,7 +125,7 @@ test(
       assert.deepEqual(funds(), {
         energy: paid.energy + spec.cost.energy / 2,
         minerals: paid.minerals + spec.cost.minerals / 2,
-        science: paid.science + spec.cost.science / 2,
+        data: paid.data + spec.cost.data / 2,
       });
       await assert.rejects(a.conn.reducers.cancelTerraforming({ objectId: `${home}:1` }));
       await delay(1100); // start a fresh command-quota window

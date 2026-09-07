@@ -61,10 +61,10 @@ test('full exploration and colonization flow consumes a colony ship and increase
   assert.equal(scout.systemId, 's1');
   assert.equal(scout.route.length, 0);
   command(game, p.id, { type: 'scan', fleetId: scout.id });
-  const science = p.resources.science;
+  const data = p.resources.data;
   advance(game, 9);
   assert.ok(p.surveyed.includes('s1'));
-  assert.ok(p.resources.science >= science + 90);
+  assert.ok(p.resources.data >= data + 90);
   const rate = income(game, p);
   command(game, p.id, { type: 'move', fleetId: colony.id, systemId: 's1' });
   advance(game, 12);
@@ -93,7 +93,7 @@ test('mining and research change real production and disallow duplicate spending
   assert.equal(income(game, p).energy, before.energy + home.resources.energy);
   assert.throws(() => command(game, p.id, { type: 'mine', systemId: p.home }), /bereits/);
   command(game, p.id, { type: 'research', tech: 'extraction' });
-  advance(game, 41);
+  advance(game, 54);
   assert.ok(p.techs.includes('extraction'));
   const current = colonyEconomy(home.colony!, home.planet, p);
   assert.ok(
@@ -149,7 +149,7 @@ test('views hide other resources, private events and remote enemy fleets', () =>
   assert.deepEqual(view.systems.find((s) => s.id === 's21')!.resources, {
     energy: 0,
     minerals: 0,
-    science: 0,
+    data: 0,
   });
   assert.equal(view.me.resources.energy, p.resources.energy);
 });

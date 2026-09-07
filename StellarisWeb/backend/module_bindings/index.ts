@@ -35,6 +35,7 @@ import {
 
 // Import all reducer arg schemas
 import ActivateReducer from "./activate_reducer";
+import AdministerGameReducer from "./administer_game_reducer";
 import CancelJobReducer from "./cancel_job_reducer";
 import CancelTerraformingReducer from "./cancel_terraforming_reducer";
 import ConfigureReducer from "./configure_reducer";
@@ -95,6 +96,8 @@ import MyGameOffersRow from "./my_game_offers_table";
 import MyGamePlayerRow from "./my_game_player_table";
 import MyGameStoriesRow from "./my_game_stories_table";
 import MyJobsRow from "./my_jobs_table";
+import MyPlanetColoniesRow from "./my_planet_colonies_table";
+import MyResearchRow from "./my_research_table";
 import MyTerraformProjectsRow from "./my_terraform_projects_table";
 import MyTradeRow from "./my_trade_table";
 import MyTreatiesRow from "./my_treaties_table";
@@ -103,6 +106,7 @@ import StarRow from "./star_table";
 import VisibleBattleSummariesRow from "./visible_battle_summaries_table";
 import VisibleBattlesRow from "./visible_battles_table";
 import VisibleGameSitesRow from "./visible_game_sites_table";
+import VisibleStellarWeatherRow from "./visible_stellar_weather_table";
 
 /** Type-only namespace exports for generated type groups. */
 
@@ -395,6 +399,20 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyJobsRow),
+  myPlanetColonies: __table({
+    name: 'my_planet_colonies',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyPlanetColoniesRow),
+  myResearch: __table({
+    name: 'my_research',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyResearchRow),
   myTerraformProjects: __table({
     name: 'my_terraform_projects',
     indexes: [
@@ -437,11 +455,19 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, VisibleGameSitesRow),
+  visibleStellarWeather: __table({
+    name: 'visible_stellar_weather',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, VisibleStellarWeatherRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("activate", ActivateReducer),
+  __reducerSchema("administer_game", AdministerGameReducer),
   __reducerSchema("cancel_job", CancelJobReducer),
   __reducerSchema("cancel_terraforming", CancelTerraformingReducer),
   __reducerSchema("configure", ConfigureReducer),

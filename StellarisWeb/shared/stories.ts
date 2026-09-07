@@ -6,9 +6,9 @@ export const CRISIS = {
   dormantSeconds: 180,
   warningSeconds: 120,
   activeSeconds: 120,
-  contributionCost: { energy: 60, minerals: 0, science: 30 },
-  shieldCost: { energy: 120, minerals: 0, science: 0 },
-  sciencePerContribution: 40,
+  contributionCost: { energy: 60, minerals: 0, data: 30 },
+  shieldCost: { energy: 120, minerals: 0, data: 0 },
+  dataPerContribution: 40,
 } as const;
 export type CrisisPhase = 'dormant' | 'warning' | 'active' | 'surge' | 'contained';
 export const phaseNames: Record<CrisisPhase, string> = {
@@ -29,7 +29,7 @@ export interface StoryChoice {
   reward: Resources;
   action?: 'contribute' | 'shield';
 }
-const free = (): Resources => ({ energy: 0, minerals: 0, science: 0 });
+const free = (): Resources => ({ energy: 0, minerals: 0, data: 0 });
 export const STORIES = {
   archive_v1: {
     title: 'Eine Stimme aus der Leere',
@@ -44,7 +44,7 @@ export const STORIES = {
         title: 'Das Archiv entschlüsseln',
         description: 'Versorge die Sonde mit Energie und sichere ihr Wissen.',
         cost: { ...free(), energy: 40 },
-        reward: { ...free(), science: 100 },
+        reward: { ...free(), data: 100 },
       },
       {
         id: 'salvage',
@@ -58,7 +58,7 @@ export const STORIES = {
         title: 'Aus der Ferne beobachten',
         description: 'Zeichne das Signal auf, ohne einzugreifen.',
         cost: free(),
-        reward: { ...free(), science: 25 },
+        reward: { ...free(), data: 25 },
       },
     ],
   },
@@ -89,7 +89,7 @@ export const STORIES = {
         title: 'Die Fundstätte untersuchen',
         description: 'Bewahre die Anlage und dokumentiere ihre Geschichte.',
         cost: free(),
-        reward: { ...free(), science: 35 },
+        reward: { ...free(), data: 35 },
       },
     ],
   },
@@ -105,7 +105,7 @@ export const STORIES = {
         id: 'contribute',
         title: 'Stabilisierung finanzieren',
         description:
-          'Ein Beitrag zur gemeinsamen Eindämmung. Nach Erfolg erhältst du 40 Forschung pro Beitrag.',
+          'Ein Beitrag zur gemeinsamen Eindämmung. Nach Erfolg erhältst du 40 Daten pro Beitrag.',
         cost: { ...CRISIS.contributionCost },
         reward: free(),
         action: 'contribute',

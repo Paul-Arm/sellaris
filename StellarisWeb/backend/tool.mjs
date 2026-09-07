@@ -1,8 +1,29 @@
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 export const root = resolve(import.meta.dirname, '..');
+export function cliAsync(args) {
+  const bundled = resolve(
+    root,
+    '.tools/spacetime',
+    process.platform === 'win32' ? 'spacetimedb-cli.exe' : 'spacetimedb-cli',
+  );
+  const executable = process.env.SPACETIME_CLI || (existsSync(bundled) ? bundled : 'spacetime');
+  return new Promise((resolveResult, reject) => {
+    execFile(
+      executable,
+      ['--root-dir', resolve(root, '.spacetime'), ...args],
+      {
+        cwd: root,
+        windowsHide: true,
+        encoding: 'utf8',
+        timeout: 20000,
+      },
+      (error, stdout) => (error ? reject(error) : resolveResult(stdout)),
+    );
+  });
+}
 export function cli(args, options = {}) {
   const bundled = resolve(
     root,

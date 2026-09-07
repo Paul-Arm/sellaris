@@ -338,7 +338,7 @@ export function BackendLab() {
                   Mineralien<strong>{number(me.minerals)}</strong>
                 </span>
                 <span>
-                  Forschung<strong>{number(me.science)}</strong>
+                  Daten<strong>{number(me.data)}</strong>
                 </span>
               </div>
               <button

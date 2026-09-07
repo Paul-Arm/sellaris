@@ -1,7 +1,9 @@
+import { ColonyTree } from './ColonyTree';
 import { useState } from 'react';
 import {
   ArrowUp,
   Check,
+  Cpu,
   Diamond,
   Factory,
   FlaskConical,
@@ -36,6 +38,7 @@ import {
 } from '../shared/colonies';
 import { PlanetSurface } from './PlanetSurface';
 import './planet-manager.css';
+import { ownedColonyWorlds } from '../shared/planetColonies';
 
 const icons = {
   habitat: Home,
@@ -43,9 +46,10 @@ const icons = {
   reactor: Zap,
   foundry: Factory,
   laboratory: FlaskConical,
+  datacenter: Cpu,
   bastion: Shield,
 };
-const focusIcons = { balanced: Globe2, energy: Zap, minerals: Diamond, science: FlaskConical };
+const focusIcons = { balanced: Globe2, energy: Zap, minerals: Diamond, data: FlaskConical };
 const fmt = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 1 });
 const signed = (n: number) => `${n >= 0 ? '+' : '−'}${fmt(Math.abs(n))}`;
 const types = Object.keys(BUILDINGS) as BuildingId[];
@@ -58,8 +62,8 @@ type Props = {
   connected: boolean;
 };
 export function ColonyManager(props: Props) {
-  const worlds = props.game.systems.filter((s) => s.owner === props.game.me.id && s.colony);
-  const system = worlds.find((s) => s.id === props.selected) || worlds[0];
+  const worlds = ownedColonyWorlds(props.game);
+  const system = worlds.find((s) => s.worldId === props.selected) || worlds[0];
   if (!system)
     return (
       <div className="colony-empty">
@@ -70,21 +74,18 @@ export function ColonyManager(props: Props) {
     );
   return (
     <div className="planet-manager">
-      <nav className="pm-worlds" aria-label="Eigene Kolonien">
-        {worlds.map((s) => (
-          <button key={s.id} aria-pressed={s.id === system.id} onClick={() => props.onSelect(s.id)}>
-            <Globe2 size={15} />
-            {s.colonyName || s.name}
-            <span>{fmt(s.colony!.population)}</span>
-          </button>
-        ))}
-      </nav>
-      <ColonyWorkspace key={system.id} {...props} system={system} />
+      <ColonyTree key={`${props.game.code}:${props.game.me.id}`} game={props.game} selected={system.worldId} onSelect={(colony) => props.onSelect(colony.id)} />
+      <ColonyWorkspace key={system.worldId} {...props} system={system} />
     </div>
   );
 }
 
-function ColonyWorkspace({ game, system, command, connected }: Props & { system: StarSystem }) {
+function ColonyWorkspace({
+  game,
+  system,
+  command,
+  connected,
+}: Props & { system: StarSystem & { bodySlot?: number } }) {
   const c = system.colony!,
     [sectorId, setSectorId] = useState(0),
     [tab, setTab] = useState<'surface' | 'population'>('surface'),
@@ -95,13 +96,19 @@ function ColonyWorkspace({ game, system, command, connected }: Props & { system:
     project = c.construction;
   const geometry = JSON.stringify(c.sectors.map(({ id, x, y, z }) => ({ id, x, y, z })));
   const order = (details: Omit<ColonyCommand, 'systemId' | 'revision'>) =>
-    command({ ...details, systemId: system.id, revision: c.revision } as ColonyCommand);
+    command({
+      ...details,
+      systemId: system.id,
+      bodySlot: system.bodySlot,
+      revision: c.revision,
+    } as ColonyCommand);
   const build = (building: BuildingId) =>
     command({
       type: 'colony_build',
       building,
       sectorId: sector.id,
       systemId: system.id,
+      bodySlot: system.bodySlot,
       revision: c.revision,
     });
   const afford = (building: BuildingId, level = 1) => {
@@ -141,9 +148,9 @@ function ColonyWorkspace({ game, system, command, connected }: Props & { system:
             <Diamond />
             {signed(output.minerals)}
           </span>
-          <span className="pm-science">
+          <span className="pm-data">
             <FlaskConical />
-            {signed(output.science)}
+            {signed(output.data)}
           </span>
           <small>pro 4 Spieltage</small>
         </div>
@@ -336,12 +343,14 @@ function ColonyWorkspace({ game, system, command, connected }: Props & { system:
                     </span>
                     <span>
                       {spec.resource
-                        ? `${signed(row.output[spec.resource])} ${spec.resource === 'energy' ? 'Energie' : spec.resource === 'minerals' ? 'Mineralien' : 'Forschung'}`
+                        ? `${signed(row.output[spec.resource])} ${spec.resource === 'energy' ? 'Energie' : spec.resource === 'minerals' ? 'Mineralien' : 'Daten'}`
                         : spec.supply
                           ? `${fmt(row.supply)} versorgt`
                           : spec.housing
                             ? ''
-                            : `${fmt(row.employed * 40)} Schilde`}
+                            : d.building === 'datacenter'
+                              ? `${fmt(row.employed * 2 * Math.max(0.25, Math.min(1, e.supply / Math.max(1, e.demand))))} Compute / Tag`
+                              : `${fmt(row.employed * 40)} Schilde`}
                     </span>
                   </div>
                   <div className="pm-district-actions">

@@ -95,7 +95,7 @@ test('species traits use costs, exclusivity, lifeform restrictions and canonical
   const clean = parseSpeciesTemplate({
     ...species,
     traits: ['intelligent', 'curious', 'weak'],
-    effects: { science: 9999 },
+    effects: { data: 9999 },
     owner: 'victim',
   });
   assert.equal('effects' in clean, false);
@@ -180,7 +180,7 @@ test('every origin awards start resources and populations exactly once, includin
     const player = addPlayer(game, 'owner', '', snapshot);
     assert.equal(player.resources.energy, 420 + origin.resources.energy);
     assert.equal(player.resources.minerals, 360 + origin.resources.minerals);
-    assert.equal(player.resources.science, 130 + origin.resources.science);
+    assert.equal(player.resources.data, 130 + origin.resources.data);
     assert.equal(game.systems[0].colony!.population, 6 + origin.population);
     const stored = JSON.stringify(game);
     hydrateEmpires(game);
@@ -192,7 +192,7 @@ test('bonuses affect actual production, movement, research, construction and pop
   const { game, player, home } = setup();
   const oldGame = createGame('LEGACY');
   const old = addPlayer(oldGame, 'legacy', 'Legacy');
-  assert.ok(income(game, player).science > income(oldGame, old).science);
+  assert.ok(income(game, player).data > income(oldGame, old).data);
   const scout = game.fleets.find((f) => f.type === 'scout')!;
   const oldScout = oldGame.fleets.find((f) => f.type === 'scout')!;
   command(game, player.id, { type: 'move', fleetId: scout.id, systemId: 's1' });
@@ -201,7 +201,7 @@ test('bonuses affect actual production, movement, research, construction and pop
   command(game, player.id, { type: 'research', tech: 'propulsion' });
   command(game, player.id, { type: 'build', ship: 'scout', systemId: home.id });
   tickGame(game, 1);
-  assert.ok(player.research!.remaining < player.research!.total - 1);
+  assert.ok(player.research.projects[0].done > 3, 'research modifiers increase available Compute');
   assert.ok(player.queue[0].remaining < player.queue[0].total - 1);
   const hiveGame = createGame('HIVE');
   const hive = addPlayer(hiveGame, 'hive', '', snapshotTemplate(starterLibrary(), 'empire-mycel'));
@@ -211,12 +211,12 @@ test('bonuses affect actual production, movement, research, construction and pop
 });
 test('reform spends authoritative resources once and enforces cooldown, type and revision', () => {
   const { game, player } = setup();
-  player.resources.science = 500;
+  player.resources.data = 500;
   const origin = player.empire!.design.origin;
   const government = { ...player.empire!.design.government, civics: ['conservation', 'architects'] };
   command(game, player.id, { type: 'empire_reform', government, revision: 1 });
   assert.equal(player.resources.energy, 400);
-  assert.equal(player.resources.science, 350);
+  assert.equal(player.resources.data, 350);
   assert.equal(player.empire!.design.origin, origin);
 });
 test('invalid and unaffordable reforms leave both state and resources untouched', () => {
@@ -228,9 +228,9 @@ test('invalid and unaffordable reforms leave both state and resources untouched'
     /Ressourcen/,
   );
   assert.equal(JSON.stringify(game), before);
-  player.resources.science = 1000;
+  player.resources.data = 1000;
   command(game, player.id, { type: 'empire_reform', government, revision: 1 });
-  assert.equal(player.resources.science, 850);
+  assert.equal(player.resources.data, 850);
   assert.equal(player.resources.energy, 400);
   const after = JSON.stringify(game);
   assert.throws(
@@ -254,7 +254,7 @@ test('invalid and unaffordable reforms leave both state and resources untouched'
 test('species variants convert only selected own populations and affect their production independently', () => {
   const { game, player, home } = setup();
   player.techs.push('extraction');
-  player.resources.science = 1000;
+  player.resources.data = 1000;
   const colony = game.systems[1];
   colony.owner = player.id;
   colony.planet = 'Wüstenwelt';
@@ -284,7 +284,7 @@ test('species variants convert only selected own populations and affect their pr
   assert.equal(home.colony!.populations![0].speciesId, source.id);
   assert.equal(colony.colony.population, pops);
   assert.ok(colonyProduction(colony, player).minerals > before.minerals);
-  assert.equal(player.resources.science, 700);
+  assert.equal(player.resources.data, 700);
   assert.equal(player.resources.minerals, 240);
   assert.equal(JSON.stringify(player.empire!.founding), founding);
   assert.equal(player.empire!.species[0].environment, 'continental');
@@ -313,7 +313,7 @@ test('malicious species targets and unresearched modifications are atomic; other
   };
   assert.throws(() => command(game, player.id, cmd), /Quantenextraktion/);
   player.techs.push('extraction');
-  player.resources.science = 1000;
+  player.resources.data = 1000;
   const before = JSON.stringify(game);
   assert.throws(() => command(game, player.id, { ...cmd, colonyIds: [enemy.home] }), /eigenen Kolonie/);
   assert.throws(() => command(game, player.id, { ...cmd, colonyIds: [home.id, home.id] }), /doppelte/);

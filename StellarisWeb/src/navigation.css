@@ -53,6 +53,9 @@
 .navigation-panel small {
   color: #91a5b1;
 }
+.megastructure-panel li small {
+  display: block;
+}
 .navigation-panel ol {
   padding-left: 20px;
   margin: 0;
@@ -93,4 +96,10 @@
   color: #d0e5da;
   border: 1px solid #8eaf9e77;
   border-radius: 4px;
+}
+.navigation-panel ol {
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }

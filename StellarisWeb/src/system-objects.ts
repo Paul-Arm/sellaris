@@ -27,6 +27,52 @@ export function shipGeometry(kind: string) {
 }
 
 export function createBody(body: CelestialBody, resources: Disposable[], time: { value: number }) {
+  if (body.megastructure) {
+    const group = new THREE.Group(),
+      tint = new THREE.Color(body.color);
+    const geo = new THREE.TorusGeometry(body.radius * 2, 0.7, 6, 80);
+    const material = new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.55 });
+    const core = new THREE.Mesh(geo, material);
+    core.rotation.x = Math.PI / 2;
+    core.userData.slot = body.slot;
+    group.add(core);
+    resources.push(geo, material);
+    if (body.megastructure === 'decompressor') {
+      // Twin polar collectors leave the accretion disk and event horizon visible.
+      const beamGeo = new THREE.CylinderGeometry(
+          body.radius * 0.055,
+          body.radius * 0.13,
+          body.radius * 3.4,
+          12,
+        ),
+        beamMat = new THREE.MeshBasicMaterial({
+          color: tint,
+          transparent: true,
+          opacity: 0.22,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+      resources.push(beamGeo, beamMat);
+      for (const sign of [-1, 1]) {
+        const beam = new THREE.Mesh(beamGeo, beamMat);
+        beam.position.y = sign * body.radius * 2.3;
+        beam.userData.slot = body.slot;
+        group.add(beam);
+      }
+      core.rotation.x = 0;
+      core.position.y = body.radius * 2.6;
+      return {
+        group,
+        core,
+        tint,
+        animate: (t: number) => {
+          core.rotation.z = t * 0.07;
+          beamMat.opacity = 0.2 + Math.sin(t * 1.4) * 0.035;
+        },
+      };
+    }
+    return { group, core, tint, animate: (_t: number) => {} };
+  }
   if (body.stellar && body.kind !== 'rift') return createStellarBody(body, resources, time);
   const group = new THREE.Group();
   const tint = new THREE.Color(body.kind === 'rift' ? '#ffb65f' : body.color);

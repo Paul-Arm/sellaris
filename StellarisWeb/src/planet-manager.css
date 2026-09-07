@@ -58,6 +58,67 @@
   color: #9993ac;
   font-size: 10px;
 }
+
+.planet-manager {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+}
+.planet-manager > .pm-worlds {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  height: min(720px, 80dvh);
+  position: sticky;
+  top: 0;
+  min-height: 150px;
+  padding: 10px;
+  border-right: 1px solid #a69bc321;
+  border-bottom: 0;
+  gap: 0;
+}
+.planet-manager > :not(.pm-worlds) {
+  grid-column: 2;
+  min-width: 0;
+}
+.pm-worlds .detail-list-rows > button {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px;
+  gap: 7px;
+  text-align: left;
+}
+.pm-worlds .detail-list-rows > button strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+}
+.pm-worlds .detail-list-rows > button > span {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.pm-worlds .detail-list-search button {
+  width: 24px;
+  padding: 0;
+}
+@media (max-width: 1050px) {
+  .planet-manager {
+    display: block;
+  }
+  .planet-manager > .pm-worlds {
+    position: static;
+    height: 195px;
+    padding: 8px 50px 8px 14px;
+    border-bottom: 1px solid #a69bc321;
+  }
+  .pm-worlds .detail-list-rows {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    align-content: start;
+  }
+}
 .pm-header {
   display: flex;
   align-items: center;
@@ -113,7 +174,7 @@
 .pm-minerals {
   color: #9fb9ce;
 }
-.pm-science {
+.pm-data {
   color: #b8aaf4;
 }
 .pm-body {

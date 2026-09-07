@@ -68,13 +68,13 @@ test('jobs consume population, unstaffed buildings only cost upkeep, and focus r
   near(balanced.employed + balanced.unemployed, c.population);
   assert.ok(balanced.supply >= balanced.demand - 1e-8);
   for (const row of balanced.districts) assert.ok(row.employed >= 0 && row.employed <= row.jobs);
-  c.focus = 'science';
-  const science = colonyEconomy(c, home.planet, player);
-  assert.ok(science.output.science > balanced.output.science);
-  near(science.employed, balanced.employed);
+  c.focus = 'data';
+  const data = colonyEconomy(c, home.planet, player);
+  assert.ok(data.output.data > balanced.output.data);
+  near(data.employed, balanced.employed);
   c.population = 0;
   const empty = colonyEconomy(c, home.planet, player);
-  near(empty.output.science, 0);
+  near(empty.output.data, 0);
   near(empty.output.minerals, 0);
   near(empty.output.energy, -empty.upkeep);
   c.sectors.flatMap((s) => s.districts).forEach((d) => (d.enabled = false));
@@ -171,7 +171,7 @@ test('upgrades retain their slot, cancellation refunds once, and disabled distri
     d = c.sectors[1].districts[0],
     used = occupiedDistricts(c),
     target = () => ({ systemId: home.id, revision: c.revision });
-  player.resources = { energy: 10000, minerals: 10000, science: 10000 };
+  player.resources = { energy: 10000, minerals: 10000, data: 10000 };
   command(game, player.id, { type: 'colony_upgrade', districtId: d.id, ...target() });
   assert.throws(
     () => command(game, player.id, { type: 'colony_toggle', districtId: d.id, enabled: false, ...target() }),
@@ -208,7 +208,7 @@ test('features, mining, technology and net production agree with the ledger', ()
   const output = colonyProduction(home, player),
     total = income(game, player),
     core = baseIncome(player);
-  for (const r of ['energy', 'minerals', 'science'] as const) near(total[r], output[r] + core[r]);
+  for (const r of ['energy', 'minerals', 'data'] as const) near(total[r], output[r] + core[r]);
   const before = player.resources.energy;
   advance(game, 4);
   assert.ok(player.resources.energy > before);

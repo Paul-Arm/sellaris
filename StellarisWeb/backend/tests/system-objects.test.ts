@@ -46,7 +46,7 @@ test(
     source.paused = true;
     const pa = addPlayer(source, 'a', 'Architect');
     addPlayer(source, 'b', 'Visitor');
-    pa.resources = { energy: 2000, minerals: 2000, science: 1000 };
+    pa.resources = { energy: 2000, minerals: 2000, data: 1000 };
     const clients: Client[] = [];
     const admin = await connect(database, { token: adminToken() });
     clients.push(admin);

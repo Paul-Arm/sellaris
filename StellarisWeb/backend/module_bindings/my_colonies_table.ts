@@ -16,6 +16,6 @@ export default __t.row({
   population: __t.u32(),
   energyRate: __t.f64().name("energy_rate"),
   mineralsRate: __t.f64().name("minerals_rate"),
-  scienceRate: __t.f64().name("science_rate"),
+  dataRate: __t.f64().name("data_rate"),
   lastProducedAt: __t.f64().name("last_produced_at"),
 });

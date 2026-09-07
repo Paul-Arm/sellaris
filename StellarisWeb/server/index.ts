@@ -5,6 +5,7 @@ import { resolve, extname, sep } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { EmpireLibraryStore } from './empireLibrary.ts';
 import { NativeGateway } from './nativeGateway';
+import { createAdminPanel } from './adminPanel';
 import { installNativeUpgrade, proxyNativeHttp } from './nativeProxy';
 import { snapshotTemplate } from '../shared/empires.ts';
 interface Client {
@@ -22,6 +23,8 @@ const libraries = new EmpireLibraryStore(dataDir);
 await libraries.load();
 const native = new NativeGateway(dataDir);
 await native.load();
+const adminPanel = createAdminPanel(native);
+if (!process.env.ADMIN_PANEL_TOKEN) console.log(`Admin-Panel /admin – Schlüssel: ${adminPanel.token}`);
 const mime: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript',
@@ -34,10 +37,18 @@ const mime: Record<string, string> = {
 };
 const server = createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  if (await adminPanel.handle(req, res)) return;
   if (proxyNativeHttp(req, res)) return;
   if (req.url === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', version: 2, backend: 'spacetimedb', rooms: native.size }));
+    return;
+  }
+  const galaxyCode = req.url?.match(/^\/api\/galaxies\/([A-F0-9]{6})$/)?.[1];
+  if (galaxyCode && req.method === 'GET') {
+    const exists = native.listServers().some((entry) => entry.code === galaxyCode);
+    res.writeHead(exists ? 200 : 404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ exists }));
     return;
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') {

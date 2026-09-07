@@ -21,5 +21,5 @@ export default __t.row({
   finishTick: __t.u64().name("finish_tick"),
   paidEnergy: __t.f64().name("paid_energy"),
   paidMinerals: __t.f64().name("paid_minerals"),
-  paidScience: __t.f64().name("paid_science"),
+  paidData: __t.f64().name("paid_data"),
 });

@@ -1,0 +1,218 @@
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: #c6cedb;
+}
+.detail-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  gap: 8px;
+  padding: 8px 2px;
+}
+.detail-list-heading h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.detail-list-heading > span {
+  font-size: 11px;
+  color: #9daabd;
+  font-variant-numeric: tabular-nums;
+}
+.detail-list-tools {
+  display: flex;
+  flex: none;
+  gap: 5px;
+  padding-bottom: 7px;
+}
+.detail-list-search {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border: 1px solid #8293ae36;
+  border-radius: 3px;
+  background: #0c121dc9;
+}
+.detail-list-search > svg {
+  flex: none;
+  color: #9daabd;
+}
+.detail-list-search input {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: #e0e6f0;
+  font: inherit;
+  font-size: 12px;
+}
+.detail-list-search input::-webkit-search-cancel-button {
+  display: none;
+}
+.detail-list-search:focus-within {
+  outline: 2px solid #acbde1;
+  outline-offset: 1px;
+}
+.detail-list-search button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 26px;
+  padding: 0;
+  color: #c6cedb;
+  background: transparent;
+  border: 0;
+}
+.detail-list-tools select {
+  width: 85px;
+  padding: 0 3px;
+  border: 1px solid #8293ae36;
+  border-radius: 3px;
+  background: #111925;
+  color: #b9c5d8;
+  font: inherit;
+  font-size: 10px;
+}
+.detail-list-rows {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  flex: 1;
+}
+.detail-list-empty {
+  padding: 12px 6px;
+  margin: 0;
+  color: #9daabd;
+  font-size: 12px;
+}
+.detail-list button[aria-pressed='true'] {
+  background: #ac9ce321;
+  border-color: #b7a5eb6e;
+  box-shadow: inset 2px 0 #b7a5eb;
+}
+.detail-list :is(button, select, .detail-list-rows):focus-visible {
+  outline: 2px solid #acbde1;
+  outline-offset: -2px;
+}
+.detail-list button[aria-pressed] {
+  flex-shrink: 0;
+}
+.detail-list .mini-tabs {
+  margin: 0 0 7px;
+  gap: 14px;
+}
+.detail-list .mini-tabs button {
+  padding-bottom: 6px;
+  font-size: 11px;
+  box-shadow: none;
+  background: transparent;
+}
+.detail-list :is(.colony-row, .fleet-row) {
+  min-height: 42px;
+  margin: 0;
+  padding: 5px 7px;
+  border-radius: 2px;
+  border-bottom: 1px solid #8293ae14;
+  gap: 8px;
+}
+.detail-list :is(.colony-row, .fleet-row) > div {
+  min-width: 0;
+}
+.detail-list :is(.colony-row, .fleet-row) strong {
+  font-size: 12px;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.detail-list :is(.colony-row, .fleet-row) > div > span {
+  display: block;
+  font-size: 10px;
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #9daabd;
+}
+.detail-list .fleet-row .progress {
+  margin-top: 4px;
+}
+.detail-list :is(.fleet-icon, .tiny-planet) {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.detail-list .colony-yield {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.native-fleet-panel .detail-list {
+  height: min(440px, 48vh);
+  margin: 12px 0;
+}
+.detail-list .ship-select-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 5px 7px;
+  border-bottom: 1px solid #8293ae20;
+  font-size: 12px;
+}
+.ship-select-row:has(input:checked) {
+  background: #ac9ce321;
+}
+.ship-select-row input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: #b7a5eb;
+}
+.ship-select-row > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ship-select-row > strong {
+  flex: none;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.ship-select-row small {
+  display: block;
+  margin-top: 2px;
+  color: #9daabd;
+  font-size: 10px;
+}
+.ship-selection-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 12px;
+}
+.ship-selection-tools button {
+  padding: 5px 8px;
+  border: 1px solid #8293ae36;
+  border-radius: 3px;
+}

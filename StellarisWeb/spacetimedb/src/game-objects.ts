@@ -91,6 +91,7 @@ export function removeSystemObject(ctx: Context, id: string, revision: number) {
     body.slot === 0 ||
     body.main ||
     ctx.db.gameSite.id.find(id) ||
+    ctx.db.gamePlanetColony.id.find(id) ||
     ctx.db.gameTerraform.id.find(id) ||
     [...ctx.db.gameObject.systemId.filter(row.systemId)].some(
       (r) => r.state === 'active' && r.parentId === id,

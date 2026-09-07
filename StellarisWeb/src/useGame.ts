@@ -65,6 +65,19 @@ export function useGame() {
         sessionStorage.setItem('singularity.native-session', JSON.stringify(nativeSession.current));
       persist();
       try {
+        const availability = await fetch(`/api/galaxies/${encodeURIComponent(saved.code)}`);
+        if (stopped || generation !== nativeGeneration) return;
+        if (availability.status === 404) {
+          nativeGeneration++;
+          nativeSession.current = null;
+          sessionStorage.removeItem('singularity.native-session');
+          inviteRef.current = '';
+          setInvite('');
+          history.replaceState(null, '', location.pathname);
+          setConnected(socket.current?.readyState === WebSocket.OPEN);
+          setError('Diese Galaxie wurde gelöscht. Du kannst eine neue Expedition gründen.');
+          return;
+        }
         const client = await connectNative(saved.database, {
           uri: `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`,
           token: saved.token,

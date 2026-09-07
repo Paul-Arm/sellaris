@@ -149,7 +149,7 @@ test(
       source.paused = true;
       source.tick = 30;
       owner.techs.push('terraforming');
-      owner.resources = { energy: 5000, minerals: 5000, science: 5000 };
+      owner.resources = { energy: 5000, minerals: 5000, data: 5000 };
       addPlayer(source, 'trade-peer', 'Trade peer');
       command(source, owner.id, { type: 'research', tech: 'extraction' });
       command(source, owner.id, { type: 'move', fleetId: source.fleets[0].id, systemId: 's1' });
@@ -193,8 +193,8 @@ test(
           type: 'offer_treaty',
           empireId: 'trade-peer',
           kind: 'trade',
-          give: { energy: 30, minerals: 0, science: 0 },
-          receive: { energy: 0, minerals: 10, science: 0 },
+          give: { energy: 30, minerals: 0, data: 0 },
+          receive: { energy: 0, minerals: 10, data: 0 },
         }),
       });
       const objectHome = [...gameClient.conn.db.myGamePlayer.iter()][0].homeId;

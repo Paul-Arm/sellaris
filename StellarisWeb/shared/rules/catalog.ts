@@ -48,7 +48,7 @@ const definitions: Record<string, RuleDefinition> = {
   },
   'species.intelligent': {
     name: 'Intelligent',
-    description: '+10 % produzierte Forschung.',
+    description: '+10 % produzierte Daten.',
     category: 'trait',
     kinds: ['species'],
     cost: 2,

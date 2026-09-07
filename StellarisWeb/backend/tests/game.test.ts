@@ -115,7 +115,8 @@ test('production galaxy: founding, private state and command ownership', { timeo
         systemId: a.conn.db.gameAtlas.id.find(me.homeId)!.externalId,
       }),
     });
-    assert.equal([...a.conn.db.myJobs.iter()].filter((j) => j.status === 'active').length, 2);
+    assert.equal([...a.conn.db.myJobs.iter()].filter((j) => j.status === 'active').length, 1);
+    assert.equal(gameView(a)!.me.research.projects.length, 1);
     for (let i = 2; i < 25; i++) {
       await issue(a, { type: 'add_ai' });
       await delay(75);
@@ -134,7 +135,7 @@ test('production galaxy: founding, private state and command ownership', { timeo
 });
 
 test(
-  'legacy migration retains identity, economy, work and routes; production, exploration, formations and hot reconnect',
+  'current operator snapshots retain identity, economy, work and routes; production, exploration, formations and hot reconnect',
   { timeout: 120000 },
   async () => {
     const database = `singularity-game-migration-${Date.now()}`;
@@ -152,9 +153,9 @@ test(
       enemy = addPlayer(game, 'old-b', 'B');
     game.tick = 120;
     game.paused = true;
-    p.resources = { energy: 1500, minerals: 1500, science: 900 };
+    p.resources = { energy: 1500, minerals: 1500, data: 900 };
     command(game, p.id, { type: 'research', tech: 'extraction' });
-    p.research!.remaining = 3;
+    p.research.projects[0].done = 157;
     command(game, p.id, { type: 'build', ship: 'corvette', systemId: p.home });
     p.queue[0].remaining = 1;
     command(game, p.id, { type: 'build', ship: 'corvette', systemId: p.home });
@@ -193,7 +194,7 @@ test(
       assert.equal(initial.tick, 120);
       assert.deepEqual(initial.me.resources, p.resources);
       assert.deepEqual(initial.me.empire, p.empire);
-      assert.equal(initial.me.research!.remaining, 3);
+      assert.equal(initial.me.research.projects[0].done, 157);
       assert.equal(initial.me.queue.length, 2);
       assert.equal(initial.fleets.find((f) => f.id === scout.id)!.progress, 0.75);
       assert.equal(initial.systems.find((s) => s.id === p.home)!.colony!.construction!.remaining, 2);
@@ -260,7 +261,7 @@ test(
         civics: ['conservation', 'architects'],
       };
       await issue(a, { type: 'empire_reform', government, revision: beforeReform.empire!.revision });
-      assert.equal(gameView(a)!.me.resources.science, beforeReform.resources.science - 150);
+      assert.equal(gameView(a)!.me.resources.data, beforeReform.resources.data - 150);
       await assert.rejects(
         issue(a, { type: 'empire_reform', government, revision: beforeReform.empire!.revision }),
       );
@@ -334,7 +335,7 @@ test(
       p = addPlayer(game, 'ai-test', 'Planner');
     game.paused = true;
     p.ai = { startedAt: 0, nextDecision: 0 } as typeof p.ai;
-    p.resources = { energy: 2000, minerals: 2000, science: 1000 };
+    p.resources = { energy: 2000, minerals: 2000, data: 1000 };
     const admin = await connect(database, { token: adminToken() }),
       a = await connect(database);
     try {

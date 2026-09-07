@@ -15,8 +15,8 @@ import {
   type TemplateSnapshot,
 } from './empires';
 
-export const REFORM_COST = { energy: 100, minerals: 0, science: 150 };
-export const MODIFICATION_COST = { energy: 0, minerals: 120, science: 300 };
+export const REFORM_COST = { energy: 100, minerals: 0, data: 150 };
+export const MODIFICATION_COST = { energy: 0, minerals: 120, data: 300 };
 export const REFORM_COOLDOWN = 120;
 export const MODIFICATION_COOLDOWN = 240;
 export interface LivingSpecies extends SpeciesDesign {
@@ -119,7 +119,7 @@ export function colonyModifiers(
       ((1 - habitability(species, environment, government.habitability)) * 0.5 * group.population) / total;
     result.energy -= penalty;
     result.minerals -= penalty;
-    result.science -= penalty;
+    result.data -= penalty;
   }
   return result;
 }

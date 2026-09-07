@@ -59,7 +59,7 @@ export const empire = table(
     id: t.u32().primaryKey(),
     energy: t.f64(),
     minerals: t.f64(),
-    science: t.f64(),
+    data: t.f64(),
     productionModifier: t.f64(),
     researchLevel: t.u32(),
     ai: t.bool(),
@@ -124,7 +124,7 @@ export const colony = table(
     population: t.u32(),
     energyRate: t.f64(),
     mineralsRate: t.f64(),
-    scienceRate: t.f64(),
+    dataRate: t.f64(),
     lastProducedAt: t.f64(),
   },
 );

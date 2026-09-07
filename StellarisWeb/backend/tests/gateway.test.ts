@@ -29,7 +29,13 @@ test(
     const start = async () => {
       let output = '';
       child = spawn(process.execPath, ['--import', 'tsx', 'server/index.ts'], {
-        env: { ...process.env, PORT: '0', HOST: '127.0.0.1', DATA_DIR: directory },
+        env: {
+          ...process.env,
+          PORT: '0',
+          HOST: '127.0.0.1',
+          DATA_DIR: directory,
+          ADMIN_PANEL_TOKEN: 'gateway-test-admin',
+        },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
       });
@@ -74,6 +80,13 @@ test(
       lobby.send({ type: 'create', templateId: ownLibrary.library.empires[0].id, galaxy });
       await until(() => lobby.messages.some((m) => m.type === 'native_ready'));
       const ready = lobby.messages.find((m) => m.type === 'native_ready');
+      const available = await fetch(`http://127.0.0.1:${port}/api/galaxies/${ready.code}`);
+      assert.equal(available.status, 200);
+      assert.deepEqual(await available.json(), { exists: true });
+      const missingCode = ready.code === 'FFFFFF' ? '000000' : 'FFFFFF';
+      const missing = await fetch(`http://127.0.0.1:${port}/api/galaxies/${missingCode}`);
+      assert.equal(missing.status, 404);
+      assert.deepEqual(await missing.json(), { exists: false });
       const a = await connect(ready.database, { uri: `ws://127.0.0.1:${port}` });
       clients.push(a);
       await a.conn.reducers.redeemGameSeat({ ticket: ready.ticket });
@@ -119,7 +132,7 @@ test(
       clients.push(resumed);
       await subscribe(resumed.conn, GAME_QUERIES);
       assert.equal(resumed.identity, a.identity);
-      assert.equal(gameView(resumed)!.me.research!.remaining, before.me.research!.remaining);
+      assert.deepEqual(gameView(resumed)!.me.research, before.me.research);
       assert.equal(gameView(resumed)!.me.id, before.me.id);
       assert.deepEqual(gameView(resumed)!.me.resources, before.me.resources);
       assert.equal(gameView(resumed)!.players.length, 2);
@@ -134,6 +147,80 @@ test(
       assert.deepEqual(registry[0].galaxy, galaxy);
       assert(!(await readdir(directory)).includes('sectors.json'));
       assert(!(await readdir(directory)).includes('native-imports'));
+      const adminUrl = `http://127.0.0.1:${port}/api/admin/servers`;
+      const adminHeaders = { Authorization: 'Bearer gateway-test-admin', 'Content-Type': 'application/json' };
+      assert.equal((await fetch(adminUrl)).status, 401);
+      const overview = await (await fetch(adminUrl, { headers: adminHeaders })).json();
+      assert.equal(overview.servers.length, 1);
+      assert.equal(overview.servers[0].players.length, 2);
+      assert.equal(overview.servers[0].status, 'paused');
+      assert(!JSON.stringify(overview).includes(registry[0].migrationKey));
+      const readMatch = async () => {
+        const response = await fetch(`${adminUrl}/${ready.code}`, { headers: adminHeaders });
+        assert.equal(response.status, 200, await response.clone().text());
+        return response.json();
+      };
+      const detail = await readMatch();
+      assert.equal(detail.systems.length, 400);
+      assert.equal(detail.lanes.length, 960);
+      assert.equal(detail.empires.length, 2);
+      assert.equal(detail.empires[0].colonies.length, 1);
+      assert(
+        detail.empires[0].colonies[0].population > 0 && detail.empires[0].colonies[0].population < 100,
+        'population is expressed in game billions, not fixed-point units',
+      );
+      assert.equal(detail.fleets.length, 6);
+      assert(!JSON.stringify(detail).includes(registry[0].migrationKey));
+      const action = (body: unknown) =>
+        fetch(`${adminUrl}/${ready.code}`, {
+          method: 'POST',
+          headers: adminHeaders,
+          body: JSON.stringify(body),
+        });
+      assert.equal((await action({ action: 'clock', paused: false, speed: 9 })).status, 400);
+      assert.equal((await action({ action: 'clock', paused: false, speed: 2 })).status, 200);
+      await until(() => !gameView(resumed)!.paused && gameView(resumed)!.speed === 2);
+      assert.equal((await action({ action: 'clock', paused: true, speed: 1 })).status, 200);
+      await until(() => gameView(resumed)!.paused);
+      const target = detail.empires[0];
+      const beforeResources = (await readMatch()).empires[0].energy;
+      const grant = { action: 'resources', empireId: target.id, resource: 'energy', amount: 100 };
+      const denied = await fetch(`http://127.0.0.1:3100/v1/database/${ready.database}/call/administer_game`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${a.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify([JSON.stringify(grant)]),
+      });
+      assert(!denied.ok, 'ordinary player cannot call admin reducer');
+      assert.equal((await action({ ...grant, amount: 100001 })).status, 400);
+      assert.equal((await action(grant)).status, 200);
+      assert.equal((await readMatch()).empires[0].energy, beforeResources + 100);
+      assert.equal((await action({ ...grant, amount: -100000 })).status, 502);
+      assert.equal(
+        (await readMatch()).empires[0].energy,
+        beforeResources + 100,
+        'rejected booking is atomic',
+      );
+      const secondResumed = await connect(ready.database, { uri: `ws://127.0.0.1:${port}`, token: b.token });
+      clients.push(secondResumed);
+      const nextHost = detail.empires.find((e: { host: boolean }) => !e.host);
+      assert.equal((await action({ action: 'host', empireId: nextHost.id })).status, 200);
+      assert.equal((await readMatch()).empires.find((e: { host: boolean }) => e.host).id, nextHost.id);
+      assert.equal((await action({ action: 'add_ai' })).status, 200);
+      const withAi = await readMatch();
+      assert.equal(withAi.empires.length, 3);
+      assert.equal(withAi.empires.filter((e: { ai: boolean }) => e.ai).length, 1);
+      assert.equal(
+        (await action({ action: 'host', empireId: withAi.empires.find((e: { ai: boolean }) => e.ai).id }))
+          .status,
+        502,
+      );
+      assert.equal((await action({ action: 'delete', confirmation: 'WRONG' })).status, 400);
+      const templatesBefore = await readFile(join(directory, 'empire-libraries.json'), 'utf8');
+      clients.forEach((c) => c.conn.disconnect());
+      assert.equal((await action({ action: 'delete', confirmation: ready.code })).status, 200);
+      assert.deepEqual(JSON.parse(await readFile(join(directory, 'native-sectors.json'), 'utf8')), []);
+      assert.equal(await readFile(join(directory, 'empire-libraries.json'), 'utf8'), templatesBefore);
+      assert.equal((await (await fetch(adminUrl, { headers: adminHeaders })).json()).servers.length, 0);
     } finally {
       clients.forEach((c) => c.conn.disconnect());
       sockets.forEach((s) => s.terminate());

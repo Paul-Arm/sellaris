@@ -37,7 +37,7 @@ async function fixture(configure: (game: GameState) => void) {
   source.paused = true;
   for (const id of ['a', 'b']) {
     const p = addPlayer(source, id, id);
-    p.resources = { energy: 1000, minerals: 1000, science: 1000 };
+    p.resources = { energy: 1000, minerals: 1000, data: 1000 };
   }
   // Crisis ledger assertions isolate crisis factors from population growth.
   for (const system of source.systems)
@@ -132,7 +132,7 @@ test(
       assert.deepEqual(funds(a), {
         energy: before.energy + 110 - 40,
         minerals: before.minerals - 40,
-        science: before.science + 100,
+        data: before.data + 100,
       });
       const final = funds(a);
       await assert.rejects(issue(a, { type: 'resolve_decision', decisionId: archive.id, choice: 'salvage' }));
@@ -264,8 +264,8 @@ test(
       await issue(b, { type: 'crisis_action', crisisId: 1, action: 'contribute' });
       await until(() => gameView(a)!.crises![0].phase === 'contained');
       await until(() => gameView(newcomer)!.decisions![0].outcome === 'contained');
-      assert.equal(funds(a).science, aBefore.science - 60 + 80);
-      assert.equal(funds(b).science, bBefore.science - 30 + 80, 'reward includes its earlier contribution');
+      assert.equal(funds(a).data, aBefore.data - 60 + 80);
+      assert.equal(funds(b).data, bBefore.data - 30 + 80, 'reward includes its earlier contribution');
       assert.equal(gameView(newcomer)!.decisions![0].outcome, 'contained');
       assert.equal(gameView(b)!.systems.find((s) => s.id === bv.me.home)!.productionFactor, 1);
       assert.equal([...b.conn.db.myColonies.iter()][0].energyRate, rate.energy / 0.75);

@@ -35,7 +35,7 @@ test(
     const game = createGame('C010AB'),
       p = addPlayer(game, 'colony-owner', 'Terraner');
     game.paused = true;
-    p.resources = { energy: 10000, minerals: 10000, science: 10000 };
+    p.resources = { energy: 10000, minerals: 10000, data: 10000 };
     const admin = await connect(database, { token: adminToken() }),
       a = await connect(database),
       b = await connect(database);
@@ -89,7 +89,7 @@ test(
       const rates = [...a.conn.db.myColonies.iter()][0],
         expected = colonyProduction(home(), gameView(a)!.me);
       assert.equal(rates.energyRate, expected.energy);
-      assert.equal(rates.scienceRate, expected.science);
+      assert.equal(rates.dataRate, expected.data);
       await issue(a, { type: 'colony_upgrade', districtId: built.id, ...target() });
       await assert.rejects(
         issue(a, { type: 'colony_demolish', districtId: built.id, ...target() }),

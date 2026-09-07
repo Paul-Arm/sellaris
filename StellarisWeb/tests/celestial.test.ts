@@ -21,16 +21,16 @@ test('durable orbital slots cover buildable stars, worlds, moons, rocks and ruin
   }
 });
 test('installation yields are included once in the empire ledger and scale by level and crisis', () => {
-  assert.deepEqual(facilityYield('solar', 3, 0.5), { energy: 7.5, minerals: 0, science: 0 });
+  assert.deepEqual(facilityYield('solar', 3, 0.5), { energy: 7.5, minerals: 0, data: 0 });
   assert(facilitySpec('mine', 2).cost.minerals > facilitySpec('mine', 1).cost.minerals);
   const g = createGame('ABC123'),
     p = addPlayer(g, 'a', 'A'),
     before = income(g, p);
-  p.installationIncome = { energy: 5, minerals: 4, science: 3 };
+  p.installationIncome = { energy: 5, minerals: 4, data: 3 };
   assert.deepEqual(income(g, p), {
     energy: before.energy + 5,
     minerals: before.minerals + 4,
-    science: before.science + 3,
+    data: before.data + 3,
   });
 });
 

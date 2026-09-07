@@ -1,6 +1,8 @@
 import { db } from './tables';
 export { sampleClock } from './clock';
 export default db;
+export { myResearch } from './game-research';
+export { visibleStellarWeather } from './game-stellar-weather';
 export { renameBody, focusSystemObjects, focusedSystemObjects, focusedObjectSystems } from './game-objects';
 export { startTerraforming, cancelTerraforming, myTerraformProjects } from './game-terraforming';
 export { visibleGameSites } from './game-views';
@@ -12,6 +14,8 @@ export {
   gameDisconnected,
 } from './game-world';
 export { gameCommand } from './game-commands';
+export { myPlanetColonies } from './game-planet-colonies';
+export { administerGame } from './game-admin';
 export { initializeDiplomacy } from './game-diplomacy';
 export { initializeStories } from './game-stories';
 export { myGameStories, myCrisisPledges } from './game-views';

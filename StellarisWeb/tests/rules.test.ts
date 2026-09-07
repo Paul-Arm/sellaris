@@ -376,7 +376,7 @@ test('the live empire adapter preserves all existing species and government bala
       for (const civic of government.civics) addEffects(old, CIVICS[civic].effects);
       const current = governmentModifiers(government, originId);
       for (const key of Object.keys(old) as (keyof typeof old)[]) near(current[key], old[key]);
-      assert.ok(evaluateGovernmentRules(government, originId).stats['legacy.science']);
+      assert.ok(evaluateGovernmentRules(government, originId).stats['legacy.data']);
     }
   }
 });

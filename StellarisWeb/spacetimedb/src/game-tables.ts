@@ -53,7 +53,7 @@ export const gameSystem = table(
     planet: t.string(),
     energy: t.f64(),
     minerals: t.f64(),
-    science: t.f64(),
+    data: t.f64(),
     defense: t.f64(),
     mined: t.bool(),
     anomaly: t.bool(),
@@ -109,7 +109,7 @@ export const gameRelation = table(
     changedAt: t.f64(),
   },
 );
-const resources = t.object('DiplomaticResources', { energy: t.f64(), minerals: t.f64(), science: t.f64() });
+const resources = t.object('DiplomaticResources', { energy: t.f64(), minerals: t.f64(), data: t.f64() });
 export const gameOffer = table(
   {},
   {
@@ -182,7 +182,7 @@ export const gameTerraform = table(
     finishTick: t.u64().index('btree'),
     paidEnergy: t.f64(),
     paidMinerals: t.f64(),
-    paidScience: t.f64(),
+    paidData: t.f64(),
   },
 );
 // Allocates slots permanently, including removed objects.
@@ -230,7 +230,36 @@ export const gameNavigation = table(
     dueTick: t.u64().index('btree'),
   },
 );
+export const gamePlanetColony = table(
+  {},
+  {
+    id: t.string().primaryKey(),
+    systemId: t.u32().index('btree'),
+    empireId: t.u32().index('btree'),
+    colonyJson: t.string(),
+    growthAt: t.f64(),
+    lastProducedAt: t.f64(),
+  },
+);
+export const gameStellarWeather = table(
+  {},
+  {
+    id: t.u32().primaryKey(),
+    objectId: t.string(),
+    phase: t.string(),
+    discoveredAt: t.f64(),
+    startsAt: t.f64(),
+    endsAt: t.f64(),
+    nextTick: t.u64().index('btree'),
+  },
+);
+export const gameResearch = table({}, {
+  id: t.u32().primaryKey(), programJson: t.string(), updatedAt: t.f64(),
+});
 export const gameTables = {
+  gameResearch,
+  gameStellarWeather,
+  gamePlanetColony,
   gameNavigation,
   gameTerraform,
   gameObjectCatalog,

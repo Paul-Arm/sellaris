@@ -1,8 +1,16 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { GameCommand, GameView, Fleet, StarSystem } from '../shared/game';
-import { FACILITIES, facilitySpec, type CelestialBody, type Facility } from '../shared/celestial';
+import {
+  FACILITIES,
+  facilitySpec,
+  facilityFits,
+  type CelestialBody,
+  type Facility,
+} from '../shared/celestial';
+import { MEGASTRUCTURES, hostMegastructure, isMegastructure } from '../shared/megastructures';
 import { bodyPosition, constructionFleet } from '../shared/navigation';
 import type { SystemTarget } from './SystemSpaceScene';
+import { colonizableBody } from '../shared/planetColonies';
 
 export function SystemContextMenu({
   target,
@@ -30,10 +38,10 @@ export function SystemContextMenu({
   disabled: boolean;
   command: (c: GameCommand) => void;
   close: () => void;
-  onBody: (slot: number) => void;
+  onBody: (slot: number, project?: boolean) => void;
   onFleet: (id: string) => void;
   onNavigate: (id: string) => void;
-  onColony: () => void;
+  onColony: (objectId?: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<Element | null>(null);
@@ -101,6 +109,19 @@ export function SystemContextMenu({
     );
   const site = body && game.sites?.find((s) => s.systemId === system.id && s.bodySlot === body.slot);
   const builder = constructionFleet(game, system.id, fleet?.id);
+  const planetColony =
+    body && game.planetColonies?.find((c) => c.systemId === system.id && c.bodySlot === body.slot);
+  const colonist =
+    (localFleet?.type === 'colony' ? localFleet : undefined) ||
+    game.fleets.find(
+      (f) =>
+        f.owner === game.me.id &&
+        f.systemId === system.id &&
+        f.type === 'colony' &&
+        !f.route.length &&
+        !f.battleId &&
+        !f.task,
+    );
   const allowed =
     surveyed &&
     (own ||
@@ -175,15 +196,47 @@ export function SystemContextMenu({
           System erkunden{!scout && <small>Forschungsschiff vor Ort benötigt</small>}
         </button>
       )}
-      {body?.main && own && (
+      {(body?.main || planetColony) && own && (
         <button
           role="menuitem"
           onClick={() => {
-            onColony();
+            onColony(planetColony?.objectId);
             close();
           }}
         >
           Kolonie verwalten
+        </button>
+      )}
+      {body && own && surveyed && colonizableBody(body) && !planetColony && (
+        <button
+          role="menuitem"
+          disabled={disabled || !colonist}
+          onClick={() =>
+            colonist &&
+            run({
+              type: 'colonize',
+              fleetId: colonist.id,
+              systemId: system.id,
+              bodySlot: body.slot,
+              append: true,
+            })
+          }
+        >
+          Planeten besiedeln
+          <small>
+            {colonist ? 'Anflug und Gründung · 80 Energie / 80 Mineralien' : 'Kolonieschiff vor Ort benötigt'}
+          </small>
+        </button>
+      )}
+      {body && hostMegastructure(body) && (
+        <button
+          role="menuitem"
+          onClick={() => {
+            onBody(body.slot, true);
+            close();
+          }}
+        >
+          {MEGASTRUCTURES[hostMegastructure(body)!].name} verwalten
         </button>
       )}
       {body &&
@@ -198,21 +251,24 @@ export function SystemContextMenu({
           </button>
         ) : (
           (Object.keys(FACILITIES) as Facility[])
-            .filter((id) => FACILITIES[id].kinds.includes(body.kind) && (!site || site.facility === id))
+            .filter((id) => facilityFits(id, body) && (!site || site.facility === id))
             .map((id) => {
               const spec = facilitySpec(id, site?.level || 0);
-              const reason = !surveyed
-                ? 'System zuerst erkunden'
-                : !builder
-                  ? 'Eigenes Schiff im System benötigt'
-                  : !allowed
-                    ? 'Eigenes System benötigt'
-                    : (site?.level || 0) >= 3
-                      ? 'Voll ausgebaut'
-                      : game.me.resources.energy < spec.cost.energy ||
-                          game.me.resources.minerals < spec.cost.minerals
-                        ? 'Nicht genug Rohstoffe'
-                        : '';
+              const reason =
+                isMegastructure(id) && !game.me.techs.includes('megastructures')
+                  ? 'Megakonstruktion erforschen'
+                  : !surveyed
+                    ? 'System zuerst erkunden'
+                    : !builder
+                      ? 'Eigenes Schiff im System benötigt'
+                      : !allowed
+                        ? 'Eigenes System benötigt'
+                        : (site?.level || 0) >= 3
+                          ? 'Voll ausgebaut'
+                          : game.me.resources.energy < spec.cost.energy ||
+                              game.me.resources.minerals < spec.cost.minerals
+                            ? 'Nicht genug Rohstoffe'
+                            : '';
               const name = id === 'mine' ? 'Bergbaustation' : FACILITIES[id].name;
               return (
                 <button
@@ -223,7 +279,8 @@ export function SystemContextMenu({
                     run({ type: 'site_build', systemId: system.id, bodySlot: body.slot, facility: id })
                   }
                 >
-                  {name} {site?.level ? 'ausbauen' : 'bauen'}
+                  {isMegastructure(id) ? MEGASTRUCTURES[id].stages[Math.min(2, site?.level || 0)].name : name}{' '}
+                  {site?.level ? 'ausbauen' : 'bauen'}
                   <small>
                     {reason ||
                       `${spec.cost.energy} Energie · ${spec.cost.minerals} Mineralien · ${spec.days} T`}

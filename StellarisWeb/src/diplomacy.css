@@ -63,6 +63,54 @@
   color: #83959e;
   margin-top: 5px;
 }
+
+.dip-layout {
+  grid-template-columns: 230px minmax(0, 1fr);
+  margin-top: 12px;
+}
+.dip-peers.detail-list {
+  height: min(580px, 65vh);
+  max-height: none;
+  overflow: hidden;
+}
+.dip-peers .detail-list-rows > button {
+  min-height: 46px;
+  padding: 6px;
+  gap: 7px;
+  justify-content: flex-start;
+}
+.dip-peers .detail-list-rows > button > span {
+  min-width: 0;
+}
+.dip-peers .detail-list-rows strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+.dip-peers .detail-list-rows small {
+  margin-top: 2px;
+}
+.dip-peers .detail-list-search button {
+  flex: none;
+  width: 24px;
+  padding: 0;
+}
+.dip-detail {
+  padding-top: 14px;
+}
+.dip-offers {
+  max-height: 390px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.dip-offers > h4 {
+  position: sticky;
+  top: 0;
+  padding: 8px 0;
+  background: #131b28;
+  z-index: 1;
+}
 .dip-detail {
   min-width: 0;
   padding: 22px 0 0 22px;
@@ -260,5 +308,8 @@
   }
   .dip-count {
     font-size: 10px;
+  }
+  .dip-peers.detail-list {
+    height: 230px;
   }
 }

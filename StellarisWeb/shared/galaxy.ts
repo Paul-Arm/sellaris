@@ -89,7 +89,7 @@ export function createGalaxy(
       resources: {
         energy: 2 + Math.floor(random() * 6),
         minerals: 2 + Math.floor(random() * 6),
-        science: 1 + Math.floor(random() * 3),
+        data: 1 + Math.floor(random() * 3),
       },
       defense: i % 29 === 0 ? 85 : 0,
       mined: false,

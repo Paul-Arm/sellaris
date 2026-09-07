@@ -19,6 +19,7 @@ import { addJob, event, makeShip, updateColony } from './game-model';
 import { publishBattleReport } from './battle-reports';
 import { ensureStoryWorld, storyForNewEmpire } from './game-stories';
 import { ensureSystemObjects } from './game-objects';
+import { newResearch } from '../../shared/research';
 
 export function gameClock(ctx: Context, paused: boolean, speed = ctx.db.clock.id.find(1)!.speed) {
   const at = clockNow(ctx),
@@ -84,7 +85,7 @@ export const initializeGame = db.reducer(
     const game: GameState = sourceJson ? JSON.parse(sourceJson) : createGalaxy(code, seed);
     if (
       game.code !== code ||
-      game.version !== 1 ||
+      game.version !== 2 ||
       !Array.isArray(game.systems) ||
       game.systems.length > 2000 ||
       game.players.length > 25
@@ -138,7 +139,7 @@ export const initializeGame = db.reducer(
         planet: s.planet,
         energy: s.resources.energy,
         minerals: s.resources.minerals,
-        science: s.resources.science,
+        data: s.resources.data,
         defense: s.defense,
         mined: s.mined,
         anomaly: s.anomaly,
@@ -156,7 +157,7 @@ export const initializeGame = db.reducer(
         id,
         energy: p.resources.energy,
         minerals: p.resources.minerals,
-        science: p.resources.science,
+        data: p.resources.data,
         productionModifier: 1,
         researchLevel: p.techs.length,
         ai: !!p.ai,
@@ -178,8 +179,7 @@ export const initializeGame = db.reducer(
       });
       for (const s of game.systems.filter((s) => s.owner === p.id))
         updateColony(ctx, stars.get(s.id)!, s.colony!, id);
-      if (p.research)
-        addJob(ctx, id, 'game_research', p.research.id, 0, p.research.total, p.research.remaining);
+      ctx.db.gameResearch.insert({ id, programJson: JSON.stringify(p.research), updatedAt: at });
       p.queue.forEach((j, i) =>
         addJob(
           ctx,
@@ -276,7 +276,7 @@ export function foundEmpire(ctx: Context, externalId: string, snapshot: Template
     id,
     energy: 420 + (origin.resources.energy || 0),
     minerals: 360 + (origin.resources.minerals || 0),
-    science: 130 + (origin.resources.science || 0),
+    data: 130 + (origin.resources.data || 0),
     productionModifier: 1,
     researchLevel: 0,
     ai,
@@ -291,6 +291,7 @@ export function foundEmpire(ctx: Context, externalId: string, snapshot: Template
     ai,
   });
   ctx.db.gamePresence.insert({ id, online: false });
+  ctx.db.gameResearch.insert({ id, programJson: JSON.stringify(newResearch()), updatedAt: at });
   ctx.db.gamePlayer.insert({
     id,
     externalId,

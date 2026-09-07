@@ -6,9 +6,9 @@ import { admin, now } from './rules';
 import { event, settleEconomy, refreshColonyRate } from './game-model';
 import { pledgeKey } from './game-crisis-state';
 
-const zero = { energy: 0, minerals: 0, science: 0 };
-const resources = ['energy', 'minerals', 'science'] as const;
-const names = { energy: 'Energie', minerals: 'Mineralien', science: 'Forschung' };
+const zero = { energy: 0, minerals: 0, data: 0 };
+const resources = ['energy', 'minerals', 'data'] as const;
+const names = { energy: 'Energie', minerals: 'Mineralien', data: 'Daten' };
 function rewardText(value: Resources) {
   return resources
     .filter((k) => value[k])
@@ -23,7 +23,7 @@ function transact(ctx: Context, owner: number, cost: Resources, reward: Resource
     ...e,
     energy: e.energy - cost.energy + reward.energy,
     minerals: e.minerals - cost.minerals + reward.minerals,
-    science: e.science - cost.science + reward.science,
+    data: e.data - cost.data + reward.data,
   });
 }
 export function openStory(ctx: Context, owner: number, kind: StoryKind, sourceKey: string, systemId: number) {
@@ -107,7 +107,7 @@ function contain(ctx: Context, id: number) {
   refreshEconomies(ctx);
   for (const p of ctx.db.gameCrisisPledge.crisisId.filter(id)) {
     if (p.contributions)
-      transact(ctx, p.empireId, zero, { ...zero, science: p.contributions * CRISIS.sciencePerContribution });
+      transact(ctx, p.empireId, zero, { ...zero, data: p.contributions * CRISIS.dataPerContribution });
   }
   // Close remaining response requests without overwriting an already recorded choice.
   for (const p of ctx.db.gamePlayer.iter()) {
@@ -157,7 +157,7 @@ function crisisAction(ctx: Context, owner: number, id: number, action: string) {
     event(
       ctx,
       owner,
-      'Ein Stabilisierungspaket wurde bereitgestellt. Nach Eindämmung: +40 Forschung.',
+      'Ein Stabilisierungspaket wurde bereitgestellt. Nach Eindämmung: +40 Daten.',
       'info',
     );
     if (meta.progress + 1 >= meta.target) contain(ctx, id);
@@ -183,7 +183,7 @@ function resolve(ctx: Context, owner: number, id: number, choiceId: string, auto
     result =
       option.action === 'shield'
         ? 'Alle eigenen Kolonien sind für diese Krise abgeschirmt.'
-        : 'Ein Stabilisierungspaket finanziert. Nach Eindämmung: +40 Forschung.';
+        : 'Ein Stabilisierungspaket finanziert. Nach Eindämmung: +40 Daten.';
   } else transact(ctx, owner, option.cost, option.reward);
   ctx.db.decision.id.update({ ...d, phase: automatic ? 'expired' : 'resolved', outcome: choiceId });
   ctx.db.gameStory.id.update({ ...story, resolvedAt: now(ctx), result });

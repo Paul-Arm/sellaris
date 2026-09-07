@@ -1,0 +1,88 @@
+.empire-inventory { display: flex; flex-direction: column; min-height: 0; min-width: 0; color: #d5dce7; }
+.inventory-tabbar { display: flex; align-items: flex-start; gap: 4px; flex: none; }
+.inventory-tabbar > .inventory-tabs { flex: 1; }
+.inventory-ships { flex-direction: column; }
+.inventory-tabs.inventory-ship-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; border-bottom: 1px solid #8d9ab51a; }
+.inventory-tabs.inventory-ship-tabs button { gap: 4px; padding: 8px 0 10px; font-size: 11px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none; }
+.inventory-tabs.inventory-ship-tabs button[aria-selected='true'] { border-bottom-color: #b5a4e5; color: #e0d8ff; background: transparent; }
+.inventory-tabs.inventory-ship-tabs button:hover { color: #eee7ff; }
+.inventory-tabs.inventory-ship-tabs button b { font-size: 10px; font-weight: 500; color: #91a1b8; }
+.inventory-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0; margin-bottom: 12px; border-bottom: 1px solid #8d9ab526; flex: none; }
+.inventory-tabs button { display: flex; align-items: center; justify-content: flex-start; gap: 7px; min-width: 0; padding: 10px 0 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none; color: #94a2b8; font-size: 13px; font-weight: 500; cursor: pointer; transition: color 120ms, border-color 120ms; }
+.inventory-tabs button b { margin-left: auto; color: #91a1b8; font-size: 11px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.inventory-tabs button[aria-selected='true'] { color: #e7dfff; border-bottom-color: #b5a4e5; background: transparent; }
+.inventory-tabs button:hover { color: #eee7ff; }
+.inventory-columns { flex: 1; display: flex; min-height: 0; min-width: 0; }
+.inventory-columns > div { min-height: 0; min-width: 0; display: flex; flex: 1; }
+.inventory-columns > [hidden] { display: none; }
+.inventory-list { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; color: #d5dce7; }
+.inventory-list-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding: 7px 0; flex: none; }
+.inventory-list-title h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.inventory-list-title > span { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; }
+.inventory-list-title small { font-size: 10px; color: #91a1b8; }
+.inventory-search { display: flex; align-items: center; flex: none; min-width: 0; gap: 8px; min-height: 32px; padding: 0 9px; border: 1px solid #8d9ab526; border-radius: 5px; background: #0a111b70; color: #899bb3; margin-bottom: 5px; }
+.inventory-search input { min-width: 0; width: 100%; height: 30px; padding: 0; border: 0; background: transparent; color: #d5dce7; font: inherit; font-size: 12px; outline: none; }
+.inventory-search input::-webkit-search-cancel-button { display: none; }
+.inventory-search svg { flex: none; }
+.inventory-search:focus-within { outline: 1px solid #b5a4e5; }
+.inventory-search button { flex: none; width: 22px; height: 24px; padding: 0; border: 0; background: transparent; color: inherit; }
+.inventory-filters { display: flex; flex: none; gap: 5px; margin-bottom: 5px; }
+.inventory-filters > :is(select, button) { min-width: 0; flex: 1; height: 29px; padding: 3px 5px; border: 1px solid #8d9ab538; border-radius: 3px; background: #141e2c; color: #c4cfde; font: inherit; font-size: 11px; }
+.inventory-controls { flex: none; }
+.inventory-toolbar { display: flex; align-items: center; gap: 14px; min-height: 30px; padding: 0 2px 4px; }
+.inventory-toolbar > button { display: flex; align-items: center; gap: 5px; padding: 4px 0; border: 0; border-radius: 0; background: transparent; color: #96a8bf; font: inherit; font-size: 10px; cursor: pointer; white-space: nowrap; }
+.inventory-toolbar > button:hover, .inventory-toolbar > button[aria-expanded='true'], .inventory-toolbar > button.has-filter { color: #d3c5f4; }
+.inventory-toolbar > button:last-child:nth-child(3) { margin-left: auto; }
+.inventory-toolbar b { font-size: 9px; font-weight: 500; min-width: 13px; border-radius: 3px; background: #b5a4e526; text-align: center; }
+.inventory-control-panel { padding: 5px 0 7px; }
+.inventory-control-panel[hidden] { display: none; }
+.inventory-tree-actions { display: flex; flex: none; align-items: center; gap: 8px; min-height: 27px; font-size: 10px; }
+.inventory-tree-actions button { padding: 3px 0; color: #afc0d8; font-size: 10px; }
+.inventory-tree-actions span { margin-left: auto; color: #97a8bf; font-variant-numeric: tabular-nums; }
+.inventory-column-head { display: flex; flex: none; justify-content: space-between; gap: 6px; padding: 6px; border-block: 1px solid #8694af30; color: #91a4bc; font-size: 10px; }
+.virtual-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-gutter: stable; contain: layout style; }
+.inventory-row { display: flex; align-items: center; gap: 5px; padding: 0 6px; box-sizing: border-box; border-bottom: 1px solid #8694af16; color: #c2cede; cursor: pointer; user-select: none; font-size: 12px; }
+.inventory-row:hover { background: #899fc010; }
+.inventory-row.selected { background: #ad9cdb24; color: #f0eaff; box-shadow: inset 2px 0 #b7a5eb; }
+.virtual-list:focus { outline: none; }
+.virtual-list:focus-visible .keyboard-active { outline: 1px solid #aabde3; outline-offset: -1px; }
+.inventory-row.drop-target { box-shadow: inset 0 2px #a3ddc5; background: #7bc5a729; }
+.inventory-row > svg { flex: none; }
+.inventory-grip { color: #637890; cursor: grab; touch-action: none; }
+.inventory-indent { width: 10px; flex: none; border-left: 1px solid #63789044; height: 100%; }
+.inventory-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; }
+.inventory-name strong { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; font-weight: 500; }
+.inventory-name small { display: block; font-size: 10px; color: #91a5be; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin-top: 2px; }
+.inventory-tier, .inventory-count { flex: none; color: #8e9eb5; font-size: 10px; font-variant-numeric: tabular-nums; }
+.inventory-metric { flex: none; min-width: 30px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
+.inventory-metric.attention { color: #dec58e; }
+.inventory-status { flex: none; width: 4px; height: 4px; border-radius: 50%; background: #d0ad71; }
+.inventory-status.available { background: #8fc9a8; }
+.inventory-status.battle { background: #e48989; }
+.inventory-list-footer { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 4px; min-height: 28px; border-top: 1px solid #8694af30; }
+.inventory-list-footer > span { color: #91a1b8; font-size: 9px; }
+.inventory-list-footer button { display: flex; align-items: center; gap: 4px; padding: 5px 3px; color: #c9bdec; font-size: 10px; }
+.inventory-empty { color: #9faec2; font-size: 12px; margin: 0; padding: 12px 6px; }
+.inventory-list:has(> .inventory-empty) > .virtual-list { flex: 0; }
+.inventory-list > .inventory-empty { margin-bottom: auto; }
+.inventory-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.empire-inventory :is(button, select):focus-visible, .colony-tree :is(button, select):focus-visible { outline: 2px solid #b5bde9; outline-offset: -2px; }
+.inventory-list button:disabled { opacity: .4; cursor: not-allowed; }
+.left-panel.inventory-sidebar { gap: 0; padding: 12px; overflow: hidden; width: 280px; box-sizing: border-box; margin: 0; top: 18px; bottom: 18px; left: 18px; }
+.inventory-sidebar > .empire-inventory { flex: 1; min-height: 220px; pointer-events: auto; }
+.inventory-sidebar-footer { flex: none; padding-top: 6px; border-top: 1px solid #8694af30; }
+.inventory-sidebar-footer > button { display: flex; gap: 8px; width: 100%; padding: 6px 2px; justify-content: flex-start; color: #aebdd1; font-size: 11px; }
+.inventory-sidebar-footer > button span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.inventory-sidebar-footer > div { display: flex; justify-content: space-between; }
+.inventory-sidebar-footer > div button { display: flex; gap: 6px; padding: 6px 2px; color: #93a8c2; font-size: 10px; }
+.inventory-sidebar-footer b { color: #e0c38b; font-weight: 500; }
+.planet-manager > .colony-tree.inventory-list { grid-column: 1; grid-row: 1 / span 4; height: min(720px, 80dvh); position: sticky; top: 0; padding: 10px; border-right: 1px solid #a69bc321; }
+.planet-manager:has(> .colony-tree) { grid-template-columns: 280px minmax(0, 1fr); }
+.planet-manager:has(> .colony-tree) > :not(.colony-tree) { grid-column: 2; min-width: 0; }
+@media (max-width: 1050px) {
+  .planet-manager:has(> .colony-tree) { display: block; }
+  .planet-manager > .colony-tree.inventory-list { height: 300px; position: static; border-bottom: 1px solid #a69bc321; padding: 10px 48px 10px 12px; }
+}
+@media (max-width: 850px) {
+  .left-panel.inventory-sidebar { width: min(310px, calc(100vw - 92px)); }
+}

@@ -8,11 +8,13 @@ export function NavigationPanel({
   game,
   command,
   disabled,
+  bodies,
 }: {
   fleet: Fleet;
   game: GameView;
   command: (c: GameCommand) => void;
   disabled: boolean;
+  bodies: import('../shared/celestial').CelestialBody[];
 }) {
   const nav = fleet.navigation;
   const at = nav ? localPosition(nav.motion, game.tick) : null;
@@ -24,7 +26,6 @@ export function NavigationPanel({
           Position: {Math.round(at.x)} / {Math.round(at.y)} / {Math.round(at.z)}
         </p>
       )}
-      <small>Rechtsklick: Flugziel oder Objektaktionen · Umschalt + Rechtsklick: Flug anhängen.</small>
       {fleet.type === 'scout' && (
         <button
           disabled={disabled || !!fleet.battleId}
@@ -48,6 +49,9 @@ export function NavigationPanel({
         </p>
       )}
       {nav?.phase === 'braking' && <p role="status">Schiff bremst ab.</p>}
+      {nav?.phase === 'colony_flight' && (
+        <p role="status">Anflug zum Planeten · Kolonisierung beginnt erst vor Ort.</p>
+      )}
       {nav?.phase === 'construction_flight' && (
         <p role="status">Anflug zum Bauplatz · Bau beginnt erst in Reichweite.</p>
       )}
@@ -62,9 +66,13 @@ export function NavigationPanel({
                   ? `Nach ${game.systems.find((s) => s.id === o.systemId)?.name || o.systemId}`
                   : o.type === 'scan'
                     ? 'Alle Körper erkunden'
-                    : o.type === 'site_build' || o.type === 'station_place'
+                    : o.type === 'site_build' ||
+                        o.type === 'station_place' ||
+                        o.type === 'megastructure_place'
                       ? `${FACILITIES[o.facility].name} bauen · Anflug zum Bauplatz`
-                      : 'Kolonisieren'}
+                      : o.bodySlot !== undefined
+                        ? `${bodies.find((b) => b.slot === o.bodySlot)?.name || 'Gewählten Planeten'} besiedeln`
+                        : 'Hauptkolonie gründen'}
             </span>
             {i > 0 && (
               <button
@@ -81,14 +89,11 @@ export function NavigationPanel({
       {!nav?.orders.length && <small>Keine wartenden Aufträge.</small>}
       <button
         disabled={disabled || !!fleet.battleId}
+        title="Ein laufender Hyperraumabschnitt endet am nächsten System."
         onClick={() => command({ type: 'fleet_stop', fleetId: fleet.id })}
       >
         Stoppen und Warteschlange leeren
       </button>
-      <small>
-        Ein laufender Hyperraumabschnitt endet am nächsten System. Noch nicht ausführbare Aufträge werden mit
-        Meldung übersprungen.
-      </small>
     </section>
   );
 }

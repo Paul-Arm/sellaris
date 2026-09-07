@@ -25,6 +25,31 @@ export class NativeGateway {
   get size() {
     return this.entries.size;
   }
+  listServers() {
+    return [...this.entries.values()].map(({ code, database, status, galaxy }) => ({
+      code,
+      database,
+      status,
+      galaxy,
+    }));
+  }
+  async administer<T>(code: string, action: (database: string) => Promise<T>, remove = false) {
+    return this.exclusive(async () => {
+      const entry = this.entries.get(code);
+      if (!entry) throw new Error('Galaxie nicht gefunden.');
+      const result = await action(entry.database);
+      if (remove) {
+        this.entries.delete(code);
+        try {
+          await this.save();
+        } catch (error) {
+          this.entries.set(code, entry);
+          throw error;
+        }
+      }
+      return result;
+    });
+  }
   async load() {
     try {
       const rows = JSON.parse(await readFile(this.file, 'utf8'));

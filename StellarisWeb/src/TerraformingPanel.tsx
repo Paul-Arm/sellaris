@@ -8,6 +8,7 @@ import { habitability, governmentModifiers } from '../shared/empires';
 import { colonyProduction } from '../shared/colonies';
 import { terraformingSpec, type TerraformProject } from '../shared/terraforming';
 import './terraforming.css';
+import { planetWorld } from '../shared/planetColonies';
 
 export function TerraformingPanel({
   body,
@@ -46,8 +47,10 @@ export function TerraformingPanel({
   const empire = game.me.empire,
     species = empire?.species.find((s) => s.id === empire.primarySpeciesId);
   const bonus = empire ? governmentModifiers(empire.design.government, empire.design.origin).habitability : 0;
-  const currentRate = colonyProduction(system, game.me);
-  const targetRate = colonyProduction({ ...system, planet: ENVIRONMENTS[target].name }, game.me);
+  const colony = game.planetColonies?.find((c) => c.objectId === body.objectId);
+  const world = colony ? planetWorld(system, colony) : system;
+  const currentRate = colonyProduction(world, game.me);
+  const targetRate = colonyProduction({ ...world, planet: ENVIRONMENTS[target].name }, game.me);
   const submit = (action: () => Promise<unknown>) => {
     if (busy) return;
     setBusy(true);
@@ -87,7 +90,7 @@ export function TerraformingPanel({
           </button>
           <small>
             Erstattet 50 %: {project.paidEnergy / 2} Energie, {project.paidMinerals / 2} Mineralien,{' '}
-            {project.paidScience / 2} Forschung.
+            {project.paidData / 2} Daten.
           </small>
         </>
       ) : (
@@ -122,7 +125,7 @@ export function TerraformingPanel({
               </strong>
             </p>
           )}
-          {body.main ? (
+          {body.main || colony ? (
             <>
               <table>
                 <caption>Kolonieertrag pro 4 Tage</caption>
@@ -134,9 +137,9 @@ export function TerraformingPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {(['energy', 'minerals', 'science'] as const).map((key) => (
+                  {(['energy', 'minerals', 'data'] as const).map((key) => (
                     <tr key={key}>
-                      <th>{{ energy: 'Energie', minerals: 'Mineralien', science: 'Forschung' }[key]}</th>
+                      <th>{{ energy: 'Energie', minerals: 'Mineralien', data: 'Daten' }[key]}</th>
                       <td>{currentRate[key].toFixed(1)}</td>
                       <td>{targetRate[key].toFixed(1)}</td>
                     </tr>
@@ -155,7 +158,7 @@ export function TerraformingPanel({
             </small>
           )}
           <p>
-            {spec.cost.energy} Energie · {spec.cost.minerals} Mineralien · {spec.cost.science} Forschung ·{' '}
+            {spec.cost.energy} Energie · {spec.cost.minerals} Mineralien · {spec.cost.data} Daten ·{' '}
             {spec.days} Tage
           </p>
           {!surveyed && <p>Untersuche zuerst das System.</p>}

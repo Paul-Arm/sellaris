@@ -16,6 +16,19 @@ export function playerShipSet(game: GameView, owner: string | null): ShipSet {
 }
 export function facilityModel(site: BodySite, body: CelestialBody) {
   const level = site.level;
+  if (site.facility === 'decompressor')
+    return {
+      id: level === 0 ? '05_construction_level_0' : level === 1 ? '01_mining_station' : '02_mining_ring',
+      span: body.radius * (level >= 3 ? 6.5 : level >= 2 ? 4.5 : 1.8),
+      centered: true,
+      height: body.radius * (level < 2 ? 2.6 : 1.5),
+    };
+  if (site.facility === 'dyson')
+    return {
+      id: level < 2 ? '05_construction_level_0' : '03_dyson_swarm',
+      span: body.radius * (level >= 3 ? 7 : level >= 2 ? 5 : 3),
+      centered: true,
+    };
   if (body.kind === 'station')
     return {
       id: level ? STATION_MODELS[Math.min(3, level - 1)] : '05_construction_level_0',

@@ -1,3 +1,4 @@
+import { DetailList } from './DetailList';
 import { useState } from 'react';
 import { ArrowLeftRight, Handshake, ShieldCheck, Swords } from 'lucide-react';
 import type { GameCommand, GameView, Resource, Resources } from '../shared/game';
@@ -6,8 +7,8 @@ import { EmpireFlag } from './EmpireFlag';
 import { FLAG_PRESETS } from '../shared/flags';
 import './diplomacy.css';
 
-const keys: Resource[] = ['energy', 'minerals', 'science'];
-const names = { energy: 'Energie', minerals: 'Mineralien', science: 'Forschung' };
+const keys: Resource[] = ['energy', 'minerals', 'data'];
+const names = { energy: 'Energie', minerals: 'Mineralien', data: 'Daten' };
 const statuses = {
   pending: 'Offen',
   accepted: 'Angenommen',
@@ -15,7 +16,7 @@ const statuses = {
   cancelled: 'Zurückgezogen',
   expired: 'Abgelaufen',
 };
-const empty = (): Resources => ({ energy: 0, minerals: 0, science: 0 });
+const empty = (): Resources => ({ energy: 0, minerals: 0, data: 0 });
 const format = (r: Resources) =>
   keys
     .filter((k) => r[k] > 0)
@@ -63,12 +64,10 @@ export function DiplomacyPanel({
       <div className="dip-heading">
         <Handshake size={26} />
         <div>
-          <span className="eyebrow">ZWISCHEN DEN STERNEN</span>
           <h2 id="dialog-title">Diplomatie</h2>
         </div>
         <span className="dip-count">{incoming} eingehend</span>
       </div>
-      <p className="modal-intro">Grenzen entstehen durch Macht. Beziehungen durch Entscheidungen.</p>
       {!peer ? (
         <div className="dip-empty">
           <OrbitMark />
@@ -77,8 +76,15 @@ export function DiplomacyPanel({
         </div>
       ) : (
         <div className="dip-layout">
-          <nav className="dip-peers" aria-label="Diplomatische Kontakte">
-            {peers.map((p) => {
+          <DetailList
+            className="dip-peers"
+            label="Kontakte"
+            items={peers}
+            getKey={(p) => p.id}
+            getName={(p) => p.name}
+            selectedKey={peer.id}
+          >
+            {(p) => {
               const r = relationBetween(game.relations || [], game.me.id, p.id);
               const messages = (game.offers || []).filter(
                 (o) => o.empireA === p.id && o.empireB === game.me.id && o.status === 'pending',
@@ -86,6 +92,7 @@ export function DiplomacyPanel({
               return (
                 <button
                   key={p.id}
+                  title={p.name}
                   aria-pressed={p.id === peer.id}
                   onClick={() => {
                     setSelected(p.id);
@@ -104,8 +111,8 @@ export function DiplomacyPanel({
                   </span>
                 </button>
               );
-            })}
-          </nav>
+            }}
+          </DetailList>
           <div className="dip-detail">
             <div className="dip-identity">
               <EmpireFlag flag={peer.flag || FLAG_PRESETS[0].flag} width={58} />
@@ -207,15 +214,15 @@ export function DiplomacyPanel({
               </form>
             )}
             {peer.ai && (
-              <p className="dip-note dip-ai">
-                Diese KI nimmt Frieden an. Beim Handel bewertet sie Energie mit 1, Mineralien mit 1,2 und
-                Forschung mit 2; sie akzeptiert bezahlbare, mindestens gleichwertige Angebote.
-              </p>
+              <details className="dip-note">
+                <summary>Handelsbewertung</summary>KI: Energie 1 · Mineralien 1,2 · Forschung 2. Akzeptiert
+                bezahlbare, mindestens gleichwertige Angebote und Frieden.
+              </details>
             )}
             <div className="dip-offers">
               <h4>Angebote & Vereinbarungen</h4>
               {!offers.length && <p className="dip-note">Noch keine Angebote mit diesem Reich.</p>}
-              {offers.slice(0, 12).map((o) => {
+              {offers.map((o) => {
                 const outbound = o.empireA === game.me.id,
                   open = o.status === 'pending';
                 const canPay = keys.every((k) => game.me.resources[k] >= o.receive[k]);

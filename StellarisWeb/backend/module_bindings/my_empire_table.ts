@@ -14,7 +14,7 @@ export default __t.row({
   id: __t.u32().primaryKey(),
   energy: __t.f64(),
   minerals: __t.f64(),
-  science: __t.f64(),
+  data: __t.f64(),
   productionModifier: __t.f64().name("production_modifier"),
   researchLevel: __t.u32().name("research_level"),
   ai: __t.bool(),

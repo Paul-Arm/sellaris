@@ -8,6 +8,8 @@ import { applyGameCommand } from './game-commands';
 import { atWar } from './game-relations';
 import { diplomacyAI } from './game-diplomacy';
 import { storyAI } from './game-stories';
+import { colonizableBody, colonyPlanet } from '../../shared/planetColonies';
+import { storedSystemBodies } from './game-objects';
 
 export function gameAI(ctx: Context) {
   const at = now(ctx);
@@ -55,6 +57,22 @@ export function gameAI(ctx: Context) {
       )
         acted = act({ type: 'colonize', fleetId: meta.externalId });
       if (acted) break;
+      if (meta.kind === 'colony' && system.ownerId === owner && p.surveyed.includes(system.id)) {
+        const target = storedSystemBodies(ctx, system.id).find(
+          (b) =>
+            colonizableBody(b) &&
+            !ctx.db.gamePlanetColony.id.find(`${system.id}:${b.slot}`) &&
+            !jobs.some((j) => j.kind === 'game_colonize' && j.topic === `${system.id}:${b.slot}`),
+        );
+        if (target)
+          acted = act({
+            type: 'colonize',
+            fleetId: meta.externalId,
+            systemId: m.externalId,
+            bodySlot: target.slot,
+          });
+        if (acted) break;
+      }
       const targets = [...ctx.db.star.iter()].filter(
         (s) =>
           s.id !== system.id &&
@@ -91,7 +109,7 @@ export function gameAI(ctx: Context) {
     const home = capital ? ctx.db.gameSystem.id.find(capital)!.externalId : '';
     // One independent economic decision per visit, fairly shared between research, ships and colonies.
     acted = false;
-    if (candidate.aiCursor % 3 === 0 && !jobs.some((j) => j.kind === 'game_research'))
+    if (candidate.aiCursor % 3 === 0 && !JSON.parse(ctx.db.gameResearch.id.find(p.id)!.programJson).projects.length)
       for (const tech of Object.keys(TECHS) as TechId[])
         if (!p.techs.includes(tech) && act({ type: 'research', tech })) {
           acted = true;
@@ -114,8 +132,22 @@ export function gameAI(ctx: Context) {
     if (!acted && home) {
       for (const owned of ctx.db.colony.empireId.filter(owner)) {
         const choice = planColonyDevelopment(systemModel(ctx, owned.id));
-        if (choice && act(choice)) break;
+        if (choice && act(choice)) {
+          acted = true;
+          break;
+        }
       }
+      if (!acted)
+        for (const world of ctx.db.gamePlanetColony.empireId.filter(owner)) {
+          const body = ctx.db.gameObject.id.find(world.id)!;
+          const choice = planColonyDevelopment({
+            ...systemModel(ctx, world.systemId),
+            colony: JSON.parse(world.colonyJson),
+            planet: colonyPlanet(JSON.parse(body.bodyJson)),
+            mined: false,
+          });
+          if (choice && act({ ...choice, bodySlot: body.slot })) break;
+        }
     }
     const current = ctx.db.empire.id.find(owner)!;
     ctx.db.empire.id.update({ ...current, nextDecisionTick: tickAt(at + 5), aiCursor: current.aiCursor + 1 });

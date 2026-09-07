@@ -6,15 +6,15 @@ import { admin, finishBattle, now } from './rules';
 import { event, settleEconomy } from './game-model';
 import { atWar, pairKey } from './game-relations';
 
-const zero = (): Resources => ({ energy: 0, minerals: 0, science: 0 });
-const keys = ['energy', 'minerals', 'science'] as const;
-const sum = (r: Resources) => r.energy + r.minerals + r.science;
+const zero = (): Resources => ({ energy: 0, minerals: 0, data: 0 });
+const keys = ['energy', 'minerals', 'data'] as const;
+const sum = (r: Resources) => r.energy + r.minerals + r.data;
 function amounts(value: unknown): Resources {
   if (!value || typeof value !== 'object') throw new SenderError('Rohstoffmengen fehlen.');
   const r = value as Resources;
   if (keys.some((k) => !Number.isSafeInteger(r[k]) || r[k] < 0 || r[k] > 10000))
     throw new SenderError('Je Rohstoff sind ganze Mengen von 0 bis 10.000 erlaubt.');
-  return { energy: r.energy, minerals: r.minerals, science: r.science };
+  return { energy: r.energy, minerals: r.minerals, data: r.data };
 }
 function transfer(ctx: Context, owner: number, debit: Resources, credit: Resources) {
   const e = ctx.db.empire.id.find(owner)!;
@@ -177,7 +177,7 @@ export function diplomacyAI(ctx: Context, owner: number) {
   for (const t of ctx.db.treaty.empireB.filter(owner)) {
     const o = ctx.db.gameOffer.id.find(t.id);
     if (!o || t.status !== 'pending' || t.expiresAt <= now(ctx)) continue;
-    const value = (r: Resources) => r.energy + r.minerals * 1.2 + r.science * 2;
+    const value = (r: Resources) => r.energy + r.minerals * 1.2 + r.data * 2;
     const e = ctx.db.empire.id.find(owner)!;
     const accept =
       t.kind === 'peace' || (value(o.give) >= value(o.receive) && keys.every((k) => e[k] >= o.receive[k]));

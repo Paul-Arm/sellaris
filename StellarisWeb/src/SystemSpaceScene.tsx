@@ -258,7 +258,7 @@ export function SystemScene(props: Props) {
           e.preventDefault();
           latest.current.onContext({ kind: 'body', slot: b.slot }, e.clientX, e.clientY);
         };
-        label.object.position.y = -b.radius - 10;
+        label.object.position.y = -(b.megastructure ? b.radius * 3 : b.radius) - 10;
         visual.group.add(label.object);
         const orbit =
           b.orbit && b.kind !== 'asteroid'
@@ -603,7 +603,7 @@ export function SystemScene(props: Props) {
         );
         facility.group.position.set(
           spec?.centered ? 0 : b.radius + 22,
-          spec?.centered ? 0 : b.radius * 0.5,
+          spec?.height ?? (spec?.centered ? 0 : b.radius * 0.5),
           0,
         );
         facility.update(t, !!site && !site.suspended);

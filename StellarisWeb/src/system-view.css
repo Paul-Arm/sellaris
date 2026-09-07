@@ -132,9 +132,10 @@
 .system-deck .fleet-command {
   display: none;
 }
+.system-deck .left-panel.inventory-sidebar { display: flex; }
 .system-deck .map-heading {
   pointer-events: none;
-  left: 28px;
+  left: 316px;
   text-shadow: 0 2px 20px #080b12;
 }
 .system-deck .map-heading h1 {
@@ -838,4 +839,62 @@
   .body-inspector .body-facts {
     display: none;
   }
+}
+
+.body-inspector {
+  top: 112px;
+  padding-top: 14px;
+  overscroll-behavior: contain;
+}
+.body-title .eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.6px;
+}
+.body-title h2 {
+  margin: 6px 0;
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+.body-inspector > .body-type {
+  margin: 5px 0 12px;
+  color: #acb9c9;
+}
+.body-facts {
+  gap: 7px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.body-facts > span {
+  color: #9daabd;
+}
+.body-main-actions {
+  gap: 6px;
+}
+.facility-options article {
+  padding: 10px;
+}
+.facility-options {
+  gap: 7px;
+}
+
+@media (max-width: 740px) {
+  .body-inspector {
+    top: auto;
+  }
+  .body-inspector .body-facts {
+    display: grid;
+  }
+}
+.inspector-tools { display: flex; gap: 6px; margin-bottom: 10px; }
+.inspector-tools:empty { display: none; }
+.inspector-tools button { display: flex; align-items: center; gap: 5px; border: 1px solid #8eaf9e44; border-radius: 3px; padding: 6px 8px; background: #182533; color: #c5d9d3; font-size: 11px; cursor: pointer; }
+.inspector-tools button[aria-pressed='true'] { background: #344b42; }
+@media (min-width: 851px) {
+  .system-scene { left: 306px; }
+  .system-controls, .system-flight-strip { left: 316px; }
+}
+@media (max-width: 850px) {
+  .system-deck .left-panel.inventory-sidebar { display: none; }
+  .system-deck .left-panel.inventory-sidebar.mobile-open { display: flex; }
+  .system-deck .map-heading { left: 25px; }
 }

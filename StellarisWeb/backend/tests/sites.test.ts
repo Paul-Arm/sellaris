@@ -43,8 +43,8 @@ test(
       for (const sector of system.colony?.sectors || [])
         for (const district of sector.districts)
           if (district.building === 'habitat') district.enabled = false;
-    pa.resources = { energy: 3000, minerals: 3000, science: 1000 };
-    pb.resources = { energy: 0, minerals: 0, science: 0 };
+    pa.resources = { energy: 3000, minerals: 3000, data: 1000 };
+    pb.resources = { energy: 0, minerals: 0, data: 0 };
     const rift = source.systems.find((s) => s.kind === 'rift')!;
     pa.surveyed.push(rift.id);
     const scout = source.fleets.find((f) => f.owner === pa.id && f.type === 'scout')!;
@@ -110,7 +110,7 @@ test(
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
       await until(() => gameView(a)!.sites!.every((s) => s.level === 1 && !s.building));
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
-      assert.deepEqual(gameView(a)!.me.installationIncome, { energy: 7, minerals: 2, science: 4 });
+      assert.deepEqual(gameView(a)!.me.installationIncome, { energy: 7, minerals: 2, data: 4 });
       // A production window is measured from authoritative per-site anchors, independent of tick timing.
       await issue(a, {
         type: 'colony_focus',

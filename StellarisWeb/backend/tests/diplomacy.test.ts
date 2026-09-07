@@ -15,7 +15,7 @@ const issue = async (c: Client, command: GameCommand) => {
 };
 const funds = (c: Client) => ({ ...gameView(c)!.me.resources });
 const offer = (c: Client) => gameView(c)!.offers!.sort((a, b) => b.id - a.id)[0];
-const zero = { energy: 0, minerals: 0, science: 0 };
+const zero = { energy: 0, minerals: 0, data: 0 };
 async function until(check: () => boolean, timeout = 10000) {
   const deadline = Date.now() + timeout;
   while (!check()) {
@@ -243,7 +243,7 @@ test(
         empireId: 'c',
         kind: 'trade',
         give: zero,
-        receive: { ...zero, science: 50 },
+        receive: { ...zero, data: 50 },
       });
       const unfair = offer(a).id;
       await until(() => gameView(a)!.offers!.find((o) => o.id === unfair)?.status === 'rejected');

@@ -55,7 +55,7 @@ Nachweis: [STORIES.md](backend/reports/STORIES.md).
 - Auswählbare Schiffsmodelle in Formationen, Objektliste, Nahansicht, Zoom und Schwenken. Große Verbände werden visuell zusammengefasst; ihre vollständigen Bestände bleiben erhalten.
 - Körperbezogene Anlagen mit Kosten, Bauzeit, drei Ausbaustufen, parallelem Bau, Abbruch und tatsächlichen Produktionserträgen.
 - Dauerhafte Bauplatz-IDs und autoritative Bauaufträge, Besitzschutz und geschützte Sichtbarkeit. Pause, Wiederverbindung und Datenbankabsturz geprüft.
-- Hauptkolonie bleibt erhalten; weitere Planeten und Monde erhalten Außenanlagen. Individuelle Bevölkerung und Kolonieverwaltung je zusätzlicher Welt sind noch offen.
+- Hauptkolonie und Außenanlagen sind spielbar; eigenständige Planetenkolonien sind inzwischen ergänzt (siehe unten). Monde bleiben Anlagenplätze.
 - Taktische Positionen werden nur beim Öffnen des Gefechts angefordert. Die normale Systemansicht zeichnet Flotten aus den strategischen Daten.
 
 Nachweis: [SYSTEM-VIEW.md](backend/reports/SYSTEM-VIEW.md).
@@ -91,7 +91,7 @@ Nachweis: [SYSTEM-VIEW.md](backend/reports/SYSTEM-VIEW.md).
 
 - Forschung „Klimagestaltung“ schaltet die neun Klimaklassen für eigene untersuchte Planeten frei.
 - Dauerhafte Projekte mit atomaren Kosten, parallelem Anlagenbau, Spielzeitfristen und einmaliger 50-%-Erstattung bei Abbruch. Systemverlust beendet Projekte ohne Erstattung.
-- Hauptwelten erhalten neue Bewohnbarkeit, Wachstums- und Kolonieerträge; Namen, IDs, Bahnen, Bevölkerung und Ausbauten bleiben erhalten. Nebenwelten ändern zunächst Klima und Aussehen, ohne eigene Bevölkerung.
+- Bewohnbarkeit, Wachstum und Erträge besiedelter Haupt- und Nebenwelten folgen dem neuen Klima; Namen, IDs, Bahnen, Bevölkerung und Ausbauten bleiben erhalten.
 - Die Systemansicht zeigt Zielklima, Kosten, Ertragsvorschau und Fortschritt. Private Projektansichten, Pause, Wiederverbindung und Datenbankneustart sind geprüft.
 - Die zehn bisherigen lokalen Galaxien wurden auf Nutzerfreigabe gelöscht. Eingefrorene Generatoren und die Körpermigration sind entfernt; Reichs- und Speziesvorlagen bleiben erhalten.
 - Details und Prüfungen: [Terraforming](backend/reports/TERRAFORMING.md).
@@ -105,9 +105,48 @@ Nachweis: [SYSTEM-VIEW.md](backend/reports/SYSTEM-VIEW.md).
 - Feste Stationspositionen mit Vorschau, Höhenwahl, Kosten, Bauzeit und Prüfung von Systemgrenzen, Abständen und Umlaufbahnen. Freie Forschungsstationen und Außenposten nutzen bestehende Ausbau-/Produktionsregeln.
 - Pause, private Warteschlangen, Wiederverbindung, Datenbankneustart und parallele Aufträge geprüft. Details: [Systemnavigation und Stationen](backend/reports/SYSTEM-NAVIGATION.md).
 
+## Umgesetzt: Planetenverwaltung
+
+- Die integrierte Planetenansicht verwaltet dauerhaft erzeugte Sektoren, Bauplätze, Distrikte und Ausbaustufen.
+- Pops besetzen Arbeitsplätze; Versorgung, Wohnraum, Unterhalt und Wirtschaftsschwerpunkt bestimmen Wachstum und Erträge. Bauaufträge und KI verwenden dieselben Regeln.
+- Haupt- und Nebenwelten haben inzwischen eine eigene Koloniezuordnung und unabhängige Verwaltung (siehe unten).
+- Details: [Planetenverwaltung](design/planetary-regions/IMPLEMENTATION.md).
+
+## Umgesetzt: Erste mehrstufige Megastruktur
+
+- Forschung „Megakonstruktion“ schaltet Dyson-Anlagen an eigenen untersuchten Hauptreihensternen und Riesen frei.
+- Eigenes persistentes Objekt am Stern, parallel zu dessen orbitaler Anlage. Bau und Ausbau beginnen nach dem tatsächlichen Anflug eines eigenen Schiffs.
+- Drei Etappen: Orbitalgerüst, Kollektorschwarm, vollständiger Dyson-Schwarm. Unterschiedliche Kosten, Bauzeiten und Modelle; Energieertrag erst ab der zweiten Etappe.
+- Ausbau behält Objekt-ID und bisherige Produktion. Abbruch erstattet 50 %; das erste abgebrochene Gerüst wird entfernt. Private Aufträge und Wiederverbindung sind berücksichtigt.
+- Details: [Dyson-Megastruktur](backend/reports/MEGASTRUCTURES.md).
+
+## Umgesetzt: Erste Sternveränderung
+
+- Kontrollierter Sternkollaps als freiwilliges Endspielprojekt an einem eigenen untersuchten Stern mit vollständigem Dyson-Schwarm.
+- Dauerhafter Auftrag mit 120 Spieltagen, Kosten und einmaliger 50-%-Erstattung vor Abschluss. Besitz, Sternrevision und Dyson-Zustand werden beim Abschluss erneut geprüft.
+- Der Stern wird unter derselben ID zum Neutronenstern. Kartenfarbe, Größe, Licht und Gravitation folgen dem neuen Profil.
+- Dyson-Anlage und Sonnenkollektoren werden verbraucht; Planeten mit Klimaklasse werden arktisch, laufendes Terraforming endet ohne Erstattung. Kolonien behalten Bevölkerung, Sektoren und Infrastruktur; Produktion und Wachstum folgen dem neuen Klima.
+- System, Hyperlanes, Objekt-IDs und Bahnen bleiben bestehen. Das Projekt liefert 2.500 Forschung. Details: [Sternkollaps](backend/reports/STELLAR-PROJECTS.md).
+
+## Umgesetzt: Mehrere Planetenkolonien je System
+
+- Besiedelbare Nebenplaneten per Rechtsklick mit einem Kolonieschiff anfliegen und gründen. Kosten erst vor Ort; Auftragsketten, Pause und Abbruch sind integriert.
+- Eigene Bevölkerung, Speziesgruppen, Sektoren, Distrikte, Schwerpunkt, Wachstum und parallele Bauaufträge je Welt. Wirtschaft, Terraforming, Speziesmodifikation und KI berücksichtigen die zusätzlichen Kolonien.
+- Kolonieverwaltung und Wirtschaftsübersicht wählen jede Welt einzeln aus. Aktive Schildbastionen verstärken die gemeinsame Systemverteidigung und Schiffsreparatur.
+- Private dauerhafte Weltzustände mit Revisionsprüfung. Systemverlust beendet zugehörige Kolonien und Projekte. Raumwerft und Besitz bleiben an der Hauptkolonie; das Siegziel zählt Systeme.
+- Details und Prüfungen: [Mehrere Planetenkolonien](backend/reports/PLANET-COLONIES.md).
+
+## Umgesetzt: Materiedekompressor
+
+Die zweite Megastruktur ist umgesetzt: **Materiedekompressor** an Schwarzen Löchern, mit drei Bauetappen, Schiffsanflug und dauerhafter Mineralienproduktion. Die Anlage besitzt einen eigenen Bauplatz und kann neben einer Forschungsstation bestehen. Details: [Materiedekompressor](backend/reports/DECOMPRESSOR.md).
+
+## Umgesetzt: Natürliche Sternenstürme
+
+Erkundung deckt an ausgewählten Riesensternen einen einmaligen Zyklus mit 120 Tagen Vorwarnung und 60 Tagen reduziertem Solar-/Dyson-Ertrag auf. Dauerhafte Fristen, private Sichtbarkeit, tatsächliche Auszahlungen und Erholung sind geprüft. Systemansicht und Lagezentrum zeigen Fortschritt und Fundort. Details: [Sternenstürme](backend/reports/STELLAR-WEATHER.md).
+
 ## Danach
 
-- Mehrstufige Megastrukturen und Sternveränderungen auf den persistenten Objekten aufbauen. Eigenständige Planetentabellen und die Folgen zerstörter Elternkörper ergänzen. Architekturvorschlag: [Veränderbare Sternsysteme](backend/reports/DYNAMIC-SYSTEMS.md).
+- Weitere Megastrukturen, natürliche Sternumwandlungen und die Folgen vollständig zerstörter Elternkörper ergänzen. Architekturvorschlag: [Veränderbare Sternsysteme](backend/reports/DYNAMIC-SYSTEMS.md).
 - Handelsrouten, langfristige Verträge, Bündnisse und differenziertere diplomatische KI ergänzen.
 - Mehrstufige Ereignisse, weitere Krisentypen und differenziertere Reaktionen der KI.
 - Taktik, Schiffsausrüstung und Beleuchtung ausbauen; Radiance Cascades separat prototypisieren und messen.
@@ -117,3 +156,12 @@ Die langfristigen Systeme sind Ausbauschritte, keine Behauptung bereits fertiger
 - [x] Systemsteuerung: direktes Flugziel per Rechtsklick, Warteschlange per Umschalt + Rechtsklick; separates Flugziel-Menü entfernt. Objekt-Kontextmenüs mit passenden Bauaktionen, Ausbau, Abbruch und Anflug; Sternenbasis als orbitale Versorgungsanlage.
 
 - [x] Trägheit beim Kurswechsel: Geschwindigkeit erhalten, gekrümmte Flugbahn, begrenzte Modelldrehung und Bremsweg. Orbitaler Anlagenbau/Ausbau und freie Stationen als Schiffsaufträge mit serverseitiger Nähenprüfung und Kostenbuchung erst bei Ankunft.
+
+## Umgesetzt: Forschungsnetz mit Daten und Compute
+
+- Forschungsgebiete bündeln den wachsenden Baum. Nur bekannte Technologien und unmittelbar erreichbare Grundlagen sind sichtbar; verborgene Ziele können nicht eingeplant werden. Suche, Gebiet-/Wissensfilter, eingeklapptes Archiv, Zoom und Tastaturnavigation führen durch das aufgedeckte Wissen. Automatische Anordnung und Rendering nur im sichtbaren Ausschnitt sind mit 500 Testtechnologien geprüft.
+- Daten ersetzen die bisherige Forschungswährung vollständig. Daten werden beim tatsächlichen Projektstart bezahlt; Compute bestimmt das Tempo paralleler Projekte nach frei wählbaren Prioritäten.
+- Datensynthese reserviert 0–100 % der Rechenleistung; ungenutztes Compute erzeugt automatisch Daten. Parken erhält Fortschritt und bereits bezahlte Kosten.
+- Rechenzentren auf Haupt- und Nebenwelten sowie neue Technologien erhöhen Compute. Forschungsfortschritt, Freischaltungen und Budget sind privat und dauerhaft im nativen Backend gespeichert.
+- Weltformat 2, keine Migration alter Ressourcen oder Forschungsaufträge. Die vier alten registrierten Galaxien wurden gelöscht; neue Partie C43F54 angelegt. Gelöschte Sitzungen geben die Lobby wieder frei.
+- Details und Prüfung: [Forschungsnetz](backend/reports/RESEARCH.md).

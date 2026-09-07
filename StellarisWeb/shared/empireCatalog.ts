@@ -4,7 +4,7 @@ export type SpeciesKind = 'biological' | 'lithoid' | 'machine';
 export type Modifier =
   | 'energy'
   | 'minerals'
-  | 'science'
+  | 'data'
   | 'growth'
   | 'research'
   | 'construction'
@@ -21,7 +21,7 @@ export interface Choice {
 export const MODIFIER_NAMES: Record<Modifier, string> = {
   energy: 'Energieproduktion',
   minerals: 'Mineralienproduktion',
-  science: 'Forschungsproduktion',
+  data: 'Datenproduktion',
   growth: 'Bevölkerungswachstum',
   research: 'Forschungstempo',
   construction: 'Bautempo',
@@ -55,7 +55,7 @@ export const AUTHORITIES = {
     name: 'Demokratie',
     description: 'Gewählte Vertretung fördert wissenschaftliche Zusammenarbeit.',
     kinds: ['regular'],
-    effects: { science: 0.05 },
+    effects: { data: 0.05 },
   },
   oligarchic: {
     name: 'Oligarchie',
@@ -91,7 +91,7 @@ export const AUTHORITIES = {
     name: 'Zentrales Netzwerk',
     description: 'Rechenkapazität wird dynamisch verteilt.',
     kinds: ['machine'],
-    effects: { science: 0.05 },
+    effects: { data: 0.05 },
   },
 } as const satisfies Record<string, Choice>;
 export type Authority = keyof typeof AUTHORITIES;
@@ -100,7 +100,7 @@ export const ETHICS = {
     name: 'Egalitär',
     description: 'Chancengleichheit stärkt die Wissenschaft.',
     opposite: 'authoritarian',
-    effects: { science: 0.05 },
+    effects: { data: 0.05 },
   },
   authoritarian: {
     name: 'Autoritär',
@@ -160,10 +160,10 @@ export const CIVICS: Record<string, CivicChoice> = {
   },
   parliamentary: {
     name: 'Parlamentarische Tradition',
-    description: '+10 % Forschungsproduktion. Benötigt Egalitarismus.',
+    description: '+10 % Datenproduktion. Benötigt Egalitarismus.',
     kinds: ['regular'],
     requires: 'egalitarian',
-    effects: { science: 0.1 },
+    effects: { data: 0.1 },
   },
   warrior: {
     name: 'Kriegerkultur',
@@ -193,9 +193,9 @@ export const CIVICS: Record<string, CivicChoice> = {
   },
   private_labs: {
     name: 'Private Forschungslabore',
-    description: '+10 % Forschungsproduktion.',
+    description: '+10 % Datenproduktion.',
     kinds: ['corporate'],
-    effects: { science: 0.1 },
+    effects: { data: 0.1 },
   },
   pooled_knowledge: {
     name: 'Geteiltes Gedächtnis',
@@ -211,9 +211,9 @@ export const CIVICS: Record<string, CivicChoice> = {
   },
   parallel: {
     name: 'Parallele Prozessoren',
-    description: '+10 % Forschungsproduktion.',
+    description: '+10 % Datenproduktion.',
     kinds: ['machine'],
-    effects: { science: 0.1 },
+    effects: { data: 0.1 },
   },
   replicators: {
     name: 'Replikatorprotokolle',
@@ -224,7 +224,7 @@ export const CIVICS: Record<string, CivicChoice> = {
 };
 export interface OriginChoice extends Choice {
   population: number;
-  resources: { energy: number; minerals: number; science: number };
+  resources: { energy: number; minerals: number; data: number };
   speciesKinds?: SpeciesKind[];
 }
 export const ORIGINS: Record<string, OriginChoice> = {
@@ -232,13 +232,13 @@ export const ORIGINS: Record<string, OriginChoice> = {
     name: 'Planetare Einigung',
     description: 'Ein vereinter Heimatplanet. +2 Startbevölkerung, +80 Energie.',
     population: 2,
-    resources: { energy: 80, minerals: 0, science: 0 },
+    resources: { energy: 80, minerals: 0, data: 0 },
   },
   lost_colony: {
     name: 'Verlorene Kolonie',
     description: 'Eine neue Heimat jenseits vergessener Routen. +10 % Reisetempo, +60 Mineralien.',
     population: 0,
-    resources: { energy: 0, minerals: 60, science: 0 },
+    resources: { energy: 0, minerals: 60, data: 0 },
     effects: { speed: 0.1 },
   },
   survivors: {
@@ -246,21 +246,21 @@ export const ORIGINS: Record<string, OriginChoice> = {
     description:
       'Eine Zivilisation nach der Katastrophe. −1 Startbevölkerung, +15 Prozentpunkte Bewohnbarkeit.',
     population: -1,
-    resources: { energy: 0, minerals: 0, science: 0 },
+    resources: { energy: 0, minerals: 0, data: 0 },
     effects: { habitability: 0.15 },
   },
   relic_seekers: {
     name: 'Erben der Ruinen',
-    description: 'Alte Archive inspirieren eine neue Ära. +80 Forschung, +5 % Forschungstempo.',
+    description: 'Alte Archive inspirieren eine neue Ära. +80 Daten, +5 % Forschungstempo.',
     population: 0,
-    resources: { energy: 0, minerals: 0, science: 80 },
+    resources: { energy: 0, minerals: 0, data: 80 },
     effects: { research: 0.05 },
   },
   industrial: {
     name: 'Industrieller Aufbruch',
     description: '+120 Mineralien, −40 Energie, +5 % Bautempo.',
     population: 0,
-    resources: { energy: -40, minerals: 120, science: 0 },
+    resources: { energy: -40, minerals: 120, data: 0 },
     effects: { construction: 0.05 },
   },
   first_consensus: {
@@ -268,7 +268,7 @@ export const ORIGINS: Record<string, OriginChoice> = {
     description: 'Das junge Kollektiv erwacht. +1 Startbevölkerung und +10 % Wachstum.',
     kinds: ['hive'],
     population: 1,
-    resources: { energy: 0, minerals: 0, science: 0 },
+    resources: { energy: 0, minerals: 0, data: 0 },
     effects: { growth: 0.1 },
   },
   awakening: {
@@ -277,7 +277,7 @@ export const ORIGINS: Record<string, OriginChoice> = {
     kinds: ['machine'],
     speciesKinds: ['machine'],
     population: 0,
-    resources: { energy: 100, minerals: 0, science: 0 },
+    resources: { energy: 100, minerals: 0, data: 0 },
     effects: { construction: 0.05 },
   },
 };
@@ -324,9 +324,9 @@ export interface TraitChoice extends Choice {
 export const TRAITS: Record<string, TraitChoice> = {
   intelligent: {
     name: 'Intelligent',
-    description: '+10 % Forschungsproduktion.',
+    description: '+10 % Datenproduktion.',
     cost: 2,
-    effects: { science: 0.1 },
+    effects: { data: 0.1 },
   },
   industrious: {
     name: 'Fleißig',
@@ -430,7 +430,7 @@ export function emptyModifiers(): Modifiers {
   return {
     energy: 0,
     minerals: 0,
-    science: 0,
+    data: 0,
     growth: 0,
     research: 0,
     construction: 0,

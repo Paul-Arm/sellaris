@@ -1,3 +1,7 @@
+import { EmpireSidebar } from './EmpireSidebar';
+import { ResearchAtlas } from './ResearchAtlas';
+import type { ColonyEntry, InventorySelection } from './inventory-model';
+import { DetailList } from './DetailList';
 import { gameIndices } from './game-indices';
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -46,11 +50,12 @@ import { LabScene } from './LabScene';
 import { BattleOverview } from './BattleOverview';
 import { NativeFleetPanel } from './NativeFleetPanel';
 import { DiplomacyPanel } from './DiplomacyPanel';
-import { StoriesPanel, SituationSummary } from './StoriesPanel';
+import { StoriesPanel } from './StoriesPanel';
 import './backend-lab.css';
 import './native-game.css';
 import { useGame } from './useGame';
 import { ColonyManager } from './ColonyManager';
+import { ownedColonyWorlds } from '../shared/planetColonies';
 import { EmpireLibrary } from './EmpireLibrary';
 import { LiveEmpire } from './LiveEmpire';
 import { EmpireFlag } from './EmpireFlag';
@@ -59,6 +64,7 @@ import { empireModifiers } from '../shared/empireState';
 import { relationBetween } from '../shared/diplomacy';
 import { baseIncome, colonyProduction } from '../shared/colonies';
 import { facilityYield } from '../shared/celestial';
+import { stellarWeatherFactor } from '../shared/stellarWeather';
 import {
   income,
   SHIPS,
@@ -88,8 +94,8 @@ type Modal =
 const ignoreSceneStats = () => {};
 const fmt = (n: number) => Math.floor(n).toLocaleString('de-DE');
 const rateFmt = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 1 });
-const resourceIcons = { energy: Zap, minerals: Diamond, science: FlaskConical };
-const resourceNames = { energy: 'Energie', minerals: 'Mineralien', science: 'Forschung' };
+const resourceIcons = { energy: Zap, minerals: Diamond, data: FlaskConical };
+const resourceNames = { energy: 'Energie', minerals: 'Mineralien', data: 'Daten' };
 function shipIcon(type: ShipType) {
   return type === 'scout' ? Telescope : type === 'colony' ? Globe2 : Rocket;
 }
@@ -110,6 +116,9 @@ export function App() {
   const net = useGame();
   const game = net.state;
   const [selected, setSelected] = useState('s0');
+  const [selectedColony, setSelectedColony] = useState<string | null>(null);
+  const [inventorySelection, setInventorySelection] = useState<InventorySelection | null>(null);
+  const [inventorySection, setInventorySection] = useState<'colonies' | 'ships'>('colonies');
   const [fleetId, setFleetId] = useState<string | null>(null);
   const [mode, setMode] = useState<'galaxy' | 'system'>('galaxy');
   const [tacticalBattle, setTacticalBattle] = useState(0);
@@ -118,13 +127,20 @@ export function App() {
   const [focus, setFocus] = useState(0);
   const [toast, setToast] = useState('');
   const [showLog, setShowLog] = useState(false);
-  const [fleetTab, setFleetTab] = useState<'all' | 'idle'>('all');
   const [templateId, setTemplateId] = useState('');
   const [galaxySettings, setGalaxySettings] = useState(DEFAULT_GALAXY_SETTINGS);
   const [roomCode, setRoomCode] = useState(net.invite);
   const [joining, setJoining] = useState(false);
   const [leftOpen, setLeftOpen] = useState(false);
   const previousPlayer = useRef('');
+  function selectInventoryColony(colony: ColonyEntry) {
+    setSelected(colony.systemId); setSelectedColony(colony.id); setMoving(false); setTacticalBattle(0);
+    setInventorySelection({ systemId: colony.systemId, bodySlot: colony.world.bodySlot });
+  }
+  function selectInventoryFleet(fleet: Fleet) {
+    setFleetId(fleet.id); setSelected(fleet.systemId); setMoving(false); setTacticalBattle(0);
+    setInventorySelection({ systemId: fleet.systemId, fleetId: fleet.id });
+  }
   const selectedTemplate = net.library?.empires.find((e) => e.id === templateId) || net.library?.empires[0];
   useEffect(() => {
     if (!game || previousPlayer.current === game.me.id) return;
@@ -216,7 +232,7 @@ export function App() {
   }
   const ownFleets = game?.fleets.filter((f) => f.owner === game.me.id) || [];
   const colonies = game?.systems.filter((s) => s.owner === game.me.id) || [];
-  const rates = game ? income(game, game.me) : { energy: 0, minerals: 0, science: 0 };
+  const rates = game ? income(game, game.me) : { energy: 0, minerals: 0, data: 0 };
   const date = new Date(Date.UTC(2200, 0, 1 + Math.floor(game?.tick || 0)))
     .toISOString()
     .slice(0, 10)
@@ -237,6 +253,13 @@ export function App() {
         </button>
         <div className="rail-rule" />
         <nav aria-label="Hauptnavigation">
+          <button
+            title="Serververwaltung"
+            aria-label="Serververwaltung"
+            onClick={() => window.open('/admin', '_blank', 'noopener')}
+          >
+            <Network size={20} />
+          </button>
           <button
             className={modal === 'library' ? 'active' : ''}
             title="Reiche und Spezies"
@@ -279,9 +302,7 @@ export function App() {
             title="Flotten"
             aria-label="Flotten"
             onClick={() => {
-              setLeftOpen(!leftOpen);
-              setModal(null);
-              document.getElementById('fleet-list')?.scrollIntoView({ block: 'nearest' });
+              if (game) { setInventorySection('ships'); setLeftOpen(true); setModal(null); }
             }}
           >
             <Rocket size={21} />
@@ -293,7 +314,7 @@ export function App() {
             onClick={() => setModal('research')}
           >
             <Atom size={22} />
-            {game?.me.research && <i className="rail-dot" />}
+            {!!game?.me.research.projects.length && <i className="rail-dot" />}
           </button>
           <button
             className={modal === 'diplomacy' ? 'active' : ''}
@@ -337,17 +358,14 @@ export function App() {
         </div>
       </aside>
       <header className="topbar">
-        <div className="wordmark">
-          SINGULARITY<span>GALACTIC COMMAND</span>
-        </div>
         <div className="resources">
-          {(['energy', 'minerals', 'science'] as Resource[]).map((r) => {
+          {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
             const Icon = resourceIcons[r];
             return (
               <button
                 className={`resource ${r}`}
                 key={r}
-                title={`${resourceNames[r]} · +${rates[r]} pro 4 Spieltage`}
+                title={`${resourceNames[r]} · +${rates[r].toLocaleString('de-DE', { maximumFractionDigits: 2 })} pro 4 Spieltage`}
                 onClick={() => setModal('empire')}
                 aria-label={`${resourceNames[r]}: Wirtschaftsübersicht öffnen`}
               >
@@ -359,6 +377,9 @@ export function App() {
               </button>
             );
           })}
+          <button className="resource compute" title="Verfügbare Rechenleistung pro Spieltag" aria-label="Compute: Forschungslandkarte öffnen" onClick={() => setModal('research')}>
+            <Cpu size={17} /><strong>{fmt(game?.me.compute || 0)}</strong><span>Compute</span>
+          </button>
           <div
             className="resource fleet-resource"
             title={`${ownFleets.reduce((n, f) => n + (f.shipCount ?? 1), 0)} eigene Schiffe in ${ownFleets.length} Flotten`}
@@ -416,6 +437,7 @@ export function App() {
                   game={game}
                   system={system}
                   fleetId={fleetId}
+                  inventorySelection={inventorySelection}
                   command={send}
                   connected={net.connected}
                   onFleet={setFleetId}
@@ -427,7 +449,10 @@ export function App() {
                     setMode('galaxy');
                     setTacticalBattle(0);
                   }}
-                  onColony={() => setModal('colony')}
+                  onColony={(id) => {
+                    setSelectedColony(id || selected);
+                    setModal('colony');
+                  }}
                   onFleetDetails={() => setModal('fleet')}
                   onCourse={() => {
                     setMode('galaxy');
@@ -452,13 +477,7 @@ export function App() {
             )}
             {mode === 'system' && (
               <div className="map-heading">
-                <span className="eyebrow">STELLARE KARTOGRAFIE</span>
                 <h1>{system.name}</h1>
-                <p>
-                  {showTactics
-                    ? `Gefecht ${activeBattle!.id} · ${activeBattle!.attacker.ships + activeBattle!.defender.ships} Schiffe`
-                    : `${system.class} · ${system.kind === 'star' ? 'Lokale Raumzeit · Orbitaler Raum' : 'Gravitative Signatur'}`}
-                </p>
               </div>
             )}
             {game.paused && (
@@ -466,167 +485,13 @@ export function App() {
                 <Pause size={12} /> SIMULATION PAUSIERT
               </div>
             )}
-            {mode === 'galaxy' && (
-              <aside className={`left-panel ${leftOpen ? 'mobile-open' : ''}`}>
-                <button className="empire-card" onClick={() => setModal('empire')}>
-                  <div className="empire-emblem" style={{ color: game.me.color }}>
-                    <EmpireFlag flag={flagForEmpire(game.me.empire?.design ?? game.me)} width={42} />
-                  </div>
-                  <div>
-                    <span className="eyebrow">DEIN IMPERIUM</span>
-                    <strong>{game.me.name}</strong>
-                    <span className="muted">Zwischen den Sternen zu Hause</span>
-                  </div>
-                  <ChevronRight size={14} />
-                </button>
-                <div className="objective-card">
-                  <div className="section-label">
-                    <span>
-                      <Flag size={12} /> UNSER HORIZONT
-                    </span>
-                    <span>
-                      {colonies.length} / {WIN_SYSTEMS}
-                    </span>
-                  </div>
-                  <strong>Eine interstellare Zivilisation</strong>
-                  <p>Kontrolliere {WIN_SYSTEMS} Systeme im Sektor.</p>
-                  <Progress value={colonies.length / WIN_SYSTEMS} />
-                </div>
-                <div className="panel-section colony-section">
-                  <div className="section-label">
-                    <span>KOLONIEN</span>
-                    <span className="count">{colonies.length.toString().padStart(2, '0')}</span>
-                  </div>
-                  {colonies.map((s) => (
-                    <button
-                      key={s.id}
-                      className={`colony-row ${s.id === selected ? 'selected' : ''}`}
-                      onClick={() => {
-                        setSelected(s.id);
-                        setMoving(false);
-                      }}
-                    >
-                      <span className="tiny-planet" />
-                      <div>
-                        <strong>{s.colonyName || (s.name === 'Sol' ? 'Erde' : `${s.name} Prime`)}</strong>
-                        <span>{s.id === game.me.home ? 'Hauptwelt' : s.planet}</span>
-                      </div>
-                      <span className="colony-yield">
-                        +{rateFmt(colonyProduction(s, game.me).energy)}
-                        <Zap size={10} />
-                      </span>
-                      <ChevronRight size={12} />
-                    </button>
-                  ))}
-                </div>
-                <div className="panel-section fleet-section" id="fleet-list">
-                  <div className="section-label">
-                    <span>FLOTTEN</span>
-                    <span className="count">{ownFleets.length.toString().padStart(2, '0')}</span>
-                  </div>
-                  <div className="mini-tabs">
-                    <button className={fleetTab === 'all' ? 'active' : ''} onClick={() => setFleetTab('all')}>
-                      Alle Flotten
-                    </button>
-                    <button
-                      className={fleetTab === 'idle' ? 'active' : ''}
-                      onClick={() => setFleetTab('idle')}
-                    >
-                      Verfügbar
-                      <span>
-                        {
-                          ownFleets.filter((f) => !f.route.length && !f.task && !f.navigation?.orders.length)
-                            .length
-                        }
-                      </span>
-                    </button>
-                  </div>
-                  <div className="fleet-list">
-                    {ownFleets
-                      .filter(
-                        (f) =>
-                          fleetTab === 'all' || (!f.route.length && !f.task && !f.navigation?.orders.length),
-                      )
-                      .map((f) => {
-                        const Icon = shipIcon(f.type);
-                        return (
-                          <button
-                            key={f.id}
-                            className={`fleet-row ${fleetId === f.id ? 'selected' : ''}`}
-                            onClick={() => {
-                              setFleetId(f.id);
-                              setSelected(f.systemId);
-                              setMoving(false);
-                            }}
-                          >
-                            <span className={`fleet-icon ${f.type}`}>
-                              <Icon size={17} strokeWidth={1.4} />
-                            </span>
-                            <div>
-                              <strong>
-                                {f.name}
-                                {f.shipCount !== undefined && (
-                                  <small className="native-ship-count">{f.shipCount}</small>
-                                )}
-                              </strong>
-                              <span>{fleetStatus(f, game)}</span>
-                              {(f.task || f.route.length > 0) && (
-                                <Progress
-                                  value={() => (f.task ? 1 - f.task.remaining / f.task.total : f.progress)}
-                                />
-                              )}
-                            </div>
-                            <span className={`small-dot ${f.route.length || f.task ? 'amber' : ''}`} />
-                          </button>
-                        );
-                      })}
-                    {!ownFleets.length && (
-                      <p className="empty-note">Keine Schiffe. Baue eine Flotte in einer deiner Kolonien.</p>
-                    )}
-                  </div>
-                </div>
-                <button className="research-shortcut" onClick={() => setModal('research')}>
-                  <span className="research-icon">
-                    <Atom size={20} />
-                  </span>
-                  <div>
-                    <span className="eyebrow">FORSCHUNG</span>
-                    <strong>
-                      {game.me.research ? TECHS[game.me.research.id].name : 'Die nächste Entdeckung'}
-                    </strong>
-                    {game.me.research ? (
-                      <Progress value={() => 1 - game.me.research!.remaining / game.me.research!.total} />
-                    ) : (
-                      <span className="muted">Technologie auswählen</span>
-                    )}
-                  </div>
-                  <ArrowUpRight size={16} />
-                </button>
-                <div className="event-feed">
-                  <SituationSummary game={game} onOpen={() => setModal('stories')} />
-                  <div className="section-label">
-                    <span>
-                      <Radio size={12} /> SUBRAUMFUNK
-                    </span>
-                    <button aria-label="Ereignisprotokoll öffnen" onClick={() => setShowLog(!showLog)}>
-                      <Ellipsis size={17} />
-                    </button>
-                  </div>
-                  {game.log.slice(0, 2).map((l) => (
-                    <div className={`event-row ${l.tone}`} key={l.id}>
-                      <span className="event-dot" />
-                      <div>
-                        <p>{l.text}</p>
-                        <span>ST {Math.floor(l.tick).toString().padStart(4, '0')}</span>
-                      </div>
-                    </div>
-                  ))}
-                  <button className="text-button log-button" onClick={() => setShowLog(!showLog)}>
-                    Ereignisprotokoll <ArrowRight size={12} />
-                  </button>
-                </div>
-              </aside>
-            )}
+            <EmpireSidebar game={game} open={leftOpen} selectedColony={selectedColony || selected} selectedFleet={fleetId}
+                onColony={selectInventoryColony}
+                onFleet={selectInventoryFleet}
+                onOpenColony={(colony) => { setSelected(colony.systemId); setSelectedColony(colony.id); setModal('colony'); }}
+                onOpenFleet={(fleet) => { setFleetId(fleet.id); setModal('fleet'); }}
+                section={inventorySection} onSection={setInventorySection}
+                onStories={() => setModal('stories')} onLog={() => setShowLog(!showLog)} />
             {mode === 'galaxy' && (
               <aside className="right-panel">
                 <SystemPanel
@@ -637,15 +502,12 @@ export function App() {
                   onMode={() => setMode(mode === 'galaxy' ? 'system' : 'galaxy')}
                   onFleet={setFleetId}
                   onMove={() => move(system.id)}
-                  onColony={() => setModal('colony')}
+                  onColony={() => {
+                    setSelectedColony(selected);
+                    setModal('colony');
+                  }}
                 />
                 <div className="sector-card">
-                  <div className="section-label">
-                    <span>
-                      <Compass size={12} /> SEKTORÜBERSICHT
-                    </span>
-                    <span>07</span>
-                  </div>
                   <svg viewBox="0 0 250 108" aria-label="Sektorminimap">
                     {game.links.map(([a, b]) => {
                       const x = gameIndices(game).systems.get(a)!,
@@ -804,7 +666,6 @@ export function App() {
         ) : (
           <div className="connecting-screen">
             <Orbit size={70} strokeWidth={0.7} />
-            <span className="eyebrow">SINGULARITY</span>
             <h1>{net.connected ? 'Ein neuer Horizont wartet.' : 'Verbindung zum Sternennetz'}</h1>
             <p>
               {net.invite
@@ -834,11 +695,6 @@ export function App() {
           <span className="footer-divider" />
           {net.connected ? <Wifi size={11} /> : <WifiOff size={11} />} {net.latency || '—'} ms
         </div>
-        <span className="footer-hint">
-          {mode === 'system' && !showTactics
-            ? 'Rechtsklick: Flugziel / Objektaktionen · Umschalt: anhängen · Rechts ziehen: verschieben'
-            : 'Ziehen: Karte bewegen · Scrollen: Zoom · Rechtsklick: Flottenziel'}
-        </span>
       </footer>
       {(toast || net.error) && (
         <div className={`toast ${net.error ? 'error' : ''}`} role={net.error ? 'alert' : 'status'}>
@@ -888,8 +744,8 @@ export function App() {
           {modal === 'colony' && game && (
             <ColonyManager
               game={game}
-              selected={selected}
-              onSelect={setSelected}
+              selected={selectedColony || selected}
+              onSelect={setSelectedColony}
               command={send}
               connected={net.connected}
             />
@@ -1052,95 +908,7 @@ export function App() {
               </p>
             </>
           )}
-          {modal === 'research' && game && (
-            <>
-              <ModalTitle
-                eyebrow="DAS UNMÖGLICHE VERSTEHEN"
-                title="Wissenschaft & Fortschritt"
-                icon={<Atom size={25} />}
-              />
-              <p className="modal-intro">Neue Erkenntnisse verschieben die Grenzen deines Imperiums.</p>
-              <div className="research-balance">
-                <FlaskConical size={16} />
-                {fmt(game.me.resources.science)} Forschung verfügbar <span>+{rates.science} / Zyklus</span>
-              </div>
-              <div className="tech-list">
-                {(Object.keys(TECHS) as TechId[]).map((id, i) => {
-                  const t = TECHS[id],
-                    done = game.me.techs.includes(id),
-                    active = game.me.research?.id === id;
-                  const Icon = { propulsion: Orbit, extraction: Diamond, weapons: Zap, terraforming: Globe2 }[
-                    id
-                  ];
-                  return (
-                    <div key={id} className={`tech-card ${active ? 'researching' : ''}`}>
-                      <span className="tech-icon">
-                        <Icon size={26} strokeWidth={1.3} />
-                      </span>
-                      <div>
-                        <span className="eyebrow">
-                          {
-                            {
-                              propulsion: 'ANTRIEBSTECHNIK',
-                              extraction: 'INDUSTRIE',
-                              weapons: 'MILITÄR',
-                              terraforming: 'PLANETENGESTALTUNG',
-                            }[id]
-                          }
-                        </span>
-                        <h3>{t.name}</h3>
-                        <p>{t.description}</p>
-                        {active ? (
-                          <>
-                            <Progress value={() => 1 - game.me.research!.remaining / t.time} />
-                            <span className="tech-time">
-                              Noch{' '}
-                              {Math.ceil(
-                                game.me.research!.remaining /
-                                  Math.max(0.1, 1 + empireModifiers(game.me.empire).research),
-                              )}{' '}
-                              Spieltage
-                            </span>
-                          </>
-                        ) : (
-                          <span className="tech-time">
-                            {t.cost} Forschung ·{' '}
-                            {Math.ceil(t.time / Math.max(0.1, 1 + empireModifiers(game.me.empire).research))}{' '}
-                            s
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        aria-label={
-                          done
-                            ? t.name + ' erforscht'
-                            : active
-                              ? t.name + ' wird erforscht'
-                              : 'Forschung starten: ' + t.name
-                        }
-                        className={done ? 'tech-done' : 'secondary-button'}
-                        disabled={
-                          done || !!game.me.research || game.me.resources.science < t.cost || !!game.winner
-                        }
-                        onClick={() => send({ type: 'research', tech: id })}
-                      >
-                        {done ? (
-                          <>
-                            <Check size={14} />
-                            Erforscht
-                          </>
-                        ) : active ? (
-                          <LoaderCircle className="spin" size={16} />
-                        ) : (
-                          <ArrowRight size={16} />
-                        )}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          {modal === 'research' && game && (<ResearchAtlas game={game} command={send} connected={net.connected} />)}
           {modal === 'empire' && game && (
             <>
               <ModalTitle
@@ -1175,7 +943,7 @@ export function App() {
               <div className="economy-table">
                 <div className="economy-base">
                   <strong>Reichsgrundversorgung</strong>
-                  {(['energy', 'minerals', 'science'] as Resource[]).map((r) => {
+                  {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
                     const Icon = resourceIcons[r];
                     return (
                       <span key={r}>
@@ -1184,21 +952,22 @@ export function App() {
                     );
                   })}
                 </div>
-                {colonies.map((s) => (
-                  <div key={s.id}>
+                {ownedColonyWorlds(game).map((s) => (
+                  <div key={s.worldId}>
                     <strong>
                       <button
                         className="economy-colony-link"
                         onClick={() => {
                           setSelected(s.id);
+                          setSelectedColony(s.worldId);
                           setModal('colony');
                         }}
                       >
-                        {s.name}
+                        {s.colonyName || s.name}
                         <ArrowUpRight size={12} />
                       </button>
                     </strong>
-                    {(['energy', 'minerals', 'science'] as Resource[]).map((r) => {
+                    {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
                       const Icon = resourceIcons[r];
                       return (
                         <span key={r}>
@@ -1211,7 +980,7 @@ export function App() {
                 {!!game.sites?.some((s) => s.owner === game.me.id && s.level > 0) && (
                   <div className="economy-base">
                     <strong>Systemanlagen</strong>
-                    {(['energy', 'minerals', 'science'] as Resource[]).map((r) => {
+                    {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
                       const Icon = resourceIcons[r];
                       return (
                         <span key={r}>
@@ -1223,7 +992,7 @@ export function App() {
                 )}
                 <div className="economy-total">
                   <strong>Gesamtertrag</strong>
-                  {(['energy', 'minerals', 'science'] as Resource[]).map((r) => {
+                  {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
                     const Icon = resourceIcons[r];
                     return (
                       <span key={r}>
@@ -1316,7 +1085,7 @@ export function App() {
               </div>
               <p className="fine-print">
                 Die Sternenkarte ist bekannt. Systemerträge werden durch Untersuchung sichtbar; fremde Schiffe
-                nur bei eigenen Kolonien oder Flotten. Anomalien liefern zusätzliche Forschung. Im
+                nur bei eigenen Kolonien oder Flotten. Anomalien liefern zusätzliche Daten. Im
                 Multiplayer-Dialog kann der Host KI-Imperien hinzufügen. Eigene Kolonien reparieren Schiffe,
                 solange keine Feinde im System sind.
               </p>
@@ -1357,15 +1126,19 @@ function SystemPanel({
   if (own)
     for (const site of game.sites || []) {
       if (site.systemId !== s.id || site.owner !== game.me.id || site.suspended) continue;
-      const rate = facilityYield(site.facility, site.level, s.productionFactor ?? 1);
+      const rate = facilityYield(
+        site.facility,
+        site.level,
+        (s.productionFactor ?? 1) * stellarWeatherFactor(site.facility, s.stellarWeather, game.tick),
+      );
       production.energy += rate.energy;
       production.minerals += rate.minerals;
-      production.science += rate.science;
+      production.data += rate.data;
     }
   return (
     <div className="system-panel">
       <div className="system-panel-top">
-        <span className="eyebrow">AUSGEWÄHLTES SYSTEM</span>
+        <span className="eyebrow">SYSTEM</span>
         <button className="icon-button" onClick={onMode} aria-label="Systemansicht umschalten">
           <Maximize2 size={13} />
         </button>
@@ -1380,26 +1153,11 @@ function SystemPanel({
       <div className="system-badges">
         <span className={own ? 'badge purple' : 'badge'}>
           {own ? <Flag size={10} /> : <Hexagon size={10} />}{' '}
-          {own ? 'DEIN TERRITORIUM' : s.owner ? 'FREMDES IMPERIUM' : 'UNABHÄNGIG'}
+          {own ? 'EIGEN' : s.owner ? 'FREMD' : 'UNABHÄNGIG'}
         </span>
         <span className={`survey-status ${surveyed ? 'surveyed' : ''}`}>
           {surveyed ? <Check size={10} /> : <ScanLine size={10} />} {surveyed ? 'Untersucht' : 'Untersuchen'}
         </span>
-      </div>
-      <div className={`planet-art ${s.kind !== 'star' ? 'anomaly-art' : ''}`}>
-        <div className="orbital-ring ring-one" />
-        <div className="orbital-ring ring-two" />
-        <div className={`planet-sphere ${s.kind}`}>
-          <div className="planet-clouds" />
-        </div>
-        <span className="planet-cross cross-one">+</span>
-        <span className="planet-cross cross-two">+</span>
-        <span className="planet-caption">
-          {s.kind === 'star'
-            ? s.colonyName || (s.name === 'Sol' ? 'TERRA · SOL III' : `${s.name.toUpperCase()} PRIME`)
-            : 'GRAVITATIVE SIGNATUR'}
-        </span>
-        <span className="planet-measure">{s.kind === 'star' ? '0.98 G' : 'Δ SPACE-TIME'}</span>
       </div>
       <div className="system-facts">
         <div>
@@ -1416,7 +1174,7 @@ function SystemPanel({
                 : s.kind !== 'star'
                   ? s.studied
                     ? 'Untersucht'
-                    : '+90 Forschung'
+                    : '+90 Daten'
                   : surveyed
                     ? 'Zur Kolonisierung bereit'
                     : 'Unbekanntes System'}
@@ -1432,7 +1190,7 @@ function SystemPanel({
       <div className="system-production">
         <span className="eyebrow">{own ? 'SYSTEMPRODUKTION' : 'RESSOURCENVORKOMMEN'}</span>
         <div>
-          {(['energy', 'minerals', 'science'] as Resource[]).map((r) => {
+          {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
             const Icon = resourceIcons[r];
             return (
               <span key={r} className={r}>
@@ -1447,8 +1205,8 @@ function SystemPanel({
         <div className="anomaly-note">
           <Sparkles size={15} />
           <div>
-            <strong>Ungewöhnliche Signatur</strong>
-            <span>Ein Forschungsschiff könnte mehr erfahren.</span>
+            <strong>Anomalie</strong>
+            <span>Forschungsschiff zur Untersuchung benötigt</span>
           </div>
         </div>
       )}
@@ -1583,12 +1341,11 @@ function SystemPanel({
                 })}
               </div>
             )}
-            <button
-              className="secondary-button wide"
-              onClick={onMode}
-            >
+            <button className="secondary-button wide" onClick={onMode}>
               <Diamond size={14} /> Bergbau im System verwalten
-              <span><ArrowUpRight size={14} /></span>
+              <span>
+                <ArrowUpRight size={14} />
+              </span>
             </button>
           </>
         )}
@@ -1613,22 +1370,31 @@ function SystemPanel({
         </div>
       )}
       {here.length > 0 && (
-        <div className="local-fleets">
-          <div className="section-label">
-            <span>FLOTTEN IM SYSTEM</span>
-            <span>{here.length}</span>
-          </div>
-          {here.map((f) => {
+        <DetailList
+          className="local-fleets"
+          label="Flotten vor Ort"
+          items={here}
+          getKey={(f) => f.id}
+          getName={(f) => f.name}
+          selectedKey={fleet?.id}
+        >
+          {(f) => {
             const Icon = shipIcon(f.type);
             return (
-              <button key={f.id} className={fleet?.id === f.id ? 'active' : ''} onClick={() => onFleet(f.id)}>
+              <button
+                key={f.id}
+                className={fleet?.id === f.id ? 'active' : ''}
+                aria-pressed={fleet?.id === f.id}
+                title={f.name}
+                onClick={() => onFleet(f.id)}
+              >
                 <Icon size={13} />
                 <span>{f.name}</span>
                 <ChevronRight size={12} />
               </button>
             );
-          })}
-        </div>
+          }}
+        </DetailList>
       )}
       <button className="system-view-link" onClick={onMode}>
         Systemansicht öffnen <ArrowUpRight size={13} />

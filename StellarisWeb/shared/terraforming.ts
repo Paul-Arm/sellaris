@@ -16,7 +16,7 @@ export const isEnvironment = (value: string): value is Environment => Object.has
 export function terraformingSpec(from: Environment, to: Environment): { cost: Resources; days: number } {
   const crossClimate = ENVIRONMENTS[from].climate !== ENVIRONMENTS[to].climate;
   return {
-    cost: { energy: crossClimate ? 600 : 400, minerals: crossClimate ? 375 : 250, science: 100 },
+    cost: { energy: crossClimate ? 600 : 400, minerals: crossClimate ? 375 : 250, data: 100 },
     days: crossClimate ? 120 : 80,
   };
 }
@@ -30,5 +30,5 @@ export interface TerraformProject {
   finishAt: number;
   paidEnergy: number;
   paidMinerals: number;
-  paidScience: number;
+  paidData: number;
 }

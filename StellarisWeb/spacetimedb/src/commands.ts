@@ -219,11 +219,11 @@ export const startJob = db.reducer({ kind: t.string(), targetId: t.u32() }, (ctx
   if ([...ctx.db.job.empireId.filter(owner)].filter((j) => j.status === 'active').length >= 8)
     throw new SenderError('Project queue full');
   if (kind === 'construction') ownedFleet(ctx, targetId, owner);
-  if (kind === 'research' ? e.science < 100 : e.minerals < 100)
+  if (kind === 'research' ? e.data < 100 : e.minerals < 100)
     throw new SenderError('Insufficient resources');
   ctx.db.empire.id.update({
     ...e,
-    science: e.science - (kind === 'research' ? 100 : 0),
+    data: e.data - (kind === 'research' ? 100 : 0),
     minerals: e.minerals - (kind === 'construction' ? 100 : 0),
   });
   const at = now(ctx),

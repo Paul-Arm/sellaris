@@ -1,3 +1,4 @@
+import { DetailList } from './DetailList';
 import { useState } from 'react';
 import { ArrowUpRight, Check, Clock3, Radio, ShieldCheck, Sparkles, Telescope } from 'lucide-react';
 import type { GameCommand, GameView, Resources } from '../shared/game';
@@ -10,9 +11,10 @@ import {
   type StoryChoice,
 } from '../shared/stories';
 import './stories.css';
+import { StellarWeatherPanel } from './StellarWeatherPanel';
 
-const resourceNames = { energy: 'Energie', minerals: 'Mineralien', science: 'Forschung' };
-const resourceKeys = ['energy', 'minerals', 'science'] as const;
+const resourceNames = { energy: 'Energie', minerals: 'Mineralien', data: 'Daten' };
+const resourceKeys = ['energy', 'minerals', 'data'] as const;
 function amounts(r: Resources) {
   return resourceKeys
     .filter((k) => r[k])
@@ -24,7 +26,10 @@ const daysRemaining = (deadline: number, tick: number) => `${Math.max(0, Math.ce
 export function SituationSummary({ game, onOpen }: { game: GameView; onOpen: () => void }) {
   const open = game.decisions?.filter((d) => d.phase === 'pending').length || 0;
   const crisis = game.crises?.find((c) => !['dormant', 'contained'].includes(c.phase));
-  if (!open && !crisis) return null;
+  const storm = game.systems.find(
+    (s) => s.stellarWeather && s.stellarWeather.phase !== 'cancelled' && game.tick < s.stellarWeather.endsAt,
+  );
+  if (!open && !crisis && !storm) return null;
   return (
     <button className="situation-summary" onClick={onOpen}>
       <Radio size={18} />
@@ -33,7 +38,9 @@ export function SituationSummary({ game, onOpen }: { game: GameView; onOpen: () 
         <strong>
           {open
             ? `${open} ${open === 1 ? 'Entscheidung wartet' : 'Entscheidungen warten'}`
-            : phaseNames[crisis!.phase]}
+            : crisis
+              ? phaseNames[crisis.phase]
+              : `Sternensturm bei ${storm!.name}`}
         </strong>
         {crisis && (
           <small>
@@ -76,10 +83,10 @@ function CrisisCard({
       <h3>{CRISIS.title}</h3>
       <p>
         {c.phase === 'dormant'
-          ? 'Ein schwaches Echo erreicht unsere Sensoren. Eine Untersuchung des Risses könnte die Quelle offenlegen und die Vorwarnung vorzeitig auslösen.'
+          ? 'Untersuchung des Risses löst die Vorwarnung vorzeitig aus.'
           : c.phase === 'contained'
-            ? 'Die Raumzeit beruhigt sich. Die gemeinsame Stabilisierung hat die planetaren Netze entlastet.'
-            : 'Die Resonanz des Risses erfasst die planetaren Netze. Jedes Reich kann zur Stabilisierung beitragen – auch über Kriegsgrenzen hinweg.'}
+            ? 'Krise eingedämmt. Kolonieproduktion wiederhergestellt.'
+            : 'Alle Reiche können zur Eindämmung beitragen.'}
       </p>
       <button className="story-location" onClick={() => onFocus(c.systemId)}>
         <Telescope size={13} /> {system?.name || 'Ursprung lokalisieren'} <ArrowUpRight size={13} />
@@ -127,7 +134,7 @@ function CrisisCard({
               disabled={disabled || !canPay(game.me.resources, CRISIS.contributionCost)}
               onClick={() => command({ type: 'crisis_action', crisisId: c.id, action: 'contribute' })}
             >
-              <Sparkles size={14} /> Beitrag leisten <small>60 Energie · 30 Forschung</small>
+              <Sparkles size={14} /> Beitrag leisten <small>60 Energie · 30 Daten</small>
             </button>
             <button
               className="secondary-button"
@@ -140,7 +147,7 @@ function CrisisCard({
             </button>
           </div>
           <p className="story-note">
-            Nach erfolgreicher Eindämmung: +40 Forschung pro finanziertem Beitrag. Beiträge und Abschirmung
+            Nach erfolgreicher Eindämmung: +40 Daten pro finanziertem Beitrag. Beiträge und Abschirmung
             werden sofort bezahlt.
           </p>
         </>
@@ -150,7 +157,7 @@ function CrisisCard({
           <Check size={16} />
           <span>
             {c.contributions
-              ? `Dein Anteil: ${c.contributions} Beiträge · ${c.contributions * CRISIS.sciencePerContribution} Forschung erhalten.`
+              ? `Dein Anteil: ${c.contributions} Beiträge · ${c.contributions * CRISIS.dataPerContribution} Daten erhalten.`
               : 'Die Kolonieproduktion ist wiederhergestellt.'}
           </span>
         </div>
@@ -182,12 +189,10 @@ export function StoriesPanel({
       <div className="stories-title">
         <Radio size={25} />
         <div>
-          <span className="eyebrow">SIGNALE AUS DER LEERE</span>
           <h2 id="dialog-title">Lagezentrum</h2>
         </div>
         <span>{pending} offen</span>
       </div>
-      <p className="modal-intro">Entdeckungen verlangen Antworten. Entscheidungen verändern die Galaxie.</p>
       {game.crises?.map((c) => (
         <CrisisCard
           key={c.id}
@@ -198,6 +203,24 @@ export function StoriesPanel({
           disabled={disabled}
         />
       ))}
+      <div className="stories-section-title">
+        <h3>Sternereignisse</h3>
+      </div>
+      {game.systems
+        .filter((s) => s.stellarWeather)
+        .map((s) => (
+          <article key={s.id}>
+            <button className="story-location" onClick={() => onFocus(s.id)}>
+              <Telescope size={13} />
+              {s.name}
+              <ArrowUpRight size={13} />
+            </button>
+            <StellarWeatherPanel system={s} tick={game.tick} paused={game.paused} />
+          </article>
+        ))}
+      {!game.systems.some((s) => s.stellarWeather) && (
+        <p>Keine Sternereignisse.</p>
+      )}
       <div className="stories-section-title">
         <h3>Entdeckungen & Beschlüsse</h3>
         <span>{decisions.length}</span>
@@ -211,11 +234,24 @@ export function StoriesPanel({
           </small>
         </div>
       ) : (
-        <>
-          <div className="story-list" aria-label="Entscheidungen">
-            {decisions.map((d) => (
+        <div className="story-workspace">
+          <DetailList
+            className="story-list"
+            label="Entscheidungen"
+            items={decisions}
+            getKey={(d) => d.id}
+            getName={(d) => STORIES[d.kind]?.title || d.kind}
+            getSearchText={(d) =>
+              `${STORIES[d.kind]?.title || d.kind} ${game.systems.find((s) => s.id === d.systemId)?.name || ''}`
+            }
+            selectedKey={active.id}
+          >
+            {(d) => (
               <button key={d.id} aria-pressed={d.id === active.id} onClick={() => setSelected(d.id)}>
-                <span>{STORIES[d.kind]?.title || d.kind}</span>
+                <span>
+                  {STORIES[d.kind]?.title || d.kind}
+                  <small>{game.systems.find((s) => s.id === d.systemId)?.name || 'Fundort unbekannt'}</small>
+                </span>
                 <small>
                   {d.phase === 'pending'
                     ? daysRemaining(d.deadlineAt, game.tick)
@@ -224,12 +260,14 @@ export function StoriesPanel({
                       : 'Abgeschlossen'}
                 </small>
               </button>
-            ))}
-          </div>
+            )}
+          </DetailList>
           <article className="story-detail">
-            <span className="eyebrow">{definition.eyebrow}</span>
             <h3>{definition.title}</h3>
-            <p>{definition.description}</p>
+            <details className="story-background">
+              <summary>Hintergrund</summary>
+              <p>{definition.description}</p>
+            </details>
             <button className="story-location" onClick={() => onFocus(active.systemId)}>
               <Telescope size={13} />
               {game.systems.find((s) => s.id === active.systemId)?.name || 'Fundort'}
@@ -289,7 +327,7 @@ export function StoriesPanel({
               </div>
             )}
           </article>
-        </>
+        </div>
       )}
     </section>
   );

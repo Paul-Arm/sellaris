@@ -9,6 +9,7 @@ import { SHIP_SETS, isShipSet, shipSetFor } from '../shared/shipSets';
 import { flagForEmpire } from '../shared/flags';
 import { EmpireFlag } from './EmpireFlag';
 import './empires.css';
+import { ownedColonyWorlds } from '../shared/planetColonies';
 
 export function LiveEmpire({ game, command }: { game: GameView; command: (command: GameCommand) => void }) {
   const empire = game.me.empire!;
@@ -17,16 +18,16 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
   const [sourceId, setSourceId] = useState(empire.primarySpeciesId);
   const [variant, setVariant] = useState<SpeciesDesign | null>(null);
   const [colonyIds, setColonyIds] = useState<string[]>([]);
-  const colonies = game.systems.filter((s) => s.owner === game.me.id);
+  const colonies = ownedColonyWorlds(game);
   const source = empire.species.find((s) => s.id === sourceId)!;
   const reformWait = Math.max(0, Math.ceil(empire.reformAvailableAt - game.tick));
   const modificationWait = Math.max(0, Math.ceil(empire.modificationAvailableAt - game.tick));
   const unlocked = game.me.techs.includes('extraction');
   const affordReform =
-    game.me.resources.energy >= REFORM_COST.energy && game.me.resources.science >= REFORM_COST.science;
+    game.me.resources.energy >= REFORM_COST.energy && game.me.resources.data >= REFORM_COST.data;
   const affordModification =
     game.me.resources.minerals >= MODIFICATION_COST.minerals &&
-    game.me.resources.science >= MODIFICATION_COST.science;
+    game.me.resources.data >= MODIFICATION_COST.data;
   let validation = '';
   try {
     if (tab === 'reform') parseGovernment(government);
@@ -135,7 +136,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
         <>
           <p className="archive-note">
             Passe Regierung, Ethiken und Staatselemente dieser Partie an. Ursprung und grundlegender Reichstyp
-            bleiben erhalten. Kosten: 100 Energie + 150 Forschung. Danach 120 Spieltage Wartezeit.
+            bleiben erhalten. Kosten: 100 Energie + 150 Daten. Danach 120 Spieltage Wartezeit.
           </p>
           <GovernmentFields value={government} onChange={setGovernment} lockKind />
           {validation && (
@@ -158,7 +159,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
             <Landmark size={15} />
             {reformWait ? `Reform in ${reformWait} s` : 'Regierung reformieren'}
           </button>
-          {!affordReform && <p className="archive-muted">Benötigt 100 Energie und 150 Forschung.</p>}
+          {!affordReform && <p className="archive-muted">Benötigt 100 Energie und 150 Daten.</p>}
         </>
       )}
       {tab === 'species' && (
@@ -223,7 +224,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
             <div className="living-modification">
               <p className="archive-note">
                 Die Variante erhält ein Budget von 4 Merkmalspunkten. Nur die gewählten Kolonien wechseln zur
-                neuen Abstammungslinie. Kosten: 120 Mineralien + 300 Forschung. Wartezeit danach: 240
+                neuen Abstammungslinie. Kosten: 120 Mineralien + 300 Daten. Wartezeit danach: 240
                 Spieltage.
               </p>
               <SpeciesFields value={variant} onChange={setVariant} budget={4} lockKind showLore={false} />
@@ -234,19 +235,19 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
                     s.colony?.populations?.some((p) => p.speciesId === sourceId && p.population > 0),
                   )
                   .map((system) => (
-                    <label key={system.id}>
+                    <label key={system.worldId}>
                       <input
                         type="checkbox"
-                        checked={colonyIds.includes(system.id)}
+                        checked={colonyIds.includes(system.worldId)}
                         onChange={(e) =>
                           setColonyIds(
                             e.target.checked
-                              ? [...colonyIds, system.id]
-                              : colonyIds.filter((id) => id !== system.id),
+                              ? [...colonyIds, system.worldId]
+                              : colonyIds.filter((id) => id !== system.worldId),
                           )
                         }
                       />
-                      <span>{system.name}</span>
+                      <span>{system.colonyName || system.name}</span>
                     </label>
                   ))}
               </fieldset>
@@ -272,7 +273,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
                   })
                 }
               >
-                Variante anwenden · 120 Mineralien / 300 Forschung
+                Variante anwenden · 120 Mineralien / 300 Daten
               </button>
               {!affordModification && (
                 <p className="archive-muted">Nicht genügend Ressourcen für die Speziesmodifikation.</p>

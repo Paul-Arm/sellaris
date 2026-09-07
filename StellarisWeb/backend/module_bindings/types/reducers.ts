@@ -7,6 +7,7 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
 import ActivateReducer from "../activate_reducer";
+import AdministerGameReducer from "../administer_game_reducer";
 import CancelJobReducer from "../cancel_job_reducer";
 import CancelTerraformingReducer from "../cancel_terraforming_reducer";
 import ConfigureReducer from "../configure_reducer";
@@ -32,6 +33,7 @@ import StartTerraformingReducer from "../start_terraforming_reducer";
 import WithdrawFleetReducer from "../withdraw_fleet_reducer";
 
 export type ActivateParams = __Infer<typeof ActivateReducer>;
+export type AdministerGameParams = __Infer<typeof AdministerGameReducer>;
 export type CancelJobParams = __Infer<typeof CancelJobReducer>;
 export type CancelTerraformingParams = __Infer<typeof CancelTerraformingReducer>;
 export type ConfigureParams = __Infer<typeof ConfigureReducer>;

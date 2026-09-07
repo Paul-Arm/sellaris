@@ -20,7 +20,12 @@ import { DIPLOMACY_TYPES, type DiplomacyCommand } from '../../shared/diplomacy';
 import { applyDiplomacy } from './game-diplomacy';
 import { applyStoryCommand } from './game-stories';
 import { applySiteCommand } from './game-sites';
+import { applyStellarCommand } from './game-stellar';
 import { applyNavigation, queueConstruction } from './game-navigation';
+import { COLONY_COMMANDS, type ColonyCommand } from '../../shared/colonies';
+import { applyPlanetColonyCommand } from './game-planet-colonies';
+import { colonyPlanet } from '../../shared/planetColonies';
+import { applyResearchCommand } from './game-research';
 
 export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, executing = false) {
   const config = ctx.db.gameSettings.id.find(1);
@@ -29,6 +34,22 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
   if (cmd.type === 'mine')
     throw new SenderError('Bergbaustationen werden am Systemobjekt mit einem Schiff gebaut.');
   const at = now(ctx);
+  if (cmd.type === 'research' || cmd.type === 'research_weight' || cmd.type === 'research_synthesis') {
+    applyResearchCommand(ctx, owner, cmd);
+    return;
+  }
+  if (
+    (COLONY_COMMANDS as readonly string[]).includes(cmd.type) &&
+    'bodySlot' in cmd &&
+    cmd.bodySlot !== undefined
+  ) {
+    applyPlanetColonyCommand(ctx, owner, cmd as ColonyCommand);
+    return;
+  }
+  if (cmd.type === 'stellar_collapse' || cmd.type === 'stellar_cancel') {
+    applyStellarCommand(ctx, owner, cmd);
+    return;
+  }
   if (
     !executing &&
     ['move', 'scan', 'colonize', 'local_move', 'fleet_stop', 'fleet_remove_order'].includes(cmd.type)
@@ -36,7 +57,12 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
     applyNavigation(ctx, owner, cmd);
     return;
   }
-  if (cmd.type === 'site_build' || cmd.type === 'site_cancel' || cmd.type === 'station_place') {
+  if (
+    cmd.type === 'site_build' ||
+    cmd.type === 'site_cancel' ||
+    cmd.type === 'station_place' ||
+    cmd.type === 'megastructure_place'
+  ) {
     if (cmd.type !== 'site_cancel' && !executing) queueConstruction(ctx, owner, cmd);
     else applySiteCommand(ctx, owner, cmd);
     return;
@@ -67,13 +93,28 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
     return;
   }
   settleEconomy(ctx, owner, at);
-  if (cmd.type.startsWith('colony_') && 'systemId' in cmd) {
+  if (cmd.type.startsWith('colony_') && 'systemId' in cmd && cmd.systemId) {
     const meta = ctx.db.gameSystem.externalId.find(cmd.systemId);
     if (meta && ctx.db.star.id.find(meta.id)?.ownerId === owner) settlePopulation(ctx, meta.id, at, true);
   }
   const game = commandModel(ctx, owner),
     player = game.players[0],
     beforeEmpire = JSON.stringify(player.empire);
+  // Species selection addresses worlds, including each separately settled planet.
+  if (cmd.type === 'species_modify')
+    for (const world of ctx.db.gamePlanetColony.empireId.filter(owner)) {
+      const body = ctx.db.gameObject.id.find(world.id)!;
+      const system = game.systems.find(
+        (s) => s.id === ctx.db.gameSystem.id.find(world.systemId)!.externalId,
+      )!;
+      game.systems.push({
+        ...system,
+        id: world.id,
+        planet: colonyPlanet(JSON.parse(body.bodyJson)),
+        colony: JSON.parse(world.colonyJson),
+        mined: false,
+      });
+    }
   const oldSystems = new Map(game.systems.map((s) => [s.id, JSON.stringify(s)]));
   if (['move', 'scan', 'colonize'].includes(cmd.type)) {
     const meta = ctx.db.gameFleet.externalId.find((cmd as { fleetId: string }).fleetId);
@@ -94,7 +135,7 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
   if (
     e.energy !== player.resources.energy ||
     e.minerals !== player.resources.minerals ||
-    e.science !== player.resources.science
+    e.data !== player.resources.data
   )
     ctx.db.empire.id.update({ ...e, ...player.resources });
   const p = ctx.db.gamePlayer.id.find(owner)!;
@@ -102,14 +143,17 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
   if (instanceChanged) ctx.db.gamePlayer.id.update({ ...p, empireJson: JSON.stringify(player.empire) });
   for (const s of game.systems) {
     if (s.owner !== player.id || JSON.stringify(s) === oldSystems.get(s.id)) continue;
+    const planetColony = ctx.db.gamePlanetColony.id.find(s.id);
+    if (planetColony) {
+      ctx.db.gamePlanetColony.id.update({ ...planetColony, colonyJson: JSON.stringify(s.colony) });
+      continue;
+    }
     const m = ctx.db.gameSystem.externalId.find(s.id)!;
     ctx.db.gameSystem.id.update({ ...m, mined: s.mined, defense: s.defense, colonyName: s.colonyName || '' });
     updateColony(ctx, m.id, s.colony || null, owner);
   }
   const jobs = jobsFor(ctx, owner),
     mods = empireModifiers(player.empire);
-  if (cmd.type === 'research')
-    addJob(ctx, owner, 'game_research', player.research!.id, 0, player.research!.total);
   if (cmd.type === 'build') {
     const next = player.queue.at(-1)!;
     addJob(
@@ -163,9 +207,11 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
           ctx.db.participant.shipId.update({ ...fighter, damage: weapons.reduce((n, w) => n + w.damage, 0) });
       }
     for (const c of ctx.db.colony.empireId.filter(owner)) refreshColonyRate(ctx, c.id, owner);
-    for (const j of jobs.filter((j) => ['game_build', 'game_upgrade', 'game_research'].includes(j.kind))) {
+    for (const j of jobs.filter((j) =>
+      ['game_build', 'game_upgrade', 'game_planet_upgrade'].includes(j.kind),
+    )) {
       const workDone = j.status === 'active' ? progressAt(j, at) : j.workDone;
-      const rate = Math.max(0.1, 1 + (j.kind === 'game_research' ? mods.research : mods.construction));
+      const rate = Math.max(0.1, 1 + mods.construction);
       ctx.db.job.id.update({
         ...j,
         workDone,

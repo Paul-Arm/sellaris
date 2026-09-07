@@ -44,7 +44,7 @@ export const configure = db.reducer(
         id,
         energy: 10000,
         minerals: 10000,
-        science: 5000,
+        data: 5000,
         productionModifier: 1,
         researchLevel: 0,
         ai: true,
@@ -62,7 +62,7 @@ export const configure = db.reducer(
       for (const system of systems.slice(0, 10)) {
         let energyRate = 0,
           mineralsRate = 0,
-          scienceRate = 0;
+          dataRate = 0;
         for (let c = 0; c < s.cohortsPerColony; c++) {
           const job = ['technician', 'miner', 'researcher'][c % 3];
           ctx.db.cohort.insert({
@@ -77,7 +77,7 @@ export const configure = db.reducer(
           });
           if (job === 'technician') energyRate += s.popsPerCohort * 0.1;
           if (job === 'miner') mineralsRate += s.popsPerCohort * 0.08;
-          if (job === 'researcher') scienceRate += s.popsPerCohort * 0.05;
+          if (job === 'researcher') dataRate += s.popsPerCohort * 0.05;
         }
         ctx.db.colony.insert({
           id: system.id,
@@ -85,7 +85,7 @@ export const configure = db.reducer(
           population: s.cohortsPerColony * s.popsPerCohort,
           energyRate,
           mineralsRate,
-          scienceRate,
+          dataRate,
           lastProducedAt: 0,
         });
       }

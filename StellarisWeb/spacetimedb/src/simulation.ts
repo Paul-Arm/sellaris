@@ -156,11 +156,11 @@ export const economyTick = db.reducer(
     for (const e of ctx.db.empire.iter()) {
       let energy = 0,
         minerals = 0,
-        science = 0;
+        data = 0;
       for (const c of ctx.db.colony.empireId.filter(e.id)) {
         energy += c.energyRate;
         minerals += c.mineralsRate;
-        science += c.scienceRate;
+        data += c.dataRate;
         ctx.db.colony.id.update({ ...c, lastProducedAt: producedAt });
         writes++;
       }
@@ -174,7 +174,7 @@ export const economyTick = db.reducer(
         ...e,
         energy: e.energy + energy * cycles * e.productionModifier,
         minerals: e.minerals + minerals * cycles * e.productionModifier,
-        science: e.science + science * cycles * e.productionModifier,
+        data: e.data + data * cycles * e.productionModifier,
       });
       writes++;
       for (const d of ctx.db.decision.empireId.filter(e.id)) {

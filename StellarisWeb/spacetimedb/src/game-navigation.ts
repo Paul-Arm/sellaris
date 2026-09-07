@@ -6,6 +6,7 @@ import { storedSystemBodies } from './game-objects';
 import { completeGameJob, contested } from './game-jobs';
 import { applyGameCommand } from './game-commands';
 import { atWar } from './game-relations';
+import { planetColonyTarget, startPlanetColony } from './game-planet-colonies';
 import type { GameCommand } from '../../shared/game';
 import type { SiteCommand } from '../../shared/celestial';
 import { applySiteCommand, constructionTarget } from './game-sites';
@@ -98,7 +99,8 @@ export function queueConstruction(ctx: Context, owner: number, cmd: Construction
         (o) =>
           o.type === cmd.type &&
           o.systemId === cmd.systemId &&
-          (o.type === 'site_build' && cmd.type === 'site_build'
+          ((o.type === 'site_build' && cmd.type === 'site_build') ||
+          (o.type === 'megastructure_place' && cmd.type === 'megastructure_place')
             ? o.bodySlot === cmd.bodySlot
             : o.type === 'station_place' &&
               cmd.type === 'station_place' &&
@@ -149,6 +151,39 @@ function constructionLeg(ctx: Context, n: Nav, cmd: Construction) {
     dueTick: tickAt(motion.finishAt),
   });
 }
+function colonyLeg(ctx: Context, n: Nav, order: Extract<FleetOrder, { type: 'scan' | 'colonize' }>) {
+  const at = now(ctx),
+    f = ctx.db.fleet.id.find(n.id)!;
+  if (ctx.db.gameSystem.externalId.find(order.systemId || '')?.id !== f.systemId)
+    throw new SenderError('Kolonieziel liegt in einem anderen System.');
+  const { body } = planetColonyTarget(ctx, f.empireId, f.systemId, order.bodySlot!);
+  const bodies = storedSystemBodies(ctx, f.systemId),
+    old: LocalMotion = JSON.parse(n.motionJson),
+    from = localPosition(old, at),
+    pos = bodyPosition(body, bodies, at);
+  if (Math.hypot(from.x - pos.x, from.y - pos.y, from.z - pos.z) <= body.radius + BUILD_REACH) {
+    startPlanetColony(ctx, f.empireId, f.id, body.slot);
+    save(ctx, { ...n, phase: 'colonize', dueTick: tickAt(at + 0.5) });
+    return;
+  }
+  let motion = flight(from, pos, at, localVelocity(old, at));
+  for (let i = 0; i < 6; i++) {
+    const target = bodyPosition(body, bodies, motion.finishAt);
+    motion = flight(
+      from,
+      { ...target, x: target.x + body.radius + 35, y: Math.max(24, target.y) },
+      at,
+      localVelocity(old, at),
+    );
+  }
+  save(ctx, {
+    ...n,
+    phase: 'colony_flight',
+    targetSlot: body.slot,
+    motionJson: JSON.stringify(motion),
+    dueTick: tickAt(motion.finishAt),
+  });
+}
 function begin(ctx: Context, n: Nav) {
   const order = ordersOf(n)[0],
     f = ctx.db.fleet.id.find(n.id)!,
@@ -167,8 +202,14 @@ function begin(ctx: Context, n: Nav) {
     const old: LocalMotion = JSON.parse(n.motionJson);
     const motion = flight(localPosition(old, at), order.point, at, localVelocity(old, at));
     save(ctx, { ...n, phase: 'local', motionJson: JSON.stringify(motion), dueTick: tickAt(motion.finishAt) });
-  } else if (order.type === 'site_build' || order.type === 'station_place') {
+  } else if (
+    order.type === 'site_build' ||
+    order.type === 'station_place' ||
+    order.type === 'megastructure_place'
+  ) {
     constructionLeg(ctx, n, order);
+  } else if (order.type === 'colonize' && order.bodySlot !== undefined) {
+    colonyLeg(ctx, n, order);
   } else if (order.type === 'scan') {
     const p = ctx.db.gamePlayer.id.find(f.empireId)!,
       s = ctx.db.star.id.find(f.systemId)!,
@@ -246,7 +287,17 @@ export function applyNavigation(ctx: Context, owner: number, cmd: GameCommand) {
     });
     return;
   }
-  if (!['move', 'local_move', 'scan', 'colonize', 'site_build', 'station_place'].includes(cmd.type))
+  if (
+    ![
+      'move',
+      'local_move',
+      'scan',
+      'colonize',
+      'site_build',
+      'station_place',
+      'megastructure_place',
+    ].includes(cmd.type)
+  )
     throw new SenderError('Ungültiger Flottenauftrag.');
   if (
     cmd.type === 'local_move' &&
@@ -344,11 +395,26 @@ export function navigationTick(ctx: Context) {
     } else if (n.phase === 'construction_flight') {
       const order = ordersOf(n)[0];
       try {
-        if (order?.type === 'site_build' || order?.type === 'station_place') constructionLeg(ctx, n, order);
+        if (
+          order?.type === 'site_build' ||
+          order?.type === 'station_place' ||
+          order?.type === 'megastructure_place'
+        )
+          constructionLeg(ctx, n, order);
         else finish(ctx, n);
       } catch (e) {
         if (!(e instanceof SenderError)) throw e;
         event(ctx, f.empireId, `Bauauftrag abgebrochen: ${String(e)}`, 'warning');
+        finish(ctx, n);
+      }
+    } else if (n.phase === 'colony_flight') {
+      const order = ordersOf(n)[0];
+      try {
+        if (order?.type === 'colonize') colonyLeg(ctx, n, order);
+        else finish(ctx, n);
+      } catch (e) {
+        if (!(e instanceof SenderError)) throw e;
+        event(ctx, f.empireId, `Kolonieanflug abgebrochen: ${String(e)}`, 'warning');
         finish(ctx, n);
       }
     } else if (n.phase === 'colonize') {

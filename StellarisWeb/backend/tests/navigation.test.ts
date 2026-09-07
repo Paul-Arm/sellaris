@@ -35,7 +35,7 @@ test(
     const source = createGame('AF1234'),
       pa = addPlayer(source, 'a', 'Navigator'),
       pb = addPlayer(source, 'b', 'Observer');
-    pa.resources = { energy: 5000, minerals: 5000, science: 5000 };
+    pa.resources = { energy: 5000, minerals: 5000, data: 5000 };
     const scout = source.fleets.find((f) => f.owner === pa.id && f.type === 'scout')!;
     const initial = scout.systemId;
     const target = source.systems.find(
@@ -290,7 +290,7 @@ test(
       await until(() => gameView(a)!.sites!.some((s) => s.facility === 'starbase' && s.level === 1));
       assert(gameView(a)!.sites!.some((s) => s.facility === 'mine' && s.level === 1));
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
-      assert(gameView(a)!.me.installationIncome!.science > 0, 'free station produces research');
+      assert(gameView(a)!.me.installationIncome!.data > 0, 'free station produces research');
       await detail.focus(0);
     } finally {
       for (const c of clients) c.conn.disconnect();

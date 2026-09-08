@@ -1,0 +1,130 @@
+.resource-balance {
+  position: relative;
+}
+.balance-popover {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 100;
+  width: min(440px, calc(100vw - 32px));
+  padding: 18px;
+  background: #111923;
+  border: 1px solid #485364;
+  border-radius: 10px;
+  box-shadow: 0 16px 48px #0009;
+  color: #e5eaf1;
+  font-size: 12px;
+  text-align: left;
+}
+.balance-popover header,
+.balance-net,
+.balance-popover summary,
+.balance-source > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.balance-popover header {
+  margin-bottom: 16px;
+}
+.balance-popover header strong {
+  font-size: 16px;
+}
+.balance-popover header span,
+.balance-popover p,
+.balance-popover footer,
+.balance-source small {
+  color: #a9b5c5;
+}
+.balance-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px 0;
+  border-block: 1px solid #ffffff16;
+}
+.balance-summary > span {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.balance-summary b {
+  color: #8cd9b0;
+  font-size: 16px;
+}
+.balance-net {
+  padding-top: 14px;
+}
+.balance-negative {
+  color: #ff9696 !important;
+}
+.balance-popover p {
+  line-height: 1.5;
+  margin: 12px 0;
+}
+.balance-sources {
+  max-height: min(440px, 50vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.balance-popover summary {
+  cursor: pointer;
+  padding: 10px 0;
+  border-top: 1px solid #ffffff16;
+}
+.balance-popover summary:focus-visible {
+  outline: 2px solid #b6a6f5;
+  outline-offset: -2px;
+}
+.balance-popover summary b {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.balance-source {
+  padding-left: 12px;
+}
+.balance-source summary {
+  font-size: 11px;
+  border-top: 0;
+}
+.balance-source small {
+  display: block;
+  padding-top: 4px;
+}
+.balance-source > div {
+  padding: 5px 0 5px 10px;
+  font-size: 11px;
+}
+.balance-popover footer {
+  border-top: 1px solid #ffffff20;
+  padding-top: 12px;
+  margin-top: 12px;
+}
+@media (max-width: 700px) {
+  .balance-popover {
+    position: fixed;
+    left: 16px;
+    top: 70px;
+    width: calc(100vw - 32px);
+  }
+}
+
+.pm-job-species {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0 10px;
+  color: #b1bbcb;
+}
+.balance-source summary::before {
+  content: '›';
+  color: #a9b5c5;
+}
+.balance-source[open] > summary::before {
+  content: '⌄';
+}
+.balance-source summary > span {
+  flex: 1;
+}

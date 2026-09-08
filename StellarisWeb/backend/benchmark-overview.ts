@@ -36,7 +36,7 @@ try {
     vitals: Number(player.conn.db.battleVitals.count()),
     ships: Number(player.conn.db.fleetShips.count()),
     battleClock: Number(player.conn.db.focusedBattle.count()),
-    legacyBattleClock: Number(player.conn.db.visibleBattles.count()),
+    focusedBattleClock: Number(player.conn.db.focusedBattle.count()),
   });
   const noDetails = () => {
     for (const value of Object.values(counts())) assert.equal(value, 0);

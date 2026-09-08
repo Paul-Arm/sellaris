@@ -1,3 +1,4 @@
+import { EMPIRE_RULE_DEFINITIONS } from './empire-content';
 import type { Condition, RuleCatalog, RuleDefinition, StatDefinition } from './types';
 import { createRuleEngine } from './engine';
 
@@ -236,6 +237,7 @@ export const CORE_RULE_CATALOG: RuleCatalog = {
     'production.minerals': stat('Mineralienproduktion', 'Mineralien / Zyklus'),
     'production.research': stat('Forschungsproduktion', 'Forschung / Zyklus'),
     'population.growth': stat('Bevölkerungswachstum', 'Faktor', 1),
+    'population.unity': stat('Einigkeit durch Bevölkerung', 'Faktor', 1),
     'research.speed': stat('Forschungstempo', 'Faktor', 1),
     'construction.speed': stat('Bautempo', 'Faktor', 1),
     'fleet.speed': stat('Reisetempo', 'Faktor', 1),
@@ -258,7 +260,7 @@ export const CORE_RULE_CATALOG: RuleCatalog = {
       },
     },
   },
-  definitions,
+  definitions: { ...EMPIRE_RULE_DEFINITIONS, ...definitions },
 };
 export const coreRules = createRuleEngine(CORE_RULE_CATALOG);
 

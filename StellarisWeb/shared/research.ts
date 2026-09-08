@@ -1,3 +1,4 @@
+import { modifyEconomy } from './economy';
 import type { Player } from './game';
 
 export type ResearchField = 'compute' | 'models' | 'industry' | 'frontier';
@@ -35,7 +36,7 @@ export interface Technology {
 export const TECHS: Record<TechId, Technology> = {
   computing: {
     name: 'Rechenarchitektur',
-    description: '+2 Compute pro Spieltag.',
+    description: '+2 Compute pro Monat.',
     field: 'compute',
     data: 50,
     work: 80,
@@ -44,7 +45,7 @@ export const TECHS: Record<TechId, Technology> = {
   },
   distributed: {
     name: 'Verteilte Systeme',
-    description: '+4 Compute pro Spieltag.',
+    description: '+4 Compute pro Monat.',
     field: 'compute',
     data: 130,
     work: 220,
@@ -53,7 +54,7 @@ export const TECHS: Record<TechId, Technology> = {
   },
   parallelism: {
     name: 'Parallelarchitektur',
-    description: '+3 Compute pro Spieltag.',
+    description: '+3 Compute pro Monat.',
     field: 'compute',
     data: 100,
     work: 180,
@@ -62,7 +63,7 @@ export const TECHS: Record<TechId, Technology> = {
   },
   quantum: {
     name: 'Quantenprozessoren',
-    description: '+8 Compute pro Spieltag.',
+    description: '+8 Compute pro Monat.',
     field: 'compute',
     data: 350,
     work: 650,
@@ -169,12 +170,29 @@ export interface ResearchProject {
 export interface ResearchProgram {
   projects: ResearchProject[];
   synthesis: number;
+  production: number;
+  terraforming: number;
 }
+export const COMPUTE_USES = ['synthesis', 'production', 'terraforming'] as const;
+export type ComputeUse = (typeof COMPUTE_USES)[number];
+export const COMPUTE_LABELS: Record<ComputeUse, string> = {
+  synthesis: 'Datensynthese',
+  production: 'Produktionsoptimierung',
+  terraforming: 'Klimasimulation',
+};
+export const reservedCompute = (program: ResearchProgram) =>
+  COMPUTE_USES.reduce((sum, use) => sum + program[use], 0);
+export const productionComputeBonus = (compute: number) => (0.5 * compute) / (20 + compute);
 export type ResearchCommand =
   | { type: 'research'; tech: TechId }
   | { type: 'research_weight'; tech: TechId; weight: number }
-  | { type: 'research_synthesis'; percent: number };
-export const newResearch = (): ResearchProgram => ({ projects: [], synthesis: 25 });
+  | { type: 'compute_allocation'; use: ComputeUse; percent: number };
+export const newResearch = (): ResearchProgram => ({
+  projects: [],
+  synthesis: 25,
+  production: 0,
+  terraforming: 0,
+});
 /** Only completed knowledge and the immediately reachable frontier are revealed. */
 export function visibleResearch(known: readonly TechId[]): TechId[] {
   const unlocked = new Set(known);
@@ -208,12 +226,18 @@ export function researchAllocation(program: ResearchProgram, known: readonly Tec
     (p) => p.paid !== null && p.weight > 0 && TECHS[p.tech].requires.every((id) => known.includes(id)),
   );
   const weights = active.reduce((n, p) => n + p.weight, 0);
-  const research = weights ? compute * (1 - program.synthesis / 100) : 0;
+  const production = (compute * program.production) / 100;
+  const terraforming = (compute * program.terraforming) / 100;
+  const research = weights ? compute * (1 - reservedCompute(program) / 100) : 0;
+  const synthesis = Math.max(0, compute - research - production - terraforming);
   return {
     rates: new Map(active.map((p) => [p.tech, (research * p.weight) / weights])),
     research,
-    synthesis: compute - research,
-    data: (compute - research) * synthesisEfficiency(known),
+    production,
+    terraforming,
+    productionBonus: productionComputeBonus(production),
+    synthesis,
+    data: synthesis * synthesisEfficiency(known),
   };
 }
 export function activateResearch(player: Pick<Player, 'research' | 'techs' | 'resources'>) {
@@ -221,7 +245,7 @@ export function activateResearch(player: Pick<Player, 'research' | 'techs' | 're
     if (
       project.paid !== null ||
       !project.weight ||
-      player.research.synthesis === 100 ||
+      reservedCompute(player.research) === 100 ||
       !TECHS[project.tech].requires.every((id) => player.techs.includes(id))
     )
       continue;
@@ -235,10 +259,14 @@ export function applyResearch(
   player: Pick<Player, 'research' | 'techs' | 'resources'>,
   cmd: ResearchCommand,
 ) {
-  if (cmd.type === 'research_synthesis') {
+  if (cmd.type === 'compute_allocation') {
+    const use = cmd.use;
+    if (!COMPUTE_USES.includes(use)) throw new Error('Unbekannte Compute-Nutzung.');
     if (!Number.isInteger(cmd.percent) || cmd.percent < 0 || cmd.percent > 100)
       throw new Error('Compute-Verteilung muss zwischen 0 und 100 % liegen.');
-    player.research.synthesis = cmd.percent;
+    if (reservedCompute(player.research) - player.research[use] + cmd.percent > 100)
+      throw new Error('Das gesamte Compute-Budget darf 100 % nicht überschreiten.');
+    player.research[use] = cmd.percent;
   } else {
     if (!Object.hasOwn(TECHS, cmd.tech)) throw new Error('Unbekannte Technologie.');
     if (cmd.type === 'research') {
@@ -259,15 +287,19 @@ export function applyResearch(
   }
   activateResearch(player);
 }
-/** One authoritative day. Completion unlocks follow-up work on the next day. */
+/** One monthly batch. Completion unlocks follow-up work in the next month. */
 export function advanceResearch(
-  player: Pick<Player, 'research' | 'techs' | 'resources'>,
+  player: Pick<Player, 'research' | 'techs' | 'resources'> & Partial<Pick<Player, 'empire'>>,
   compute: number,
   dt: number,
 ) {
   activateResearch(player);
   const allocation = researchAllocation(player.research, player.techs, compute);
-  player.resources.data += allocation.data * dt;
+  player.resources.data +=
+    modifyEconomy(allocation.data, player.empire?.economyModifiers ?? [], {
+      category: 'synthesis',
+      resource: 'data',
+    }).amount * dt;
   const completed: TechId[] = [];
   for (const p of player.research.projects) {
     p.done = Math.min(TECHS[p.tech].work, p.done + (allocation.rates.get(p.tech) || 0) * dt);

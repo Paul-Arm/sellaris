@@ -14,10 +14,70 @@ import {
   type TechId,
 } from '../shared/research';
 import { colonyEconomy } from '../shared/planetaryEconomy';
+import {
+  terraformWork,
+  terraformingRate,
+  retimeTerraforming,
+  type TerraformProject,
+} from '../shared/terraforming';
 const player = (data = 10000) => ({
   techs: [] as TechId[],
   research: newResearch(),
   resources: { energy: 0, minerals: 0, data },
+});
+
+test('all Compute consumers share one budget and invalid changes are atomic', () => {
+  const p = player();
+  applyResearch(p, { type: 'research', tech: 'computing' });
+  applyResearch(p, { type: 'compute_allocation', use: 'production', percent: 30 });
+  applyResearch(p, { type: 'compute_allocation', use: 'terraforming', percent: 20 });
+  const a = researchAllocation(p.research, p.techs, 100);
+  assert.equal(a.production, 30);
+  assert.equal(a.terraforming, 20);
+  assert.equal(a.research + a.synthesis + a.production + a.terraforming, 100);
+  const before = structuredClone(p);
+  for (const percent of [56, NaN, -1, 1.5, Infinity])
+    assert.throws(() => applyResearch(p, { type: 'compute_allocation', use: 'production', percent }));
+  assert.throws(() => applyResearch(p, { type: 'compute_allocation', use: 'unity' as never, percent: 5 }));
+  assert.deepEqual(p, before);
+  applyResearch(p, { type: 'research_weight', tech: 'computing', weight: 0 });
+  const idle = researchAllocation(p.research, p.techs, 100);
+  assert.equal(idle.synthesis, 50);
+  assert.equal(idle.production, 30);
+  assert.equal(idle.terraforming, 20);
+  applyResearch(p, { type: 'compute_allocation', use: 'production', percent: 55 });
+  applyResearch(p, { type: 'research', tech: 'archives' });
+  assert.equal(p.research.projects.find((project) => project.tech === 'archives')!.paid, null);
+});
+
+test('Terraforming shares Compute, preserves completed work when retimed and never regresses', () => {
+  const project: TerraformProject = {
+    id: '1:0',
+    systemId: 1,
+    empireId: 1,
+    from: 'ocean',
+    target: 'continental',
+    startedAt: 0,
+    finishAt: 80,
+    workTotal: 80,
+    workDone: 0,
+    updatedAt: 0,
+    rate: 1,
+    paidEnergy: 400,
+    paidMinerals: 250,
+    paidData: 100,
+  };
+  assert.equal(terraformingRate(20, 2), 1.5);
+  const boosted = retimeTerraforming(project, 20, terraformingRate(20, 2));
+  assert.equal(boosted.workDone, 20);
+  assert.equal(boosted.finishAt, 60);
+  const unboosted = retimeTerraforming(boosted, 30, 1);
+  assert.equal(unboosted.workDone, 35);
+  assert.equal(unboosted.finishAt, 75);
+  assert.equal(terraformWork(unboosted, 30), 35);
+  assert.equal(terraformWork(unboosted, 100), 80);
+  assert.equal(terraformingRate(0, 1), 1);
+  assert(terraformingRate(1e9, 1) < 2);
 });
 test('the complete technology graph has valid acyclic prerequisites and a unique topological route', () => {
   for (const id of Object.keys(TECHS) as TechId[]) {
@@ -77,7 +137,7 @@ test('parked work retains progress and paid data; 100% synthesis suspends every 
   assert.equal(p.research.projects[0].done, done);
   applyResearch(p, { type: 'research_weight', tech: 'computing', weight: 1 });
   assert.equal(p.research.projects[0].paid, paid);
-  applyResearch(p, { type: 'research_synthesis', percent: 100 });
+  applyResearch(p, { type: 'compute_allocation', use: 'synthesis', percent: 100 });
   const before = p.resources.data;
   advanceResearch(p, 4, 2);
   assert.equal(p.research.projects[0].done, done);
@@ -109,7 +169,7 @@ test('invalid priorities and allocations reject without corrupting the research 
   applyResearch(p, { type: 'research', tech: 'computing' });
   const before = structuredClone(p);
   for (const value of [-1, 101, NaN, 0.5])
-    assert.throws(() => applyResearch(p, { type: 'research_synthesis', percent: value }));
+    assert.throws(() => applyResearch(p, { type: 'compute_allocation', use: 'synthesis', percent: value }));
   for (const weight of [-1, 6, NaN, 1.5])
     assert.throws(() => applyResearch(p, { type: 'research_weight', tech: 'computing', weight }));
   assert.deepEqual(p, before);
@@ -119,7 +179,13 @@ test('data centers need employed jobs and stop providing Compute when disabled',
     p = addPlayer(g, 'a', 'A'),
     s = g.systems.find((s) => s.id === p.home)!;
   const c = s.colony!;
-  c.sectors[0].districts.push({ id: c.nextDistrictId++, building: 'datacenter', enabled: true, level: 1 });
+  c.sectors[0].districts.push({
+    id: c.nextDistrictId++,
+    slot: 2,
+    building: 'datacenter',
+    enabled: true,
+    level: 1,
+  });
   assert(colonyEconomy(c, s.planet, p).compute > 0);
   c.sectors[0].districts.at(-1)!.enabled = false;
   assert.equal(colonyEconomy(c, s.planet, p).compute, 0);

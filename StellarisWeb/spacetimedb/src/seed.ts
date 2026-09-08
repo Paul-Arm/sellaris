@@ -1,3 +1,5 @@
+import { ECONOMY_MONTH_DAYS } from '../../shared/economy';
+import { resourceAmounts } from '../../shared/resources';
 import { ScheduleAt } from 'spacetimedb';
 import { SenderError, t } from 'spacetimedb/server';
 import { seededRandom, validateScenario } from '../../backend/domain';
@@ -41,6 +43,7 @@ export const configure = db.reducer(
     }
     for (let id = 1; id <= s.empires; id++) {
       ctx.db.empire.insert({
+        ...resourceAmounts(),
         id,
         energy: 10000,
         minerals: 10000,
@@ -60,9 +63,7 @@ export const configure = db.reducer(
       });
       const systems = [...ctx.db.star.ownerId.filter(id)];
       for (const system of systems.slice(0, 10)) {
-        let energyRate = 0,
-          mineralsRate = 0,
-          dataRate = 0;
+        const monthlyProduction = resourceAmounts();
         for (let c = 0; c < s.cohortsPerColony; c++) {
           const job = ['technician', 'miner', 'researcher'][c % 3];
           ctx.db.cohort.insert({
@@ -75,17 +76,16 @@ export const configure = db.reducer(
             productivity: 1,
             happiness: 0.75,
           });
-          if (job === 'technician') energyRate += s.popsPerCohort * 0.1;
-          if (job === 'miner') mineralsRate += s.popsPerCohort * 0.08;
-          if (job === 'researcher') dataRate += s.popsPerCohort * 0.05;
+          if (job === 'technician') monthlyProduction.energy += s.popsPerCohort * 0.1;
+          if (job === 'miner') monthlyProduction.minerals += s.popsPerCohort * 0.08;
+          if (job === 'researcher') monthlyProduction.data += s.popsPerCohort * 0.05;
+          monthlyProduction.unity += s.popsPerCohort * 0.5;
         }
         ctx.db.colony.insert({
           id: system.id,
           empireId: id,
           population: s.cohortsPerColony * s.popsPerCohort,
-          energyRate,
-          mineralsRate,
-          dataRate,
+          monthlyProduction,
           lastProducedAt: 0,
         });
       }
@@ -150,7 +150,7 @@ export const configure = db.reducer(
         empireId: id,
         fromSystem: systems[0].id,
         toSystem: systems[1].id,
-        energyPerCycle: 4,
+        monthlyEnergy: 4,
         deliveredAt: 0,
         status: 'active',
       });
@@ -205,7 +205,7 @@ export function schedule(ctx: Context) {
     ctx.db.runtime.insert({
       name,
       lastWallAt: wallNow(ctx),
-      nextGameAt: name === 'economy' ? 4 : 0,
+      nextGameAt: name === 'economy' ? ECONOMY_MONTH_DAYS : 0,
       calls: 0,
       rowsChanged: 0n,
       lastLagMs: 0,

@@ -11,7 +11,6 @@ import {
   subscribe,
   GALAXY_QUERIES,
   DETAIL_QUERIES,
-  LEGACY_DETAIL_QUERIES,
   type Client,
   type Compression,
 } from './client';
@@ -33,14 +32,15 @@ if (!scenario) throw new Error(`Unknown profile ${profile}`);
 validateScenario(scenario);
 const seconds = Number(options.seconds || 60);
 if (!Number.isFinite(seconds) || seconds < 10 || seconds > 3600) throw new Error('Use --seconds=10..3600');
-const detail = options.detail || 'compact';
-if (!['compact', 'legacy'].includes(detail)) throw new Error('Use --detail=compact|legacy');
+const detail = 'compact';
+if (options.detail !== undefined && options.detail !== detail)
+  throw new Error('Only compact battle views are supported');
 const compression = (options.compression || 'gzip') as Compression;
 if (!['none', 'gzip'].includes(compression)) throw new Error('Use --compression=none|gzip');
 const battleCopies = Number(options['battle-copies'] || 1);
 if (!Number.isInteger(battleCopies) || battleCopies < 1 || battleCopies > 100)
   throw new Error('Use --battle-copies=1..100 (connections per battle identity)');
-const detailQueries = detail === 'compact' ? DETAIL_QUERIES : LEGACY_DETAIL_QUERIES;
+const detailQueries = DETAIL_QUERIES;
 const database = `singularity-bench-${profile.replace(/[^a-z0-9-]/g, '')}-${Date.now()}`;
 const http = process.env.SPACETIME_HTTP || 'http://127.0.0.1:3100';
 const uri = process.env.SPACETIME_WS || 'ws://127.0.0.1:3100';
@@ -135,19 +135,14 @@ async function openSeat(empireId: number, token?: string, replicaJoin = false) {
       const f = client.conn.db.galaxyFleets.id.find(focus.fleetId);
       if (!f || f.shipCount !== Number(client.conn.db.fleetShips.count()))
         throw new Error('Fleet/ship snapshot mismatch');
-      const participants =
-        detail === 'compact'
-          ? [...client.conn.db.battleVitals.iter()]
-          : [...client.conn.db.battleParticipants.iter()];
-      const b = (detail === 'compact' ? client.conn.db.focusedBattle : client.conn.db.visibleBattles).id.find(
-        focus.battleId,
-      );
+      const participants = [...client.conn.db.battleVitals.iter()];
+      const b = client.conn.db.focusedBattle.id.find(focus.battleId);
       if (!b || (b.state === 'active' && !participants.length))
         throw new Error('Battle reconstruction failed');
       const ids = new Set(participants.map((p) => p.shipId));
       if (participants.some((p) => p.targetId && !ids.has(p.targetId)))
         throw new Error('Dangling battle target in initial snapshot');
-      if (detail === 'compact') checkCompactBattle(client, focus.battleId);
+      checkCompactBattle(client, focus.battleId);
     }
     assertions.snapshotsChecked++;
     joins.push({
@@ -157,9 +152,7 @@ async function openSeat(empireId: number, token?: string, replicaJoin = false) {
       bytes: client.traffic.receivedBytes,
       battleStep:
         mode === 'battle'
-          ? ((detail === 'compact' ? client.conn.db.focusedBattle : client.conn.db.visibleBattles).id.find(
-              Math.ceil(empireId / 2),
-            )?.step ?? null)
+          ? (client.conn.db.focusedBattle.id.find(Math.ceil(empireId / 2))?.step ?? null)
           : null,
     });
     return {
@@ -398,7 +391,7 @@ try {
     limitations: [
       'Prototype combat: linear target assignment, strafing and weapon cooldowns; no projectiles/pathfinding/collision avoidance.',
       'Short loopback test, no WAN latency/packet loss or long soak; browser FPS is recorded separately.',
-      '25k/75k are scenarios, not capacity limits. Full migration requires larger single battles, longer runs and deployment-hardware tests.',
+      '25k/75k are scenarios, not capacity limits. Capacity validation requires larger single battles, longer runs and deployment-hardware tests.',
     ],
   };
   writeFileSync(output, JSON.stringify(report, null, 2) + '\n');

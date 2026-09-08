@@ -103,7 +103,7 @@ export function EffectList({
         entries.map(([key, value]) => (
           <div key={key}>
             <span>{MODIFIER_NAMES[key]}</span>
-            <strong className={value > 0 ? 'positive' : 'negative'}>
+            <strong className={(key === 'upkeep' ? value < 0 : value > 0) ? 'positive' : 'negative'}>
               {value > 0 ? '+' : '−'}
               {Math.abs(value * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 })}
               {key === 'habitability' ? ' Pp.' : ' %'}

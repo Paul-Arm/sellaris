@@ -122,14 +122,7 @@ export function SystemContextMenu({
         !f.battleId &&
         !f.task,
     );
-  const allowed =
-    surveyed &&
-    (own ||
-      (system.kind !== 'star' &&
-        !system.owner &&
-        game.fleets.some(
-          (f) => f.owner === game.me.id && f.systemId === system.id && !f.route.length && !f.battleId,
-        )));
+  const allowed = surveyed && own;
   const run = (c: GameCommand) => {
     command(c);
     close();
@@ -187,6 +180,24 @@ export function SystemContextMenu({
           Reise anhängen
         </button>
       )}
+      {surveyed && !system.owner && !system.starbase && body && (
+        <button
+          role="menuitem"
+          disabled={disabled || system.defense > 0}
+          onClick={() => run({ type: 'starbase_build', systemId: system.id })}
+        >
+          Außenposten errichten<small>100 Energie / 150 Mineralien · 24 T</small>
+        </button>
+      )}
+      {body?.main && own && !system.colony && surveyed && (
+        <button
+          role="menuitem"
+          disabled={disabled || !colonist}
+          onClick={() => colonist && run({ type: 'colonize', fleetId: colonist.id })}
+        >
+          Hauptkolonie gründen
+        </button>
+      )}
       {!surveyed && body && (
         <button
           role="menuitem"
@@ -196,7 +207,7 @@ export function SystemContextMenu({
           System erkunden{!scout && <small>Forschungsschiff vor Ort benötigt</small>}
         </button>
       )}
-      {(body?.main || planetColony) && own && (
+      {((body?.main && system.colony) || planetColony) && own && (
         <button
           role="menuitem"
           onClick={() => {

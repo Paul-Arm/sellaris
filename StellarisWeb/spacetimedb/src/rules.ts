@@ -2,11 +2,11 @@ import { SenderError } from 'spacetimedb/server';
 import { gameDay, dueDay } from '../../shared/time';
 import { gameTimeAt, positionAt, progressAt } from '../../backend/domain';
 import { type Context, type ReadContext, type Fleet, type Ship } from './tables';
-import { ensureBattleReport, publishBattleReport } from './battle-reports';
+import { createBattleReport, publishBattleReport } from './battle-reports';
 
 export const NEVER = 0xffff_ffff_ffff_ffffn;
-// Keep the durable milliday encoding readable for old saves; new deadlines land on whole days.
-export const tickAt = (at: number) => BigInt(dueDay(at) * 1000);
+// Durable deadlines use the same whole-day unit as the simulation.
+export const tickAt = (at: number) => BigInt(dueDay(at));
 export const wallNow = (ctx: Context) => Number(ctx.timestamp.microsSinceUnixEpoch) / 1e6;
 export const clockNow = (ctx: Context) => gameTimeAt(ctx.db.clock.id.find(1)!, wallNow(ctx));
 export const now = (ctx: Context) => gameDay(clockNow(ctx));
@@ -145,7 +145,7 @@ export function enterBattle(ctx: Context, fleetIds: number[], systemId: number, 
       index++;
     }
   }
-  ensureBattleReport(ctx, b, [...ctx.db.participant.battleId.filter(b.id)], wallNow(ctx));
+  createBattleReport(ctx, b, [...ctx.db.participant.battleId.filter(b.id)], wallNow(ctx));
   return b;
 }
 export function finishBattle(ctx: Context, battleId: number, at: number, peace = false) {

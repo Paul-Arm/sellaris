@@ -19,11 +19,6 @@ export const GALAXY_QUERIES = [
   'my_treaties',
   'my_trade',
 ].map((t) => `SELECT * FROM ${t}`);
-export const LEGACY_DETAIL_QUERIES = [
-  'SELECT * FROM fleet_ships',
-  'SELECT * FROM battle_participants',
-  'SELECT * FROM visible_battles',
-];
 export const BATTLE_QUERIES = ['focused_battle', 'battle_roster', 'battle_motion', 'battle_vitals'].map(
   (t) => `SELECT * FROM ${t}`,
 );

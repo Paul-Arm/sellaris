@@ -17,7 +17,3 @@ export const SHIP_SET_IDS = Object.keys(SHIP_SETS) as ShipSet[];
 export function isShipSet(value: unknown): value is ShipSet {
   return typeof value === 'string' && Object.hasOwn(SHIP_SETS, value);
 }
-
-export function shipSetFor(design?: { shipSet?: ShipSet }): ShipSet {
-  return isShipSet(design?.shipSet) ? design.shipSet : 'prisma';
-}

@@ -482,43 +482,21 @@
   padding: 3px;
   border-radius: 3px;
 }
-.pm-build-list {
+.pm-slot-grid {
   display: grid;
-  gap: 5px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 16px;
 }
-.pm-build-list > button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  background: #a8a1c506;
-  border: 1px solid #a2a6bd20;
-  border-radius: 4px;
-  padding: 10px;
+.pm-slot-grid .build-slot {
+  min-height: 140px;
 }
-.pm-build-list > button:hover:enabled {
-  background: #b8aaf416;
-  border-color: #b8aaf462;
+.pm-slot-grid .build-slot strong {
+  font-size: 11px;
 }
-.pm-build-list > button > span {
-  flex: 1;
-}
-.pm-build-list strong {
-  display: block;
-  font-size: 10px;
-  font-weight: 500;
-}
-.pm-build-list small {
-  display: block;
-  font-size: 9px;
-  color: #8493a9;
-  margin-top: 5px;
-}
-.pm-build-list em {
-  font-style: normal;
-  font-size: 8px;
-  color: #8bc6b2;
-  margin-left: 7px;
+.pm-slot-grid .build-slot[aria-pressed='true'] {
+  border-color: #c6b4f0;
+  box-shadow: 0 0 0 2px #b8aaf418;
 }
 .pm-muted {
   font-size: 10px;

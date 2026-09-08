@@ -1,3 +1,4 @@
+import { RESOURCE_NAMES } from '../../shared/resources';
 import { SenderError, t } from 'spacetimedb/server';
 import { db } from './tables';
 import { admin, now } from './rules';
@@ -44,7 +45,7 @@ export const administerGame = db.reducer({ actionJson: t.string() }, (ctx, { act
     if (amount < 0 || amount > 1000000000)
       throw new SenderError('Ressourcenbestand außerhalb des erlaubten Bereichs.');
     ctx.db.empire.id.update({ ...settled, [action.resource]: amount });
-    const resource = { energy: 'Energie', minerals: 'Mineralien', data: 'Daten' }[action.resource];
+    const resource = RESOURCE_NAMES[action.resource];
     event(
       ctx,
       empire.id,

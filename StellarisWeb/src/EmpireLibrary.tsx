@@ -31,10 +31,9 @@ import {
   SpeciesFields,
 } from './EmpireFields';
 import './empires.css';
-import { flagForEmpire } from '../shared/flags';
 import { EmpireFlag } from './EmpireFlag';
 import { FlagEditor } from './FlagEditor';
-import { SHIP_SETS, isShipSet, shipSetFor } from '../shared/shipSets';
+import { SHIP_SETS, isShipSet } from '../shared/shipSets';
 
 type Draft = { kind: 'empires'; value: EmpireTemplate } | { kind: 'species'; value: SpeciesTemplate };
 type Step = 'identity' | 'flag' | 'government' | 'origin' | 'species' | 'lore';
@@ -49,11 +48,17 @@ const STEPS: [Step, string][] = [
 export function EmpireLibrary({
   library,
   connected,
+  loadError,
+  profileUnavailable,
+  onOpen,
   mutate,
   onUse,
 }: {
   library: Library | null;
   connected: boolean;
+  loadError: string;
+  profileUnavailable: boolean;
+  onOpen: (createNew?: boolean) => void;
   mutate: (mutation: LibraryMutation) => Promise<Library>;
   onUse: (id: string) => void;
 }) {
@@ -68,13 +73,30 @@ export function EmpireLibrary({
   if (!library)
     return (
       <div className="archive-loading">
-        <LoaderCircle className="spin" />
+        {!loadError && <LoaderCircle className="spin" />}
         <h2 id="dialog-title">Deine Sternenarchive</h2>
         <p>
-          {connected
-            ? 'Die persönliche Bibliothek wird geladen …'
-            : 'Verbindung zum Server wird hergestellt …'}
+          {loadError ||
+            (connected
+              ? 'Die persönliche Bibliothek wird geladen …'
+              : 'Verbindung zum Server wird hergestellt …')}
         </p>
+        {loadError && (
+          <button className="secondary-button" disabled={!connected} onClick={() => onOpen()}>
+            Erneut versuchen
+          </button>
+        )}
+        {loadError && profileUnavailable && (
+          <>
+            <p>
+              Du kannst auf diesem Server eine neue Bibliothek mit Startvorlagen anlegen. Bestehende Vorlagen
+              bleiben erhalten; dein bisheriger Zugangsschlüssel wird im Browser gesichert.
+            </p>
+            <button className="primary-button" disabled={!connected} onClick={() => onOpen(true)}>
+              Neue Bibliothek anlegen
+            </button>
+          </>
+        )}
       </div>
     );
   const saved = draft ? library[draft.kind].find((t) => t.id === draft.value.id) : undefined;
@@ -246,8 +268,8 @@ export function EmpireLibrary({
                   className="archive-mini-emblem"
                   style={{ color: 'color' in entry ? entry.color : '#58d9cf' }}
                 >
-                  {'emblem' in entry ? (
-                    <EmpireFlag flag={flagForEmpire(entry)} width={33} />
+                  {'flag' in entry ? (
+                    <EmpireFlag flag={entry.flag} width={33} />
                   ) : (
                     <Emblem name="nexus" size={23} />
                   )}
@@ -362,13 +384,13 @@ export function EmpireLibrary({
                       </div>
                       <SelectField
                         label="Schiffs- und Stationsdesign"
-                        value={shipSetFor(empire)}
+                        value={empire.shipSet}
                         options={SHIP_SETS}
                         onChange={(shipSet) => {
                           if (isShipSet(shipSet)) editEmpire({ ...empire, shipSet });
                         }}
                       />
-                      <p className="archive-note">{SHIP_SETS[shipSetFor(empire)].description}</p>
+                      <p className="archive-note">{SHIP_SETS[empire.shipSet].description}</p>
                       <a href="/models" target="_blank" rel="noreferrer">
                         Alle Modelle im Designhangar ansehen ↗
                       </a>
@@ -408,8 +430,8 @@ export function EmpireLibrary({
                     <FlagEditor
                       key={empire.id}
                       name={empire.name}
-                      value={flagForEmpire(empire)}
-                      onChange={(flag) => editEmpire({ ...empire, flag, emblem: flag.emblem })}
+                      value={empire.flag}
+                      onChange={(flag) => editEmpire({ ...empire, flag })}
                     />
                   </>
                 )}
@@ -631,7 +653,7 @@ export function EmpireLibrary({
           <span className="eyebrow">{empire ? 'GRÜNDUNGSPROFIL' : 'SPEZIESPROFIL'}</span>
           {empire ? (
             <div className="archive-flag-preview">
-              <EmpireFlag flag={flagForEmpire(empire)} width={220} title={`Flagge von ${empire.name}`} />
+              <EmpireFlag flag={empire.flag} width={220} title={`Flagge von ${empire.name}`} />
             </div>
           ) : (
             <div className="archive-portrait">

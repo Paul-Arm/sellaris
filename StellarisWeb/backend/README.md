@@ -98,12 +98,12 @@ Private Tabellen können normale Clients weder per SQL noch per Subscription les
 - **Galaxie:** `galaxy_fleets` liefert eigene sowie aktuell sichtbare fremde Flotten, ohne komplette Auftrags-/Routenlisten oder Schiffsausrüstung.
 - **Flottendetail:** `fleet_ships` liefert nur die ausgewählte eigene Flotte. Fremde IDs werden bereits beim Fokuswechsel abgewiesen und zusätzlich in der View geprüft.
 - **Gefechtsübersicht:** `visible_battle_summaries` liefert berechtigte Status-/HP-Zusammenfassungen und eigene Gefechtshistorie. Die Galaxie abonniert weder Teilnehmer noch die laufende Gefechtsuhr. Die View projiziert gespeicherte Zusammenfassungen ohne Teilnehmer-Scan je Betrachter. Die Simulation läuft auch ohne Detailzuschauer weiter.
-- **Geöffnetes Gefecht:** `focused_battle` liefert dessen laufende Uhr. Das Labor abonniert gemeinsam `battle_roster` (Zugehörigkeit), `battle_motion` (Position/Geschwindigkeit), `battle_vitals` (Hülle, Schild, Ziel, nächster Waffenzyklus) und `fleet_ships`. Jede View prüft unabhängig den berechtigten Fokus. Unveränderte Zugehörigkeit und Kampfwerte werden nicht mit jeder Bewegung erneut übertragen. `BattleDetailSubscription` serialisiert Öffnen/Schließen und wartet beim Verlassen auf das bestätigte Abbestellen. Eine künftige Systemansicht kann denselben Abonnement-Lebenszyklus verwenden. `visible_battles` und `battle_participants` bleiben für bestehende Diagnoseclients erhalten. Frühere Teilnehmerimperien behalten Zugang zu diesem Gefecht; das ist die aktuelle Zuschauerregel.
+- **Geöffnetes Gefecht:** `focused_battle` liefert dessen laufende Uhr. Das Labor abonniert gemeinsam `battle_roster` (Zugehörigkeit), `battle_motion` (Position/Geschwindigkeit), `battle_vitals` (Hülle, Schild, Ziel, nächster Waffenzyklus) und `fleet_ships`. Jede View prüft unabhängig den berechtigten Fokus. Unveränderte Zugehörigkeit und Kampfwerte werden nicht mit jeder Bewegung erneut übertragen. `BattleDetailSubscription` serialisiert Öffnen/Schließen und wartet beim Verlassen auf das bestätigte Abbestellen. Eine künftige Systemansicht kann denselben Abonnement-Lebenszyklus verwenden. Frühere Teilnehmerimperien behalten Zugang zu diesem Gefecht; das ist die aktuelle Zuschauerregel.
 - **Wirtschaft:** Ressourcen, Kolonien, Pop-Gruppen, Aufträge, Entscheidungen, Handel und Verträge sind auf das eigene Imperium beschränkt.
 
 Der Schadensvergleich zählt tatsächlich entfernte Hüllen-/Schild-HP nach Panzerung und ohne Overkill. Rückzüge vermindern die im Gefecht gebundenen HP und Schiffe, zählen aber nicht als Schaden oder Verlust. Beim Kampfende bleibt die letzte Zusammenfassung samt Sieger und überlebenden HP erhalten. Eine Siegchance wird derzeit nicht berechnet; dafür braucht das Kampfmodell erst belastbare Vorhersagen.
 
-Nach einem Modul-Update vorhandener Datenbanken initialisiert `npm run backend:initialize-reports -- DATENBANK` ausschließlich fehlende Berichte. Das verändert weder Spieluhr noch Schiffe. Bei bereits laufenden Gefechten beginnt die Schadensmessung am angezeigten **Messbeginn**; ältere Schäden werden nicht rekonstruiert. Vor dem Update abgeschlossene Gefechte zeigen Status/Ergebnis und ausdrücklich keine historischen HP-Daten. Erneutes Initialisieren setzt keine Zähler zurück.
+Kampfberichte entstehen vollständig bei Gefechtsbeginn. Es gibt keine Nachinitialisierung fehlender Berichte oder Unterstützung alter Berichtsschemata. Bei inkompatiblen Änderungen werden neue Partien verwendet.
 
 Die Ansichtstrennung wird mit 25 Spieleridentitäten und 3.000 Kampfteilnehmern gemessen: [Messbericht Übersicht/Gefecht](reports/OVERVIEW.md). Der ältere [Transportvergleich](reports/NETWORK.md) dokumentiert den Stand vor dieser zusätzlichen Drosselung.
 
@@ -111,7 +111,7 @@ Zusammengehörige Initialabonnements werden mit einem `subscribe([...])` angeleg
 
 ### Kompakter Gefechtstransport
 
-Die ursprüngliche Transportoptimierung änderte ausschließlich die übertragenen Ansichten; die privaten Simulationszeilen, f32-Positionen, Ziele, Waffentermine blieben dabei gleich. Seit der Tagesumstellung werden fünf interne Kampfschritte gemeinsam als ein Tagesstand persistiert. Es gibt keine Quantisierung und keine ausgelassenen Simulationsschritte. Neue Views sind additiv und benötigen keine Konvertierung gespeicherter Teilnehmer. Vor Verwendung des aktualisierten Labors bestehende Labordatenbanken mit `npm run backend:publish -- <name>` aktualisieren; bestehende Saves niemals löschen oder neu seeden.
+Der Gefechtstransport verwendet ausschließlich die kompakten Ansichten. Die privaten Simulationszeilen speichern f32-Positionen, Ziele und Waffentermine. Fünf interne Kampfschritte werden gemeinsam als Tagesstand persistiert; es gibt keine Quantisierung oder ausgelassenen Simulationsschritte. Nach inkompatiblen Schemaänderungen werden auch Labordatenbanken neu angelegt.
 
 Browser und Lastclient verwenden standardmäßig Gzip auf SpacetimeDB-Nachrichtenebene. `backend/transport.ts` entpackt komprimierte und unkomprimierte Nachrichten in Empfangsreihenfolge. Ein kleines Folgeupdate darf einen großen Initialsnapshot nicht überholen. Bei beschädigten Daten oder mehr als 64 MiB Empfangsrückstand/entpackter Einzelnachricht wird die Verbindung geschlossen; keine Transaktion wird still übersprungen. Wiederverbinden lädt den aktuellen konsistenten Snapshot. Diese Transportgrenze ist keine festgelegte Schiffsobergrenze. Ein automatischer Reconnect im Labor ist weiterhin ausstehend.
 
@@ -167,7 +167,7 @@ node backend/report-network.mjs
 Einzelne Varianten:
 
 ```powershell
-npm run backend:bench -- --scenario=backend/scenarios/battle-heavy.json --profile=network-heavy --detail=legacy --compression=none --seconds=60
+npm run backend:bench -- --scenario=backend/scenarios/battle-heavy.json --profile=network-heavy --detail=compact --compression=none --seconds=60
 npm run backend:bench -- --scenario=backend/scenarios/battle-heavy.json --profile=network-heavy --detail=compact --compression=none --seconds=60
 npm run backend:bench -- --scenario=backend/scenarios/battle-heavy.json --profile=network-heavy --detail=compact --compression=gzip --seconds=60
 npm run backend:bench -- --scenario=backend/scenarios/battle-heavy.json --profile=network-heavy --detail=compact --compression=gzip --battle-copies=10 --seconds=60
@@ -183,13 +183,13 @@ Die normale Spielmigration ist abgeschlossen; die Lastmessungen bleiben historis
 
 Diplomatie verwendet `game_relation` für öffentliche Kriegs-/Friedenszustände sowie die private `treaty`-Tabelle mit `game_offer` für reservierte Tauschbedingungen. `my_game_offers` ist nach beiden beteiligten Imperien gefiltert. Annahme und Erstattungen sind transaktional; Fristen verwenden die autoritative Spielzeit. Der Detailstrom für Schiffe/Gefechte wird dabei nicht erweitert. [Prüfbericht](reports/DIPLOMACY.md).
 
-`backend:update-games` pausiert jede registrierte Galaxie vor Veröffentlichung, initialisiert fehlende Beziehungen für bestehende Gefechte und stellt das bisherige Tempo/Pause wieder her. Labordatenbanken werden nicht aktualisiert oder zurückgesetzt. Der administrative `initialize_game`-Snapshot-Eingang bleibt für Wiederherstellung und reproduzierbare Tests bestehen; Browser/Gateway bieten keinen automatischen Altserver-Import mehr an.
+`backend:update-games` veröffentlicht ausschließlich Änderungen mit unverändertem Schema und stellt das bisherige Tempo/Pause wieder her. Es führt keine Nachrüstung alter Daten aus. Bei Schemaänderungen neue Partien verwenden. Der administrative `initialize_game`-Snapshot-Eingang akzeptiert das aktuelle Modell für reproduzierbare Tests und aktuelle Operator-Snapshots.
 
-Ereignisse verwenden die private `decision`-Tabelle mit `game_story` für Quelle und gespeichertes Ergebnis. `my_game_stories` und `my_decisions` geben nur eigene Beschlüsse frei. Der versionierte Katalog liegt in `shared/stories.ts`; die autoritativen Transaktionen und Fristen in `game-stories.ts`. Der Spiel-Economy-Tick bearbeitet Eskalationen und Abläufe. Sichere kostenlose Standardoptionen verhindern Ausgaben ohne Spielerbeschluss.
+Ereignisse und Spezialprojekte verwenden die privaten Tabellen `game_situation` und `game_event_director`. `my_situations` liefert nur eigene Vorgänge und serverseitig zulässige Optionen. Der gemeinsame Katalog und die Zustandsmaschine liegen in `shared/events/`; `game-situations.ts` verbindet Trigger, Kosten, Effekte und Fristen mit den nativen Spieltabellen. Der Director gewichtet passende Inhalte, begrenzt aktive Vorgänge und verhindert doppelte Funde. Spielzeit steuert Fortschritt und kostenlose Fristentscheidungen.
 
 `crisis` und `game_crisis` enthalten öffentliche Phase, Frist, Ziel und Fortschritt. Die privaten `game_crisis_pledge`-Zeilen speichern eigene Beiträge und Abschirmung. Produktionswechsel rechnen zunächst abgeschlossene Zyklen ab und aktualisieren dann die Kolonieraten. Die Client-Wirtschaftsübersicht verwendet denselben Faktor. Es entstehen keine neuen individuellen Schiffs-/Gefechtsabonnements.
 
-`initialize_stories` ergänzt das neue System idempotent auch in bestehenden Galaxien. Der Vorlauf beginnt an deren aktueller Spielzeit; bestehende Ereignisse, Ressourcen, Missionen und Beziehungen werden nicht zurückgesetzt. Das normale Update-Werkzeug ruft diesen Bootstrap nach der Veröffentlichung auf. Die erste Krise endet dauerhaft nach gemeinsamer Finanzierung; weitere Krisentypen und Ereignisketten sind noch offen. [Prüfbericht](reports/STORIES.md).
+Ereignisse und Krisen werden bei der Neuanlage der Galaxie initialisiert. Es gibt keinen nachträglichen Bootstrap für bestehende Galaxien. Die erste Krise endet dauerhaft nach gemeinsamer Finanzierung; mehrstufige Ereignisketten laufen über den allgemeinen Pool. Weitere Krisentypen bleiben erweiterbar. [Prüfbericht](reports/EVENTS.md).
 
 Es wurde kein Convex eingeführt und kein Wechsel auf Rust vorausgesetzt.
 
@@ -217,3 +217,5 @@ Abwärtskompatibilität ist ausdrücklich keine Anforderung. Für inkompatible �
 - [Private Tabellen und Zugriffsrechte](https://spacetimedb.com/docs/tables/access-permissions/)
 - [Serverseitige Views](https://spacetimedb.com/docs/functions/views/)
 - [TypeScript-Client und Subscriptions](https://spacetimedb.com/docs/clients/typescript/)
+
+Aktuelle Schemaänderungen benötigen neue Galaxien. Nachrüst-Reducer für Diplomatie, Ereignisse und Kampfberichte sind entfernt; `backend:update-games` veröffentlicht nur auf unverändert passendem Schema. Historische Berichte dokumentieren frühere Messungen. Der aktuelle Netzwerkvergleich schreibt `NETWORK-CURRENT.md` und verwendet ausschließlich kompakte Views.

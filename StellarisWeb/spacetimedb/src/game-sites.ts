@@ -68,9 +68,7 @@ export function applySiteCommand(ctx: Context, owner: number, cmd: SiteCommand, 
       !system ||
       !megastructureTerritory(cmd.facility, star.kind, star.ownerId, owner)
     )
-      throw new SenderError(
-        'Megastruktur benötigt ein eigenes System oder ein unbeanspruchtes Schwarzes Loch.',
-      );
+      throw new SenderError('Megastruktur benötigt ein eigenes System mit Außenposten.');
     const definition = MEGASTRUCTURES[cmd.facility];
     const player = ctx.db.gamePlayer.id.find(owner)!;
     if (!player.surveyed.includes(system.id) || !player.techs.includes('megastructures'))
@@ -143,7 +141,7 @@ export function applySiteCommand(ctx: Context, owner: number, cmd: SiteCommand, 
     requireBuilder(ctx, owner, cmd.fleetId, constructionTarget(ctx, cmd, at));
     const row = addSystemObject(ctx, system.id, {
       kind: 'station',
-      name: cmd.facility === 'research' ? 'Freie Forschungsstation' : 'Freier Außenposten',
+      name: cmd.facility === 'research' ? 'Freie Forschungsstation' : 'Freies Orbitalhabitat',
       color: '#95bfc8',
       radius: 12,
       orbit: 0,
@@ -203,15 +201,7 @@ export function applySiteCommand(ctx: Context, owner: number, cmd: SiteCommand, 
   const system = ctx.db.star.id.find(meta.id)!,
     p = ctx.db.gamePlayer.id.find(owner)!;
   if (!p.surveyed.includes(system.id)) throw new SenderError('Untersuche zuerst das System.');
-  if (system.ownerId !== owner) {
-    if (system.ownerId || system.kind === 'star') throw new SenderError('Baue nur in eigenen Sternsystemen.');
-    if (
-      ![...ctx.db.fleet.systemId.filter(system.id)].some(
-        (f) => f.empireId === owner && !f.battleId && !f.route.length,
-      )
-    )
-      throw new SenderError('Für eine Außenstation muss eine eigene Flotte vor Ort sein.');
-  }
+  if (system.ownerId !== owner) throw new SenderError('Errichte zuerst einen Außenposten in diesem System.');
   const body = storedSystemBodies(ctx, system.id).find((b) => b.slot === cmd.bodySlot);
   if (!body || !facilityFits(cmd.facility, body))
     throw new SenderError('Diese Anlage passt nicht zu diesem Himmelskörper.');
@@ -269,7 +259,7 @@ export function completeSites(ctx: Context) {
       ? storedSystemBodies(ctx, site.systemId).find((b) => b.slot === body.parent)
       : undefined;
     if (
-      (s.kind === 'star' && s.ownerId !== site.empireId) ||
+      s.ownerId !== site.empireId ||
       (isMegastructure(site.facility) &&
         (!body ||
           !host ||

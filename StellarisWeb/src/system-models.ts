@@ -1,7 +1,7 @@
 import { gameIndices } from './game-indices';
 import type { GameView, ShipType } from '../shared/game';
 import type { BodySite, CelestialBody } from '../shared/celestial';
-import { shipSetFor, type ShipSet } from '../shared/shipSets';
+import { type ShipSet } from '../shared/shipSets';
 
 export const SHIP_MODEL: Record<ShipType, string> = {
   corvette: '01_korvette',
@@ -10,9 +10,8 @@ export const SHIP_MODEL: Record<ShipType, string> = {
 };
 export const STATION_MODELS = ['01_aussenposten', '02_sternenbasis', '03_festung', '04_zitadelle'];
 export function playerShipSet(game: GameView, owner: string | null): ShipSet {
-  return owner === game.me.id
-    ? shipSetFor(game.me.empire?.design)
-    : shipSetFor(gameIndices(game).players.get(owner ?? ''));
+  if (!owner) return 'prisma'; // Neutral stations have their own default visual identity.
+  return owner === game.me.id ? game.me.empire.design.shipSet : gameIndices(game).players.get(owner)!.shipSet;
 }
 export function facilityModel(site: BodySite, body: CelestialBody) {
   const level = site.level;
@@ -37,8 +36,6 @@ export function facilityModel(site: BodySite, body: CelestialBody) {
     };
   if (!level && site.building) return { id: '05_construction_level_0', span: 30, centered: false };
   if (site.facility === 'solar') return { id: '03_dyson_swarm', span: body.radius * 5, centered: true };
-  if (site.facility === 'starbase')
-    return { id: STATION_MODELS[Math.min(3, level)], span: 36 + level * 8, centered: false };
   if (site.facility === 'habitat' && level >= 3)
     return { id: 'orbital_ring', span: body.radius * 4, centered: true, planetRadius: body.radius * 1.05 };
   if (site.facility === 'mine' && level >= 2)

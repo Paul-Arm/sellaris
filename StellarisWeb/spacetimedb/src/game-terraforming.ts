@@ -4,7 +4,14 @@ import { gameTerraform } from './game-tables';
 import { member, now } from './rules';
 import { tickAt } from './rules';
 import { dueJobs, event, refreshColonyRate, settleEconomy, settlePopulation } from './game-model';
-import { isEnvironment, PLANET_COLORS, terraformingSpec } from '../../shared/terraforming';
+import {
+  isEnvironment,
+  PLANET_COLORS,
+  terraformingSpec,
+  terraformingRate,
+  retimeTerraforming,
+} from '../../shared/terraforming';
+import { researchCapacity, researchState } from './game-research';
 import { ENVIRONMENTS } from '../../shared/empireCatalog';
 import type { CelestialBody } from '../../shared/celestial';
 
@@ -36,6 +43,7 @@ export const startTerraforming = db.reducer(
     )
       throw new SenderError('Nicht genug Rohstoffe für Terraforming.');
     const at = now(ctx);
+    completeTerraforming(ctx);
     ctx.db.empire.id.update({
       ...empire,
       energy: empire.energy - spec.cost.energy,
@@ -50,15 +58,21 @@ export const startTerraforming = db.reducer(
       target,
       startedAt: at,
       finishAt: at + spec.days,
+      workTotal: spec.days,
+      workDone: 0,
+      updatedAt: at,
+      rate: 1,
       finishTick: tickAt(at + spec.days),
       paidEnergy: spec.cost.energy,
       paidMinerals: spec.cost.minerals,
       paidData: spec.cost.data,
     });
+    refreshTerraformingRates(ctx, owner);
     event(ctx, owner, `Terraforming bei ${body.name}: Ziel ${ENVIRONMENTS[target].name}.`);
   },
 );
 export const cancelTerraforming = db.reducer({ objectId: t.string() }, (ctx, { objectId }) => {
+  completeTerraforming(ctx);
   const owner = member(ctx),
     project = ctx.db.gameTerraform.id.find(objectId);
   if (!project || project.empireId !== owner) throw new SenderError('Kein eigenes Terraforming-Projekt.');
@@ -74,6 +88,7 @@ export const cancelTerraforming = db.reducer({ objectId: t.string() }, (ctx, { o
     data: empire.data + project.paidData / 2,
   });
   ctx.db.gameTerraform.id.delete(objectId);
+  refreshTerraformingRates(ctx, owner);
   event(ctx, owner, 'Terraforming abgebrochen. 50 % aller Projektkosten erstattet.');
 });
 export function completeTerraforming(ctx: Context) {
@@ -100,7 +115,7 @@ export function completeTerraforming(ctx: Context) {
     }
     settleEconomy(ctx, project.empireId, at);
     if (body.main) {
-      settlePopulation(ctx, project.systemId, at, true);
+      settlePopulation(ctx, project.systemId, at);
       const meta = ctx.db.gameSystem.id.find(project.systemId)!;
       ctx.db.gameSystem.id.update({ ...meta, planet: ENVIRONMENTS[project.target].name });
       refreshColonyRate(ctx, project.systemId, project.empireId);
@@ -125,6 +140,19 @@ export function completeTerraforming(ctx: Context) {
       `${body.name} wurde zur ${ENVIRONMENTS[project.target].name} terraformt.`,
       'success',
     );
+  }
+  for (const owner of new Set([...ctx.db.gameTerraform.iter()].map((p) => p.empireId)))
+    refreshTerraformingRates(ctx, owner);
+}
+export function refreshTerraformingRates(ctx: Context, owner: number) {
+  const projects = [...ctx.db.gameTerraform.empireId.filter(owner)];
+  if (!projects.length) return;
+  const compute = (researchCapacity(ctx, owner) * researchState(ctx, owner).terraforming) / 100;
+  const rate = terraformingRate(compute, projects.length);
+  for (const project of projects) {
+    if (Math.abs(project.rate - rate) < 1e-10) continue;
+    const next = retimeTerraforming(project, now(ctx), rate);
+    ctx.db.gameTerraform.id.update({ ...next, finishTick: tickAt(next.finishAt) });
   }
 }
 export const myTerraformProjects = db.view(

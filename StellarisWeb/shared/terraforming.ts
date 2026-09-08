@@ -28,7 +28,26 @@ export interface TerraformProject {
   target: string;
   startedAt: number;
   finishAt: number;
+  workTotal: number;
+  workDone: number;
+  updatedAt: number;
+  rate: number;
   paidEnergy: number;
   paidMinerals: number;
   paidData: number;
+}
+/** Budget is shared equally; 10 Compute per project gives +50% speed, approaching +100%. */
+export function terraformingRate(compute: number, projects: number) {
+  const share = projects > 0 ? compute / projects : 0;
+  return 1 + share / (10 + share);
+}
+export function terraformWork(
+  project: Pick<TerraformProject, 'workTotal' | 'workDone' | 'updatedAt' | 'rate'>,
+  at: number,
+) {
+  return Math.min(project.workTotal, project.workDone + Math.max(0, at - project.updatedAt) * project.rate);
+}
+export function retimeTerraforming<T extends TerraformProject>(project: T, at: number, rate: number): T {
+  const workDone = terraformWork(project, at);
+  return { ...project, workDone, updatedAt: at, rate, finishAt: at + (project.workTotal - workDone) / rate };
 }

@@ -13,6 +13,9 @@ interface Profile {
   tokenHash: string;
   library: EmpireLibrary;
 }
+export class LibraryProfileError extends Error {
+  readonly code = 'LIBRARY_PROFILE_UNAVAILABLE';
+}
 /** A persistent, private browser identity, independent of room/session tokens. */
 export class EmpireLibraryStore {
   private profiles = new Map<string, Profile>();
@@ -53,10 +56,12 @@ export class EmpireLibraryStore {
     return this.serialize(async () => {
       if (token !== undefined && token !== null) {
         if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token))
-          throw new Error('Ungültiger Bibliotheksschlüssel.');
+          throw new LibraryProfileError('Ungültiger Bibliotheksschlüssel.');
         const key = createHash('sha256').update(token).digest('hex');
         if (!this.profiles.has(key))
-          throw new Error('Bibliotheksprofil nicht gefunden. Prüfe, ob du den richtigen Server verwendest.');
+          throw new LibraryProfileError(
+            'Bibliotheksprofil nicht gefunden. Prüfe, ob du den richtigen Server verwendest.',
+          );
         return { key, token, library: this.read(key) };
       }
       if (this.profiles.size >= 500) throw new Error('Der Server hat seine Profilkapazität erreicht.');

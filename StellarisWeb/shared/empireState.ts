@@ -4,8 +4,6 @@ import { addEffects, emptyModifiers, type Environment, type Modifiers } from './
 import {
   governmentModifiers,
   habitability,
-  newEmpire,
-  newSpecies,
   parseGovernment,
   parseSpeciesDesign,
   speciesModifiers,
@@ -15,11 +13,12 @@ import {
   type TemplateSnapshot,
 } from './empires';
 
-export const REFORM_COST = { energy: 100, minerals: 0, data: 150 };
+export const REFORM_COST = { energy: 100, unity: 150 };
 export const MODIFICATION_COST = { energy: 0, minerals: 120, data: 300 };
 export const REFORM_COOLDOWN = 120;
 export const MODIFICATION_COOLDOWN = 240;
 export interface LivingSpecies extends SpeciesDesign {
+  economyModifiers?: import('./economy').EconomyModifier[];
   id: string;
   sourceTemplateId: string;
   sourceRevision: number;
@@ -28,9 +27,9 @@ export interface LivingSpecies extends SpeciesDesign {
   createdAt: number;
 }
 export interface EmpireState {
+  economyModifiers?: import('./economy').EconomyModifier[];
   version: 1;
   revision: number;
-  legacy: boolean;
   /** Immutable provenance. Gameplay only reads design/species, never this snapshot. */
   founding: TemplateSnapshot;
   design: EmpireDesign;
@@ -45,12 +44,7 @@ export interface PopulationGroup {
   speciesId: string;
   population: number;
 }
-export function instantiateEmpire(
-  snapshot: TemplateSnapshot,
-  playerId: string,
-  tick: number,
-  legacy = false,
-): EmpireState {
+export function instantiateEmpire(snapshot: TemplateSnapshot, playerId: string, tick: number): EmpireState {
   const founding = cloneData(snapshot);
   const { id: _id, version: _v, revision: _r, ...design } = founding.empire;
   const { id: sourceTemplateId, revision: sourceRevision, version: _sv, ...species } = founding.species;
@@ -58,7 +52,6 @@ export function instantiateEmpire(
   return {
     version: 1,
     revision: 1,
-    legacy,
     founding,
     design: cloneData(design),
     primarySpeciesId: speciesId,
@@ -80,22 +73,13 @@ export function instantiateEmpire(
       {
         tick,
         kind: 'founded',
-        text: `${design.name} gegründet${legacy ? ' · übernommener Spielstand' : ''}.`,
+        text: `${design.name} gegründet.`,
       },
     ],
   };
 }
-export function legacyEmpire(id: string, name: string, color: string, tick: number): EmpireState {
-  const species = newSpecies('legacy-human');
-  return instantiateEmpire(
-    { empire: { ...newEmpire('legacy-empire', species.id), name, color }, species },
-    id,
-    tick,
-    true,
-  );
-}
 export function empireModifiers(empire?: EmpireState): Modifiers {
-  if (!empire || empire.legacy) return emptyModifiers();
+  if (!empire) return emptyModifiers();
   const mods = governmentModifiers(empire.design.government, empire.design.origin);
   const primary = empire.species.find((s) => s.id === empire.primarySpeciesId);
   return primary ? addEffects(mods, speciesModifiers(primary)) : mods;
@@ -105,7 +89,7 @@ export function colonyModifiers(
   groups: PopulationGroup[] | undefined,
   environment: Environment,
 ): Modifiers {
-  if (!empire || empire.legacy) return emptyModifiers();
+  if (!empire) return emptyModifiers();
   const government = governmentModifiers(empire.design.government, empire.design.origin);
   const result = { ...government };
   const populations = groups?.length ? groups : [{ speciesId: empire.primarySpeciesId, population: 1 }];
@@ -128,7 +112,7 @@ export function populationGrowth(
   speciesId: string,
   environment: Environment,
 ): number {
-  if (!empire || empire.legacy) return 1;
+  if (!empire) return 1;
   const species = empire.species.find((s) => s.id === speciesId);
   if (!species) return 0;
   const govt = governmentModifiers(empire.design.government, empire.design.origin);
@@ -181,7 +165,6 @@ export function planReform(
   next.design.government = clean;
   next.revision++;
   next.reformAvailableAt = tick + REFORM_COOLDOWN;
-  // Legacy saves retain their original economic rules; new matches use full modifiers.
   next.history.push({ tick, kind: 'reform', text: 'Regierung, Ethiken und Staatselemente reformiert.' });
   next.history = next.history.slice(-64);
   return next;

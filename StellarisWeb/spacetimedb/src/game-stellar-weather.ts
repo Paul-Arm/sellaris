@@ -1,3 +1,4 @@
+import { triggerSituation } from './game-situations';
 import { t } from 'spacetimedb/server';
 import { db, type Context } from './tables';
 import { gameStellarWeather } from './game-tables';
@@ -16,8 +17,8 @@ export function discoverStellarWeather(ctx: Context, systemId: number) {
   if (ctx.db.gameStellarWeather.id.find(systemId)) return;
   const object = ctx.db.gameObject.id.find(`${systemId}:0`);
   const meta = ctx.db.gameSystem.id.find(systemId)!;
-  if (!object || object.state !== 'active' || !hasStellarStorm(JSON.parse(object.bodyJson), meta.externalId))
-    return;
+  if (!object || object.state !== 'active') return;
+  if (!hasStellarStorm(JSON.parse(object.bodyJson), meta.externalId)) return;
   const at = now(ctx),
     startsAt = at + STELLAR_STORM.warningDays;
   ctx.db.gameStellarWeather.insert({
@@ -46,12 +47,14 @@ export function cancelStellarWeather(ctx: Context, systemId: number, at: number)
     endsAt: Math.min(row.endsAt, at),
     nextTick: NEVER,
   });
-  announce(ctx, systemId, 'Sternveränderung beendet den vorhergesagten Sturm.', 'info');
+  announce(ctx, systemId, 'Sternveränderung beendet das vorhergesagte natürliche Sternereignis.', 'info');
 }
 
 export function stellarWeatherTick(ctx: Context) {
   const at = now(ctx);
-  for (const row of [...ctx.db.gameStellarWeather.nextTick.filter(dueJobs(at))]) {
+  for (const row of [...ctx.db.gameStellarWeather.nextTick.filter(dueJobs(at))].sort((a, b) =>
+    Number(a.nextTick - b.nextTick),
+  )) {
     const object = ctx.db.gameObject.id.find(row.objectId);
     if (!object || object.state !== 'active' || JSON.parse(object.bodyJson).stellar?.family !== 'giant') {
       cancelStellarWeather(ctx, row.id, at);
@@ -63,6 +66,9 @@ export function stellarWeatherTick(ctx: Context) {
       announce(ctx, row.id, 'Sternensturm abgeklungen. Solare Anlagen produzieren wieder normal.', 'success');
     } else {
       ctx.db.gameStellarWeather.id.update({ ...row, phase: 'active', nextTick: tickAt(row.endsAt) });
+      for (const p of ctx.db.gamePlayer.iter())
+        if (p.surveyed.includes(row.id))
+          triggerSituation(ctx, p.id, 'stellar-weather', `storm:${row.id}`, row.id);
       announce(
         ctx,
         row.id,

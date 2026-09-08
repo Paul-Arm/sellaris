@@ -45,7 +45,7 @@ test('production galaxy: founding, private state and command ownership', { timeo
       code: 'ABCDEF',
       seed: 42,
       sourceJson: '',
-      migrationKey: 'test',
+      creationKey: 'test',
     });
     const library = starterLibrary(),
       template = snapshotTemplate(library, library.empires[0].id);
@@ -90,7 +90,6 @@ test('production galaxy: founding, private state and command ownership', { timeo
       'production supports its 3x speed during upgrades',
     );
     await admin.conn.reducers.setClock({ paused: true, speed: 1 });
-    await assert.rejects(a.conn.reducers.initializeDiplomacy({}));
     await assert.rejects(b.conn.reducers.gameCommand({ commandJson: JSON.stringify({ type: 'pause' }) }));
     await assert.rejects(b.conn.reducers.joinEmpire({ empireId: 1 }));
     await assert.rejects(a.conn.reducers.startJob({ kind: 'research', targetId: 0 }));
@@ -138,7 +137,7 @@ test(
   'current operator snapshots retain identity, economy, work and routes; production, exploration, formations and hot reconnect',
   { timeout: 120000 },
   async () => {
-    const database = `singularity-game-migration-${Date.now()}`;
+    const database = `singularity-game-snapshot-${Date.now()}`;
     cli([
       'publish',
       database,
@@ -153,7 +152,7 @@ test(
       enemy = addPlayer(game, 'old-b', 'B');
     game.tick = 120;
     game.paused = true;
-    p.resources = { energy: 1500, minerals: 1500, data: 900 };
+    p.resources = { energy: 1500, minerals: 1500, data: 900, unity: 500 };
     command(game, p.id, { type: 'research', tech: 'extraction' });
     p.research.projects[0].done = 157;
     command(game, p.id, { type: 'build', ship: 'corvette', systemId: p.home });
@@ -162,6 +161,7 @@ test(
     p.queue[1].remaining = 1;
     command(game, p.id, {
       type: 'colony_build',
+      slot: 0,
       systemId: p.home,
       building: 'reactor',
       sectorId: 3,
@@ -183,7 +183,7 @@ test(
         code: game.code,
         seed: 42,
         sourceJson: JSON.stringify(game),
-        migrationKey: 'fixture-1',
+        creationKey: 'fixture-1',
       };
       await admin.conn.reducers.initializeGame(input);
       const ticket = await seat(admin, a, p.id);
@@ -210,7 +210,7 @@ test(
         p.resources,
         'import retry never reapplies starting bonuses',
       );
-      await assert.rejects(admin.conn.reducers.initializeGame({ ...input, migrationKey: 'different' }));
+      await assert.rejects(admin.conn.reducers.initializeGame({ ...input, creationKey: 'different' }));
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
       await until(
         () => gameView(a)!.fleets.some((f) => f.id === scout.id && !f.route.length),
@@ -218,15 +218,20 @@ test(
       );
       await issue(a, { type: 'scan', fleetId: scout.id });
       await until(() => gameView(a)!.me.surveyed.includes('s1'), 'survey finishes', 90000);
+      await issue(a, { type: 'starbase_build', systemId: 's1' });
+      await until(
+        () => gameView(a)!.systems.find((s) => s.id === 's1')!.owner === p.id,
+        'outpost claims system',
+      );
       await issue(a, { type: 'colonize', fleetId: colony.id });
-      await until(() => gameView(a)!.systems.find((s) => s.id === 's1')!.owner === p.id, 'colony finishes');
+      await until(() => !!gameView(a)!.systems.find((s) => s.id === 's1')!.colony, 'colony finishes');
       assert(!gameView(a)!.fleets.some((f) => f.id === colony.id), 'colony ship consumed exactly once');
       assert(gameView(a)!.me.techs.includes('extraction'));
       assert.equal(
         gameView(a)!.systems.find((s) => s.id === p.home)!.colony!.sectors[3].districts[0].building,
         'reactor',
       );
-      assert(gameView(a)!.me.resources.energy > p.resources.energy - 80, 'economy keeps producing');
+      assert(gameView(a)!.me.resources.energy > p.resources.energy - 180, 'economy keeps producing');
       const fleet = gameView(a)!.fleets.find((f) => f.type === 'corvette')!;
       assert.equal(fleet.shipCount, 3, 'new ships reinforce existing military formation');
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
@@ -261,7 +266,7 @@ test(
         civics: ['conservation', 'architects'],
       };
       await issue(a, { type: 'empire_reform', government, revision: beforeReform.empire!.revision });
-      assert.equal(gameView(a)!.me.resources.data, beforeReform.resources.data - 150);
+      assert.equal(gameView(a)!.me.resources.unity, beforeReform.resources.unity - 150);
       await assert.rejects(
         issue(a, { type: 'empire_reform', government, revision: beforeReform.empire!.revision }),
       );
@@ -336,6 +341,10 @@ test(
     game.paused = true;
     p.ai = { startedAt: 0, nextDecision: 0 } as typeof p.ai;
     p.resources = { energy: 2000, minerals: 2000, data: 1000 };
+    // Monthly research, accelerated for a bounded integration run.
+    p.empire.economyModifiers = [
+      { id: 'test-compute', name: 'Test Compute', category: 'compute', factor: 30 },
+    ];
     const admin = await connect(database, { token: adminToken() }),
       a = await connect(database);
     try {
@@ -343,7 +352,7 @@ test(
         code: game.code,
         seed: 42,
         sourceJson: JSON.stringify(game),
-        migrationKey: 'ai',
+        creationKey: 'ai',
       });
       await seat(admin, a, p.id);
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
@@ -364,7 +373,7 @@ test(
 );
 
 test(
-  'completed legacy games remain viewable but cannot be resumed or acquire new players',
+  'completed games remain viewable but cannot be resumed or acquire new players',
   { timeout: 10000 },
   async () => {
     const database = `singularity-game-finished-${Date.now()}`;
@@ -388,7 +397,7 @@ test(
         code: game.code,
         seed: 42,
         sourceJson: JSON.stringify(game),
-        migrationKey: 'complete',
+        creationKey: 'complete',
       });
       await seat(admin, a, p.id);
       assert.equal(gameView(a)!.winner, p.id);
@@ -438,7 +447,7 @@ test(
         code: game.code,
         seed: 42,
         sourceJson: JSON.stringify(game),
-        migrationKey: 'combat',
+        creationKey: 'combat',
       });
       for (const [client, id] of [
         [a, 'a'],

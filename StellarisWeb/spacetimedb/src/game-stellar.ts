@@ -1,16 +1,11 @@
 import { SenderError } from 'spacetimedb/server';
 import type { Context } from './tables';
-import { now, NEVER } from './rules';
-import { addJob, jobsFor, event, settleEconomy, settlePopulation, refreshColonyRate } from './game-model';
+import { NEVER } from './rules';
+import { addJob, jobsFor, event, settleEconomy } from './game-model';
 import { dysonHost } from '../../shared/megastructures';
-import {
-  STELLAR_COLLAPSE as COST,
-  collapsedStar,
-  frozenPlanet,
-  type StellarCommand,
-} from '../../shared/stellarProjects';
+import { STELLAR_COLLAPSE as COST, type StellarCommand } from '../../shared/stellarProjects';
 import type { CelestialBody } from '../../shared/celestial';
-import { ENVIRONMENTS } from '../../shared/empireCatalog';
+import { collapseSystemStar } from './game-stellar-effects';
 import { cancelStellarWeather } from './game-stellar-weather';
 
 function collapseTarget(ctx: Context, owner: number, objectId: string, revision: number) {
@@ -112,50 +107,9 @@ export function completeStellarProject(ctx: Context, job: ReturnType<typeof jobs
     );
     return 'cancelled';
   }
-  const { object, body, dyson } = target;
-  // Settle the old production and population before changing stellar/planetary conditions.
-  settleEconomy(ctx, job.empireId, at);
+  const { object, body } = target;
+  collapseSystemStar(ctx, object.id, at);
   cancelStellarWeather(ctx, object.systemId, at);
-  settlePopulation(ctx, object.systemId, at, true);
-  const meta = ctx.db.gameSystem.id.find(object.systemId)!;
-  const star = collapsedStar(body);
-  ctx.db.gameObject.id.update({
-    ...object,
-    bodyJson: JSON.stringify(star),
-    revision: object.revision + 1,
-    changedAt: at,
-  });
-  ctx.db.gameSystem.id.update({
-    ...meta,
-    starClass: 'NS',
-    color: star.color,
-    planet: meta.colonyJson ? ENVIRONMENTS.arctic.name : meta.planet,
-  });
-  for (const row of ctx.db.gameObject.systemId.filter(object.systemId)) {
-    if (row.state !== 'active') continue;
-    const old: CelestialBody = JSON.parse(row.bodyJson),
-      frozen = frozenPlanet(old);
-    if (frozen !== old) {
-      ctx.db.gameTerraform.id.delete(row.id);
-      ctx.db.gameObject.id.update({
-        ...row,
-        bodyJson: JSON.stringify(frozen),
-        revision: row.revision + 1,
-        changedAt: at,
-      });
-      if (old.main && !meta.colonyJson)
-        ctx.db.gameSystem.id.update({
-          ...ctx.db.gameSystem.id.find(object.systemId)!,
-          planet: ENVIRONMENTS.arctic.name,
-        });
-    }
-  }
-  // Remove solar production immediately, including upgrades still in progress.
-  for (const site of ctx.db.gameSite.systemId.filter(object.systemId))
-    if (site.id === dyson.id || (site.bodySlot === object.slot && site.facility === 'solar'))
-      ctx.db.gameSite.id.delete(site.id);
-  ctx.db.gameObject.id.update({ ...dyson, state: 'destroyed', revision: dyson.revision + 1, changedAt: at });
-  if (meta.colonyJson) refreshColonyRate(ctx, object.systemId, job.empireId);
   const e = ctx.db.empire.id.find(job.empireId)!;
   ctx.db.empire.id.update({ ...e, data: e.data + COST.reward });
   event(

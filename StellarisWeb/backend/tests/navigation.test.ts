@@ -1,3 +1,4 @@
+import { categoryIncome } from './economy-helpers';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -53,7 +54,7 @@ test(
         code: source.code,
         seed: 42,
         sourceJson: JSON.stringify(source),
-        migrationKey: 'navigation',
+        creationKey: 'navigation',
       });
       for (const id of ['a', 'b']) {
         const c = await connect(database);
@@ -215,9 +216,9 @@ test(
       const star = bodies().find((b) => b.kind === 'star')!;
       const rock = bodies().find((b) => b.kind === 'asteroid')!;
       await assert.rejects(
-        issue({ type: 'site_build', systemId: initial, bodySlot: rock.slot, facility: 'starbase' }),
+        issue({ type: 'site_build', systemId: initial, bodySlot: rock.slot, facility: 'solar' }),
       );
-      await issue({ type: 'site_build', systemId: initial, bodySlot: star.slot, facility: 'starbase' });
+      await issue({ type: 'site_build', systemId: initial, bodySlot: star.slot, facility: 'solar' });
       const beforeMine = gameView(a)!.me.resources.minerals;
       await issue({ type: 'site_build', systemId: initial, bodySlot: rock.slot, facility: 'mine' });
       assert(
@@ -287,10 +288,10 @@ test(
       await issue({ type: 'station_place', systemId: initial, point, facility: 'research' });
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
       await until(() => gameView(a)!.sites!.some((s) => s.bodySlot > 8 && s.level === 1));
-      await until(() => gameView(a)!.sites!.some((s) => s.facility === 'starbase' && s.level === 1));
+      await until(() => gameView(a)!.sites!.some((s) => s.facility === 'solar' && s.level === 1));
       assert(gameView(a)!.sites!.some((s) => s.facility === 'mine' && s.level === 1));
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
-      assert(gameView(a)!.me.installationIncome!.data > 0, 'free station produces research');
+      assert(categoryIncome(gameView(a)!, 'installations').data > 0, 'free station produces research');
       await detail.focus(0);
     } finally {
       for (const c of clients) c.conn.disconnect();

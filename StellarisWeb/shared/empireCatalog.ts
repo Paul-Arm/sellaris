@@ -5,12 +5,14 @@ export type Modifier =
   | 'energy'
   | 'minerals'
   | 'data'
+  | 'unity'
   | 'growth'
   | 'research'
   | 'construction'
   | 'speed'
   | 'damage'
-  | 'habitability';
+  | 'habitability'
+  | 'upkeep';
 export type Modifiers = Record<Modifier, number>;
 export interface Choice {
   name: string;
@@ -19,9 +21,11 @@ export interface Choice {
   kinds?: readonly EmpireKind[];
 }
 export const MODIFIER_NAMES: Record<Modifier, string> = {
+  upkeep: 'Energieunterhalt',
   energy: 'Energieproduktion',
   minerals: 'Mineralienproduktion',
   data: 'Datenproduktion',
+  unity: 'Einigkeit durch Bevölkerung',
   growth: 'Bevölkerungswachstum',
   research: 'Forschungstempo',
   construction: 'Bautempo',
@@ -55,7 +59,7 @@ export const AUTHORITIES = {
     name: 'Demokratie',
     description: 'Gewählte Vertretung fördert wissenschaftliche Zusammenarbeit.',
     kinds: ['regular'],
-    effects: { data: 0.05 },
+    effects: { data: 0.05, unity: 0.1 },
   },
   oligarchic: {
     name: 'Oligarchie',
@@ -85,7 +89,7 @@ export const AUTHORITIES = {
     name: 'Synaptischer Nexus',
     description: 'Alle Glieder lernen durch denselben Geist.',
     kinds: ['hive'],
-    effects: { research: 0.05 },
+    effects: { research: 0.05, unity: 0.15 },
   },
   machine: {
     name: 'Zentrales Netzwerk',
@@ -142,7 +146,7 @@ export const ETHICS = {
     name: 'Spiritualistisch',
     description: 'Gemeinsame Rituale stärken die Gemeinschaft.',
     opposite: 'materialist',
-    effects: { growth: 0.05 },
+    effects: { growth: 0.05, unity: 0.1 },
   },
 } as const;
 export type Ethic = keyof typeof ETHICS;
@@ -398,9 +402,9 @@ export const TRAITS: Record<string, TraitChoice> = {
   },
   wasteful: {
     name: 'Verschwenderisch',
-    description: '−10 % Energieproduktion.',
+    description: '+10 % Energieunterhalt.',
     cost: -1,
-    effects: { energy: -0.1 },
+    effects: { upkeep: 0.1 },
   },
   delicate: {
     name: 'Empfindlich',
@@ -431,12 +435,14 @@ export function emptyModifiers(): Modifiers {
     energy: 0,
     minerals: 0,
     data: 0,
+    unity: 0,
     growth: 0,
     research: 0,
     construction: 0,
     speed: 0,
     damage: 0,
     habitability: 0,
+    upkeep: 0,
   };
 }
 export function addEffects(target: Modifiers, effects?: Partial<Modifiers>, weight = 1) {

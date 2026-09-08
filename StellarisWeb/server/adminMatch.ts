@@ -1,3 +1,4 @@
+import { RESOURCE_IDS, resourceAmounts } from '../shared/resources';
 import type { AdminMatch } from '../shared/admin';
 import type { EmpireState } from '../shared/empireState';
 
@@ -21,10 +22,10 @@ export async function inspectMatch(code: string, database: string, rows: Query):
     rows(database, 'SELECT a, b FROM game_lane'),
     rows(database, 'SELECT id, name, color, ai FROM empire_summary'),
     rows(database, 'SELECT id, home_id, techs, surveyed, empire_json FROM game_player'),
-    rows(database, 'SELECT id, energy, minerals, data FROM empire'),
+    rows(database, `SELECT id, ${RESOURCE_IDS.join(', ')} FROM empire`),
     rows(database, 'SELECT id, online FROM game_presence'),
     rows(database, 'SELECT host_id FROM game_settings'),
-    rows(database, 'SELECT id, empire_id, population, energy_rate, minerals_rate, data_rate FROM colony'),
+    rows(database, 'SELECT id, empire_id, population, monthly_production FROM colony'),
     rows(
       database,
       'SELECT id, empire_id, name, system_id, ship_count, "order", battle_id, from_x, from_y, to_x, to_y, departed_at, arrives_at FROM fleet',
@@ -65,9 +66,9 @@ export async function inspectMatch(code: string, database: string, rows: Query):
         online: !ai && presence.some(([p, online]) => p === id && online === true),
         host: settings[0][0] === id,
         homeId: Number(player[1]),
-        energy: Number(economy[1]),
-        minerals: Number(economy[2]),
-        data: Number(economy[3]),
+        resources: resourceAmounts(
+          Object.fromEntries(RESOURCE_IDS.map((id, i) => [id, Number(economy[i + 1])])),
+        ),
         techs: player[2] as string[],
         surveyed: (player[3] as number[]).length,
         design: empire.design,
@@ -86,13 +87,13 @@ export async function inspectMatch(code: string, database: string, rows: Query):
         ),
         colonies: colonies
           .filter((c) => c[1] === id)
-          .map(([system, , population, energy, minerals, data]) => ({
+          .map(([system, , population, production]) => ({
             id: Number(system),
             name: byId.get(Number(system))?.colonyName || byId.get(Number(system))?.name || String(system),
             population: Number(population) / 1000000,
-            energy: Number(energy),
-            minerals: Number(minerals),
-            data: Number(data),
+            monthlyProduction: resourceAmounts(
+              Object.fromEntries(RESOURCE_IDS.map((id, i) => [id, Number((production as unknown[])[i])])),
+            ),
           })),
       };
     }),

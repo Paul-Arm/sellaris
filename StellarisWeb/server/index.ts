@@ -1,9 +1,10 @@
+import { VERSION } from '../shared/game';
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { mkdir, stat } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
-import { EmpireLibraryStore } from './empireLibrary.ts';
+import { EmpireLibraryStore, LibraryProfileError } from './empireLibrary.ts';
 import { NativeGateway } from './nativeGateway';
 import { createAdminPanel } from './adminPanel';
 import { installNativeUpgrade, proxyNativeHttp } from './nativeProxy';
@@ -41,7 +42,7 @@ const server = createServer(async (req, res) => {
   if (proxyNativeHttp(req, res)) return;
   if (req.url === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', version: 2, backend: 'spacetimedb', rooms: native.size }));
+    res.end(JSON.stringify({ status: 'ok', version: VERSION, backend: 'spacetimedb', rooms: native.size }));
     return;
   }
   const galaxyCode = req.url?.match(/^\/api\/galaxies\/([A-F0-9]{6})$/)?.[1];
@@ -166,6 +167,7 @@ wss.on('connection', (ws) => {
         send(ws, {
           type: 'error',
           message: error instanceof Error ? error.message : 'Ungültige Nachricht.',
+          code: error instanceof LibraryProfileError ? error.code : undefined,
           requestId,
         });
       }

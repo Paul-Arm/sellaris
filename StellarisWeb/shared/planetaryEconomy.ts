@@ -1,11 +1,17 @@
+import { optimizeProduction, type ComputePlayer } from './compute';
+import { starbaseDefense, starbaseRepair } from './starbases';
 import type { GameState, Player, Resource, Resources, StarSystem } from './game';
 import { colonyModifiers, populationGrowth, type PopulationGroup } from './empireState';
-import { environmentForPlanet } from './empires';
+import { environmentForPlanet, governmentModifiers } from './empires';
+import { RESOURCE_CATALOG, RESOURCE_IDS, resourceAmounts } from './resources';
+import { economyLine, economyTotals, modifyEconomy, type EconomyModifier, type EconomyLine } from './economy';
 
-export type BuildingId = 'habitat' | 'biosphere' | 'reactor' | 'foundry' | 'laboratory' | 'bastion' | 'datacenter';
+export type BuildingId =
+  'habitat' | 'biosphere' | 'reactor' | 'foundry' | 'laboratory' | 'bastion' | 'datacenter';
 export type ColonyFocus = 'balanced' | 'energy' | 'minerals' | 'data';
 export interface ColonyDistrict {
   id: number;
+  slot: number;
   building: BuildingId;
   level: number;
   enabled: boolean;
@@ -21,7 +27,8 @@ export interface ColonySector {
   districts: ColonyDistrict[];
 }
 export interface Colony {
-  schema: 2;
+  economyModifiers?: EconomyModifier[];
+  schema: 3;
   seed: number;
   bodySlot: number;
   revision: number;
@@ -32,6 +39,7 @@ export interface Colony {
   sectors: ColonySector[];
   construction: {
     sectorId: number;
+    slot: number;
     districtId: number | null;
     building: BuildingId;
     level: number;
@@ -43,7 +51,7 @@ export interface Colony {
 type ColonyTarget = { systemId: string; bodySlot?: number; revision: number };
 export type ColonyCommand = ColonyTarget &
   (
-    | { type: 'colony_build'; sectorId: number; building: BuildingId }
+    | { type: 'colony_build'; sectorId: number; slot: number; building: BuildingId }
     | { type: 'colony_upgrade'; districtId: number }
     | { type: 'colony_toggle'; districtId: number; enabled: boolean }
     | { type: 'colony_demolish'; districtId: number }
@@ -75,9 +83,17 @@ export const BUILDINGS: Record<
   }
 > = {
   datacenter: {
-    name: 'Rechenzentrum', description: 'Besetzte Jobs liefern je 2 Compute pro Spieltag für Forschung und Simulationen.',
-    jobs: 2, resource: null, perJob: 0, housing: 0, supply: 0, upkeep: 2,
-    cost: { energy: 100, minerals: 140, data: 0 }, time: 24, maxLevel: 3,
+    name: 'Rechenzentrum',
+    description: 'Besetzte Jobs liefern je 2 Compute pro Monat für Forschung und Simulationen.',
+    jobs: 2,
+    resource: null,
+    perJob: 0,
+    housing: 0,
+    supply: 0,
+    upkeep: 2,
+    cost: { energy: 100, minerals: 140, data: 0 },
+    time: 24,
+    maxLevel: 3,
   },
   habitat: {
     name: 'Habitat',
@@ -244,7 +260,7 @@ export function createColony(capital = false, identity = 'colony', planet = 'Kon
   const seed = hash(identity),
     sectors = generateColonySectors(seed, planet);
   const colony: Colony = {
-    schema: 2,
+    schema: 3,
     seed,
     bodySlot: 1,
     revision: 0,
@@ -255,7 +271,13 @@ export function createColony(capital = false, identity = 'colony', planet = 'Kon
     construction: null,
   };
   const place = (sector: number, building: BuildingId) =>
-    sectors[sector].districts.push({ id: colony.nextDistrictId++, building, level: 1, enabled: true });
+    sectors[sector].districts.push({
+      id: colony.nextDistrictId++,
+      slot: sectors[sector].districts.length,
+      building,
+      level: 1,
+      enabled: true,
+    });
   place(0, 'habitat');
   place(0, 'biosphere');
   place(1, 'reactor');
@@ -269,7 +291,7 @@ export function createColony(capital = false, identity = 'colony', planet = 'Kon
 /** Old galaxies are intentionally unsupported; new games generate the current schema. */
 export function assertColonies(game: GameState) {
   for (const system of game.systems)
-    if (system.colony && system.colony.schema !== 2)
+    if (system.colony && system.colony.schema !== 3)
       throw new Error('Diese Galaxie verwendet ein älteres Koloniesystem. Bitte eine neue Partie starten.');
 }
 export const districtCapacity = (c: Colony) => c.sectors.reduce((n, s) => n + s.slots, 0);
@@ -282,15 +304,13 @@ export function colonyBuildingLevel(c: Colony | null | undefined, building: Buil
     ) ?? 0
   );
 }
-export function districtSpec(building: BuildingId, level = 1) {
+export function districtSpec(building: BuildingId, level = 1): { cost: Resources; time: number } {
   const s = BUILDINGS[building],
     factor = 1 + (level - 1) * 0.65;
   return {
-    cost: {
-      energy: Math.ceil(s.cost.energy * factor),
-      minerals: Math.ceil(s.cost.minerals * factor),
-      data: 0,
-    },
+    cost: resourceAmounts(
+      Object.fromEntries(RESOURCE_IDS.map((id) => [id, Math.ceil((s.cost[id] ?? 0) * factor)])),
+    ),
     time: s.time + (level - 1) * 8,
   };
 }
@@ -298,6 +318,9 @@ export function featureMultiplier(s: ColonySector, b: BuildingId) {
   return FEATURES[s.feature].building === b && b !== 'habitat' ? 1.2 : 1;
 }
 export interface DistrictEconomy {
+  compute: number;
+  defense: number;
+  workers: { speciesId: string; name: string; employed: number }[];
   id: number;
   sectorId: number;
   building: BuildingId;
@@ -309,6 +332,7 @@ export interface DistrictEconomy {
   upkeep: number;
 }
 export interface ColonyEconomy {
+  ledger: EconomyLine[];
   compute: number;
   districts: DistrictEconomy[];
   jobs: number;
@@ -327,28 +351,89 @@ export interface ColonyEconomy {
 export function colonyEconomy(
   c: Colony,
   planet = 'Kontinentalwelt',
-  player?: Pick<Player, 'empire'>,
+  player?: Pick<Player, 'empire'> & ComputePlayer,
 ): ColonyEconomy {
-  const population = Math.max(0, c.population),
-    mods = colonyModifiers(player?.empire, c.populations, environmentForPlanet(planet));
-  const rows = c.sectors.flatMap((s) =>
-    s.districts.map((d) => ({
+  const population = Math.max(0, c.population);
+  const common = [...(player?.empire?.economyModifiers ?? []), ...(c.economyModifiers ?? [])];
+  const upkeep = colonyModifiers(player?.empire, c.populations, environmentForPlanet(planet)).upkeep;
+  if (upkeep)
+    common.push({
+      id: 'population-upkeep',
+      name: 'Bevölkerungsmerkmale',
+      category: 'upkeep',
+      resource: 'energy',
+      percent: upkeep,
+    });
+  const groups = c.populations?.length
+    ? c.populations
+    : [{ speciesId: player?.empire?.primarySpeciesId ?? '', population }];
+  const total = groups.reduce((n, g) => n + Math.max(0, g.population), 0);
+  const workers = groups
+    .map((g) => {
+      const species = player?.empire?.species.find((s) => s.id === g.speciesId);
+      const mods = colonyModifiers(player?.empire, [{ ...g, population: 1 }], environmentForPlanet(planet));
+      const modifiers: EconomyModifier[] = [...common, ...(species?.economyModifiers ?? [])];
+      for (const resource of RESOURCE_IDS) {
+        const percent = (mods as Partial<Record<Resource, number>>)[resource] ?? 0;
+        if (percent)
+          modifiers.push({
+            id: `species:${g.speciesId}:${resource}`,
+            name: `${species?.name ?? 'Bevölkerung'} · Merkmale, Regierung & Klima`,
+            category: 'jobs',
+            resource,
+            percent,
+          });
+      }
+      if (mods.research)
+        modifiers.push({
+          id: `compute:${g.speciesId}`,
+          name: 'Forschungsmodifikatoren',
+          category: 'compute',
+          percent: mods.research,
+        });
+      return {
+        speciesId: g.speciesId,
+        name: species?.name ?? 'Bevölkerung',
+        available: total ? (Math.max(0, g.population) * population) / total : 0,
+        modifiers,
+      };
+    })
+    .sort((a, b) => a.speciesId.localeCompare(b.speciesId));
+  const rows = c.sectors.flatMap((sector) =>
+    sector.districts.map((d) => ({
       id: d.id,
-      sectorId: s.id,
+      sectorId: sector.id,
       building: d.building,
       jobs: d.enabled ? BUILDINGS[d.building].jobs * d.level : 0,
+      compute: 0,
+      defense: 0,
       employed: 0,
-      output: { energy: 0, minerals: 0, data: 0 },
+      workers: [] as DistrictEconomy['workers'],
+      output: resourceAmounts(),
       supply: 0,
       housing: d.enabled
-        ? (BUILDINGS[d.building].housing + (s.feature === 'sheltered' && d.building === 'habitat' ? 2 : 0)) *
-          d.level
+        ? modifyEconomy(
+            (BUILDINGS[d.building].housing +
+              (sector.feature === 'sheltered' && d.building === 'habitat' ? 2 : 0)) *
+              d.level,
+            common,
+            { category: 'housing', job: d.building },
+          ).amount
         : 0,
-      upkeep: d.enabled ? BUILDINGS[d.building].upkeep * d.level : 0,
-      boost: featureMultiplier(s, d.building),
+      upkeep: d.enabled
+        ? modifyEconomy(BUILDINGS[d.building].upkeep * d.level, common, {
+            category: 'upkeep',
+            resource: 'energy',
+            job: d.building,
+          }).amount
+        : 0,
+      baseUpkeep: d.enabled ? BUILDINGS[d.building].upkeep * d.level : 0,
+      boost: featureMultiplier(sector, d.building),
     })),
   );
   let available = population;
+  // First reserve job quotas according to the colony focus. Then match species cohorts to
+  // these quotas. Complexity depends on districts × species, never the number of pops.
   const allocate = (group: typeof rows, budget: number) => {
     const jobs = group.reduce((n, r) => n + r.jobs - r.employed, 0),
       work = Math.min(available, budget, jobs);
@@ -356,16 +441,25 @@ export function colonyEconomy(
     for (const r of group) r.employed += ((r.jobs - r.employed) * work) / jobs;
     available = Math.max(0, available - work);
   };
-  // Food is staffed first; fair proportional sharing avoids identity/order-based starvation.
-  const farms = rows.filter((r) => r.building === 'biosphere'),
-    farmCapacity = farms.reduce((n, r) => n + r.jobs * 4 * r.boost, 0);
+  const farms = rows.filter((r) => r.building === 'biosphere');
+  const farmCapacity = farms.reduce(
+    (n, r) =>
+      n +
+      r.jobs *
+        BUILDINGS.biosphere.supply *
+        r.boost *
+        modifyEconomy(1, common, { category: 'supply', job: 'biosphere' }).amount,
+    0,
+  );
   const farmJobs = farms.reduce((n, r) => n + r.jobs, 0);
   allocate(farms, farmCapacity ? Math.min(1, population / farmCapacity) * farmJobs : 0);
   allocate(
     rows.filter((r) => r.building === 'bastion'),
     Infinity,
   );
-  const productive = rows.filter((r) => BUILDINGS[r.building].resource !== null || r.building === 'datacenter');
+  const productive = rows.filter(
+    (r) => BUILDINGS[r.building].resource !== null || r.building === 'datacenter',
+  );
   if (c.focus !== 'balanced')
     allocate(
       productive.filter((r) => BUILDINGS[r.building].resource === c.focus),
@@ -373,44 +467,132 @@ export function colonyEconomy(
     );
   allocate(productive, Infinity);
   allocate(farms, Infinity);
-  const supply = farms.reduce((n, r) => n + r.employed * 4 * r.boost, 0),
+  const category = (building: BuildingId) =>
+    building === 'datacenter'
+      ? ('compute' as const)
+      : building === 'biosphere'
+        ? ('supply' as const)
+        : building === 'bastion'
+          ? ('defense' as const)
+          : ('jobs' as const);
+  const candidates = rows
+    .flatMap((row) =>
+      workers.map((worker) => ({
+        row,
+        worker,
+        score: modifyEconomy(1, worker.modifiers, {
+          category: category(row.building),
+          job: row.building,
+          resource: BUILDINGS[row.building].resource ?? undefined,
+          speciesId: worker.speciesId,
+        }).amount,
+      })),
+    )
+    .sort(
+      (a, b) =>
+        b.score - a.score || a.row.id - b.row.id || a.worker.speciesId.localeCompare(b.worker.speciesId),
+    );
+  const assigned = new Map<number, number>();
+  for (const { row, worker } of candidates) {
+    const count = Math.min(worker.available, Math.max(0, row.employed - (assigned.get(row.id) ?? 0)));
+    if (count <= 0) continue;
+    row.workers.push({ speciesId: worker.speciesId, name: worker.name, employed: count });
+    worker.available -= count;
+    assigned.set(row.id, (assigned.get(row.id) ?? 0) + count);
+  }
+  const workerIndex = new Map(workers.map((w) => [w.speciesId, w]));
+  const jobAmount = (row: (typeof rows)[number], base: number, cat: import('./economy').EconomyCategory) =>
+    row.workers.reduce(
+      (n, w) =>
+        n +
+        w.employed *
+          modifyEconomy(base, workerIndex.get(w.speciesId)!.modifiers, {
+            category: cat,
+            job: row.building,
+            speciesId: w.speciesId,
+          }).amount,
+      0,
+    );
+  for (const row of farms) row.supply = jobAmount(row, BUILDINGS.biosphere.supply * row.boost, 'supply');
+  const supply = farms.reduce((n, r) => n + r.supply, 0),
     supplyFactor = population > 0 ? Math.min(1, supply / population) : 1;
-  const output: Resources = { energy: 0, minerals: 0, data: 0 };
+  const ledger: EconomyLine[] = [];
+  const governmentUnity = player?.empire
+    ? governmentModifiers(player.empire.design.government, player.empire.design.origin).unity : 0;
+  ledger.push(economyLine('population-unity', 'Bevölkerung & Regierung', population * 0.5,
+    [...common, { id: 'government-unity', name: 'Regierung: Einigkeit', percent: governmentUnity }],
+    { category: 'population', resource: 'unity' }));
   let defense = 0,
-    upkeep = 0,
-    housing = 0;
+    compute = 0,
+    repair = 0;
   for (const row of rows) {
     const spec = BUILDINGS[row.building];
-    if (spec.resource) {
-      row.output[spec.resource] =
-        row.employed *
-        spec.perJob *
-        row.boost *
-        Math.max(0.1, 1 + mods[spec.resource]) *
-        Math.max(0.25, supplyFactor);
-      output[spec.resource] += row.output[spec.resource];
+    if (spec.resource)
+      for (const worker of row.workers) {
+        const modifiers = [
+          ...workerIndex.get(worker.speciesId)!.modifiers,
+          { id: 'terrain', name: 'Planetare Vorkommen', factor: row.boost },
+          { id: 'supply', name: 'Versorgung', factor: Math.max(0.25, supplyFactor) },
+        ];
+        // Flat output bonuses apply per occupied job, including fractional cohorts.
+        const line = economyLine(
+          `${row.id}:${worker.speciesId}:${spec.resource}`,
+          spec.name,
+          spec.perJob,
+          modifiers,
+          { category: 'jobs', resource: spec.resource, job: row.building, speciesId: worker.speciesId },
+        );
+        line.base *= worker.employed;
+        line.amount *= worker.employed;
+        line.modifiers = line.modifiers.map((m) => ({ ...m, delta: m.delta * worker.employed }));
+        line.species = worker.name;
+        line.employed = worker.employed;
+        optimizeProduction([line], player ?? {});
+        ledger.push(line);
+        row.output[spec.resource] += line.amount;
+      }
+    if (row.baseUpkeep)
+      ledger.push(
+        economyLine(
+          `upkeep:${row.id}`,
+          spec.name,
+          row.baseUpkeep,
+          common,
+          { category: 'upkeep', resource: 'energy', job: row.building },
+          true,
+        ),
+      );
+    if (row.building === 'bastion') {
+      row.defense = jobAmount(row, 40, 'defense');
+      defense += row.defense;
+      repair += jobAmount(row, 1, 'repair');
     }
-    row.supply = row.building === 'biosphere' ? row.employed * 4 * row.boost : 0;
-    housing += row.housing;
-    upkeep += row.upkeep;
-    if (row.building === 'bastion') defense += row.employed * 40;
+    if (row.building === 'datacenter') {
+      row.compute = jobAmount(row, 2, 'compute') * Math.max(0.25, supplyFactor);
+      compute += row.compute;
+    }
   }
-  output.energy -= upkeep;
   return {
-    compute: rows.filter((r) => r.building === 'datacenter').reduce((n, r) => n + r.employed * 2 * Math.max(0.25, supplyFactor), 0),
+    ledger,
+    compute,
     districts: rows,
     jobs: rows.reduce((n, r) => n + r.jobs, 0),
     employed: population - available,
     unemployed: available,
-    housing,
+    housing: rows.reduce((n, r) => n + r.housing, 0),
     supply,
     supplyCapacity: farmCapacity,
     demand: population,
-    upkeep,
-    output,
+    upkeep: rows.reduce((n, r) => n + r.upkeep, 0),
+    output: economyTotals(ledger),
     defense,
-    repair: defense / 40,
-    growthFactor: supplyFactor >= 1 - 1e-8 && housing > population && farmCapacity > population ? 1 : 0,
+    repair,
+    growthFactor:
+      supplyFactor >= 1 - 1e-8 &&
+      rows.reduce((n, r) => n + r.housing, 0) > population &&
+      farmCapacity > population
+        ? modifyEconomy(1, common, { category: 'growth' }).amount
+        : 0,
   };
 }
 export function colonyGrowthPerMinute(c: Colony, planet: string, player: Pick<Player, 'empire'>) {
@@ -434,12 +616,12 @@ export function growColony(c: Colony, planet: string, player: Pick<Player, 'empi
   if (!e.growthFactor || total <= 0) return;
   const groups = c.populations ?? [];
   if (!groups.length) {
-    c.population = Math.min(e.housing, e.supplyCapacity, total + elapsed / 240);
+    c.population = Math.min(e.housing, e.supplyCapacity, total + (elapsed / 240) * e.growthFactor);
     return;
   }
   const increments = groups.map(
       (g) =>
-        (((elapsed / 240) * g.population) / total) *
+        (((elapsed / 240) * e.growthFactor * g.population) / total) *
         populationGrowth(player.empire, g.speciesId, environmentForPlanet(planet)),
     ),
     increase = increments.reduce((n, v) => n + v, 0),
@@ -455,7 +637,14 @@ export function completeColonyConstruction(c: Colony) {
   if (p.districtId !== null) {
     const d = sector.districts.find((d) => d.id === p.districtId)!;
     d.level = p.level;
-  } else sector.districts.push({ id: c.nextDistrictId++, building: p.building, level: 1, enabled: true });
+  } else
+    sector.districts.push({
+      id: c.nextDistrictId++,
+      slot: p.slot,
+      building: p.building,
+      level: 1,
+      enabled: true,
+    });
   c.construction = null;
   c.revision++;
 }
@@ -469,8 +658,8 @@ export function applyColonyCommand(system: StarSystem, player: Player, cmd: Colo
     c.focus = cmd.focus;
   } else if (cmd.type === 'colony_cancel') {
     if (!c.construction) throw new Error('Kein planetarer Bauauftrag aktiv.');
-    for (const r of ['energy', 'minerals', 'data'] as const)
-      player.resources[r] += c.construction.cost[r] * 0.5;
+    for (const r of RESOURCE_IDS)
+      player.resources[r] = (player.resources[r] ?? 0) + (c.construction.cost[r] ?? 0) * 0.5;
     c.construction = null;
   } else {
     const districtId = cmd.type === 'colony_build' ? null : cmd.districtId;
@@ -492,14 +681,23 @@ export function applyColonyCommand(system: StarSystem, player: Player, cmd: Colo
       if (!Object.hasOwn(BUILDINGS, building)) throw new Error('Unbekannter Kolonieausbau.');
       if (cmd.type === 'colony_build' && sector.districts.length >= sector.slots)
         throw new Error('Alle Bauplätze dieses Sektors sind belegt.');
+      if (
+        cmd.type === 'colony_build' &&
+        (!Number.isSafeInteger(cmd.slot) ||
+          cmd.slot < 0 ||
+          cmd.slot >= sector.slots ||
+          sector.districts.some((d) => d.slot === cmd.slot))
+      )
+        throw new Error('Ungültiger oder belegter Bauplatz.');
       const level = d ? d.level + 1 : 1;
       if (level > BUILDINGS[building].maxLevel) throw new Error('Maximale Ausbaustufe erreicht.');
       const spec = districtSpec(building, level);
-      for (const r of ['energy', 'minerals', 'data'] as const)
-        if (player.resources[r] < spec.cost[r]) throw new Error('Nicht genügend Rohstoffe.');
-      for (const r of ['energy', 'minerals', 'data'] as const) player.resources[r] -= spec.cost[r];
+      for (const r of RESOURCE_IDS)
+        if ((player.resources[r] ?? 0) < (spec.cost[r] ?? 0)) throw new Error('Nicht genügend Rohstoffe.');
+      for (const r of RESOURCE_IDS) player.resources[r] = (player.resources[r] ?? 0) - (spec.cost[r] ?? 0);
       c.construction = {
         sectorId: sector.id,
+        slot: cmd.type === 'colony_build' ? cmd.slot : d!.slot,
         districtId: d?.id ?? null,
         building,
         level,
@@ -512,34 +710,81 @@ export function applyColonyCommand(system: StarSystem, player: Player, cmd: Colo
   c.revision++;
   system.defense = Math.min(system.defense, maxDefense(system));
 }
-export function colonyProduction(system: StarSystem, player: Pick<Player, 'techs' | 'empire'>): Resources {
-  const c = system.colony,
-    economy = c ? colonyEconomy(c, system.planet, player) : null,
-    output: Resources = economy ? { ...economy.output } : { energy: 0, minerals: 0, data: 0 };
-  // The explicit orbital mining installation retains its independent system yield.
-  if (system.mined) {
-    output.energy += system.resources.energy;
-    output.minerals += system.resources.minerals;
+export function colonyLedger(system: StarSystem, player: Pick<Player, 'techs' | 'empire'> & ComputePlayer): EconomyLine[] {
+  const c = system.colony;
+  const ledger = c ? colonyEconomy(c, system.planet, { empire: player.empire }).ledger : [];
+  const common = player.empire?.economyModifiers ?? [];
+  if (system.mined)
+    for (const resource of RESOURCE_IDS) {
+      if (resource !== 'energy' && resource !== 'minerals') continue;
+      ledger.push(
+        economyLine(`mining:${resource}`, 'Orbitaler Bergbau', system.resources[resource] ?? 0, common, {
+          category: 'mining',
+          resource,
+        }),
+      );
+    }
+  for (const line of ledger) {
+    line.systemId = system.id;
+    line.worldId = `${system.id}:${c?.bodySlot ?? 0}`;
+    line.id = `${system.id}:${c?.bodySlot ?? 0}:${line.id}`;
+    line.source = `${system.colonyName ?? system.name} · ${line.source}`;
+    if (line.category === 'upkeep') continue;
+    if (player.techs.includes('extraction') && (line.resource === 'energy' || line.resource === 'minerals')) {
+      line.modifiers.push({
+        id: 'extraction',
+        name: 'Extraktionstechnologie +50 %',
+        delta: line.amount * 0.5,
+      });
+      line.amount *= 1.5;
+    }
+    const factor = system.productionFactor ?? 1;
+    if (factor !== 1) {
+      line.modifiers.push({
+        id: 'production',
+        name: 'Reichslage / Krise',
+        delta: line.amount * (factor - 1),
+      });
+      line.amount *= factor;
+    }
   }
-  if (player.techs.includes('extraction')) {
-    const upkeep = economy?.upkeep ?? 0;
-    output.energy = (output.energy + upkeep) * 1.5 - upkeep;
-    output.minerals *= 1.5;
-  }
-  for (const r of ['energy', 'minerals', 'data'] as const)
-    if (output[r] > 0) output[r] *= system.productionFactor ?? 1;
-  return output;
+  return optimizeProduction(ledger, player);
 }
-export function baseIncome(player: Pick<Player, 'techs'>): Resources {
-  return player.techs.includes('extraction')
-    ? { energy: 3, minerals: 1.5, data: 1 }
-    : { energy: 2, minerals: 1, data: 1 };
+export function colonyProduction(system: StarSystem, player: Pick<Player, 'techs' | 'empire'> & ComputePlayer): Resources {
+  return economyTotals(colonyLedger(system, player));
+}
+export function baseLedger(player: Pick<Player, 'techs'> & Partial<Pick<Player, 'empire'>>): EconomyLine[] {
+  return RESOURCE_IDS.map((resource) =>
+    economyLine(
+      `base:${resource}`,
+      'Grundversorgung',
+      RESOURCE_CATALOG[resource].base,
+      [
+        ...(player.empire?.economyModifiers ?? []),
+        ...(player.techs.includes('extraction') && (resource === 'energy' || resource === 'minerals')
+          ? [{ id: 'extraction', name: 'Extraktionstechnologie +50 %', factor: 1.5 }]
+          : []),
+      ],
+      { category: 'base', resource },
+    ),
+  );
+}
+export function baseIncome(player: Pick<Player, 'techs'> & Partial<Pick<Player, 'empire'>>): Resources {
+  return economyTotals(baseLedger(player));
 }
 export function maxDefense(s: StarSystem) {
-  return 30 + (s.planetDefense || 0) + (s.colony ? colonyEconomy(s.colony, s.planet).defense : 0);
+  return (
+    starbaseDefense(s.starbase) +
+    (s.planetDefense || 0) +
+    (s.colony ? colonyEconomy(s.colony, s.planet).defense : 0)
+  );
 }
 export function colonyRepair(s: StarSystem) {
-  return 1.5 + (s.planetDefense || 0) / 40 + (s.colony ? colonyEconomy(s.colony, s.planet).repair : 0);
+  return (
+    starbaseRepair(s.starbase) +
+    (s.planetDefense || 0) / 40 +
+    (s.colony ? colonyEconomy(s.colony, s.planet).repair : 0)
+  );
 }
 /** One bounded AI choice, shared by the local simulation and native backend. */
 export function planColonyDevelopment(s: StarSystem): ColonyCommand | null {
@@ -562,7 +807,16 @@ export function planColonyDevelopment(s: StarSystem): ColonyCommand | null {
     .filter((s) => s.districts.length < s.slots)
     .sort((a, b) => featureMultiplier(b, building) - featureMultiplier(a, building) || a.id - b.id)[0];
   if (sector)
-    return { type: 'colony_build', systemId: s.id, revision: c.revision, sectorId: sector.id, building };
+    return {
+      type: 'colony_build',
+      systemId: s.id,
+      revision: c.revision,
+      sectorId: sector.id,
+      slot: Array.from({ length: sector.slots }, (_, slot) => slot).find(
+        (slot) => !sector.districts.some((d) => d.slot === slot),
+      )!,
+      building,
+    };
   const d = c.sectors.flatMap((s) => s.districts).find((d) => d.building === building && d.level < 3);
   return d ? { type: 'colony_upgrade', systemId: s.id, revision: c.revision, districtId: d.id } : null;
 }

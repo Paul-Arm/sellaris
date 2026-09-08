@@ -1,3 +1,4 @@
+export { mySituations } from './game-situations';
 import { db } from './tables';
 export { sampleClock } from './clock';
 export default db;
@@ -16,9 +17,7 @@ export {
 export { gameCommand } from './game-commands';
 export { myPlanetColonies } from './game-planet-colonies';
 export { administerGame } from './game-admin';
-export { initializeDiplomacy } from './game-diplomacy';
-export { initializeStories } from './game-stories';
-export { myGameStories, myCrisisPledges } from './game-views';
+export { myCrisisPledges } from './game-views';
 export { myGameOffers } from './game-views';
 export { myGamePlayer, gameAtlas, gamePlayers, gameIntel, gameFleetInfo, myGameEvents } from './game-views';
 export const init = db.init((ctx) => {
@@ -27,7 +26,6 @@ export const init = db.init((ctx) => {
 export { configure, seedShips, activate } from './seed';
 export {
   joinEmpire,
-  initializeBattleReports,
   setFocus,
   setAutomation,
   moveFleet,
@@ -46,10 +44,8 @@ export {
   myColonies,
   myCohorts,
   myJobs,
-  visibleBattles,
   visibleBattleSummaries,
   focusedBattle,
-  battleParticipants,
   battleRoster,
   battleMotion,
   battleVitals,

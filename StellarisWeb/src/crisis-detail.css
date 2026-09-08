@@ -1,0 +1,141 @@
+.crisis-detail {
+  position: relative;
+  border: 1px solid #775744;
+  border-radius: 6px;
+  padding: 30px;
+  background: radial-gradient(ellipse at 95% 5%, #ab634c25, transparent 65%);
+  color: #d9e3e8;
+}
+.crisis-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  position: relative;
+}
+.crisis-phase {
+  color: #f0bc89;
+  font-size: 11px;
+}
+.crisis-detail h3 {
+  font-size: 28px;
+  font-weight: 450;
+  margin: 20px 0;
+}
+.crisis-detail p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #a5b7c4;
+}
+.crisis-location {
+  border: 0;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e2bd96;
+  font-size: 12px;
+  padding: 8px 0;
+}
+.crisis-stages {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.crisis-stages span {
+  padding: 7px 10px;
+  border: 1px solid #334451;
+  border-radius: 4px;
+  color: #6d8394;
+  font-size: 11px;
+}
+.crisis-stages [aria-current='step'] {
+  color: #f0c18c;
+  border-color: #b9854c;
+  background: #986a2b18;
+}
+.crisis-deadline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #c8ad87;
+  font-size: 12px;
+}
+.crisis-deadline strong {
+  margin-left: auto;
+}
+.crisis-metrics {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 28px 0;
+}
+.crisis-metrics small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #7891a3;
+}
+.crisis-metrics strong {
+  font-size: 25px;
+  font-weight: 450;
+  display: block;
+  margin-top: 8px;
+}
+.crisis-metrics strong span {
+  font-size: 15px;
+  color: #6f899b;
+}
+.crisis-detail progress {
+  width: 100%;
+  height: 5px;
+  accent-color: #dfb575;
+}
+.crisis-actions {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin: 22px 0;
+}
+.crisis-actions button {
+  gap: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.crisis-actions small {
+  font-size: 10px;
+  opacity: 0.7;
+}
+.crisis-note {
+  font-size: 11px !important;
+}
+.crisis-result {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #a4d1ba;
+  font-size: 13px;
+}
+.resonance-orbit {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+  width: 210px;
+  height: 130px;
+  opacity: 0.12;
+  pointer-events: none;
+}
+.resonance-orbit i {
+  position: absolute;
+  inset: 20px;
+  border: 1px solid #facb86;
+  border-radius: 50%;
+  transform: rotate(25deg);
+}
+.resonance-orbit i:nth-child(2) {
+  transform: rotate(80deg);
+}
+.resonance-orbit i:nth-child(3) {
+  transform: rotate(140deg);
+}

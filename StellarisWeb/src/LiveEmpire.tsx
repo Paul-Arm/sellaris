@@ -5,8 +5,7 @@ import { parseGovernment, parseSpeciesDesign, type SpeciesDesign } from '../shar
 import { empireModifiers, MODIFICATION_COST, REFORM_COST } from '../shared/empireState';
 import type { GameCommand, GameView } from '../shared/game';
 import { EffectList, GovernmentFields, SpeciesFields, SelectField } from './EmpireFields';
-import { SHIP_SETS, isShipSet, shipSetFor } from '../shared/shipSets';
-import { flagForEmpire } from '../shared/flags';
+import { SHIP_SETS, isShipSet } from '../shared/shipSets';
 import { EmpireFlag } from './EmpireFlag';
 import './empires.css';
 import { ownedColonyWorlds } from '../shared/planetColonies';
@@ -24,7 +23,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
   const modificationWait = Math.max(0, Math.ceil(empire.modificationAvailableAt - game.tick));
   const unlocked = game.me.techs.includes('extraction');
   const affordReform =
-    game.me.resources.energy >= REFORM_COST.energy && game.me.resources.data >= REFORM_COST.data;
+    game.me.resources.energy >= REFORM_COST.energy && game.me.resources.unity >= REFORM_COST.unity;
   const affordModification =
     game.me.resources.minerals >= MODIFICATION_COST.minerals &&
     game.me.resources.data >= MODIFICATION_COST.data;
@@ -38,11 +37,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
   return (
     <section className="living-empire">
       <div className="living-header">
-        <EmpireFlag
-          flag={flagForEmpire(empire.design)}
-          width={78}
-          title={`Flagge von ${empire.design.name}`}
-        />
+        <EmpireFlag flag={empire.design.flag} width={78} title={`Flagge von ${empire.design.name}`} />
         <div>
           <span className="eyebrow">LEBENDES REICH / REVISION {empire.revision}</span>
           <h3>{empire.design.name}</h3>
@@ -89,7 +84,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
           <fieldset disabled={!!game.winner} style={{ border: 0, padding: 0 }}>
             <SelectField
               label="Schiffs- und Stationsdesign"
-              value={shipSetFor(empire.design)}
+              value={empire.design.shipSet}
               options={SHIP_SETS}
               onChange={(shipSet) => {
                 if (isShipSet(shipSet))
@@ -98,7 +93,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
             />
           </fieldset>
           <p className="archive-note">
-            {SHIP_SETS[shipSetFor(empire.design)].description} Der Wechsel ist kostenlos und verändert keine
+            {SHIP_SETS[empire.design.shipSet].description} Der Wechsel ist kostenlos und verändert keine
             Spielwerte.{' '}
             <a href="/models" target="_blank" rel="noreferrer">
               Designhangar öffnen ↗
@@ -112,12 +107,6 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
             Wachstum berücksichtigen die dort lebenden Spezies; reichsweite Werte verwenden die
             Gründungsspezies.
           </p>
-          {empire.legacy && (
-            <p className="archive-note">
-              Übernommene Partie: Die ursprünglichen Produktionsregeln bleiben erhalten. Die vollständigen
-              Vorlagenboni gelten in neu gegründeten Partien.
-            </p>
-          )}
           <details className="living-history">
             <summary>Reichschronik · {empire.history.length} Ereignisse</summary>
             {empire.history
@@ -136,7 +125,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
         <>
           <p className="archive-note">
             Passe Regierung, Ethiken und Staatselemente dieser Partie an. Ursprung und grundlegender Reichstyp
-            bleiben erhalten. Kosten: 100 Energie + 150 Daten. Danach 120 Spieltage Wartezeit.
+            bleiben erhalten. Kosten: 100 Energie + 150 Einigkeit. Danach 120 Spieltage Wartezeit.
           </p>
           <GovernmentFields value={government} onChange={setGovernment} lockKind />
           {validation && (
@@ -159,7 +148,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
             <Landmark size={15} />
             {reformWait ? `Reform in ${reformWait} s` : 'Regierung reformieren'}
           </button>
-          {!affordReform && <p className="archive-muted">Benötigt 100 Energie und 150 Daten.</p>}
+          {!affordReform && <p className="archive-muted">Benötigt 100 Energie und 150 Einigkeit.</p>}
         </>
       )}
       {tab === 'species' && (
@@ -224,8 +213,7 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
             <div className="living-modification">
               <p className="archive-note">
                 Die Variante erhält ein Budget von 4 Merkmalspunkten. Nur die gewählten Kolonien wechseln zur
-                neuen Abstammungslinie. Kosten: 120 Mineralien + 300 Daten. Wartezeit danach: 240
-                Spieltage.
+                neuen Abstammungslinie. Kosten: 120 Mineralien + 300 Daten. Wartezeit danach: 240 Spieltage.
               </p>
               <SpeciesFields value={variant} onChange={setVariant} budget={4} lockKind showLore={false} />
               <fieldset className="variant-colonies">

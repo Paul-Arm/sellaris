@@ -1,5 +1,15 @@
 # Ausbauplan
 
+## TODO: Spieloberfläche und Bedienung
+
+- [ ] Oberfläche nach dem Spielstart aufräumen: sämtliche Funktionen der Spielvorbereitung aus der laufenden Partie entfernen, insbesondere Bearbeiten und Wechseln von Reichs-/Speziesvorlagen sowie den Shipset-Wechsel.
+- [ ] Hyperlane-Namen als gebogene Schrift direkt auf der Raumzeitfläche darstellen; die schwebenden Namenskarten ersetzen.
+- [ ] Weltraumobjekte leichter anklickbar machen und Mehrfachauswahl durch Aufziehen eines Auswahlrahmens (Drag Select) ergänzen.
+- [ ] Rechte Seitenpanels aufräumen: überflüssige Texte entfernen und dauerhaft sichtbare Aktionslisten auf der obersten Ebene durch Untermenüs, Dropdowns oder Modals ersetzen.
+- [ ] Die aktuelle Auswahl deutlicher anzeigen und ausgewählte Schiffe, Planeten und andere Objekte eindeutig hervorheben.
+- [ ] Hotkeys 1–9 für Schiffe und Planeten einführen.
+- [ ] Eine Einstellungsseite ergänzen, einschließlich der Konfiguration von Hotkeys und Bedienung.
+
 ## Geltende Vorgabe
 
 Alte Galaxien dürfen für die Entwicklung gelöscht werden. Abwärtskompatibilität ist keine Anforderung; inkompatible Spielstände werden durch neue Partien ersetzt. Diese Vorgabe ersetzt die Erhaltungszusagen der historischen Umsetzungsberichte.
@@ -38,16 +48,16 @@ Ergebnis: Die Migration ist abgeschlossen. Normale Partien laufen ausschließlic
 - Diplomatie-Dialog mit Flaggen, Status, Eingangsindikator, Angebotsformular und Verlauf.
 - KI antwortet auf Frieden und faire bezahlbare Tauschangebote; eigene Kriegserklärungen der KI bleiben ein späterer Ausbauschritt.
 
-## Umgesetzt: Ereignisse und erste Krise
+## Umgesetzt: Allgemeines Ereignissystem und Spezialprojekte
 
-- Lagezentrum mit privaten Ereignissen, Entscheidungen, Kosten, Folgen, Fundort-Navigation und Verlauf.
-- Anomalie-Archive und die erste Außenkolonie lösen Entscheidungen aus. Fristen zählen Spielzeit; bei Ablauf greift eine kostenlose Standardoption.
-- Resonanzkaskade mit Vorwarnung, Resonanzwelle, Kaskade und gemeinsamer Eindämmung. Ungeschützte Kolonieproduktion sinkt um 25 beziehungsweise 50 Prozent; die Grundversorgung bleibt bestehen.
-- Eigene Kolonien abschirmen oder gemeinsam Stabilisierung finanzieren. Beiträge werden dauerhaft verbucht und bei Erfolg einmalig mit Forschung vergütet.
-- Berechtigungen, reale Produktion, Pause, spätere Beitritte, Wiederverbindungen und Datenbankabsturz geprüft. Bestehende Galaxien erhalten einen neuen Vorlauf ohne Datenreset.
-- Der Ereigniskatalog ist versioniert; die erste KI-Reaktion benutzt dieselben bezahlbaren Entscheidungen. Mehrstufige Geschichten und differenzierte Krisenstrategien sind noch offen.
+- Gemeinsamer erweiterbarer Pool mit 28 Ereignissen und Projekten. Gewichtete Auswahl mit Bedingungen, Chancen, Wiederholungsschutz und Abklingzeiten; Auslöser aus Erkundung, Kolonisierung, Systembesitz, Forschung, Speziesmodifikation, Spielzeit, Krisen und Sternenstürmen.
+- Dauerhafte private Vorgänge mit Entscheidungen, Kosten, Folgeprojekten, Reichs- und Speziesmodifikatoren. Kontinuierlicher positiver/negativer Fortschritt, feste Phasen, Pausen und kostenlose Standardentscheidungen bei gesetzter Frist. Speziesevolution ist als mehrstufiges Projekt enthalten.
+- Eigenes Lagezentrum mit Suche, Filtern und Archiv; Detailseiten mit Phasenverlauf, Dialogen, Bildern, Fundortkarte, Entscheidungen und Protokoll. Neue Projekte und Phasen erhalten Ankündigungen mit gespeichertem Lesestatus.
+- Resonanzkaskade und gemeinsame Eindämmung bleiben als Weltkrise angebunden. Das alte separate Story-Modell samt UI, Transport und Tabellen ist entfernt.
+- Natürlicher Sternkollaps entfernt. Kontrollierter Sternkollaps und natürliche Sternenstürme bleiben eigenständige Mechaniken.
+- Tests auf Kernregeln, Berechtigungen, Transaktionen, Fortschritt und Wiederherstellung konzentriert. Weltformat 6; neue Partien statt Migration.
 
-Nachweis: [STORIES.md](backend/reports/STORIES.md).
+Nachweis: [Ereignisse und Spezialprojekte](backend/reports/EVENTS.md). Neue Inhalte: [Pool erweitern](shared/events/README.md).
 
 ## Umgesetzt: Systemansicht und bebaubare Himmelskörper
 
@@ -133,7 +143,7 @@ Nachweis: [SYSTEM-VIEW.md](backend/reports/SYSTEM-VIEW.md).
 - Besiedelbare Nebenplaneten per Rechtsklick mit einem Kolonieschiff anfliegen und gründen. Kosten erst vor Ort; Auftragsketten, Pause und Abbruch sind integriert.
 - Eigene Bevölkerung, Speziesgruppen, Sektoren, Distrikte, Schwerpunkt, Wachstum und parallele Bauaufträge je Welt. Wirtschaft, Terraforming, Speziesmodifikation und KI berücksichtigen die zusätzlichen Kolonien.
 - Kolonieverwaltung und Wirtschaftsübersicht wählen jede Welt einzeln aus. Aktive Schildbastionen verstärken die gemeinsame Systemverteidigung und Schiffsreparatur.
-- Private dauerhafte Weltzustände mit Revisionsprüfung. Systemverlust beendet zugehörige Kolonien und Projekte. Raumwerft und Besitz bleiben an der Hauptkolonie; das Siegziel zählt Systeme.
+- Private dauerhafte Weltzustände mit Revisionsprüfung. Systemverlust beendet zugehörige Kolonien und Projekte. Raumwerft und Besitz liegen inzwischen an der Sternenbasis; das Siegziel zählt Systeme.
 - Details und Prüfungen: [Mehrere Planetenkolonien](backend/reports/PLANET-COLONIES.md).
 
 ## Umgesetzt: Materiedekompressor
@@ -144,16 +154,25 @@ Die zweite Megastruktur ist umgesetzt: **Materiedekompressor** an Schwarzen Löc
 
 Erkundung deckt an ausgewählten Riesensternen einen einmaligen Zyklus mit 120 Tagen Vorwarnung und 60 Tagen reduziertem Solar-/Dyson-Ertrag auf. Dauerhafte Fristen, private Sichtbarkeit, tatsächliche Auszahlungen und Erholung sind geprüft. Systemansicht und Lagezentrum zeigen Fortschritt und Fundort. Details: [Sternenstürme](backend/reports/STELLAR-WEATHER.md).
 
+## Umgesetzt: Sternenbasen und Systembesitz
+
+- Vollständig erkundete Systeme werden mit einem Außenposten beansprucht. Besitz entsteht erst nach Bauabschluss, unabhängig von Kolonien; auch Schwarze Löcher und Risse sind beanspruchbar.
+- Vier Basisstufen mit 0/2/4/6 Modulplätzen und drei Stufen je Modul: Raumwerft, Geschützbatterie, Versorgungsdock, Handelszentrum.
+- Eigene Verwaltung mit Stufenübersicht, Modulbau, Ausbau, Entfernung, Fortschritt, Abbruch, Unterhalt und Schiffsbau. Die Heimat startet mit einem Sternenhafen und einer Raumwerft.
+- Systembesitz, Kolonisierung, orbitale Anlagen, Megastrukturen, Wirtschaft, Verteidigung, Reparatur, Siegwertung, KI, Speicherung und Ansichten verwenden das neue Modell. Die alte orbitale Sternenbasis und der koloniebasierte Schiffsbau sind entfernt.
+- Neue Partien verwenden Weltformat 4. Keine Migration oder parallelen alten Besitzregeln.
+- Details und Prüfungen: [Sternenbasen](backend/reports/STARBASES.md).
+
 ## Danach
 
-- Weitere Megastrukturen, natürliche Sternumwandlungen und die Folgen vollständig zerstörter Elternkörper ergänzen. Architekturvorschlag: [Veränderbare Sternsysteme](backend/reports/DYNAMIC-SYSTEMS.md).
+- Weitere Megastrukturen und die Folgen vollständig zerstörter Elternkörper ergänzen. Architekturvorschlag: [Veränderbare Sternsysteme](backend/reports/DYNAMIC-SYSTEMS.md).
 - Handelsrouten, langfristige Verträge, Bündnisse und differenziertere diplomatische KI ergänzen.
-- Mehrstufige Ereignisse, weitere Krisentypen und differenziertere Reaktionen der KI.
+- Den allgemeinen Ereignispool inhaltlich ausbauen, weitere Krisentypen und differenziertere Reaktionen der KI ergänzen.
 - Taktik, Schiffsausrüstung und Beleuchtung ausbauen; Radiance Cascades separat prototypisieren und messen.
 
 Die langfristigen Systeme sind Ausbauschritte, keine Behauptung bereits fertiger Spielfunktionen.
 
-- [x] Systemsteuerung: direktes Flugziel per Rechtsklick, Warteschlange per Umschalt + Rechtsklick; separates Flugziel-Menü entfernt. Objekt-Kontextmenüs mit passenden Bauaktionen, Ausbau, Abbruch und Anflug; Sternenbasis als orbitale Versorgungsanlage.
+- [x] Systemsteuerung: direktes Flugziel per Rechtsklick, Warteschlange per Umschalt + Rechtsklick; separates Flugziel-Menü entfernt. Objekt-Kontextmenüs mit passenden Bauaktionen, Ausbau, Abbruch und Anflug; Sternenbasis inzwischen als eigene Systemverwaltung.
 
 - [x] Trägheit beim Kurswechsel: Geschwindigkeit erhalten, gekrümmte Flugbahn, begrenzte Modelldrehung und Bremsweg. Orbitaler Anlagenbau/Ausbau und freie Stationen als Schiffsaufträge mit serverseitiger Nähenprüfung und Kostenbuchung erst bei Ankunft.
 
@@ -165,3 +184,13 @@ Die langfristigen Systeme sind Ausbauschritte, keine Behauptung bereits fertiger
 - Rechenzentren auf Haupt- und Nebenwelten sowie neue Technologien erhöhen Compute. Forschungsfortschritt, Freischaltungen und Budget sind privat und dauerhaft im nativen Backend gespeichert.
 - Weltformat 2, keine Migration alter Ressourcen oder Forschungsaufträge. Die vier alten registrierten Galaxien wurden gelöscht; neue Partie C43F54 angelegt. Gelöschte Sitzungen geben die Lobby wieder frei.
 - Details und Prüfung: [Forschungsnetz](backend/reports/RESEARCH.md).
+
+
+## Umgesetzt: Visuelle Bauplätze
+
+- Sternenbasen zeigen einen Stationsplan mit sechs festen Andockpositionen, sichtbaren Ausbausperren, Modulbildern und Stufen.
+- Koloniesektoren zeigen jeden Bauplatz als Kachel. Auswahl eines freien Platzes öffnet eine kompakte Auswahl mit Kosten, Nutzen und Standortbonus; belegte Plätze öffnen ihre Verwaltung.
+- Schiffsbau beginnt über einen freien Auftragsslot; orbitale Anlagen über den Anlagenplatz des ausgewählten Körpers.
+- Modul- und Distriktpositionen sind Teil des gespeicherten Modells und der geprüften Befehle. Freie Plätze lassen sich in beliebiger Reihenfolge belegen; Abriss verschiebt keine Nachbarn.
+- Gemeinsame Slots und fokussierte Auswahlfenster ersetzen die vorherigen Optionslisten. Dieses Bedienprinzip gilt auch für künftige Bau- und Ausrüstungsoberflächen.
+- Weltformat 4 / Kolonieschema 3. Neue Partien erforderlich; keine Migration. Prüfung: 167 Regeltests, native Sternenbasen, Haupt- und Nebenplanetkolonien, Datenbankneustart, Produktionsbuild und Browserabläufe.

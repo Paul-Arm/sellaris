@@ -1,3 +1,4 @@
+import { VERSION } from '../shared/game';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -45,7 +46,7 @@ test(
       a.send({ type: 'join', code: '', requestId: 'empty' });
       await until(() => a.messages.some((m) => m.requestId === 'empty' && m.type === 'error'));
       const health = (await (await fetch(`http://127.0.0.1:${port}/api/health`)).json()) as any;
-      assert.equal(health.version, 2);
+      assert.equal(health.version, VERSION);
       assert.equal(health.backend, 'spacetimedb');
       assert.equal(health.rooms, 0);
       assert(!a.messages.some((m) => ['state', 'joined'].includes(m.type)));

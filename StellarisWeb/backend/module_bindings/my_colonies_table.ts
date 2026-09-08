@@ -9,13 +9,17 @@ import {
   type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
+import {
+  MonthlyProduction,
+} from "./types";
+
 
 export default __t.row({
   id: __t.u32().primaryKey(),
   empireId: __t.u32().name("empire_id"),
   population: __t.u32(),
-  energyRate: __t.f64().name("energy_rate"),
-  mineralsRate: __t.f64().name("minerals_rate"),
-  dataRate: __t.f64().name("data_rate"),
+  get monthlyProduction() {
+    return MonthlyProduction.name("monthly_production");
+  },
   lastProducedAt: __t.f64().name("last_produced_at"),
 });

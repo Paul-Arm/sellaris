@@ -22,8 +22,7 @@ for (const entry of entries) {
     const clock = [...before.conn.db.clock.iter()][0];
     if (!clock) throw new Error(`Missing game clock: ${entry.code}`);
     prior = { paused: clock.paused, speed: clock.speed };
-    // Older module versions accept 1x even when the game itself is currently at 3x.
-    await before.conn.reducers.setClock({ paused: true, speed: 1 });
+    await before.conn.reducers.setClock({ paused: true, speed: prior.speed });
   } finally {
     before.conn.disconnect();
   }
@@ -41,8 +40,6 @@ for (const entry of entries) {
   ]);
   const after = await connect(entry.database, { uri: process.env.SPACETIME_WS, token: adminToken() });
   try {
-    await after.conn.reducers.initializeDiplomacy({});
-    await after.conn.reducers.initializeStories({});
     await after.conn.reducers.setClock(prior);
   } finally {
     after.conn.disconnect();

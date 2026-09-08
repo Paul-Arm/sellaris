@@ -326,8 +326,10 @@ export function SystemScene(props: Props) {
       (bodyObjects.get(bodies.find((b) => b.main)?.slot ?? 0)?.group ?? scene).add(slot.group);
       resources.push(slot);
     }
-    colonyStation.group.position.set(65, 20, 0);
-    colonyYard.group.position.set(-70, 20, -35);
+    (bodyObjects.get(0)?.group ?? scene).add(colonyStation.group);
+    colonyStation.group.position.set((bodies[0]?.radius ?? 30) + 65, 40, 0);
+    (bodyObjects.get(0)?.group ?? scene).add(colonyYard.group);
+    colonyYard.group.position.set((bodies[0]?.radius ?? 30) + 110, 30, -35);
     defenses[0].group.position.set(22, 12, 55);
     defenses[1].group.position.set(-22, 12, 55);
     const selection = lineLoop(1, resources, '#e8f4db', 0.9);
@@ -616,12 +618,21 @@ export function SystemScene(props: Props) {
       const ownerSet = playerShipSet(p.game, p.system.owner);
       const bastion = colonyBuildingLevel(colony, 'bastion');
       colonyStation.set(
-        p.system.owner ? modelAsset(ownerSet, STATION_MODELS[Math.min(3, bastion)]) : undefined,
-        30 + bastion * 9,
+        p.system.starbase || p.system.starbaseLevel
+          ? modelAsset(
+              ownerSet,
+              (p.system.starbase?.level ?? p.system.starbaseLevel ?? 0) === 0
+                ? '05_construction_level_0'
+                : STATION_MODELS[
+                    Math.max(0, Math.min(3, (p.system.starbase?.level ?? p.system.starbaseLevel ?? 1) - 1))
+                  ],
+            )
+          : undefined,
+        38 + (p.system.starbase?.level ?? p.system.starbaseLevel ?? 0) * 10,
       );
       colonyStation.update(t);
       colonyYard.set(
-        p.system.owner && colonyBuildingLevel(colony, 'foundry') >= 2
+        p.system.starbase?.modules.some((m) => m.type === 'shipyard')
           ? modelAsset(ownerSet, '04_mega_shipyard')
           : undefined,
         65,

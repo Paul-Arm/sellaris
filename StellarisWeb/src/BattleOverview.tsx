@@ -46,57 +46,53 @@ export function BattleOverview({
                       : 'BEENDET'}
                 </span>
               </div>
-              {b.tracked ? (
-                <>
-                  <div className="lab-battle-sides">
-                    {sides.map((side, i) => {
-                      const start = side.startingHull + side.startingShield;
-                      const hp = side.hull + side.shield;
-                      const label = ownSide
-                        ? i === 0
-                          ? 'Deine Seite'
-                          : 'Gegenseite'
-                        : i === 0
-                          ? 'Angreifer'
-                          : 'Verteidiger';
-                      return (
-                        <div key={label}>
-                          <span>{label}</span>
-                          <strong>
-                            {format(side.ships)} <small>Schiffe</small>
-                          </strong>
-                          <progress
-                            aria-label={`${label}: verbleibende HP`}
-                            value={hp}
-                            max={Math.max(1, start)}
-                          />
-                          <span>
-                            {start ? Math.round((hp / start) * 100) : 0} % HP · {losses[i]} Verluste
-                          </span>
-                          <span>
-                            Hülle {format(side.hull)}
-                            <br />
-                            Schilde {format(side.shield)}
-                          </span>
-                          <span className="lab-battle-damage">
-                            Schaden verursacht<strong>{format(side.damageDealt)} HP</strong>
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <small
-                    className="lab-battle-caption"
-                    title="Effektiver Hüllen- und Schildschaden nach Panzerung, ohne Overkill. Rückzüge zählen nicht als Schaden und senken nur die im Gefecht gebundenen HP."
-                  >
-                    {systemNames
-                      ? `${Math.max(0, Math.floor(b.sampledAt - b.baselineAt))} Spieltage erfasst`
-                      : `Messbeginn: Tag ${Math.floor(b.baselineAt)} · Stand: Tag ${Math.floor(b.sampledAt)}`}
-                  </small>
-                </>
-              ) : (
-                <p className="lab-battle-empty">Keine aufgezeichneten HP-Daten für dieses frühere Gefecht.</p>
-              )}
+              <>
+                <div className="lab-battle-sides">
+                  {sides.map((side, i) => {
+                    const start = side.startingHull + side.startingShield;
+                    const hp = side.hull + side.shield;
+                    const label = ownSide
+                      ? i === 0
+                        ? 'Deine Seite'
+                        : 'Gegenseite'
+                      : i === 0
+                        ? 'Angreifer'
+                        : 'Verteidiger';
+                    return (
+                      <div key={label}>
+                        <span>{label}</span>
+                        <strong>
+                          {format(side.ships)} <small>Schiffe</small>
+                        </strong>
+                        <progress
+                          aria-label={`${label}: verbleibende HP`}
+                          value={hp}
+                          max={Math.max(1, start)}
+                        />
+                        <span>
+                          {start ? Math.round((hp / start) * 100) : 0} % HP · {losses[i]} Verluste
+                        </span>
+                        <span>
+                          Hülle {format(side.hull)}
+                          <br />
+                          Schilde {format(side.shield)}
+                        </span>
+                        <span className="lab-battle-damage">
+                          Schaden verursacht<strong>{format(side.damageDealt)} HP</strong>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <small
+                  className="lab-battle-caption"
+                  title="Effektiver Hüllen- und Schildschaden nach Panzerung, ohne Overkill. Rückzüge zählen nicht als Schaden und senken nur die im Gefecht gebundenen HP."
+                >
+                  {systemNames
+                    ? `${Math.max(0, Math.floor(b.sampledAt - b.startedAt))} Spieltage erfasst`
+                    : `Beginn: Tag ${Math.floor(b.startedAt)} · Stand: Tag ${Math.floor(b.sampledAt)}`}
+                </small>
+              </>
               {b.state === 'active' && (
                 <button disabled={disabled} onClick={() => onOpen(b.id)}>
                   {selectedId === b.id ? 'Gefecht geöffnet' : 'Gefecht ansehen'}

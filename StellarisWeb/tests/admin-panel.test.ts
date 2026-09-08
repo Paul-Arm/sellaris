@@ -64,8 +64,9 @@ test('registry admin operations retain failed deletions, serialize changes and p
       {
         code: 'ABCDEF',
         database: 'singularity-game-abcdef-test',
-        migrationKey: 'private-key',
+        creationKey: 'private-key',
         status: 'ready',
+        galaxy: { type: 'spiral', systems: 1000, hyperlaneDensity: 'normal' },
       },
     ]),
   );

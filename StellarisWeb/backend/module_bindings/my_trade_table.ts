@@ -15,7 +15,7 @@ export default __t.row({
   empireId: __t.u32().name("empire_id"),
   fromSystem: __t.u32().name("from_system"),
   toSystem: __t.u32().name("to_system"),
-  energyPerCycle: __t.f64().name("energy_per_cycle"),
+  monthlyEnergy: __t.f64().name("monthly_energy"),
   deliveredAt: __t.f64().name("delivered_at"),
   status: __t.string(),
 });

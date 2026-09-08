@@ -1,3 +1,8 @@
+import { triggerSituation } from './game-situations';
+import { completeTerraforming, refreshTerraformingRates } from './game-terraforming';
+import { resourceAmounts } from '../../shared/resources';
+import { monthsDue, monthBoundary, ECONOMY_MONTH_DAYS, modifyEconomy } from '../../shared/economy';
+import { governmentModifiers } from '../../shared/empires';
 import { SenderError, t } from 'spacetimedb/server';
 import { db, type Context, type ReadContext } from './tables';
 import { now } from './rules';
@@ -18,7 +23,15 @@ import { event, settleEconomy, refreshColonyRate } from './game-model';
 export function researchCapacity(ctx: Context | ReadContext, owner: number) {
   const p = ctx.db.gamePlayer.id.find(owner)!;
   const player = { empire: JSON.parse(p.empireJson) };
-  let compute = baseCompute(p.techs as TechId[]);
+  let compute = modifyEconomy(
+    baseCompute(p.techs as TechId[]) *
+      Math.max(
+        0,
+        1 + governmentModifiers(player.empire.design.government, player.empire.design.origin).research,
+      ),
+    player.empire.economyModifiers ?? [],
+    { category: 'compute' },
+  ).amount;
   for (const c of ctx.db.colony.empireId.filter(owner)) {
     const s = ctx.db.gameSystem.id.find(c.id)!;
     if (s.colonyJson) compute += colonyEconomy(JSON.parse(s.colonyJson), s.planet, player).compute;
@@ -32,7 +45,7 @@ export function researchCapacity(ctx: Context | ReadContext, owner: number) {
         player,
       ).compute;
   }
-  return compute * Math.max(0.1, 1 + empireModifiers(player.empire).research);
+  return compute;
 }
 export function researchState(ctx: Context | ReadContext, owner: number): ResearchProgram {
   return JSON.parse(ctx.db.gameResearch.id.find(owner)!.programJson);
@@ -52,34 +65,47 @@ function applyUnlocks(ctx: Context, owner: number, completed: TechId[]) {
         ctx.db.participant.shipId.update({ ...fighter, damage: weapons.reduce((n, w) => n + w.damage, 0) });
     }
   }
-  for (const id of completed) event(ctx, owner, `${TECHS[id].name} erforscht.`, 'success');
+  for (const id of completed) {
+    event(ctx, owner, `${TECHS[id].name} erforscht.`, 'success');
+    triggerSituation(ctx, owner, 'technology', `tech:${id}`, p.homeId, { technology: id });
+  }
 }
 export function settleResearch(ctx: Context, owner: number, at = now(ctx)) {
-  const row = ctx.db.gameResearch.id.find(owner)!;
-  if (row.updatedAt >= at) return;
-  settleEconomy(ctx, owner, at);
-  const e = ctx.db.empire.id.find(owner)!,
-    p = ctx.db.gamePlayer.id.find(owner)!;
-  const player = {
-    research: researchState(ctx, owner),
-    techs: [...p.techs] as TechId[],
-    resources: { energy: e.energy, minerals: e.minerals, data: e.data },
-  };
-  const completed = advanceResearch(player, researchCapacity(ctx, owner), at - row.updatedAt);
-  ctx.db.empire.id.update({ ...e, data: player.resources.data });
-  if (completed.length) ctx.db.gamePlayer.id.update({ ...p, techs: player.techs });
-  ctx.db.gameResearch.id.update({ ...row, programJson: JSON.stringify(player.research), updatedAt: at });
-  applyUnlocks(ctx, owner, completed);
+  while (true) {
+    const row = ctx.db.gameResearch.id.find(owner)!;
+    if (!monthsDue(row.updatedAt, at)) return;
+    const boundary = monthBoundary(row.updatedAt) + ECONOMY_MONTH_DAYS;
+    settleEconomy(ctx, owner, boundary);
+    const e = ctx.db.empire.id.find(owner)!,
+      p = ctx.db.gamePlayer.id.find(owner)!;
+    const player = {
+      empire: JSON.parse(p.empireJson),
+      research: researchState(ctx, owner),
+      techs: [...p.techs] as TechId[],
+      resources: resourceAmounts(e),
+    };
+    const completed = advanceResearch(player, researchCapacity(ctx, owner), 1);
+    ctx.db.empire.id.update({ ...e, ...resourceAmounts(player.resources) });
+    if (completed.length) ctx.db.gamePlayer.id.update({ ...p, techs: player.techs });
+    ctx.db.gameResearch.id.update({
+      ...row,
+      programJson: JSON.stringify(player.research),
+      updatedAt: boundary,
+    });
+    applyUnlocks(ctx, owner, completed);
+  }
 }
 export function applyResearchCommand(ctx: Context, owner: number, cmd: ResearchCommand) {
+  completeTerraforming(ctx);
   settleResearch(ctx, owner);
   settleEconomy(ctx, owner);
   const e = ctx.db.empire.id.find(owner)!,
     p = ctx.db.gamePlayer.id.find(owner)!;
   const player = {
+    empire: JSON.parse(p.empireJson),
     research: researchState(ctx, owner),
     techs: p.techs as TechId[],
-    resources: { energy: e.energy, minerals: e.minerals, data: e.data },
+    resources: resourceAmounts(e),
   };
   try {
     applyResearch(player, cmd);
@@ -87,12 +113,14 @@ export function applyResearchCommand(ctx: Context, owner: number, cmd: ResearchC
     if (e instanceof Error && e.constructor === Error) throw new SenderError(e.message);
     throw e;
   }
-  ctx.db.empire.id.update({ ...e, data: player.resources.data });
+  ctx.db.empire.id.update({ ...e, ...resourceAmounts(player.resources) });
   ctx.db.gameResearch.id.update({
     id: owner,
     programJson: JSON.stringify(player.research),
-    updatedAt: now(ctx),
+    updatedAt: ctx.db.gameResearch.id.find(owner)!.updatedAt,
   });
+  refreshTerraformingRates(ctx, owner);
+  for (const c of ctx.db.colony.empireId.filter(owner)) refreshColonyRate(ctx, c.id, owner);
 }
 export const myResearch = db.view(
   { name: 'my_research', public: true },

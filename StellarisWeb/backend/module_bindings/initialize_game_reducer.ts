@@ -14,5 +14,5 @@ export default {
   code: __t.string(),
   seed: __t.u32(),
   sourceJson: __t.string(),
-  migrationKey: __t.string(),
+  creationKey: __t.string(),
 };

@@ -21,8 +21,7 @@
     "backend:clock": "tsx backend/control.ts",
     "backend:test": "tsx --test --test-concurrency=1 backend/tests/*.test.ts",
     "backend:bench": "tsx backend/benchmark.ts",
-    "backend:bench:overview": "tsx backend/benchmark-overview.ts",
-    "backend:initialize-reports": "tsx backend/initialize-reports.ts"
+    "backend:bench:overview": "tsx backend/benchmark-overview.ts"
   },
   "dependencies": {
     "lucide-react": "^0.577.0",

@@ -16,7 +16,7 @@ Erste natürliche Sternereignisse sind spielbar. Bei der abgeschlossenen Erkundu
 
 Die Mitglieds-View liefert Vorhersagen nur für selbst untersuchte oder eigene Systeme. Unangemeldete Verbindungen erhalten keine Zeilen. Meldungen gehen an die betroffenen informierten Reiche. Ein neuer Besitzer sieht den bestehenden Zustand.
 
-Die Rohstoffabrechnung zählt die betroffenen Vier-Tage-Auszahlungen anhand des Intervalls `[Beginn, Ende)`. Auch eine verzögerte Abrechnung über beide Grenzen hinweg berechnet den richtigen Verlust. Vergangene Ereignisse bleiben als Abrechnungshistorie gespeichert. Der Browser verwendet dieselbe Zeitfensterregel für Anlagen-, System- und Reichserträge.
+Die Rohstoffabrechnung zählt die betroffenen Monatsauszahlungen (30 Spieltage) anhand des Intervalls `[Beginn, Ende)`. Auch eine verzögerte Abrechnung über beide Grenzen hinweg berechnet den richtigen Verlust. Vergangene Ereignisse bleiben als Abrechnungshistorie gespeichert. Der Browser verwendet dieselbe Zeitfensterregel für Anlagen-, System- und Reichserträge.
 
 ## Oberfläche
 
@@ -30,4 +30,4 @@ Lagezentrum und Inspektor des Sterns beziehungsweise seiner Dyson-Anlage zeigen 
 - TypeScript für Frontend und Modul sowie Produktionsbuild bestanden.
 - Browser-Darstellungsprüfung der tatsächlichen Komponenten mit isolierten Beispieldaten für Vorwarnung, Sturm und Erholung sowie Fundort-Link; keine Browserfehler. Diese Darstellungsprüfung ersetzt keine vollständige Browserpartie.
 
-Supernovae, dauerhafte natürliche Sternumwandlungen, zerstörte Elternkörper und aktive Gegenmaßnahmen bleiben weitere Ausbauschritte.
+Natürlicher Sternkollaps wurde auf Nutzerwunsch entfernt. Aktive Gegenmaßnahmen gegen Sternenstürme bleiben ein möglicher Ausbauschritt.

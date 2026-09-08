@@ -1,3 +1,4 @@
+import { resourceFields } from './resource-schema';
 import {
   schema,
   table,
@@ -57,9 +58,7 @@ export const empire = table(
   {},
   {
     id: t.u32().primaryKey(),
-    energy: t.f64(),
-    minerals: t.f64(),
-    data: t.f64(),
+    ...resourceFields(),
     productionModifier: t.f64(),
     researchLevel: t.u32(),
     ai: t.bool(),
@@ -122,9 +121,7 @@ export const colony = table(
     id: t.u32().primaryKey(),
     empireId: t.u32().index('btree'),
     population: t.u32(),
-    energyRate: t.f64(),
-    mineralsRate: t.f64(),
-    dataRate: t.f64(),
+    monthlyProduction: t.object('MonthlyProduction', resourceFields()),
     lastProducedAt: t.f64(),
   },
 );
@@ -211,8 +208,7 @@ export const battleSummaryFields = {
   defenders: t.u32(),
   winnerId: t.u32(),
   sampledAt: t.f64(),
-  baselineAt: t.f64(),
-  tracked: t.bool(),
+  startedAt: t.f64(),
   attackerLosses: t.u32(),
   defenderLosses: t.u32(),
   attacker: battleSide,
@@ -262,7 +258,7 @@ export const trade = table(
     empireId: t.u32().index('btree'),
     fromSystem: t.u32(),
     toSystem: t.u32(),
-    energyPerCycle: t.f64(),
+    monthlyEnergy: t.f64(),
     deliveredAt: t.f64(),
     status: t.string(),
   },

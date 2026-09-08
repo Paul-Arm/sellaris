@@ -17,7 +17,8 @@ import { gameClock } from './game-world';
 import { completeGameJob, contested, destroyGameFleet } from './game-jobs';
 import { atWar } from './game-relations';
 import { expireDiplomacy } from './game-diplomacy';
-import { storyTick } from './game-stories';
+import { crisisTick } from './game-crises';
+import { situationsTick } from './game-situations';
 import { stellarWeatherTick } from './game-stellar-weather';
 import { completeSites } from './game-sites';
 import { completeTerraforming } from './game-terraforming';
@@ -49,6 +50,7 @@ function checkBattle(ctx: Context, systemId: number, at: number) {
     event(ctx, owner, `Gefecht ${battle.id} bei ${ctx.db.star.id.find(systemId)!.name}.`, 'warning');
 }
 export function gameStrategic(ctx: Context) {
+  stellarWeatherTick(ctx);
   for (const p of ctx.db.gamePlayer.iter()) settleResearch(ctx, p.id);
   completeTerraforming(ctx);
   completeSites(ctx);
@@ -114,7 +116,7 @@ export function gameStrategic(ctx: Context) {
   navigationTick(ctx);
   const config = ctx.db.gameSettings.id.find(1)!;
   for (const p of ctx.db.gamePlayer.iter())
-    if ([...ctx.db.colony.empireId.filter(p.id)].length >= WIN_SYSTEMS) {
+    if ([...ctx.db.star.ownerId.filter(p.id)].length >= WIN_SYSTEMS) {
       ctx.db.gameSettings.id.update({ ...config, winnerId: p.id });
       event(ctx, 0, `${ctx.db.empireSummary.id.find(p.id)!.name} gewinnt die Galaxie!`, 'success');
       gameClock(ctx, true);
@@ -127,7 +129,8 @@ export function gameEconomy(ctx: Context) {
     dt = Math.max(0, Math.min(4, at - runtime.nextGameAt));
   if (at <= runtime.nextGameAt) return;
   expireDiplomacy(ctx, at);
-  storyTick(ctx);
+  crisisTick(ctx);
+  situationsTick(ctx);
   stellarWeatherTick(ctx);
   for (const p of ctx.db.gamePlayer.iter()) {
     settleEconomy(ctx, p.id, at);
@@ -176,7 +179,7 @@ export function gameEconomy(ctx: Context) {
     if (defense === 0) {
       ctx.db.star.id.update({ ...s, ownerId: 0 });
       for (const site of ctx.db.gameSite.systemId.filter(id)) ctx.db.gameSite.id.delete(site.id);
-      ctx.db.gameSystem.id.update({ ...ctx.db.gameSystem.id.find(id)!, mined: false });
+      ctx.db.gameSystem.id.update({ ...ctx.db.gameSystem.id.find(id)!, mined: false, starbaseJson: '' });
       updateColony(ctx, id, null, s.ownerId);
       event(ctx, 0, `Die Verteidigung von ${s.name} ist gefallen.`, 'warning');
     }
@@ -204,8 +207,8 @@ export function gameEconomy(ctx: Context) {
     if (hull === s.maxHull && shield === s.maxShield) ctx.db.gameDamaged.id.delete(d.id);
   }
   for (const id of dirty) if (ctx.db.fleet.id.find(id)) refreshFleetCondition(ctx, id);
-  for (const c of ctx.db.colony.iter()) {
-    if (contested(ctx, c.id, c.empireId)) continue;
+  for (const c of ctx.db.star.iter()) {
+    if (!c.ownerId || contested(ctx, c.id, c.ownerId)) continue;
     const m = ctx.db.gameSystem.id.find(c.id)!,
       defense = Math.min(maxDefense(systemModel(ctx, c.id)), m.defense + dt * 0.75);
     if (defense !== m.defense) ctx.db.gameSystem.id.update({ ...m, defense });

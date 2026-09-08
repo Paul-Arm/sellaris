@@ -22,8 +22,7 @@ export default __t.row({
   defenders: __t.u32(),
   winnerId: __t.u32().name("winner_id"),
   sampledAt: __t.f64().name("sampled_at"),
-  baselineAt: __t.f64().name("baseline_at"),
-  tracked: __t.bool(),
+  startedAt: __t.f64().name("started_at"),
   attackerLosses: __t.u32().name("attacker_losses"),
   defenderLosses: __t.u32().name("defender_losses"),
   get attacker() {

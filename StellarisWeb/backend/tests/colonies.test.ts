@@ -45,7 +45,7 @@ test(
         code: game.code,
         seed: 42,
         sourceJson: JSON.stringify(game),
-        migrationKey: 'colony-fixture',
+        creationKey: 'colony-fixture',
       });
       const ticket = randomBytes(32).toString('hex');
       await admin.conn.reducers.reserveGameSeat({ ticket, externalId: p.id, templateJson: '' });
@@ -59,6 +59,7 @@ test(
         spec = districtSpec('laboratory');
       const build = {
         type: 'colony_build' as const,
+        slot: 0,
         building: 'laboratory' as const,
         sectorId: 3,
         ...target(),
@@ -88,8 +89,8 @@ test(
       await issue(a, { type: 'colony_toggle', districtId: built.id, enabled: true, ...target() });
       const rates = [...a.conn.db.myColonies.iter()][0],
         expected = colonyProduction(home(), gameView(a)!.me);
-      assert.equal(rates.energyRate, expected.energy);
-      assert.equal(rates.dataRate, expected.data);
+      assert.equal(rates.monthlyProduction.energy, expected.energy);
+      assert.equal(rates.monthlyProduction.data, expected.data);
       await issue(a, { type: 'colony_upgrade', districtId: built.id, ...target() });
       await assert.rejects(
         issue(a, { type: 'colony_demolish', districtId: built.id, ...target() }),

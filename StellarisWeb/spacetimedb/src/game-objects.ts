@@ -9,9 +9,8 @@ import type { CelestialBody } from '../../shared/celestial';
 import { objectBodies } from '../../shared/systemObjects';
 
 /** Generate the object catalog once, while initializing a new game. */
-export function ensureSystemObjects(ctx: Context) {
+export function createSystemObjects(ctx: Context) {
   for (const meta of ctx.db.gameSystem.iter()) {
-    if (ctx.db.gameObjectCatalog.id.find(meta.id)) continue;
     const star = ctx.db.star.id.find(meta.id)!;
     const bodies = generateSystemBodies({
       id: meta.externalId,
@@ -44,7 +43,7 @@ export function ensureSystemObjects(ctx: Context) {
 // Internal event/project primitives; deliberately not exposed as player reducers.
 export function addSystemObject(ctx: Context, systemId: number, body: Omit<CelestialBody, 'slot'>) {
   const system = ctx.db.gameObjectCatalog.id.find(systemId);
-  if (!system) throw new SenderError('Systemobjekte sind noch nicht übernommen.');
+  if (!system) throw new SenderError('Systemobjektkatalog fehlt.');
   const slot = system.nextSlot;
   if (body.main || body.stellar || ['star', 'blackhole', 'rift'].includes(body.kind))
     throw new SenderError('Stern- und Kolonieereignisse benötigen eigene Folgeregeln.');

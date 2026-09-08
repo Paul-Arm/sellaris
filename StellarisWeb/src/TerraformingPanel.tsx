@@ -6,7 +6,13 @@ import type { StoredBody } from '../shared/systemObjects';
 import { ENVIRONMENTS, type Environment } from '../shared/empireCatalog';
 import { habitability, governmentModifiers } from '../shared/empires';
 import { colonyProduction } from '../shared/colonies';
-import { terraformingSpec, type TerraformProject } from '../shared/terraforming';
+import {
+  terraformingSpec,
+  terraformWork,
+  terraformingRate,
+  type TerraformProject,
+} from '../shared/terraforming';
+import { empireCompute } from '../shared/empireEconomy';
 import './terraforming.css';
 import { planetWorld } from '../shared/planetColonies';
 
@@ -39,6 +45,9 @@ export function TerraformingPanel({
   const target =
     targetChoice === body.environment ? environments.find((e) => e !== body.environment)! : targetChoice;
   const spec = terraformingSpec(body.environment, target);
+  const compute = ((game.me.compute ?? empireCompute(game, game.me)) * game.me.research.terraforming) / 100;
+  const rate =
+    project?.rate ?? terraformingRate(compute, Number(client.conn.db.myTerraformProjects.count()) + 1);
   const unlocked = game.me.techs.includes('terraforming');
   const surveyed = game.me.surveyed.includes(system.id);
   const affordable = Object.entries(spec.cost).every(
@@ -73,10 +82,7 @@ export function TerraformingPanel({
           <progress
             aria-label="Terraforming-Fortschritt"
             max={1}
-            value={Math.min(
-              1,
-              Math.max(0, (game.tick - project.startedAt) / (project.finishAt - project.startedAt)),
-            )}
+            value={terraformWork(project, game.tick) / project.workTotal}
           />
           <p role="status">
             {game.paused ? 'Terraforming pausiert' : 'Terraforming läuft'} ·{' '}
@@ -128,7 +134,7 @@ export function TerraformingPanel({
           {body.main || colony ? (
             <>
               <table>
-                <caption>Kolonieertrag pro 4 Tage</caption>
+                <caption>Kolonieertrag pro Monat</caption>
                 <thead>
                   <tr>
                     <th>Rohstoff</th>
@@ -159,7 +165,7 @@ export function TerraformingPanel({
           )}
           <p>
             {spec.cost.energy} Energie · {spec.cost.minerals} Mineralien · {spec.cost.data} Daten ·{' '}
-            {spec.days} Tage
+            {Math.ceil(spec.days / rate)} Tage bei aktuellem Budget
           </p>
           {!surveyed && <p>Untersuche zuerst das System.</p>}
           {!affordable && <p>Nicht genug Rohstoffe.</p>}
@@ -180,6 +186,10 @@ export function TerraformingPanel({
           <small>Ein Projekt je Planet. Bei Systemverlust endet das Projekt ohne Erstattung.</small>
         </>
       )}
+      <p>
+        Compute-Klimasimulation: +{((rate - 1) * 100).toFixed(1)} % Tempo. Das Budget im Forschungsmenü wird
+        auf alle laufenden Projekte verteilt.
+      </p>
       {error && <p role="alert">{error}</p>}
     </section>
   );

@@ -81,22 +81,6 @@ export const myJobs = db.view({ name: 'my_jobs', public: true }, t.array(job.row
   const m = ctx.db.membership.identity.find(ctx.sender);
   return m ? [...ctx.db.job.empireId.filter(m.empireId)] : [];
 });
-export const visibleBattles = db.view(
-  { name: 'visible_battles', public: true },
-  t.array(battle.rowType),
-  (ctx) => {
-    const m = ctx.db.membership.identity.find(ctx.sender);
-    if (!m) return [];
-    const battles = new Map<number, typeof battle.rowType.type>();
-    for (const id of visibleSystems(ctx, m.empireId))
-      for (const b of ctx.db.battle.systemId.filter(id)) battles.set(b.id, b);
-    for (const b of ctx.db.battle.attackers.filter(m.empireId)) battles.set(b.id, b);
-    for (const b of ctx.db.battle.defenders.filter(m.empireId)) battles.set(b.id, b);
-    // Historical own battle records remain available after retreat, independently of sensor visibility.
-    // Active battle detail permission is evaluated again by the separate view below.
-    return [...battles.values()];
-  },
-);
 export const visibleBattleSummaries = db.view(
   { name: 'visible_battle_summaries', public: true },
   t.array(t.row('VisibleBattleSummaryProjection', { ...battleSummaryFields, id: t.u32().primaryKey() })),
@@ -121,19 +105,8 @@ export const focusedBattle = db.view(
     return b ? [b] : [];
   },
 );
-export const battleParticipants = db.view(
-  { name: 'battle_participants', public: true },
-  t.array(participant.rowType),
-  (ctx) => {
-    const m = ctx.db.membership.identity.find(ctx.sender),
-      focus = ctx.db.focus.identity.find(ctx.sender);
-    return m && focus?.battleId && canSeeBattle(ctx, m.empireId, focus.battleId)
-      ? [...ctx.db.participant.battleId.filter(focus.battleId)]
-      : [];
-  },
-);
 
-// Additive wire projections: the durable participant keeps its full simulation state.
+// Wire projections: the durable participant keeps its full simulation state.
 // Movement must not resend equipment/affiliation or unchanged health/weapon state.
 function focusedParticipants(ctx: ReadContext) {
   const m = ctx.db.membership.identity.find(ctx.sender);

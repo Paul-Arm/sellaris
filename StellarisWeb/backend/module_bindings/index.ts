@@ -41,10 +41,7 @@ import CancelTerraformingReducer from "./cancel_terraforming_reducer";
 import ConfigureReducer from "./configure_reducer";
 import FocusSystemObjectsReducer from "./focus_system_objects_reducer";
 import GameCommandReducer from "./game_command_reducer";
-import InitializeBattleReportsReducer from "./initialize_battle_reports_reducer";
-import InitializeDiplomacyReducer from "./initialize_diplomacy_reducer";
 import InitializeGameReducer from "./initialize_game_reducer";
-import InitializeStoriesReducer from "./initialize_stories_reducer";
 import JoinEmpireReducer from "./join_empire_reducer";
 import MergeFleetsReducer from "./merge_fleets_reducer";
 import MoveFleetReducer from "./move_fleet_reducer";
@@ -65,7 +62,6 @@ import * as SampleClockProcedure from "./sample_clock_procedure";
 
 // Import all table schema definitions
 import BattleMotionRow from "./battle_motion_table";
-import BattleParticipantsRow from "./battle_participants_table";
 import BattleRosterRow from "./battle_roster_table";
 import BattleVitalsRow from "./battle_vitals_table";
 import ClockRow from "./clock_table";
@@ -94,17 +90,16 @@ import MyEmpireRow from "./my_empire_table";
 import MyGameEventsRow from "./my_game_events_table";
 import MyGameOffersRow from "./my_game_offers_table";
 import MyGamePlayerRow from "./my_game_player_table";
-import MyGameStoriesRow from "./my_game_stories_table";
 import MyJobsRow from "./my_jobs_table";
 import MyPlanetColoniesRow from "./my_planet_colonies_table";
 import MyResearchRow from "./my_research_table";
+import MySituationsRow from "./my_situations_table";
 import MyTerraformProjectsRow from "./my_terraform_projects_table";
 import MyTradeRow from "./my_trade_table";
 import MyTreatiesRow from "./my_treaties_table";
 import ScenarioRow from "./scenario_table";
 import StarRow from "./star_table";
 import VisibleBattleSummariesRow from "./visible_battle_summaries_table";
-import VisibleBattlesRow from "./visible_battles_table";
 import VisibleGameSitesRow from "./visible_game_sites_table";
 import VisibleStellarWeatherRow from "./visible_stellar_weather_table";
 
@@ -238,13 +233,6 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, BattleMotionRow),
-  battleParticipants: __table({
-    name: 'battle_participants',
-    indexes: [
-    ],
-    constraints: [
-    ],
-  }, BattleParticipantsRow),
   battleRoster: __table({
     name: 'battle_roster',
     indexes: [
@@ -385,13 +373,6 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyGamePlayerRow),
-  myGameStories: __table({
-    name: 'my_game_stories',
-    indexes: [
-    ],
-    constraints: [
-    ],
-  }, MyGameStoriesRow),
   myJobs: __table({
     name: 'my_jobs',
     indexes: [
@@ -413,6 +394,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyResearchRow),
+  mySituations: __table({
+    name: 'my_situations',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MySituationsRow),
   myTerraformProjects: __table({
     name: 'my_terraform_projects',
     indexes: [
@@ -441,13 +429,6 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, VisibleBattleSummariesRow),
-  visibleBattles: __table({
-    name: 'visible_battles',
-    indexes: [
-    ],
-    constraints: [
-    ],
-  }, VisibleBattlesRow),
   visibleGameSites: __table({
     name: 'visible_game_sites',
     indexes: [
@@ -473,10 +454,7 @@ const reducersSchema = __reducers(
   __reducerSchema("configure", ConfigureReducer),
   __reducerSchema("focus_system_objects", FocusSystemObjectsReducer),
   __reducerSchema("game_command", GameCommandReducer),
-  __reducerSchema("initialize_battle_reports", InitializeBattleReportsReducer),
-  __reducerSchema("initialize_diplomacy", InitializeDiplomacyReducer),
   __reducerSchema("initialize_game", InitializeGameReducer),
-  __reducerSchema("initialize_stories", InitializeStoriesReducer),
   __reducerSchema("join_empire", JoinEmpireReducer),
   __reducerSchema("merge_fleets", MergeFleetsReducer),
   __reducerSchema("move_fleet", MoveFleetReducer),

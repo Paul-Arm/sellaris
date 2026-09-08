@@ -1,9 +1,9 @@
+import { resourceAmounts } from '../../shared/resources';
+import { resourceFields } from './resource-schema';
 import { t } from 'spacetimedb/server';
 import { db } from './tables';
-import { gamePlayer, gameEvent, gameOffer, gameStory, gameCrisisPledge, gameSite } from './game-tables';
+import { gamePlayer, gameEvent, gameOffer, gameCrisisPledge, gameSite } from './game-tables';
 import { visibleSystems } from './rules';
-import { flagForEmpire } from '../../shared/flags';
-import { shipSetFor } from '../../shared/shipSets';
 
 export const visibleGameSites = db.view(
   { name: 'visible_game_sites', public: true },
@@ -28,19 +28,6 @@ export const visibleGameSites = db.view(
         });
       }
     return rows;
-  },
-);
-export const myGameStories = db.view(
-  { name: 'my_game_stories', public: true },
-  t.array(gameStory.rowType),
-  (ctx) => {
-    const m = ctx.db.membership.identity.find(ctx.sender);
-    return m
-      ? [...ctx.db.decision.empireId.filter(m.empireId)].flatMap((d) => {
-          const story = ctx.db.gameStory.id.find(d.id);
-          return story ? [story] : [];
-        })
-      : [];
   },
 );
 export const myCrisisPledges = db.view(
@@ -115,8 +102,8 @@ export const gamePlayers = db.view(
       externalId: p.externalId,
       homeId: p.homeId,
       colonies: [...ctx.db.colony.empireId.filter(p.id)].length,
-      flagJson: JSON.stringify(flagForEmpire(JSON.parse(p.empireJson).design)),
-      shipSet: shipSetFor(JSON.parse(p.empireJson).design),
+      flagJson: JSON.stringify(JSON.parse(p.empireJson).design.flag),
+      shipSet: JSON.parse(p.empireJson).design.shipSet,
     })),
 );
 export const gameIntel = db.view(
@@ -124,14 +111,14 @@ export const gameIntel = db.view(
   t.array(
     t.row('GameIntelRow', {
       id: t.u32().primaryKey(),
-      energy: t.f64(),
-      minerals: t.f64(),
-      data: t.f64(),
+      ...resourceFields(),
       defense: t.f64(),
       mined: t.bool(),
       studied: t.bool(),
       colonyName: t.string(),
       colonyJson: t.string(),
+      starbaseJson: t.string(),
+      starbaseLevel: t.u32(),
     }),
   ),
   (ctx) => {
@@ -148,14 +135,14 @@ export const gameIntel = db.view(
       return [
         {
           id,
-          energy: r.energy,
-          minerals: r.minerals,
-          data: r.data,
+          ...resourceAmounts(r),
           defense: visible.has(id) ? r.defense : 0,
           mined: r.mined,
           studied: r.studied,
           colonyName: r.colonyName,
           colonyJson: s.ownerId === m.empireId ? r.colonyJson : '',
+          starbaseJson: r.starbaseJson && JSON.parse(r.starbaseJson).owner === p.externalId ? r.starbaseJson : '',
+          starbaseLevel: visible.has(id) && r.starbaseJson ? JSON.parse(r.starbaseJson).level : 0,
         },
       ];
     });

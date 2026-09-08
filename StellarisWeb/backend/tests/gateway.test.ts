@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
 import { connect, subscribe, type Client } from '../client';
 import { GAME_QUERIES, gameView } from '../game-client';
-import { flagForEmpire } from '../../shared/flags';
+import { RESOURCE_IDS } from '../../shared/resources';
 async function until(check: () => boolean, timeout = 10000) {
   const end = Date.now() + timeout;
   while (!check()) {
@@ -105,7 +105,7 @@ test(
         ),
       );
       assert.equal(before.me.name, ownLibrary.library.empires[0].name);
-      assert.deepEqual(before.me.empire!.design.flag, flagForEmpire(ownLibrary.library.empires[0]));
+      assert.deepEqual(before.me.empire!.design.flag, ownLibrary.library.empires[0].flag);
       const peer = await open();
       peer.send({ type: 'library_open' });
       await until(() => peer.messages.some((m) => m.type === 'library'));
@@ -154,7 +154,7 @@ test(
       assert.equal(overview.servers.length, 1);
       assert.equal(overview.servers[0].players.length, 2);
       assert.equal(overview.servers[0].status, 'paused');
-      assert(!JSON.stringify(overview).includes(registry[0].migrationKey));
+      assert(!JSON.stringify(overview).includes(registry[0].creationKey));
       const readMatch = async () => {
         const response = await fetch(`${adminUrl}/${ready.code}`, { headers: adminHeaders });
         assert.equal(response.status, 200, await response.clone().text());
@@ -165,12 +165,15 @@ test(
       assert.equal(detail.lanes.length, 960);
       assert.equal(detail.empires.length, 2);
       assert.equal(detail.empires[0].colonies.length, 1);
+      assert.deepEqual(Object.keys(detail.empires[0].resources), RESOURCE_IDS);
+      assert.deepEqual(Object.keys(detail.empires[0].colonies[0].monthlyProduction), RESOURCE_IDS);
+      assert(Object.values(detail.empires[0].colonies[0].monthlyProduction).every(Number.isFinite));
       assert(
         detail.empires[0].colonies[0].population > 0 && detail.empires[0].colonies[0].population < 100,
         'population is expressed in game billions, not fixed-point units',
       );
       assert.equal(detail.fleets.length, 6);
-      assert(!JSON.stringify(detail).includes(registry[0].migrationKey));
+      assert(!JSON.stringify(detail).includes(registry[0].creationKey));
       const action = (body: unknown) =>
         fetch(`${adminUrl}/${ready.code}`, {
           method: 'POST',
@@ -183,7 +186,7 @@ test(
       assert.equal((await action({ action: 'clock', paused: true, speed: 1 })).status, 200);
       await until(() => gameView(resumed)!.paused);
       const target = detail.empires[0];
-      const beforeResources = (await readMatch()).empires[0].energy;
+      const beforeResources = (await readMatch()).empires[0].resources.energy;
       const grant = { action: 'resources', empireId: target.id, resource: 'energy', amount: 100 };
       const denied = await fetch(`http://127.0.0.1:3100/v1/database/${ready.database}/call/administer_game`, {
         method: 'POST',
@@ -193,10 +196,10 @@ test(
       assert(!denied.ok, 'ordinary player cannot call admin reducer');
       assert.equal((await action({ ...grant, amount: 100001 })).status, 400);
       assert.equal((await action(grant)).status, 200);
-      assert.equal((await readMatch()).empires[0].energy, beforeResources + 100);
+      assert.equal((await readMatch()).empires[0].resources.energy, beforeResources + 100);
       assert.equal((await action({ ...grant, amount: -100000 })).status, 502);
       assert.equal(
-        (await readMatch()).empires[0].energy,
+        (await readMatch()).empires[0].resources.energy,
         beforeResources + 100,
         'rejected booking is atomic',
       );

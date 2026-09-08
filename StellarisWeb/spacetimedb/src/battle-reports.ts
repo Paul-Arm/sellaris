@@ -14,9 +14,7 @@ function totals(fighters: Fighter[], side: number) {
   return { ships, hull, shield };
 }
 
-export function ensureBattleReport(ctx: Context, b: Battle, fighters: Fighter[], wallAt: number) {
-  const existing = ctx.db.battleReport.id.find(b.id);
-  if (existing) return existing;
+export function createBattleReport(ctx: Context, b: Battle, fighters: Fighter[], wallAt: number) {
   const a = totals(fighters, 0),
     d = totals(fighters, 1);
   return ctx.db.battleReport.insert({
@@ -35,8 +33,7 @@ export function ensureBattleReport(ctx: Context, b: Battle, fighters: Fighter[],
       defenders: b.defenders,
       winnerId: b.winnerId,
       sampledAt: b.simulatedAt,
-      baselineAt: b.simulatedAt,
-      tracked: b.state === 'active',
+      startedAt: b.startedAt,
       attackerLosses: b.attackerLosses,
       defenderLosses: b.defenderLosses,
       attacker: { ...a, startingHull: a.hull, startingShield: a.shield, damageDealt: 0 },
@@ -52,7 +49,7 @@ export function publishBattleReport(
   wallAt: number,
   force = false,
 ) {
-  const r = ensureBattleReport(ctx, b, fighters, wallAt);
+  const r = ctx.db.battleReport.id.find(b.id)!;
   if (!force && wallAt < r.nextPublishWallAt) return;
   ctx.db.battleReport.id.update({
     ...r,

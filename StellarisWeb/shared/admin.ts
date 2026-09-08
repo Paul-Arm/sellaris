@@ -1,10 +1,11 @@
+import { RESOURCE_IDS, type Resource, type Resources } from './resources';
 import type { GalaxySettings } from './galaxySettings';
 import type { EmpireDesign, SpeciesDesign } from './empires';
 
 export interface AdminServer {
   code: string;
   database: string;
-  galaxy?: GalaxySettings;
+  galaxy: GalaxySettings;
   status: 'provisioning' | 'running' | 'paused' | 'finished' | 'unavailable';
   day?: number;
   speed?: number;
@@ -25,7 +26,7 @@ export type AdminAction =
 export type AdminEmpireAction =
   | { action: 'add_ai' }
   | { action: 'host'; empireId: number }
-  | { action: 'resources'; empireId: number; resource: 'energy' | 'minerals' | 'data'; amount: number };
+  | { action: 'resources'; empireId: number; resource: Resource; amount: number };
 
 export function validAdminEmpireAction(value: unknown): value is AdminEmpireAction {
   if (!value || typeof value !== 'object') return false;
@@ -35,7 +36,7 @@ export function validAdminEmpireAction(value: unknown): value is AdminEmpireActi
   return (
     v.action === 'host' ||
     (v.action === 'resources' &&
-      ['energy', 'minerals', 'data'].includes(String(v.resource)) &&
+      RESOURCE_IDS.includes(v.resource as Resource) &&
       typeof v.amount === 'number' &&
       Number.isInteger(v.amount) &&
       v.amount !== 0 &&
@@ -51,9 +52,7 @@ export interface AdminEmpire {
   online: boolean;
   host: boolean;
   homeId: number;
-  energy: number;
-  minerals: number;
-  data: number;
+  resources: Resources;
   techs: string[];
   surveyed: number;
   design: EmpireDesign;
@@ -62,9 +61,7 @@ export interface AdminEmpire {
     id: number;
     name: string;
     population: number;
-    energy: number;
-    minerals: number;
-    data: number;
+    monthlyProduction: Resources;
   }[];
 }
 export interface AdminMatch {

@@ -1,3 +1,5 @@
+import { empireCompute } from '../shared/empireEconomy';
+import { researchAllocation } from '../shared/research';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -64,6 +66,7 @@ test('geography is deterministic, different per world and independent of saves/n
 
 test('jobs consume population, unstaffed buildings only cost upkeep, and focus reallocates real output', () => {
   const { home, player, c } = setup();
+  c.population = c.populations![0].population = 6;
   const balanced = colonyEconomy(c, home.planet, player);
   near(balanced.employed + balanced.unemployed, c.population);
   assert.ok(balanced.supply >= balanced.demand - 1e-8);
@@ -113,6 +116,7 @@ test('construction spends once, pauses, completes in simulation time and persist
     before = player.resources.minerals;
   const build = {
     type: 'colony_build' as const,
+    slot: 0,
     systemId: home.id,
     sectorId: 3,
     building: 'reactor' as const,
@@ -138,6 +142,7 @@ test('ownership, full sectors, forged fields, invalid ids and stale revisions re
   addPlayer(game, 'p2', 'Enemy');
   const build = {
     type: 'colony_build' as const,
+    slot: 0,
     systemId: home.id,
     sectorId: 3,
     building: 'reactor' as const,
@@ -187,7 +192,7 @@ test('upgrades retain their slot, cancellation refunds once, and disabled distri
   command(game, player.id, { type: 'colony_toggle', districtId: d.id, enabled: false, ...target() });
   assert.equal(colonyEconomy(c).districts.find((r) => r.id === d.id)!.jobs, 0);
   const funds = { ...player.resources };
-  command(game, player.id, { type: 'colony_build', sectorId: 3, building: 'foundry', ...target() });
+  command(game, player.id, { type: 'colony_build', slot: 0, sectorId: 3, building: 'foundry', ...target() });
   command(game, player.id, { type: 'colony_cancel', ...target() });
   near(player.resources.energy, funds.energy - 40);
   near(player.resources.minerals, funds.minerals - 40);
@@ -208,9 +213,18 @@ test('features, mining, technology and net production agree with the ledger', ()
   const output = colonyProduction(home, player),
     total = income(game, player),
     core = baseIncome(player);
-  for (const r of ['energy', 'minerals', 'data'] as const) near(total[r], output[r] + core[r]);
+  for (const r of ['energy', 'minerals', 'data'] as const)
+    near(
+      total[r],
+      output[r] -
+        (r === 'energy' ? 5 : 0) +
+        core[r] +
+        (r === 'data'
+          ? researchAllocation(player.research, player.techs, empireCompute(game, player)).data
+          : 0),
+    );
   const before = player.resources.energy;
-  advance(game, 4);
+  advance(game, 30);
   assert.ok(player.resources.energy > before);
 });
 
@@ -218,21 +232,22 @@ test('bastions require staff, improve defense and repair, and enemy colony detai
   const { game, player, home, c } = setup();
   command(game, player.id, {
     type: 'colony_build',
+    slot: 0,
     systemId: home.id,
     revision: c.revision,
     sectorId: 3,
     building: 'bastion',
   });
   advance(game, 21);
-  near(maxDefense(home), 70);
+  near(maxDefense(home), 140);
   const fleet = game.fleets.find((f) => f.type === 'scout')!;
   fleet.hp = 50;
   advance(game, 2);
-  near(fleet.hp, 55);
+  near(fleet.hp, 56);
   const enemy = addPlayer(game, 'p2', 'Other');
   assert.equal(viewFor(game, enemy.id).systems.find((s) => s.id === home.id)!.colony, null);
   c.population = 0;
-  near(maxDefense(home), 30);
+  near(maxDefense(home), 100);
 });
 
 test('AI only expands when population or capacity can use it', () => {
@@ -249,6 +264,7 @@ test('forged build district ids cannot turn cheap construction into an upgrade',
   const level = habitat.level;
   command(game, player.id, {
     type: 'colony_build',
+    slot: 2,
     systemId: home.id,
     revision: c.revision,
     sectorId: 0,
@@ -272,4 +288,55 @@ test('forged build district ids cannot turn cheap construction into an upgrade',
       }),
     /Maximale/,
   );
+});
+
+test('colony construction fills the requested slot; demolition, cancellation and saving preserve neighbors', () => {
+  const { game, player, home, c } = setup();
+  player.resources = { energy: 10000, minerals: 10000, data: 0 };
+  const sector = c.sectors[3],
+    last = sector.slots - 1;
+  const build = (slot: number) =>
+    command(game, player.id, {
+      type: 'colony_build',
+      systemId: home.id,
+      revision: c.revision,
+      sectorId: sector.id,
+      slot,
+      building: 'reactor',
+    });
+  build(last);
+  advance(game, 30);
+  build(0);
+  advance(game, 30);
+  assert.deepEqual(
+    sector.districts.map((d) => d.slot),
+    [last, 0],
+  );
+  const first = sector.districts.find((d) => d.slot === 0)!;
+  command(game, player.id, {
+    type: 'colony_demolish',
+    systemId: home.id,
+    revision: c.revision,
+    districtId: first.id,
+  });
+  assert.deepEqual(
+    sector.districts.map((d) => d.slot),
+    [last],
+  );
+  build(0);
+  command(game, player.id, { type: 'colony_cancel', systemId: home.id, revision: c.revision });
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(c)).sectors[3].districts.map((d: { slot: number }) => d.slot),
+    [last],
+  );
+  for (const slot of [-1, last, sector.slots, NaN]) {
+    const before = JSON.stringify(c),
+      cash = { ...player.resources };
+    assert.throws(() => build(slot));
+    assert.equal(JSON.stringify(c), before);
+    assert.deepEqual(player.resources, cash);
+  }
+  build(0);
+  advance(game, 30);
+  assert.equal(sector.districts.find((d) => d.slot === 0)!.building, 'reactor');
 });

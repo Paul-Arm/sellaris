@@ -19,7 +19,7 @@ export interface StellarProject {
   total: number;
 }
 
-/** The game models an engineered collapse, not natural stellar evolution. */
+/** An engineered collapse preserves the star's identity and orbit. */
 export function collapsedStar(body: CelestialBody): CelestialBody {
   const stellar = stellarProfile({ id: '', kind: 'star', class: 'NS', color: '#c4f3ff' });
   return {

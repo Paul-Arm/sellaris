@@ -1,5 +1,5 @@
 import type { Context, ReadContext } from './tables';
-import { crisisProductionFactor } from '../../shared/stories';
+import { crisisProductionFactor } from '../../shared/crises';
 export const pledgeKey = (crisisId: number, owner: number) => `${crisisId}:${owner}`;
 export function productionFactor(ctx: Context | ReadContext, owner: number) {
   let factor = 1;

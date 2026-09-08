@@ -1,8 +1,10 @@
+import { createStarbase } from '../../shared/starbases';
+import { resourceAmounts } from '../../shared/resources';
 import { SenderError, t } from 'spacetimedb/server';
 import { createGalaxy } from '../../shared/galaxy';
 import { createColony } from '../../shared/colonies';
 import { assertColonies } from '../../shared/colonies';
-import { hydrateEmpires, type GameState, type ShipType } from '../../shared/game';
+import { type GameState, type ShipType } from '../../shared/game';
 import {
   parseEmpireTemplate,
   parseSpeciesTemplate,
@@ -17,8 +19,9 @@ import { admin, NEVER, now, clockNow, tickAt, wallNow } from './rules';
 import { schedule } from './seed';
 import { addJob, event, makeShip, updateColony } from './game-model';
 import { publishBattleReport } from './battle-reports';
-import { ensureStoryWorld, storyForNewEmpire } from './game-stories';
-import { ensureSystemObjects } from './game-objects';
+import { createCrisisWorld, crisisForNewEmpire } from './game-crises';
+import { triggerSituation } from './game-situations';
+import { createSystemObjects } from './game-objects';
 import { newResearch } from '../../shared/research';
 
 export function gameClock(ctx: Context, paused: boolean, speed = ctx.db.clock.id.find(1)!.speed) {
@@ -71,12 +74,12 @@ export const gameDisconnected = db.clientDisconnected((ctx) => {
 });
 
 export const initializeGame = db.reducer(
-  { code: t.string(), seed: t.u32(), sourceJson: t.string(), migrationKey: t.string() },
-  (ctx, { code, seed, sourceJson, migrationKey }) => {
+  { code: t.string(), seed: t.u32(), sourceJson: t.string(), creationKey: t.string() },
+  (ctx, { code, seed, sourceJson, creationKey }) => {
     admin(ctx);
     const existing = ctx.db.gameSettings.id.find(1);
     if (existing) {
-      if (existing.migrationKey !== migrationKey) throw new SenderError('Different world already exists');
+      if (existing.creationKey !== creationKey) throw new SenderError('Different world already exists');
       return;
     }
     if (ctx.db.scenario.id.find(1)) throw new SenderError('Cannot overwrite a lab database');
@@ -85,14 +88,13 @@ export const initializeGame = db.reducer(
     const game: GameState = sourceJson ? JSON.parse(sourceJson) : createGalaxy(code, seed);
     if (
       game.code !== code ||
-      game.version !== 2 ||
+      game.version !== 6 ||
       !Array.isArray(game.systems) ||
       game.systems.length > 2000 ||
       game.players.length > 25
     )
       throw new SenderError('Invalid source world');
     assertColonies(game);
-    hydrateEmpires(game);
     const players = new Map(game.players.map((p, i) => [p.id, i + 1])),
       stars = new Map(game.systems.map((s, i) => [s.id, i + 1]));
     const at = game.tick;
@@ -103,7 +105,7 @@ export const initializeGame = db.reducer(
       winnerId: game.winner ? players.get(game.winner) || 0 : 0,
       capacity: 25,
       autoPaused: !game.paused,
-      migrationKey,
+      creationKey,
     });
     ctx.db.clock.insert({ id: 1, gameTime: at, wallTime: wallNow(ctx), speed: game.speed, paused: true });
     ctx.db.scenario.insert({
@@ -119,7 +121,7 @@ export const initializeGame = db.reducer(
       popsPerCohort: 0,
       seededShips: game.fleets.length,
       phase: 'ready',
-      schemaVersion: 2,
+      schemaVersion: 3,
     });
     for (const s of game.systems) {
       const id = stars.get(s.id)!;
@@ -132,20 +134,21 @@ export const initializeGame = db.reducer(
         ownerId: s.owner ? players.get(s.owner) || 0 : 0,
       });
       ctx.db.gameSystem.insert({
+        ...resourceAmounts(),
         id,
         externalId: s.id,
         color: s.color,
         starClass: s.class,
         planet: s.planet,
-        energy: s.resources.energy,
-        minerals: s.resources.minerals,
-        data: s.resources.data,
+        ...resourceAmounts(s.resources),
         defense: s.defense,
         mined: s.mined,
         anomaly: s.anomaly,
         studied: s.studied,
         colonyName: s.colonyName || '',
         colonyJson: s.colony ? JSON.stringify(s.colony) : '',
+        starbaseJson: s.starbase ? JSON.stringify(s.starbase) : '',
+        starbaseRevision: s.starbaseRevision ?? s.starbase?.revision ?? 0,
         growthAt: at,
       });
     }
@@ -154,10 +157,9 @@ export const initializeGame = db.reducer(
       const id = players.get(p.id)!;
       ctx.db.gameIncome.insert({ id, producedAt: at });
       ctx.db.empire.insert({
+        ...resourceAmounts(),
         id,
-        energy: p.resources.energy,
-        minerals: p.resources.minerals,
-        data: p.resources.data,
+        ...resourceAmounts(p.resources),
         productionModifier: 1,
         researchLevel: p.techs.length,
         ai: !!p.ai,
@@ -177,9 +179,21 @@ export const initializeGame = db.reducer(
         empireJson: JSON.stringify(p.empire),
         joinedAt: p.ai?.startedAt ?? at,
       });
-      for (const s of game.systems.filter((s) => s.owner === p.id))
-        updateColony(ctx, stars.get(s.id)!, s.colony!, id);
       ctx.db.gameResearch.insert({ id, programJson: JSON.stringify(p.research), updatedAt: at });
+      for (const s of game.systems.filter((s) => s.owner === p.id && s.colony))
+        updateColony(ctx, stars.get(s.id)!, s.colony!, id);
+      for (const s of game.systems.filter((s) => s.starbase?.owner === p.id && s.starbase.project)) {
+        const project = s.starbase!.project!;
+        addJob(
+          ctx,
+          id,
+          'game_starbase',
+          '',
+          stars.get(s.id)!,
+          project.finishAt - project.startedAt,
+          Math.max(0, project.finishAt - at),
+        );
+      }
       p.queue.forEach((j, i) =>
         addJob(
           ctx,
@@ -242,8 +256,10 @@ export const initializeGame = db.reducer(
         text: l.text,
         tone: l.tone,
       });
-    ensureSystemObjects(ctx);
-    ensureStoryWorld(ctx);
+    createSystemObjects(ctx);
+    createCrisisWorld(ctx);
+    for (const p of ctx.db.gamePlayer.iter())
+      triggerSituation(ctx, p.id, 'founded', `founding:${p.id}`, p.homeId);
     schedule(ctx);
     const runtime = ctx.db.runtime.name.find('economy')!;
     ctx.db.runtime.name.update({ ...runtime, nextGameAt: at });
@@ -273,10 +289,12 @@ export function foundEmpire(ctx: Context, externalId: string, snapshot: Template
     origin = ORIGINS[instance.design.origin];
   ctx.db.gameIncome.insert({ id, producedAt: at });
   ctx.db.empire.insert({
+    ...resourceAmounts(),
     id,
     energy: 420 + (origin.resources.energy || 0),
     minerals: 360 + (origin.resources.minerals || 0),
     data: 130 + (origin.resources.data || 0),
+    unity: 0,
     productionModifier: 1,
     researchLevel: 0,
     ai,
@@ -306,7 +324,9 @@ export function foundEmpire(ctx: Context, externalId: string, snapshot: Template
   const m = ctx.db.gameSystem.id.find(home.id)!;
   ctx.db.gameSystem.id.update({
     ...m,
-    defense: 30,
+    defense: 100,
+    starbaseJson: JSON.stringify(createStarbase(externalId, true)),
+    starbaseRevision: 1,
     planet: ENVIRONMENTS[instance.species[0].environment].name,
     colonyName: instance.design.homeworldName,
     growthAt: at,
@@ -329,7 +349,8 @@ export function foundEmpire(ctx: Context, externalId: string, snapshot: Template
             : '1. Expeditionsflotte',
     });
   event(ctx, 0, `${instance.design.name} hat die Galaxie betreten.`, 'success');
-  storyForNewEmpire(ctx, id);
+  triggerSituation(ctx, id, 'founded', `founding:${id}`, home.id);
+  crisisForNewEmpire(ctx, id);
   return id;
 }
 export const reserveGameSeat = db.reducer(

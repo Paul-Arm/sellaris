@@ -1,3 +1,5 @@
+import { completeNativeStarbase } from './game-starbases';
+import { hasShipyard } from '../../shared/starbases';
 import { SHIPS, TECHS, type ShipType, type TechId } from '../../shared/game';
 import { createColony, completeColonyConstruction, maxDefense, type Colony } from '../../shared/colonies';
 import { empireModifiers, type EmpireState } from '../../shared/empireState';
@@ -14,7 +16,8 @@ import {
   settlePopulation,
 } from './game-model';
 import { atWar } from './game-relations';
-import { openStory, surveyedStory } from './game-stories';
+import { surveyedCrisis } from './game-crises';
+import { triggerSituation } from './game-situations';
 import { completeStellarProject } from './game-stellar';
 import { discoverStellarWeather } from './game-stellar-weather';
 import { completePlanetColony, completePlanetUpgrade } from './game-planet-colonies';
@@ -38,15 +41,17 @@ export function destroyGameFleet(ctx: Context, id: number) {
 export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[number], at: number) {
   const p = ctx.db.gamePlayer.id.find(j.empireId)!;
   if (j.kind === 'game_upgrade') settleEconomy(ctx, j.empireId, at);
-  if (j.kind === 'game_upgrade') settlePopulation(ctx, j.targetId, at, true);
+  if (j.kind === 'game_upgrade') settlePopulation(ctx, j.targetId, at);
   let status = 'complete';
-  if (j.kind === 'game_planet_upgrade') {
+  if (j.kind === 'game_starbase') {
+    status = completeNativeStarbase(ctx, p.id, j.targetId, at);
+  } else if (j.kind === 'game_planet_upgrade') {
     status = completePlanetUpgrade(ctx, p.id, j.topic, at);
   } else if (j.kind === 'game_stellar') {
     status = completeStellarProject(ctx, j, at);
   } else if (j.kind === 'game_build') {
     const system = ctx.db.star.id.find(j.targetId);
-    if (system?.ownerId !== p.id) status = 'cancelled';
+    if (system?.ownerId !== p.id || !hasShipyard(systemModel(ctx, j.targetId))) status = 'cancelled';
     else {
       const target =
         j.topic === 'corvette'
@@ -88,7 +93,8 @@ export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[numb
           ctx.db.empire.id.update({ ...e, data: e.data + bonus });
           if (m.anomaly) ctx.db.gameSystem.id.update({ ...m, studied: true });
           event(ctx, p.id, `${system.name} untersucht. +${bonus} Daten.`, 'success');
-          surveyedStory(ctx, p.id, system.id, !m.studied);
+          surveyedCrisis(ctx, system.id);
+          triggerSituation(ctx, p.id, 'survey', `survey:${system.id}`, system.id);
           discoverStellarWeather(ctx, system.id);
         }
       } else if (j.kind === 'game_colonize') {
@@ -100,11 +106,10 @@ export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[numb
             status = 'cancelled';
             event(ctx, p.id, 'Planetenkolonisierung abgebrochen; Kosten erstattet.', 'warning');
           }
-        } else if (!system.ownerId && m.defense <= 0) {
-          ctx.db.star.id.update({ ...system, ownerId: p.id });
+        } else if (system.ownerId === p.id && !m.colonyJson) {
           ctx.db.gameSystem.id.update({
             ...m,
-            defense: 30,
+            defense: m.defense,
             colonyName: `${system.name} Prime`,
             growthAt: at,
           });
@@ -118,7 +123,7 @@ export function completeGameJob(ctx: Context, j: ReturnType<typeof jobsFor>[numb
           updateColony(ctx, system.id, c, p.id);
           destroyGameFleet(ctx, f.id);
           event(ctx, 0, `${ctx.db.empireSummary.id.find(p.id)!.name} kolonisiert ${system.name}.`, 'success');
-          openStory(ctx, p.id, 'frontier_v1', `frontier:${p.id}`, system.id);
+          triggerSituation(ctx, p.id, 'colony', `colony:${system.id}`, system.id);
         } else {
           const e = ctx.db.empire.id.find(p.id)!;
           ctx.db.empire.id.update({ ...e, energy: e.energy + 80, minerals: e.minerals + 80 });

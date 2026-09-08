@@ -1,6 +1,6 @@
 import { seededRandom } from '../backend/domain';
 import { createGame, type GameState, type StarSystem } from './game';
-import { stellarClass, stellarProfile } from './stellar';
+import { stellarProfile } from './stellar';
 import {
   DEFAULT_GALAXY_SETTINGS,
   HYPERLANE_DENSITIES,
@@ -72,7 +72,12 @@ export function createGalaxy(
         ? i % 194 === 0
           ? 'Quasar'
           : 'Schwarzes Loch'
-        : stellarClass({ id: `s${i}`, kind, class: ['G2 V', 'B2 V', 'K1 III', 'A0 V'][i % 4] });
+        : ((
+            { 0: 'O5 V', 1: 'NS', 2: 'PSR', 3: 'M5 V', 4: 'B0 V', 5: 'F5 V', 6: 'K5 III' } as Record<
+              number,
+              string
+            >
+          )[i % 64] ?? ['G2 V', 'B2 V', 'K1 III', 'A0 V'][i % 4]);
     game.systems.push({
       id: `s${i}`,
       name: `${names[i % names.length]} ${String(i).padStart(3, '0')}`,

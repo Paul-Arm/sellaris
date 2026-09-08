@@ -17,5 +17,5 @@ export default __t.row({
   winnerId: __t.u32().name("winner_id"),
   capacity: __t.u32(),
   autoPaused: __t.bool().name("auto_paused"),
-  migrationKey: __t.string().name("migration_key"),
+  creationKey: __t.string().name("creation_key"),
 });

@@ -11,9 +11,9 @@ import { parseGalaxySettings, type GalaxySettings } from '../shared/galaxySettin
 interface Entry {
   code: string;
   database: string;
-  migrationKey: string;
-  status?: 'provisioning' | 'ready';
-  galaxy?: GalaxySettings;
+  creationKey: string;
+  status: 'provisioning' | 'ready';
+  galaxy: GalaxySettings;
 }
 export class NativeGateway {
   private entries = new Map<string, Entry>();
@@ -58,15 +58,17 @@ export class NativeGateway {
         if (
           !/^[A-F0-9]{6}$/.test(row.code) ||
           !/^singularity-game-[a-z0-9-]+$/.test(row.database) ||
-          typeof row.migrationKey !== 'string'
+          typeof row.creationKey !== 'string' ||
+          !['provisioning', 'ready'].includes(row.status) ||
+          row.galaxy === undefined
         )
           throw new Error('Invalid native sector registry entry');
-        const { code, database, migrationKey } = row;
+        const { code, database, creationKey } = row;
         this.entries.set(code, {
           code,
           database,
-          migrationKey,
-          status: row.status || 'ready',
+          creationKey,
+          status: row.status,
           galaxy: parseGalaxySettings(row.galaxy),
         });
       }
@@ -103,7 +105,7 @@ export class NativeGateway {
         code: entry.code,
         seed: parseInt(entry.code, 16),
         sourceJson: JSON.stringify(createGalaxy(entry.code, parseInt(entry.code, 16), entry.galaxy)),
-        migrationKey: entry.migrationKey,
+        creationKey: entry.creationKey,
       });
     } finally {
       admin.conn.disconnect();
@@ -132,9 +134,9 @@ export class NativeGateway {
         entry = {
           code,
           database: `singularity-game-${code.toLowerCase()}-${key.slice(0, 8)}`,
-          migrationKey: key,
+          creationKey: key,
           status: 'provisioning',
-          galaxy,
+          galaxy: galaxy!,
         };
         this.entries.set(code, entry);
         await this.save();

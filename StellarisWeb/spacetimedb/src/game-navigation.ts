@@ -344,7 +344,7 @@ export function navigationTick(ctx: Context) {
     }
     if (f.battleId || contested(ctx, f.systemId, f.empireId)) {
       const motion: LocalMotion = JSON.parse(n.motionJson),
-        point = localPosition(motion, Math.min(at, Number(n.dueTick) / 1000));
+        point = localPosition(motion, Math.min(at, Number(n.dueTick)));
       const remaining = Math.max(0.5, motion.finishAt - at);
       save(ctx, {
         ...n,

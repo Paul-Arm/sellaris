@@ -34,7 +34,6 @@ export interface FlagDesign {
   frame: keyof typeof FLAG_FRAMES;
   border: keyof typeof FLAG_BORDERS;
 }
-export type FlagSource = { color: string; emblem?: keyof typeof EMBLEMS; flag?: FlagDesign };
 export function defaultFlag(color = '#9c91ff', emblem: keyof typeof EMBLEMS = 'orbit'): FlagDesign {
   return {
     version: 1,
@@ -50,10 +49,6 @@ export function defaultFlag(color = '#9c91ff', emblem: keyof typeof EMBLEMS = 'o
     border: 'none',
   };
 }
-/** Old templates/saves keep their original emblem and map color without mutating the snapshot. */
-export function flagForEmpire(empire: FlagSource): FlagDesign {
-  return empire.flag ?? defaultFlag(empire.color, empire.emblem);
-}
 function color(value: unknown): string {
   if (typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value))
     throw new Error('Flaggenfarben benötigen einen sechsstelligen Hex-Farbwert.');
@@ -68,8 +63,7 @@ function choice<T extends Record<string, string>>(
     throw new Error(`Flagge: unbekannte Auswahl für ${field}.`);
   return value;
 }
-export function parseFlag(value: unknown, fallback: FlagSource): FlagDesign {
-  if (value === undefined) return defaultFlag(color(fallback.color), fallback.emblem);
+export function parseFlag(value: unknown): FlagDesign {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Ungültiger Flaggenentwurf.');
   const o = value as Record<string, unknown>;

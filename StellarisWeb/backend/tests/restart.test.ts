@@ -13,11 +13,7 @@ import { GAME_QUERIES, gameView } from '../game-client';
 import { addPlayer, createGame, command } from '../../shared/game';
 import { randomBytes } from 'node:crypto';
 import { SystemSubscription } from '../system-subscription';
-const ALL_DETAIL_QUERIES = [
-  ...DETAIL_QUERIES,
-  'SELECT * FROM battle_participants',
-  'SELECT * FROM visible_battles',
-];
+const ALL_DETAIL_QUERIES = [...DETAIL_QUERIES];
 
 test(
   'durable subscription state survives an abrupt standalone server restart',
@@ -116,9 +112,8 @@ test(
       const snapshot = JSON.stringify(
         {
           ships: [...player.conn.db.fleetShips.iter()],
-          battle: [...player.conn.db.visibleBattles.iter()],
+          battle: [...player.conn.db.focusedBattle.iter()],
           summary: [...player.conn.db.visibleBattleSummaries.iter()],
-          participants: [...player.conn.db.battleParticipants.iter()],
           roster: [...player.conn.db.battleRoster.iter()],
           motion: [...player.conn.db.battleMotion.iter()],
           vitals: [...player.conn.db.battleVitals.iter()],
@@ -165,16 +160,25 @@ test(
         code: source.code,
         seed: 42,
         sourceJson: JSON.stringify(source),
-        migrationKey: 'restart',
+        creationKey: 'restart',
       });
       const ticket = randomBytes(32).toString('hex');
       await gameAdmin.conn.reducers.reserveGameSeat({ ticket, externalId: owner.id, templateJson: '' });
       await gameClient.conn.reducers.redeemGameSeat({ ticket });
       await subscribe(gameClient.conn, GAME_QUERIES);
       await gameAdmin.conn.reducers.setClock({ paused: false, speed: 4 });
-      for (let n = 0; n < 100 && !gameView(gameClient)!.decisions?.length; n++) await delay(50);
+      for (
+        let n = 0;
+        n < 100 && !gameView(gameClient)!.situations?.some((s) => s.definitionId === 'resonance-response');
+        n++
+      )
+        await delay(50);
       await gameAdmin.conn.reducers.setClock({ paused: true, speed: 4 });
-      assert.equal(gameView(gameClient)!.decisions![0].phase, 'pending');
+      assert(
+        gameView(gameClient)!.situations!.some(
+          (s) => s.definitionId === 'resonance-response' && s.state.status === 'decision',
+        ),
+      );
       await gameClient.conn.reducers.gameCommand({
         commandJson: JSON.stringify({ type: 'crisis_action', crisisId: 1, action: 'contribute' }),
       });
@@ -233,20 +237,29 @@ test(
           append: true,
         }),
       });
+      await delay(65);
+      await gameClient.conn.reducers.gameCommand({
+        commandJson: JSON.stringify({
+          type: 'starbase_module',
+          systemId: owner.home,
+          revision: gameView(gameClient)!.systems.find((s) => s.id === owner.home)!.starbase!.revision,
+          slot: 1,
+          module: 'trade',
+        }),
+      });
       const gameSnapshot = gameView(gameClient)!;
       await stop();
       await start();
       const resumed = await connect(database, { uri, token: player.token });
       clients.push(resumed);
       await subscribe(resumed.conn, [...GALAXY_QUERIES, ...ALL_DETAIL_QUERIES]);
-      assert.equal(checkCompactBattle(resumed, 1, true), 40);
+      assert.equal(checkCompactBattle(resumed, 1), 40);
       assert.equal(resumed.identity, player.identity);
       const restored = JSON.stringify(
         {
           ships: [...resumed.conn.db.fleetShips.iter()],
-          battle: [...resumed.conn.db.visibleBattles.iter()],
+          battle: [...resumed.conn.db.focusedBattle.iter()],
           summary: [...resumed.conn.db.visibleBattleSummaries.iter()],
-          participants: [...resumed.conn.db.battleParticipants.iter()],
           roster: [...resumed.conn.db.battleRoster.iter()],
           motion: [...resumed.conn.db.battleMotion.iter()],
           vitals: [...resumed.conn.db.battleVitals.iter()],
@@ -278,6 +291,11 @@ test(
         objectSnapshot,
         'stored bodies, names, revisions and parent references survive an abrupt restart',
       );
+      assert.deepEqual(
+        gameView(gameResumed)!.systems.map((s) => s.starbase),
+        gameSnapshot.systems.map((s) => s.starbase),
+        'starbase modules, revisions, paid project and deadline survive a database crash',
+      );
       assert.deepEqual(gameView(gameResumed)!.me, gameSnapshot.me);
       assert.deepEqual(gameView(gameResumed)!.fleets, gameSnapshot.fleets);
       assert.equal(gameView(gameResumed)!.tick, gameSnapshot.tick);
@@ -287,9 +305,9 @@ test(
         'body address, paid construction and completion deadline survive a database crash',
       );
       assert.deepEqual(
-        gameView(gameResumed)!.decisions,
-        gameSnapshot.decisions,
-        'private story, choices and deadline survive a database crash',
+        gameView(gameResumed)!.situations,
+        gameSnapshot.situations,
+        'private event, choices and deadline survive a database crash',
       );
       assert.deepEqual(
         gameView(gameResumed)!.crises,
@@ -322,11 +340,11 @@ test(
       );
       const controller = await connect(database, { uri, token: adminToken() });
       clients.push(controller);
-      const step = [...resumed.conn.db.visibleBattles.iter()][0].step;
+      const step = [...resumed.conn.db.focusedBattle.iter()][0].step;
       await controller.conn.reducers.setClock({ paused: false, speed: 1 });
       await delay(600);
       assert(
-        [...resumed.conn.db.visibleBattles.iter()][0].step > step,
+        [...resumed.conn.db.focusedBattle.iter()][0].step > step,
         'Persisted schedule tables must resume battle simulation',
       );
       mkdirSync('backend/reports', { recursive: true });
@@ -349,7 +367,7 @@ test(
               'decisions',
               'crisis',
               'production game identity, private empire, research, fleet travel and disconnect lifecycle',
-              'production stories, crisis phase, deadlines and paid contributions',
+              'event instances, crisis phase, deadlines and paid contributions',
             ],
             limitation:
               'Clock was paused immediately before the forced termination to compare exact snapshots; live reconnects are covered separately.',

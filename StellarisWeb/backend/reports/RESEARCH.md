@@ -15,9 +15,9 @@ Das Forschungsprogramm kennt keine drei Auswahlplätze und keine Zufallsauswahl.
 ## Wirtschaft
 
 - Daten sind ein gespeicherter Rohstoff, auch für bisherige Forschungswährungskosten und Belohnungen. Der Projektpreis wird genau einmal beim tatsächlichen Start abgebucht. Wissensarchive und Semantische Kompression reduzieren künftige Preise um jeweils 15 %.
-- Compute ist laufende Kapazität pro Spieltag. Basis: 4; Technologien und besetzte Rechenzentren erhöhen sie. Reichsmodifikatoren wirken auf die Kapazität.
-- Ein Rechenzentrum kostet 100 Energie und 140 Mineralien, benötigt 24 Tage und hat zwei Arbeitsplätze pro Stufe. Jeder besetzte Arbeitsplatz liefert bei vollständiger Versorgung 2 Compute/Tag; Unterversorgung und deaktivierte Distrikte werden berücksichtigt. Haupt- und Nebenwelten zählen.
-- Standardmäßig sind 25 % für Datensynthese reserviert; der Regler erlaubt 0–100 %. Nicht von Forschungsprojekten benötigtes Compute geht zusätzlich in die Synthese. Ohne Daten kann Forschung dadurch wieder anlaufen.
+- Compute ist laufende Kapazität pro Monat. Basis: 4; Technologien und besetzte Rechenzentren erhöhen sie. Reichsmodifikatoren wirken auf die Kapazität.
+- Ein Rechenzentrum kostet 100 Energie und 140 Mineralien, benötigt 24 Tage und hat zwei Arbeitsplätze pro Stufe. Jeder besetzte Arbeitsplatz liefert bei vollständiger Versorgung 2 Compute/Monat; Unterversorgung und deaktivierte Distrikte werden berücksichtigt. Haupt- und Nebenwelten zählen.
+- Standardmäßig sind 25 % für Datensynthese reserviert. Weitere Regler reservieren Compute für Produktionsoptimierung und Terraforming; die Summe darf 100 % nicht überschreiten. Forschung erhält den Rest, unbeschäftigte Forschungskapazität erzeugt Daten. Einigkeit entsteht aus Bevölkerung und Regierung. Die Formeln und Wirkungen sind in [ECONOMY.md](ECONOMY.md#compute-und-einigkeit) beschrieben.
 - Synthese liefert zunächst 0,25 Daten je Compute, mit Simulationsmodellen 0,5 und Prädiktiver Wissenschaft 0,75. 100 % Synthese stoppt Forschungsarbeit. Abhängige Projekte starten nach Abschluss ihrer Voraussetzungen beim nächsten Fortschrittsschritt.
 
 ## Speicherung und Regeln

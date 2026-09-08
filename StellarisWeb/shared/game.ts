@@ -1,7 +1,16 @@
 import {
+  applyStarbaseCommand,
+  completeStarbase,
+  createStarbase,
+  hasShipyard,
+  shipyardSpeed,
+  type StarbaseCommand,
+} from './starbases';
+import { empireLedger, empireCompute } from './empireEconomy';
+import { economyTotals } from './economy';
+import {
   BUILDINGS,
   baseIncome,
-  colonyProduction,
   createColony,
   assertColonies,
   maxDefense,
@@ -16,10 +25,19 @@ import {
 } from './colonies';
 
 import { ORIGINS, ENVIRONMENTS } from './empireCatalog';
-import { TECHS, applyResearch, advanceResearch, baseCompute, newResearch, type TechId, type ResearchProgram } from './research';
-import { colonyEconomy } from './planetaryEconomy';
-import { flagForEmpire, type FlagDesign } from './flags';
 import {
+  TECHS,
+  applyResearch,
+  advanceResearch,
+  newResearch,
+  type TechId,
+  type ResearchProgram,
+} from './research';
+import { colonyEconomy } from './planetaryEconomy';
+import { defaultFlag, type FlagDesign } from './flags';
+import {
+  newEmpire,
+  newSpecies,
   environmentForPlanet,
   snapshotTemplate,
   starterLibrary,
@@ -29,7 +47,6 @@ import {
 } from './empires';
 import {
   instantiateEmpire,
-  legacyEmpire,
   empireModifiers,
   populationGrowth,
   planReform,
@@ -40,14 +57,15 @@ import {
   type EmpireState,
 } from './empireState';
 
-export const VERSION = 2;
+export const VERSION = 6;
 export const WORLD = { width: 1600, height: 1050 };
 export const WIN_SYSTEMS = 8;
 export const COLORS = ['#9c91ff', '#58d9cf', '#f3b36b', '#ed7d9a'];
-export type Resource = 'energy' | 'minerals' | 'data';
+import { RESOURCE_IDS, resourceAmounts, type Resource, type Resources } from './resources';
+import { monthsDue, ECONOMY_MONTH_DAYS } from './economy';
+export type { Resource, Resources } from './resources';
 export type ShipType = 'scout' | 'colony' | 'corvette';
 export type { TechId } from './research';
-export type Resources = Record<Resource, number>;
 export const SHIPS: Record<ShipType, { name: string; cost: Resources; time: number; power: number }> = {
   scout: { name: 'Forschungsschiff', cost: { energy: 60, minerals: 80, data: 0 }, time: 12, power: 10 },
   colony: { name: 'Kolonieschiff', cost: { energy: 100, minerals: 150, data: 0 }, time: 20, power: 12 },
@@ -55,6 +73,9 @@ export const SHIPS: Record<ShipType, { name: string; cost: Resources; time: numb
 };
 export { TECHS } from './research';
 export interface StarSystem {
+  starbase?: import('./starbases').Starbase | null;
+  starbaseLevel?: number;
+  starbaseRevision?: number;
   stellarWeather?: import('./stellarWeather').StellarWeather;
   planetDefense?: number;
   productionFactor?: number;
@@ -93,8 +114,7 @@ export interface Fleet {
   task: { type: 'scan' | 'colonize'; remaining: number; total: number; blocked?: boolean } | null;
 }
 export interface Player {
-  planetIncome?: Resources;
-  installationIncome?: Resources;
+  productionFactor?: number;
   id: string;
   name: string;
   color: string;
@@ -105,11 +125,10 @@ export interface Player {
   techs: TechId[];
   research: ResearchProgram;
   compute?: number;
-  synthesisIncome?: number;
   queue: { type: ShipType; systemId: string; remaining: number; total: number }[];
   online: boolean;
   ai?: { startedAt: number; nextDecision: number };
-  empire?: EmpireState;
+  empire: EmpireState;
 }
 export interface LogEntry {
   id: number;
@@ -134,9 +153,11 @@ export interface GameState {
   winner: string | null;
 }
 export type GameCommand =
+  | StarbaseCommand
   | import('./stellarProjects').StellarCommand
   | import('./diplomacy').DiplomacyCommand
-  | import('./stories').StoryCommand
+  | import('./events/types').SituationCommand
+  | import('./crises').CrisisCommand
   | import('./celestial').SiteCommand
   | { type: 'move'; fleetId: string; systemId: string; append?: boolean }
   | { type: 'scan' | 'colonize'; fleetId: string; bodySlot?: number; systemId?: string; append?: boolean }
@@ -166,8 +187,8 @@ export interface PublicPlayer {
   online: boolean;
   colonies: number;
   ai?: boolean;
-  flag?: FlagDesign;
-  shipSet?: import('./shipSets').ShipSet;
+  flag: FlagDesign;
+  shipSet: import('./shipSets').ShipSet;
 }
 export interface GameView extends Omit<GameState, 'players'> {
   planetColonies?: import('./planetColonies').PlanetColony[];
@@ -175,8 +196,8 @@ export interface GameView extends Omit<GameState, 'players'> {
   displayClock?: { now(at?: number): number; readonly paused: boolean; readonly speed: number };
   sites?: import('./celestial').BodySite[];
   stellarProjects?: import('./stellarProjects').StellarProject[];
-  decisions?: import('./stories').StoryDecision[];
-  crises?: import('./stories').CrisisView[];
+  situations?: import('./events/types').Situation[];
+  crises?: import('./crises').CrisisView[];
   relations?: import('./diplomacy').Relation[];
   offers?: import('./diplomacy').TreatyOffer[];
   capacity?: number;
@@ -357,16 +378,26 @@ export function addPlayer(game: GameState, id: string, name: string, template?: 
   const homes = ['s0', 's22', 's20', 's16'];
   const home = homes.find((h) => !game.systems.find((s) => s.id === h)!.owner);
   if (!home) throw new Error('Kein freies Startsystem. Bitte einen neuen Sektor erstellen.');
-  const empire = template
-    ? instantiateEmpire(template, id, game.tick)
-    : legacyEmpire(id, name.trim().slice(0, 24) || 'Kommandant', COLORS[game.players.length], game.tick);
+  if (!template) {
+    const species = newSpecies(`species-${id}`);
+    template = {
+      species,
+      empire: {
+        ...newEmpire(`empire-${id}`, species.id),
+        name: name.trim().slice(0, 24) || 'Kommandant',
+        color: COLORS[game.players.length],
+        flag: defaultFlag(COLORS[game.players.length]),
+      },
+    };
+  }
+  const empire = instantiateEmpire(template, id, game.tick);
   const player: Player = {
     id,
-    name: template ? empire.design.name : name.trim().slice(0, 24) || 'Kommandant',
+    name: empire.design.name,
     empire,
     home,
-    color: template ? empire.design.color : COLORS[game.players.length],
-    resources: { energy: 420, minerals: 360, data: 130 },
+    color: empire.design.color,
+    resources: { energy: 420, minerals: 360, data: 130, unity: 0 },
     discovered: [],
     surveyed: [home],
     techs: [],
@@ -378,14 +409,15 @@ export function addPlayer(game: GameState, id: string, name: string, template?: 
   if (!game.hostId) game.hostId = id;
   const system = game.systems.find((s) => s.id === home)!;
   system.owner = id;
-  system.defense = 30;
-  if (template) system.planet = ENVIRONMENTS[empire.species[0].environment].name;
+  system.starbase = createStarbase(id, true);
+  system.defense = 100;
+  system.planet = ENVIRONMENTS[empire.species[0].environment].name;
   system.colony = createColony(true, `${game.code}:${system.id}:1`, system.planet);
   system.colony.populations = [{ speciesId: empire.primarySpeciesId, population: system.colony.population }];
-  if (template) {
+  {
     const origin = ORIGINS[empire.design.origin];
     for (const key of Object.keys(origin.resources) as Resource[])
-      player.resources[key] += origin.resources[key];
+      player.resources[key] = (player.resources[key] ?? 0) + resourceAmounts(origin.resources)[key];
     system.colony.population += origin.population;
     system.colony.populations[0].population = system.colony.population;
     system.name = empire.design.systemName;
@@ -402,8 +434,7 @@ export function addPlayer(game: GameState, id: string, name: string, template?: 
   ] as const) {
     game.fleets.push({
       id: `f${game.nextId++}`,
-      name:
-        template && empire.design.shipPrefix ? fleetName.replace('ISS', empire.design.shipPrefix) : fleetName,
+      name: empire.design.shipPrefix ? fleetName.replace('ISS', empire.design.shipPrefix) : fleetName,
       owner: id,
       type,
       systemId: home,
@@ -418,18 +449,8 @@ export function addPlayer(game: GameState, id: string, name: string, template?: 
   log(game, 'Ein unbekanntes Signal erreicht uns aus Alpha Centauri.', 'info', id);
   return player;
 }
-export function income(game: Pick<GameState, 'systems'>, player: Player): Resources {
-  const result = baseIncome(player);
-  for (const resource of Object.keys(result) as Resource[]) {
-    result[resource] += player.installationIncome?.[resource] || 0;
-    result[resource] += player.planetIncome?.[resource] || 0;
-  }
-  for (const s of game.systems.filter((s) => s.owner === player.id)) {
-    const production = colonyProduction(s, player);
-    for (const resource of Object.keys(result) as Resource[]) result[resource] += production[resource];
-  }
-  result.data += player.synthesisIncome || 0;
-  return result;
+export function income(game: Parameters<typeof empireLedger>[0], player: Player): Resources {
+  return economyTotals(empireLedger(game, player));
 }
 export function pathfind(game: Pick<GameState, 'links'>, from: string, to: string): string[] | null {
   if (from === to) return [];
@@ -462,7 +483,6 @@ function startLeg(game: GameState, fleet: Fleet, player: Player) {
 }
 export function command(game: GameState, playerId: string, cmd: GameCommand) {
   assertColonies(game);
-  hydrateEmpires(game);
   const player = game.players.find((p) => p.id === playerId);
   if (!player) throw new Error('Spieler nicht gefunden.');
   if (game.winner) throw new Error('Diese Partie ist beendet. Erstelle einen neuen Sektor.');
@@ -537,8 +557,14 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
     }
     return;
   }
-  if (cmd.type === 'research' || cmd.type === 'research_weight' || cmd.type === 'research_synthesis') {
+  if (cmd.type === 'research' || cmd.type === 'research_weight' || cmd.type === 'compute_allocation') {
     applyResearch(player, cmd);
+    return;
+  }
+  if (cmd.type.startsWith('starbase_')) {
+    applyStarbaseCommand(game, player, cmd as StarbaseCommand);
+    const s = game.systems.find((s) => s.id === (cmd as StarbaseCommand).systemId)!;
+    s.defense = Math.min(s.defense, maxDefense(s));
     return;
   }
   if (cmd.type === 'build' || cmd.type === 'mine') {
@@ -550,11 +576,13 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
       system.mined = true;
       log(game, `Bergbaustation in ${system.name} einsatzbereit.`, 'success', playerId);
     } else {
+      if (!hasShipyard(system)) throw new Error('Eine Sternenbasis mit Raumwerft wird benötigt.');
       if (!Object.hasOwn(SHIPS, cmd.ship)) throw new Error('Unbekannter Schiffstyp.');
       if (player.queue.length >= 5) throw new Error('Die Bauwarteschlange ist voll.');
       const spec = SHIPS[cmd.ship];
       spend(player, spec.cost);
-      player.queue.push({ type: cmd.ship, systemId: system.id, remaining: spec.time, total: spec.time });
+      const time = spec.time / shipyardSpeed(system);
+      player.queue.push({ type: cmd.ship, systemId: system.id, remaining: time, total: time });
       log(game, `${spec.name} in Auftrag gegeben.`, 'info', playerId);
     }
     return;
@@ -583,26 +611,34 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
     fleet.task = { type: 'scan', remaining: 8, total: 8 };
   } else if (cmd.type === 'colonize') {
     if (fleet.type !== 'colony') throw new Error('Ein Kolonieschiff wird benötigt.');
-    if (system.kind !== 'star' || system.owner)
+    if (system.kind !== 'star' || system.owner !== playerId || system.colony)
       throw new Error('Dieses System kann nicht kolonisiert werden.');
     if (!player.surveyed.includes(system.id))
       throw new Error('Untersuche das System zuerst mit einem Forschungsschiff.');
-    if (system.defense > 0) throw new Error('Besiege zuerst die Wächter dieses Systems.');
     spend(player, { energy: 80, minerals: 80, data: 0 });
     fleet.task = { type: 'colonize', remaining: 12, total: 12 };
   }
 }
 export function tickGame(game: GameState, elapsed: number) {
   assertColonies(game);
-  hydrateEmpires(game);
   if (game.paused || game.winner) return;
   const dt = Math.max(0, Math.min(elapsed, 2)) * game.speed;
+  const months = monthsDue(game.tick, game.tick + dt);
   game.tick += dt;
+  if (months)
+    for (const player of game.players) {
+      const ledger = empireLedger(game, player);
+      const rate = economyTotals(ledger.filter((l) => l.category !== 'synthesis'));
+      for (const r of RESOURCE_IDS) player.resources[r] = (player.resources[r] ?? 0) + rate[r] * months;
+      for (const tech of advanceResearch(player, empireCompute(game, player), months))
+        log(game, `Forschung abgeschlossen: ${TECHS[tech].name}.`, 'success', player.id);
+    }
+  for (const system of game.systems) completeStarbase(system, game.tick);
   for (const system of game.systems) {
     if (!system.owner || !system.colony) continue;
     const colony = system.colony;
     const owner = game.players.find((p) => p.id === system.owner)!;
-    growColony(colony, system.planet, owner, dt);
+    if (months) growColony(colony, system.planet, owner, months * ECONOMY_MONTH_DAYS);
     if (colony.construction) {
       colony.construction.remaining -= dt * Math.max(0.1, 1 + empireModifiers(owner.empire).construction);
       if (colony.construction.remaining <= 0) {
@@ -618,12 +654,6 @@ export function tickGame(game: GameState, elapsed: number) {
     }
   }
   for (const player of game.players) {
-    const rate = income(game, player);
-    for (const r of Object.keys(rate) as Resource[]) player.resources[r] += (rate[r] * dt) / 4;
-    const compute = (baseCompute(player.techs) + game.systems.filter((s) => s.owner === player.id && s.colony)
-      .reduce((n, s) => n + colonyEconomy(s.colony!, s.planet, player).compute, 0)) * Math.max(0.1, 1 + empireModifiers(player.empire).research);
-    for (const tech of advanceResearch(player, compute, dt))
-      log(game, `Forschung abgeschlossen: ${TECHS[tech].name}.`, 'success', player.id);
     const construction = player.queue[0];
     if (construction) {
       const yard = game.systems.find((s) => s.id === construction.systemId)!;
@@ -687,9 +717,7 @@ export function tickGame(game: GameState, elapsed: number) {
             if (system.anomaly) system.studied = true;
             log(game, `${system.name} untersucht. +${bonus} Daten.`, 'success', player.id);
           }
-        } else if (!system.owner && system.defense === 0) {
-          system.owner = player.id;
-          system.defense = 30;
+        } else if (system.owner === player.id && !system.colony) {
           system.colony = createColony(false, `${game.code}:${system.id}:1`, system.planet);
           system.colonyName = `${system.name} Prime`;
           system.colony.populations = [
@@ -735,6 +763,7 @@ export function tickGame(game: GameState, elapsed: number) {
         log(game, `Die Verteidigung von ${system.name} ist gefallen.`, 'warning');
         if (system.owner) {
           system.owner = null;
+          system.starbase = null;
           system.mined = false;
           system.colony = null;
         }
@@ -788,13 +817,10 @@ export function fleetRoute(game: Pick<GameState, 'systems' | 'links'>, fleet: Fl
 export function addAI(game: GameState): Player {
   const names = ['Helix-Direktorat', 'Auralisches Kollektiv', 'Vesper-Konkordat'];
   const index = game.players.filter((p) => p.ai).length;
-  let template: TemplateSnapshot | undefined;
-  if (game.players.some((p) => p.empire && !p.empire.legacy)) {
-    const library = starterLibrary();
-    template = snapshotTemplate(library, library.empires[(index + 1) % library.empires.length].id);
-    template.empire.name = names[index % names.length];
-    template.empire.color = COLORS[game.players.length] || COLORS[0];
-  }
+  const library = starterLibrary();
+  const template = snapshotTemplate(library, library.empires[(index + 1) % library.empires.length].id);
+  template.empire.name = names[index % names.length];
+  template.empire.color = COLORS[game.players.length] || COLORS[0];
   const player = addPlayer(game, `ai-${game.nextId++}`, names[index % names.length], template);
   player.online = false;
   player.ai = { startedAt: game.tick, nextDecision: game.tick + 5 };
@@ -875,9 +901,9 @@ function runAI(game: GameState, player: Player) {
         reserved.add(target.id);
     } else if (fleet.type === 'colony') {
       if (
-        !system.owner &&
+        system.owner === player.id &&
+        !system.colony &&
         system.kind === 'star' &&
-        !system.defense &&
         player.surveyed.includes(system.id) &&
         !hostile.some((f) => f.type === 'corvette')
       ) {
@@ -894,8 +920,8 @@ function runAI(game: GameState, player: Player) {
         view.systems.filter(
           (s) =>
             s.kind === 'star' &&
-            !s.owner &&
-            !s.defense &&
+            s.owner === player.id &&
+            !s.colony &&
             player.surveyed.includes(s.id) &&
             !colonizing.has(s.id),
         ),
@@ -932,7 +958,12 @@ function runAI(game: GameState, player: Player) {
         attempt({ type: 'move', fleetId: fleet.id, systemId: target.id });
     }
   }
-  const yard = ownSystems.find((s) => s.id === player.home) || ownSystems[0];
+  for (const s of view.systems.filter(
+    (s) => !s.owner && !s.starbase && !s.defense && player.surveyed.includes(s.id),
+  )) {
+    if (attempt({ type: 'starbase_build', systemId: s.id })) break;
+  }
+  const yard = ownSystems.find((s) => hasShipyard(s));
   const count = (type: ShipType) =>
     ownFleets.filter((f) => f.type === type).length + player.queue.filter((q) => q.type === type).length;
   if (player.queue.length < 2) {
@@ -944,7 +975,7 @@ function runAI(game: GameState, player: Player) {
           : count('corvette') < 3
             ? 'corvette'
             : null;
-    if (target) attempt({ type: 'build', ship: target, systemId: yard.id });
+    if (target && yard) attempt({ type: 'build', ship: target, systemId: yard.id });
   }
   if (!player.research.projects.length) {
     const next = (['extraction', 'propulsion', 'weapons'] as TechId[]).find((t) => !player.techs.includes(t));
@@ -966,7 +997,6 @@ function runAI(game: GameState, player: Player) {
 }
 export function viewFor(game: GameState, playerId: string): GameView {
   assertColonies(game);
-  hydrateEmpires(game);
   const me = game.players.find((p) => p.id === playerId)!;
   const visible = new Set([
     ...game.systems.filter((s) => s.owner === playerId).map((s) => s.id),
@@ -977,10 +1007,10 @@ export function viewFor(game: GameState, playerId: string): GameView {
     systems: game.systems.map((s) => ({
       ...s,
       colony: s.owner === playerId ? s.colony : null,
+      starbase: s.starbase?.owner === playerId ? s.starbase : null,
+      starbaseLevel: s.starbase?.level ?? 0,
       resources:
-        me.surveyed.includes(s.id) || visible.has(s.id)
-          ? s.resources
-          : { energy: 0, minerals: 0, data: 0 },
+        me.surveyed.includes(s.id) || visible.has(s.id) ? s.resources : { energy: 0, minerals: 0, data: 0 },
     })),
     fleets: game.fleets.filter((f) => f.owner === playerId || visible.has(f.systemId)),
     log: game.log.filter((l) => !l.playerId || l.playerId === playerId),
@@ -989,24 +1019,11 @@ export function viewFor(game: GameState, playerId: string): GameView {
       name: p.name,
       color: p.color,
       online: p.online,
-      colonies: game.systems.filter((s) => s.owner === p.id).length,
+      colonies: game.systems.filter((s) => s.owner === p.id && s.colony).length,
       ai: !!p.ai,
-      flag: structuredClone(flagForEmpire(p.empire?.design ?? p)),
-      shipSet: p.empire?.design.shipSet ?? 'prisma',
+      flag: structuredClone(p.empire.design.flag),
+      shipSet: p.empire.design.shipSet,
     })),
     me,
   };
-}
-
-/** Additive save migration; founding bonuses are never replayed on load. */
-export function hydrateEmpires(game: GameState) {
-  for (const player of game.players)
-    player.empire ??= legacyEmpire(player.id, player.name, player.color, game.tick);
-  for (const system of game.systems) {
-    const owner = game.players.find((p) => p.id === system.owner);
-    if (system.colony && owner?.empire && !system.colony.populations)
-      system.colony.populations = [
-        { speciesId: owner.empire.primarySpeciesId, population: system.colony.population },
-      ];
-  }
 }

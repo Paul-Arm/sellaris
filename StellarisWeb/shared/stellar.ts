@@ -13,21 +13,8 @@ export interface StellarProfile {
   description: string;
 }
 
-/** Stable visual classifications for the original procedural atlas; no change to durable body kinds. */
-export function stellarClass(s: Pick<StarSystem, 'id' | 'kind' | 'class'>): string {
-  const index = /^s(\d+)$/.exec(s.id);
-  const i = index ? Number(index[1]) : -1;
-  const legacy = ['G2 V', 'B2 V', 'K1 III', 'A0 V'];
-  if (s.kind !== 'star' || i < 30 || s.class !== legacy[i % 4]) return s.class;
-  return (
-    (
-      { 0: 'O5 V', 1: 'NS', 2: 'PSR', 3: 'M5 V', 4: 'B0 V', 5: 'F5 V', 6: 'K5 III' } as Record<number, string>
-    )[i % 64] ?? s.class
-  );
-}
-
 export function stellarProfile(s: Pick<StarSystem, 'id' | 'kind' | 'class' | 'color'>): StellarProfile {
-  const spectral = stellarClass(s);
+  const spectral = s.class;
   const common = { spectral, emission: 1.12, corona: 0.42 };
   if (s.kind === 'rift')
     return {

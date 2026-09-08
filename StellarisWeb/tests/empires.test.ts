@@ -18,16 +18,7 @@ import {
   validateEmpireLibrary,
   type SpeciesDesign,
 } from '../shared/empires';
-import {
-  addPlayer,
-  command,
-  createGame,
-  hydrateEmpires,
-  income,
-  tickGame,
-  viewFor,
-  type GameCommand,
-} from '../shared/game';
+import { addPlayer, command, createGame, income, tickGame, viewFor, type GameCommand } from '../shared/game';
 import { colonyProduction, createColony, assertColonies } from '../shared/colonies';
 
 function setup() {
@@ -170,7 +161,7 @@ test('two matches receive independent deep snapshots; editing and deleting templ
   assert.equal(player.empire!.founding.empire.name, 'Terranische Union');
   assert.equal(game.players.length, 1);
 });
-test('every origin awards start resources and populations exactly once, including save hydration', () => {
+test('every origin awards start resources and populations exactly once, including repeated view projection', () => {
   for (const [id, origin] of Object.entries(ORIGINS)) {
     const kind = origin.kinds?.[0] || 'regular';
     const species = newSpecies('species', kind === 'machine' ? 'machine' : 'biological');
@@ -183,15 +174,21 @@ test('every origin awards start resources and populations exactly once, includin
     assert.equal(player.resources.data, 130 + origin.resources.data);
     assert.equal(game.systems[0].colony!.population, 6 + origin.population);
     const stored = JSON.stringify(game);
-    hydrateEmpires(game);
-    hydrateEmpires(game);
+    viewFor(game, player.id);
+    viewFor(game, player.id);
     assert.equal(JSON.stringify(game), stored);
   }
 });
 test('bonuses affect actual production, movement, research, construction and population growth', () => {
   const { game, player, home } = setup();
-  const oldGame = createGame('LEGACY');
-  const old = addPlayer(oldGame, 'legacy', 'Legacy');
+  const oldGame = structuredClone(game);
+  const old = oldGame.players[0];
+  old.empire.species[0].traits = [];
+  old.empire.design.government.ethics = [
+    { id: 'spiritualist', strength: 1 },
+    { id: 'egalitarian', strength: 1 },
+    { id: 'xenophile', strength: 1 },
+  ];
   assert.ok(income(game, player).data > income(oldGame, old).data);
   const scout = game.fleets.find((f) => f.type === 'scout')!;
   const oldScout = oldGame.fleets.find((f) => f.type === 'scout')!;
@@ -201,22 +198,26 @@ test('bonuses affect actual production, movement, research, construction and pop
   command(game, player.id, { type: 'research', tech: 'propulsion' });
   command(game, player.id, { type: 'build', ship: 'scout', systemId: home.id });
   tickGame(game, 1);
-  assert.ok(player.research.projects[0].done > 3, 'research modifiers increase available Compute');
+  assert.equal(player.research.projects[0].done, 0, 'research waits for the month boundary');
+  game.tick = 29;
+  tickGame(game, 1);
+  assert.ok(player.research.projects[0].done > 3, 'research modifiers increase monthly Compute');
   assert.ok(player.queue[0].remaining < player.queue[0].total - 1);
   const hiveGame = createGame('HIVE');
   const hive = addPlayer(hiveGame, 'hive', '', snapshotTemplate(starterLibrary(), 'empire-mycel'));
   const population = hiveGame.systems.find((s) => s.id === hive.home)!.colony!.population;
+  hiveGame.tick = 29;
   tickGame(hiveGame, 1);
   assert.ok(hiveGame.systems[0].colony!.population > population + 1 / 240);
 });
 test('reform spends authoritative resources once and enforces cooldown, type and revision', () => {
   const { game, player } = setup();
-  player.resources.data = 500;
+  player.resources.unity = 500;
   const origin = player.empire!.design.origin;
   const government = { ...player.empire!.design.government, civics: ['conservation', 'architects'] };
   command(game, player.id, { type: 'empire_reform', government, revision: 1 });
   assert.equal(player.resources.energy, 400);
-  assert.equal(player.resources.data, 350);
+  assert.equal(player.resources.unity, 350);
   assert.equal(player.empire!.design.origin, origin);
 });
 test('invalid and unaffordable reforms leave both state and resources untouched', () => {
@@ -228,9 +229,9 @@ test('invalid and unaffordable reforms leave both state and resources untouched'
     /Ressourcen/,
   );
   assert.equal(JSON.stringify(game), before);
-  player.resources.data = 1000;
+  player.resources.unity = 1000;
   command(game, player.id, { type: 'empire_reform', government, revision: 1 });
-  assert.equal(player.resources.data, 850);
+  assert.equal(player.resources.unity, 850);
   assert.equal(player.resources.energy, 400);
   const after = JSON.stringify(game);
   assert.throws(
@@ -259,7 +260,9 @@ test('species variants convert only selected own populations and affect their pr
   colony.owner = player.id;
   colony.planet = 'Wüstenwelt';
   colony.colony = createColony();
-  hydrateEmpires(game);
+  colony.colony.populations = [
+    { speciesId: player.empire!.primarySpeciesId, population: colony.colony.population },
+  ];
   const source = player.empire!.species[0];
   const variant: SpeciesDesign = {
     ...source,
@@ -351,21 +354,11 @@ test('private libraries persist across store restarts and concurrent stale write
   assert.equal(await readFile(join(directory, 'empire-libraries.json'), 'utf8'), '{ broken');
 });
 
-test('legacy migration preserves economy and templates are also used by AI in new games', () => {
-  const legacy = createGame('OLD');
-  const player = addPlayer(legacy, 'old', 'Old Player');
-  delete player.empire;
-  delete legacy.systems[0].colony!.populations;
-  const oldResources = structuredClone(player.resources);
-  const oldIncome = income(legacy, player);
-  hydrateEmpires(legacy);
-  assert.equal(player.empire!.legacy, true);
-  assert.deepEqual(player.resources, oldResources);
-  assert.deepEqual(income(legacy, player), oldIncome);
+test('AI uses complete current empire templates in new games', () => {
   const { game, player: human } = setup();
   command(game, human.id, { type: 'add_ai' });
   const ai = game.players.find((p) => p.ai)!;
-  assert.equal(ai.empire!.legacy, false);
+  assert.equal(ai.empire!.founding.empire.name, ai.name);
   assert.equal(ai.empire!.species[0].kind, 'biological');
   assert.equal(ai.empire!.design.government.kind, 'hive');
 });

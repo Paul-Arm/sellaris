@@ -1,3 +1,5 @@
+import { RESOURCE_NAMES } from '../shared/resources';
+import { BuildSlot, SlotPicker } from './BuildSlots';
 import { ColonyTree } from './ColonyTree';
 import { useState } from 'react';
 import {
@@ -69,12 +71,17 @@ export function ColonyManager(props: Props) {
       <div className="colony-empty">
         <Globe2 size={36} />
         <h2 id="dialog-title">Noch keine Kolonie</h2>
-        <p>Entsende ein Kolonieschiff in ein untersuchtes System.</p>
+        <p>Sichere ein untersuchtes System mit einem Außenposten und entsende dann ein Kolonieschiff.</p>
       </div>
     );
   return (
     <div className="planet-manager">
-      <ColonyTree key={`${props.game.code}:${props.game.me.id}`} game={props.game} selected={system.worldId} onSelect={(colony) => props.onSelect(colony.id)} />
+      <ColonyTree
+        key={`${props.game.code}:${props.game.me.id}`}
+        game={props.game}
+        selected={system.worldId}
+        onSelect={(colony) => props.onSelect(colony.id)}
+      />
       <ColonyWorkspace key={system.worldId} {...props} system={system} />
     </div>
   );
@@ -89,6 +96,8 @@ function ColonyWorkspace({
   const c = system.colony!,
     [sectorId, setSectorId] = useState(0),
     [tab, setTab] = useState<'surface' | 'population'>('surface'),
+    [selectedSlot, setSelectedSlot] = useState<number | null>(null),
+    [picking, setPicking] = useState<number | null>(null),
     [demolish, setDemolish] = useState<number | null>(null);
   const sector = c.sectors.find((s) => s.id === sectorId) || c.sectors[0],
     e = colonyEconomy(c, system.planet, game.me),
@@ -106,6 +115,7 @@ function ColonyWorkspace({
     command({
       type: 'colony_build',
       building,
+      slot: picking!,
       sectorId: sector.id,
       systemId: system.id,
       bodySlot: system.bodySlot,
@@ -117,6 +127,8 @@ function ColonyWorkspace({
   };
   const select = (id: number) => {
     setSectorId(id);
+    setSelectedSlot(null);
+    setPicking(null);
     setDemolish(null);
     setTab('surface');
   };
@@ -139,7 +151,7 @@ function ColonyWorkspace({
             {system.planet} <span>·</span> {c.sectors.length} Sektoren
           </p>
         </div>
-        <div className="pm-yields" title="Nettoertrag je 4 Spieltage, einschließlich orbitaler Förderung">
+        <div className="pm-yields" title="Nettoertrag pro Monat, einschließlich orbitaler Förderung">
           <span className="pm-energy">
             <Zap />
             {signed(output.energy)}
@@ -152,7 +164,7 @@ function ColonyWorkspace({
             <FlaskConical />
             {signed(output.data)}
           </span>
-          <small>pro 4 Spieltage</small>
+          <small>pro Monat</small>
         </div>
       </header>
       {!connected && (
@@ -294,7 +306,13 @@ function ColonyWorkspace({
                     aria-pressed={c.focus === f}
                     disabled={!connected}
                     onClick={() =>
-                      command({ type: 'colony_focus', focus: f, systemId: system.id, revision: c.revision })
+                      command({
+                        type: 'colony_focus',
+                        focus: f,
+                        systemId: system.id,
+                        bodySlot: system.bodySlot,
+                        revision: c.revision,
+                      })
                     }
                   >
                     <Icon size={14} />
@@ -318,146 +336,206 @@ function ColonyWorkspace({
             </div>
           </div>
           <div className="pm-section-title">
-            <h4>Distrikte</h4>
+            <h4>Bauplätze</h4>
             <span>
               {sector.districts.length} / {sector.slots}
             </span>
           </div>
-          <div className="pm-districts">
-            {sector.districts.map((d) => {
-              const spec = BUILDINGS[d.building],
-                Icon = icons[d.building],
-                row = e.districts.find((r) => r.id === d.id)!,
-                cost = districtSpec(d.building, d.level + 1),
-                busy = project?.districtId === d.id;
+          <div className="pm-slot-grid">
+            {Array.from({ length: sector.slots }, (_, slot) => {
+              const d = sector.districts.find((d) => d.slot === slot);
+              const pending = project?.sectorId === sector.id && project.slot === slot;
+              const building = d?.building ?? (pending ? project.building : undefined);
+              const Icon = building ? icons[building] : Plus;
               return (
-                <article key={d.id} className={`pm-district ${d.enabled ? '' : 'disabled'}`}>
-                  <div className="pm-district-title">
-                    <Icon size={17} />
-                    <strong>{spec.name}</strong>
-                    <span>{'ⅠⅡⅢ'[d.level - 1]}</span>
-                  </div>
-                  <div className="pm-district-output">
-                    <span>
-                      {spec.housing ? `${row.housing} Wohnraum` : `${fmt(row.employed)} / ${row.jobs} Jobs`}
-                    </span>
-                    <span>
-                      {spec.resource
-                        ? `${signed(row.output[spec.resource])} ${spec.resource === 'energy' ? 'Energie' : spec.resource === 'minerals' ? 'Mineralien' : 'Daten'}`
-                        : spec.supply
-                          ? `${fmt(row.supply)} versorgt`
-                          : spec.housing
-                            ? ''
-                            : d.building === 'datacenter'
-                              ? `${fmt(row.employed * 2 * Math.max(0.25, Math.min(1, e.supply / Math.max(1, e.demand))))} Compute / Tag`
-                              : `${fmt(row.employed * 40)} Schilde`}
-                    </span>
-                  </div>
-                  <div className="pm-district-actions">
-                    <button
-                      disabled={!connected || !!project || d.level >= 3 || !afford(d.building, d.level + 1)}
-                      title={`Stufe ${d.level + 1}: ${cost.cost.energy} Energie, ${cost.cost.minerals} Mineralien`}
-                      onClick={() =>
-                        command({
-                          type: 'colony_upgrade',
-                          districtId: d.id,
-                          systemId: system.id,
-                          revision: c.revision,
-                        })
-                      }
-                    >
-                      <ArrowUp size={12} />
-                      {d.level >= 3 ? 'Maximum' : `Ausbau · ${cost.cost.minerals} ◇`}
-                    </button>
-                    <button
-                      disabled={!connected || busy}
-                      aria-label={`${spec.name} ${d.enabled ? 'pausieren' : 'aktivieren'}`}
-                      title={d.enabled ? 'Stilllegen: keine Produktion, kein Unterhalt' : 'Aktivieren'}
-                      onClick={() =>
-                        command({
-                          type: 'colony_toggle',
-                          districtId: d.id,
-                          enabled: !d.enabled,
-                          systemId: system.id,
-                          revision: c.revision,
-                        })
-                      }
-                    >
-                      {d.enabled ? <Pause size={12} /> : <Play size={12} />}
-                    </button>
-                    <button
-                      disabled={!connected || busy}
-                      aria-label={`${spec.name} abreißen`}
-                      onClick={() => setDemolish(d.id)}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                  {demolish === d.id && (
-                    <div className="pm-confirm">
-                      <span>Ohne Erstattung abreißen?</span>
-                      <button
-                        disabled={!connected}
-                        aria-label="Abriss bestätigen"
-                        onClick={() => {
-                          command({
-                            type: 'colony_demolish',
-                            districtId: d.id,
-                            systemId: system.id,
-                            revision: c.revision,
-                          });
-                          setDemolish(null);
-                        }}
-                      >
-                        <Check size={14} />
-                      </button>
-                      <button aria-label="Abriss verwerfen" onClick={() => setDemolish(null)}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                  )}
-                </article>
+                <BuildSlot
+                  key={slot}
+                  label={`BAUPLATZ ${slot + 1}`}
+                  name={building ? BUILDINGS[building].name : 'Freier Bauplatz'}
+                  icon={<Icon />}
+                  state={pending ? 'building' : d ? 'occupied' : 'empty'}
+                  selected={selectedSlot === slot}
+                  level={d?.level}
+                  detail={
+                    pending
+                      ? `${Math.ceil(project.remaining / Math.max(0.1, 1 + empireModifiers(game.me.empire).construction))} T · ${game.paused ? 'Pausiert' : 'Im Bau'}`
+                      : d
+                        ? d.enabled
+                          ? 'Distrikt verwalten'
+                          : 'Stillgelegt'
+                        : project
+                          ? 'Bauauftrag läuft'
+                          : undefined
+                  }
+                  onClick={() => {
+                    setSelectedSlot(slot);
+                    setDemolish(null);
+                    if (!d && !project) setPicking(slot);
+                  }}
+                />
               );
             })}
           </div>
-          {sector.districts.length < sector.slots && (
-            <>
-              <div className="pm-section-title">
-                <h4>Neuer Distrikt</h4>
-                <span>{sector.slots - sector.districts.length} frei</span>
-              </div>
-              <div className="pm-build-list">
-                {types.map((b) => {
-                  const s = BUILDINGS[b],
-                    Icon = icons[b],
-                    match = FEATURES[sector.feature].building === b;
-                  return (
-                    <button
-                      key={b}
-                      disabled={!connected || !!project || !afford(b)}
-                      title={`${s.description} ${s.cost.energy} Energie, ${s.cost.minerals} Mineralien; ${s.time} Spieltage; ${s.upkeep} Energie Unterhalt.`}
-                      onClick={() => build(b)}
-                    >
+          <div className="pm-districts">
+            {sector.districts
+              .filter((d) => d.slot === selectedSlot)
+              .map((d) => {
+                const spec = BUILDINGS[d.building],
+                  Icon = icons[d.building],
+                  row = e.districts.find((r) => r.id === d.id)!,
+                  cost = districtSpec(d.building, d.level + 1),
+                  busy = project?.districtId === d.id;
+                return (
+                  <article key={d.id} className={`pm-district ${d.enabled ? '' : 'disabled'}`}>
+                    <div className="pm-district-title">
                       <Icon size={17} />
+                      <strong>{spec.name}</strong>
+                      <span>{'ⅠⅡⅢ'[d.level - 1]}</span>
+                    </div>
+                    <div className="pm-district-output">
                       <span>
-                        <strong>
-                          {s.name}
-                          {match && <em>Standortbonus</em>}
-                        </strong>
-                        <small>
-                          {s.housing
-                            ? `+${s.housing + (sector.feature === 'sheltered' ? 2 : 0)} Wohnraum`
-                            : `${s.jobs} Jobs`}{' '}
-                          · {s.cost.energy} ⚡ {s.cost.minerals} ◇
-                        </small>
+                        {spec.housing ? `${row.housing} Wohnraum` : `${fmt(row.employed)} / ${row.jobs} Jobs`}
                       </span>
-                      <Plus size={13} />
-                    </button>
-                  );
-                })}
-              </div>
-              {project && <p className="pm-muted">Der aktuelle Bauauftrag wird zuerst abgeschlossen.</p>}
-            </>
+                      <span>
+                        {spec.resource
+                          ? `${signed(row.output[spec.resource])} ${RESOURCE_NAMES[spec.resource]}`
+                          : spec.supply
+                            ? `${fmt(row.supply)} versorgt`
+                            : spec.housing
+                              ? ''
+                              : d.building === 'datacenter'
+                                ? `${fmt(row.compute)} Compute / Monat`
+                                : `${fmt(row.defense)} Schilde`}
+                      </span>
+                    </div>
+                    {row.workers.length > 0 && (
+                      <div className="pm-job-species">
+                        {row.workers.map((worker) => (
+                          <small key={worker.speciesId}>
+                            {worker.name}: {fmt(worker.employed)} Jobs
+                          </small>
+                        ))}
+                      </div>
+                    )}
+                    <div className="pm-district-actions">
+                      <button
+                        disabled={!connected || !!project || d.level >= 3 || !afford(d.building, d.level + 1)}
+                        title={`Stufe ${d.level + 1}: ${cost.cost.energy} Energie, ${cost.cost.minerals} Mineralien`}
+                        onClick={() =>
+                          command({
+                            type: 'colony_upgrade',
+                            districtId: d.id,
+                            systemId: system.id,
+                            bodySlot: system.bodySlot,
+                            revision: c.revision,
+                          })
+                        }
+                      >
+                        <ArrowUp size={12} />
+                        {d.level >= 3 ? 'Maximum' : `Ausbau · ${cost.cost.minerals} ◇`}
+                      </button>
+                      <button
+                        disabled={!connected || busy}
+                        aria-label={`${spec.name} ${d.enabled ? 'pausieren' : 'aktivieren'}`}
+                        title={d.enabled ? 'Stilllegen: keine Produktion, kein Unterhalt' : 'Aktivieren'}
+                        onClick={() =>
+                          command({
+                            type: 'colony_toggle',
+                            districtId: d.id,
+                            enabled: !d.enabled,
+                            systemId: system.id,
+                            bodySlot: system.bodySlot,
+                            revision: c.revision,
+                          })
+                        }
+                      >
+                        {d.enabled ? <Pause size={12} /> : <Play size={12} />}
+                      </button>
+                      <button
+                        disabled={!connected || busy}
+                        aria-label={`${spec.name} abreißen`}
+                        onClick={() => setDemolish(d.id)}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    {demolish === d.id && (
+                      <div className="pm-confirm">
+                        <span>Ohne Erstattung abreißen?</span>
+                        <button
+                          disabled={!connected}
+                          aria-label="Abriss bestätigen"
+                          onClick={() => {
+                            command({
+                              type: 'colony_demolish',
+                              districtId: d.id,
+                              systemId: system.id,
+                              bodySlot: system.bodySlot,
+                              revision: c.revision,
+                            });
+                            setDemolish(null);
+                          }}
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button aria-label="Abriss verwerfen" onClick={() => setDemolish(null)}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+          </div>
+          {selectedSlot === null && (
+            <p className="pm-muted">
+              Wähle einen Bauplatz. Freie Plätze kannst du mit einem Distrikt belegen.
+            </p>
+          )}
+          {picking !== null && (
+            <SlotPicker
+              title={`${sector.name} · Bauplatz ${picking + 1}`}
+              subtitle="Wähle den Distrikt für diesen Standort."
+              close={() => setPicking(null)}
+            >
+              {types.map((b) => {
+                const s = BUILDINGS[b],
+                  Icon = icons[b],
+                  match = FEATURES[sector.feature].building === b;
+                return (
+                  <button
+                    key={b}
+                    className="slot-choice"
+                    disabled={
+                      !connected ||
+                      !!project ||
+                      sector.districts.some((d) => d.slot === picking) ||
+                      !afford(b)
+                    }
+                    onClick={() => {
+                      build(b);
+                      setPicking(null);
+                    }}
+                  >
+                    <Icon />
+                    <strong>{s.name}</strong>
+                    {match && <em>Standortbonus</em>}
+                    <small>{s.description}</small>
+                    <span className="slot-choice-cost">
+                      {s.cost.energy} Energie · {s.cost.minerals} Mineralien ·{' '}
+                      {Math.ceil(s.time / Math.max(0.1, 1 + empireModifiers(game.me.empire).construction))} T
+                    </span>
+                    <small>
+                      {s.housing
+                        ? `+${s.housing + (sector.feature === 'sheltered' ? 2 : 0)} Wohnraum`
+                        : `${s.jobs} Jobs`}{' '}
+                      · {s.upkeep} Energie Unterhalt
+                    </small>
+                    {!afford(b) && <small>Rohstoffe fehlen</small>}
+                  </button>
+                );
+              })}
+            </SlotPicker>
           )}
         </aside>
       </div>

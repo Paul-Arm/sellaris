@@ -3,13 +3,7 @@ import assert from 'node:assert/strict';
 import { CORE_RULE_CATALOG, coreRules, PSIONIC_CONTACT_REQUIREMENT } from '../shared/rules/catalog';
 import { createRuleEngine } from '../shared/rules/engine';
 import { parseRuleCatalog } from '../shared/rules/validation';
-import type {
-  Condition,
-  Effect,
-  RuleContext,
-  RuleEntity,
-  RuleSource,
-} from '../shared/rules/types';
+import type { Condition, Effect, RuleContext, RuleEntity, RuleSource } from '../shared/rules/types';
 import { evaluateGovernmentRules, evaluateSpeciesRules } from '../shared/empireRules';
 import { governmentModifiers, speciesModifiers, governmentFor, newSpecies } from '../shared/empires';
 import {
@@ -350,7 +344,7 @@ test('serialization and evaluation are detached: no source, catalog, template or
   assert.ok(Object.isFrozen(engine.catalog.definitions['species.long_lived'].effects));
 });
 
-test('the live empire adapter preserves all existing species and government balance and exposes provenance', () => {
+test('live empires use canonical rules, including upkeep, and expose provenance', () => {
   for (const kind of Object.keys(SPECIES_KINDS) as SpeciesKind[]) {
     for (const [id, trait] of Object.entries(TRAITS)) {
       if (trait.speciesKinds && !trait.speciesKinds.includes(kind)) continue;
@@ -359,7 +353,7 @@ test('the live empire adapter preserves all existing species and government bala
       const current = speciesModifiers(species);
       for (const key of Object.keys(old) as (keyof typeof old)[]) near(current[key], old[key]);
       assert.equal(
-        evaluateSpeciesRules(species).contributions.some((c) => c.definition === `legacy.trait.${id}`),
+        evaluateSpeciesRules(species).contributions.some((c) => c.definition === `species.${id}`),
         true,
       );
       current.energy = 999;
@@ -376,7 +370,7 @@ test('the live empire adapter preserves all existing species and government bala
       for (const civic of government.civics) addEffects(old, CIVICS[civic].effects);
       const current = governmentModifiers(government, originId);
       for (const key of Object.keys(old) as (keyof typeof old)[]) near(current[key], old[key]);
-      assert.ok(evaluateGovernmentRules(government, originId).stats['legacy.data']);
+      assert.ok(evaluateGovernmentRules(government, originId).stats['production.research']);
     }
   }
 });

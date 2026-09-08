@@ -7,7 +7,7 @@ import { dueJobs, jobsFor } from './game-model';
 import { applyGameCommand } from './game-commands';
 import { atWar } from './game-relations';
 import { diplomacyAI } from './game-diplomacy';
-import { storyAI } from './game-stories';
+import { situationsAI } from './game-situations';
 import { colonizableBody, colonyPlanet } from '../../shared/planetColonies';
 import { storedSystemBodies } from './game-objects';
 
@@ -18,7 +18,7 @@ export function gameAI(ctx: Context) {
     if (processed++ >= 4) break;
     if (!candidate.ai) continue;
     diplomacyAI(ctx, candidate.id);
-    storyAI(ctx, candidate.id);
+    situationsAI(ctx, candidate.id);
     const owner = candidate.id,
       p = ctx.db.gamePlayer.id.find(owner)!,
       fleets = [...ctx.db.fleet.empireId.filter(owner)],
@@ -42,6 +42,19 @@ export function gameAI(ctx: Context) {
       }
     };
     let acted = false;
+    for (const id of p.surveyed) {
+      const s = ctx.db.star.id.find(id)!,
+        m = ctx.db.gameSystem.id.find(id)!;
+      if (
+        !s.ownerId &&
+        !m.starbaseJson &&
+        !m.defense &&
+        act({ type: 'starbase_build', systemId: m.externalId })
+      ) {
+        acted = true;
+        break;
+      }
+    }
     for (const f of ordered) {
       const meta = ctx.db.gameFleet.id.find(f.id)!,
         system = ctx.db.star.id.find(f.systemId)!,
@@ -51,8 +64,8 @@ export function gameAI(ctx: Context) {
       if (
         meta.kind === 'colony' &&
         p.surveyed.includes(system.id) &&
-        !system.ownerId &&
-        m.defense === 0 &&
+        system.ownerId === owner &&
+        !m.colonyJson &&
         system.kind === 'star'
       )
         acted = act({ type: 'colonize', fleetId: meta.externalId });
@@ -80,9 +93,9 @@ export function gameAI(ctx: Context) {
             ? !p.surveyed.includes(s.id) && ctx.db.gameSystem.id.find(s.id)!.defense === 0
             : meta.kind === 'colony'
               ? p.surveyed.includes(s.id) &&
-                !s.ownerId &&
+                s.ownerId === owner &&
                 s.kind === 'star' &&
-                ctx.db.gameSystem.id.find(s.id)!.defense === 0
+                !ctx.db.gameSystem.id.find(s.id)!.colonyJson
               : s.ownerId > 0 && atWar(ctx, owner, s.ownerId)),
       );
       targets.sort(
@@ -109,7 +122,31 @@ export function gameAI(ctx: Context) {
     const home = capital ? ctx.db.gameSystem.id.find(capital)!.externalId : '';
     // One independent economic decision per visit, fairly shared between research, ships and colonies.
     acted = false;
-    if (candidate.aiCursor % 3 === 0 && !JSON.parse(ctx.db.gameResearch.id.find(p.id)!.programJson).projects.length)
+    if (
+      candidate.aiCursor % 5 === 0 &&
+      [...ctx.db.star.ownerId.filter(owner)].length >= 2 &&
+      candidate.minerals > 1000
+    ) {
+      const model = capital ? systemModel(ctx, capital) : undefined,
+        base = model?.starbase;
+      if (model && base && !base.project) {
+        if (base.modules.length < 2 && base.level >= 2)
+          acted = act({
+            type: 'starbase_module',
+            systemId: model.id,
+            revision: base.revision,
+            slot: [0, 1].find((slot) => !base.modules.some((m) => m.slot === slot))!,
+            module: 'battery',
+          });
+        else if (base.level < 4)
+          acted = act({ type: 'starbase_upgrade', systemId: model.id, revision: base.revision });
+      }
+    }
+    if (
+      !acted &&
+      candidate.aiCursor % 3 === 0 &&
+      !JSON.parse(ctx.db.gameResearch.id.find(p.id)!.programJson).projects.length
+    )
       for (const tech of Object.keys(TECHS) as TechId[])
         if (!p.techs.includes(tech) && act({ type: 'research', tech })) {
           acted = true;
@@ -122,12 +159,17 @@ export function gameAI(ctx: Context) {
       jobs.filter((j) => j.kind === 'game_build').length < 2
     ) {
       const kinds = fleets.map((f) => ctx.db.gameFleet.id.find(f.id)?.kind);
-      const ship: ShipType = !kinds.includes('scout')
+      const military = fleets
+        .filter((f) => ctx.db.gameFleet.id.find(f.id)?.kind === 'corvette')
+        .reduce((n, f) => n + f.shipCount, 0);
+      const ship: ShipType | null = !kinds.includes('scout')
         ? 'scout'
         : !kinds.includes('colony')
           ? 'colony'
-          : 'corvette';
-      acted = act({ type: 'build', ship, systemId: home });
+          : military < 3
+            ? 'corvette'
+            : null;
+      if (ship) acted = act({ type: 'build', ship, systemId: home });
     }
     if (!acted && home) {
       for (const owned of ctx.db.colony.empireId.filter(owner)) {

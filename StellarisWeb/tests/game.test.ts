@@ -65,6 +65,8 @@ test('full exploration and colonization flow consumes a colony ship and increase
   advance(game, 9);
   assert.ok(p.surveyed.includes('s1'));
   assert.ok(p.resources.data >= data + 90);
+  command(game, p.id, { type: 'starbase_build', systemId: 's1' });
+  advance(game, 24);
   const rate = income(game, p);
   command(game, p.id, { type: 'move', fleetId: colony.id, systemId: 's1' });
   advance(game, 12);
@@ -79,7 +81,7 @@ test('colonization requires a survey and a colony ship; duplicate scans cannot g
   const scout = game.fleets.find((f) => f.type === 'scout')!,
     colony = game.fleets.find((f) => f.type === 'colony')!;
   colony.systemId = 's1';
-  assert.throws(() => command(game, p.id, { type: 'colonize', fleetId: colony.id }), /Untersuche/);
+  assert.throws(() => command(game, p.id, { type: 'colonize', fleetId: colony.id }), /nicht kolonisiert/);
   assert.throws(() => command(game, p.id, { type: 'colonize', fleetId: scout.id }), /Kolonieschiff/);
   assert.throws(() => command(game, p.id, { type: 'scan', fleetId: scout.id }), /bereits untersucht/);
   colony.systemId = 'rift';
@@ -93,13 +95,13 @@ test('mining and research change real production and disallow duplicate spending
   assert.equal(income(game, p).energy, before.energy + home.resources.energy);
   assert.throws(() => command(game, p.id, { type: 'mine', systemId: p.home }), /bereits/);
   command(game, p.id, { type: 'research', tech: 'extraction' });
-  advance(game, 54);
+  advance(game, 54 * 30);
   assert.ok(p.techs.includes('extraction'));
   const current = colonyEconomy(home.colony!, home.planet, p);
   assert.ok(
     Math.abs(
       income(game, p).energy -
-        ((current.output.energy + current.upkeep + home.resources.energy) * 1.5 - current.upkeep + 3),
+        ((current.output.energy + current.upkeep + home.resources.energy) * 1.5 - current.upkeep + 3 - 5),
     ) < 1e-8,
   );
   assert.throws(() => command(game, p.id, { type: 'research', tech: 'extraction' }), /Bereits/);
@@ -153,21 +155,27 @@ test('views hide other resources, private events and remote enemy fleets', () =>
   });
   assert.equal(view.me.resources.energy, p.resources.energy);
 });
-test('race to colonize the same system refunds the losing colony action', () => {
+test('foreign colonies cannot race an owner; concurrent own missions refund once', () => {
   const { game, p } = setup();
   const other = addPlayer(game, 'p2', 'Other');
-  for (const player of [p, other]) {
-    player.surveyed.push('s1');
-    const fleet = game.fleets.find((f) => f.owner === player.id && f.type === 'colony')!;
-    fleet.systemId = 's1';
-    command(game, player.id, { type: 'colonize', fleetId: fleet.id });
-  }
-  const before = other.resources.minerals;
+  p.resources = { energy: 1000, minerals: 1000, data: 0 };
+  p.surveyed.push('s1'); other.surveyed.push('s1');
+  command(game, p.id, { type: 'starbase_build', systemId: 's1' });
+  advance(game, 24);
+  const f = game.fleets.find((f) => f.owner === p.id && f.type === 'colony')!;
+  const foreign = game.fleets.find((f) => f.owner === other.id && f.type === 'colony')!;
+  f.systemId = foreign.systemId = 's1';
+  assert.throws(() => command(game, other.id, { type: 'colonize', fleetId: foreign.id }));
+  const second = { ...structuredClone(f), id: 'second-colony' }; game.fleets.push(second);
+  command(game, p.id, { type: 'colonize', fleetId: f.id });
+  command(game, p.id, { type: 'colonize', fleetId: second.id });
+  const before = p.resources.minerals;
   advance(game, 13);
-  assert.equal(game.systems.find((s) => s.id === 's1')!.owner, p.id);
-  assert.ok(other.resources.minerals >= before + 80);
-  assert.ok(game.fleets.some((f) => f.owner === other.id && f.type === 'colony'));
+  assert(game.systems.find((s) => s.id === 's1')!.colony);
+  assert(p.resources.minerals >= before + 80);
+  assert(game.fleets.some((f) => f.id === second.id));
 });
+
 test('eight colonies produce a winner and freeze the finished simulation', () => {
   const { game, p } = setup();
   for (const s of game.systems.slice(0, 8)) s.owner = p.id;

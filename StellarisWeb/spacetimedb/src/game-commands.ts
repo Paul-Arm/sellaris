@@ -1,3 +1,5 @@
+import { applyNativeStarbase } from './game-starbases';
+import type { StarbaseCommand } from '../../shared/starbases';
 import { SenderError, t } from 'spacetimedb/server';
 import { command, type GameCommand, type StarSystem } from '../../shared/game';
 import { starterLibrary, snapshotTemplate } from '../../shared/empires';
@@ -18,7 +20,9 @@ import {
 import { foundEmpire, gameClock } from './game-world';
 import { DIPLOMACY_TYPES, type DiplomacyCommand } from '../../shared/diplomacy';
 import { applyDiplomacy } from './game-diplomacy';
-import { applyStoryCommand } from './game-stories';
+import { applyCrisisCommand } from './game-crises';
+import { applySituationCommand, triggerSituation } from './game-situations';
+import type { SituationCommand } from '../../shared/events/types';
 import { applySiteCommand } from './game-sites';
 import { applyStellarCommand } from './game-stellar';
 import { applyNavigation, queueConstruction } from './game-navigation';
@@ -34,7 +38,11 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
   if (cmd.type === 'mine')
     throw new SenderError('Bergbaustationen werden am Systemobjekt mit einem Schiff gebaut.');
   const at = now(ctx);
-  if (cmd.type === 'research' || cmd.type === 'research_weight' || cmd.type === 'research_synthesis') {
+  if (cmd.type.startsWith('starbase_')) {
+    applyNativeStarbase(ctx, owner, cmd as StarbaseCommand);
+    return;
+  }
+  if (cmd.type === 'research' || cmd.type === 'research_weight' || cmd.type === 'compute_allocation') {
     applyResearchCommand(ctx, owner, cmd);
     return;
   }
@@ -67,8 +75,12 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
     else applySiteCommand(ctx, owner, cmd);
     return;
   }
-  if (cmd.type === 'resolve_decision' || cmd.type === 'crisis_action') {
-    applyStoryCommand(ctx, owner, cmd);
+  if (cmd.type.startsWith('situation_')) {
+    applySituationCommand(ctx, owner, cmd as SituationCommand);
+    return;
+  }
+  if (cmd.type === 'crisis_action') {
+    applyCrisisCommand(ctx, owner, cmd);
     return;
   }
   if ((DIPLOMACY_TYPES as readonly string[]).includes(cmd.type)) {
@@ -95,7 +107,7 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
   settleEconomy(ctx, owner, at);
   if (cmd.type.startsWith('colony_') && 'systemId' in cmd && cmd.systemId) {
     const meta = ctx.db.gameSystem.externalId.find(cmd.systemId);
-    if (meta && ctx.db.star.id.find(meta.id)?.ownerId === owner) settlePopulation(ctx, meta.id, at, true);
+    if (meta && ctx.db.star.id.find(meta.id)?.ownerId === owner) settlePopulation(ctx, meta.id, at);
   }
   const game = commandModel(ctx, owner),
     player = game.players[0],
@@ -152,6 +164,14 @@ export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, 
     ctx.db.gameSystem.id.update({ ...m, mined: s.mined, defense: s.defense, colonyName: s.colonyName || '' });
     updateColony(ctx, m.id, s.colony || null, owner);
   }
+  if (instanceChanged)
+    triggerSituation(
+      ctx,
+      owner,
+      cmd.type === 'species_modify' ? 'species' : 'modification',
+      `change:${player.empire.revision}`,
+      p.homeId,
+    );
   const jobs = jobsFor(ctx, owner),
     mods = empireModifiers(player.empire);
   if (cmd.type === 'build') {

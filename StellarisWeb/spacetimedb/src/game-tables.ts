@@ -1,3 +1,4 @@
+import { resourceFields } from './resource-schema';
 import { table, t } from 'spacetimedb/server';
 
 // Additive production schema. Lab databases keep their existing rules and rows.
@@ -10,7 +11,7 @@ export const gameSettings = table(
     winnerId: t.u32(),
     capacity: t.u32(),
     autoPaused: t.bool(),
-    migrationKey: t.string(),
+    creationKey: t.string(),
   },
 );
 export const gamePlayer = table(
@@ -51,15 +52,15 @@ export const gameSystem = table(
     color: t.string(),
     starClass: t.string(),
     planet: t.string(),
-    energy: t.f64(),
-    minerals: t.f64(),
-    data: t.f64(),
+    ...resourceFields(),
     defense: t.f64(),
     mined: t.bool(),
     anomaly: t.bool(),
     studied: t.bool(),
     colonyName: t.string(),
     colonyJson: t.string(),
+    starbaseJson: t.string(),
+    starbaseRevision: t.u32(),
     growthAt: t.f64(),
   },
 );
@@ -109,7 +110,7 @@ export const gameRelation = table(
     changedAt: t.f64(),
   },
 );
-const resources = t.object('DiplomaticResources', { energy: t.f64(), minerals: t.f64(), data: t.f64() });
+const resources = t.object('DiplomaticResources', resourceFields());
 export const gameOffer = table(
   {},
   {
@@ -119,17 +120,19 @@ export const gameOffer = table(
     createdAt: t.f64(),
   },
 );
-export const gameStory = table(
-  {},
-  {
-    id: t.u32().primaryKey(),
-    sourceKey: t.string().unique(),
-    systemId: t.u32(),
-    createdAt: t.f64(),
-    resolvedAt: t.f64(),
-    result: t.string(),
-  },
-);
+export const gameSituation = table({}, {
+  id: t.u32().primaryKey().autoInc(),
+  empireId: t.u32().index('btree'),
+  definitionId: t.string(),
+  sourceKey: t.string().unique(),
+  systemId: t.u32(),
+  stateJson: t.string(),
+  nextTick: t.u64().index('btree'),
+});
+export const gameEventDirector = table({}, {
+  id: t.u32().primaryKey(),
+  stateJson: t.string(),
+});
 export const gameCrisis = table(
   { public: true },
   {
@@ -179,6 +182,10 @@ export const gameTerraform = table(
     target: t.string(),
     startedAt: t.f64(),
     finishAt: t.f64(),
+    workTotal: t.f64(),
+    workDone: t.f64(),
+    updatedAt: t.f64(),
+    rate: t.f64(),
     finishTick: t.u64().index('btree'),
     paidEnergy: t.f64(),
     paidMinerals: t.f64(),
@@ -253,9 +260,14 @@ export const gameStellarWeather = table(
     nextTick: t.u64().index('btree'),
   },
 );
-export const gameResearch = table({}, {
-  id: t.u32().primaryKey(), programJson: t.string(), updatedAt: t.f64(),
-});
+export const gameResearch = table(
+  {},
+  {
+    id: t.u32().primaryKey(),
+    programJson: t.string(),
+    updatedAt: t.f64(),
+  },
+);
 export const gameTables = {
   gameResearch,
   gameStellarWeather,
@@ -266,7 +278,8 @@ export const gameTables = {
   gameObject,
   gameObjectFocus,
   gameSite,
-  gameStory,
+  gameSituation,
+  gameEventDirector,
   gameCrisis,
   gameCrisisPledge,
   gameRelation,

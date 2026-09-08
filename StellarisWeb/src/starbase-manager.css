@@ -1,0 +1,299 @@
+.starbase-entry {
+  margin: 10px 0;
+  text-align: left;
+}
+.starbase-entry span {
+  flex: 1;
+}
+.starbase-entry small {
+  display: block;
+  color: #8e9dad;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.starbase-dialog {
+  width: min(1080px, 94vw);
+  max-height: 90vh;
+  padding: 0;
+  color: #e1e8f0;
+  background: #0c131d;
+  border: 1px solid #344458;
+  border-radius: 14px;
+  box-shadow: 0 30px 100px #000a;
+}
+.starbase-dialog::backdrop {
+  background: #020710c9;
+  backdrop-filter: blur(6px);
+}
+.starbase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 26px 30px;
+  border-bottom: 1px solid #2a3545;
+  background: radial-gradient(ellipse at 15% 0, #283346, #101923);
+}
+.starbase-header h2 {
+  font-size: 30px;
+  margin: 8px 0;
+  font-weight: 500;
+}
+.starbase-header p,
+.starbase-content p {
+  color: #a1afc0;
+  line-height: 1.6;
+}
+.starbase-content {
+  padding: 24px;
+  min-width: 0;
+}
+.starbase-content h3 {
+  font-size: 16px;
+  font-weight: 500;
+}
+.starbase-content small {
+  color: #91a1b5;
+  font-size: 11px;
+}
+.starbase-claim > small {
+  display: block;
+  margin: 12px 0;
+}
+.starbase-upgrade,
+.starbase-project {
+  border: 1px solid #3a5465;
+  background: #132534;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.starbase-upgrade,
+.starbase-project > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.starbase-upgrade h3,
+.starbase-project h3 {
+  margin: 0 0 6px;
+}
+.starbase-upgrade p {
+  margin: 4px 0;
+  font-size: 12px;
+}
+.starbase-project progress {
+  width: 100%;
+  margin: 12px 0;
+  accent-color: #87d7bb;
+}
+.starbase-tabs {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #293746;
+}
+.starbase-tabs button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.starbase-tabs button[aria-pressed='true'] {
+  color: #a4e1d4;
+  border-color: #699b94;
+}
+.starbase-dialog button:focus-visible {
+  outline: 2px solid #91ded1;
+  outline-offset: 3px;
+}
+.starbase-dialog button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.starbase-dialog {
+  width: min(1020px, 96vw);
+}
+.starbase-header {
+  padding: 22px 28px 14px;
+}
+.starbase-header p {
+  margin: 0;
+  font-size: 12px;
+}
+.starbase-content {
+  padding: 18px 28px 24px;
+}
+.starbase-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: #111e29;
+  border-bottom: 1px solid #2b3e4c;
+  padding: 14px 28px;
+  gap: 14px;
+}
+.starbase-stats > span {
+  display: grid;
+  grid-template-columns: 22px auto;
+  align-items: center;
+  gap: 4px 7px;
+}
+.starbase-stats svg {
+  color: #8abfac;
+  grid-row: span 2;
+}
+.starbase-stats strong {
+  font-size: 15px;
+  font-weight: 500;
+}
+.starbase-stats small {
+  font-size: 10px;
+  color: #8b9daa;
+}
+.starbase-plan {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 1.2fr) minmax(0, 1fr);
+  gap: 12px 30px;
+  padding: 24px 30px;
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 50% 45%, #21585d28, transparent 65%),
+    repeating-linear-gradient(0deg, transparent 0 29px, #6d9eac09 29px 30px),
+    repeating-linear-gradient(90deg, transparent 0 29px, #6d9eac09 29px 30px);
+}
+.starbase-core {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  align-self: center;
+  text-align: center;
+  color: #b4d9d2;
+}
+.starbase-core svg {
+  width: calc(100% + 60px);
+  margin: 0 -30px;
+  filter: drop-shadow(0 0 20px #70d4b51a);
+}
+.starbase-core strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 400;
+  margin-top: 12px;
+}
+.starbase-core small {
+  display: block;
+  margin-top: 7px;
+}
+.starbase-port {
+  position: relative;
+}
+.starbase-port .build-slot {
+  height: 100%;
+  min-height: 144px;
+}
+.starbase-dialog .build-slot.locked:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.starbase-module-detail {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  background: #142633;
+  border: 1px solid #3b5869;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 0 0 18px;
+}
+.starbase-module-detail h3 {
+  margin: 8px 0;
+}
+.starbase-module-detail p {
+  font-size: 12px;
+}
+.starbase-module-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 160px;
+  max-width: 230px;
+}
+.starbase-upgrade,
+.starbase-project {
+  margin: 14px 0 0;
+}
+.starbase-upgrade .eyebrow {
+  display: block;
+  margin-bottom: 7px;
+}
+.starbase-queue-slots {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 24px 0;
+}
+.starbase-claim {
+  text-align: center;
+  padding: 24px;
+}
+.starbase-claim-slot {
+  max-width: 230px;
+  margin: 0 auto 25px;
+}
+.starbase-claim-slot .build-slot {
+  min-height: 220px;
+}
+.starbase-claim-slot .build-slot-symbol {
+  width: 90px;
+  height: 90px;
+}
+.starbase-claim-slot .build-slot-symbol svg {
+  width: 62px;
+  height: 62px;
+}
+@media (max-width: 650px) {
+  .starbase-content {
+    padding: 12px;
+  }
+  .starbase-header {
+    padding: 18px;
+  }
+  .starbase-header h2 {
+    font-size: 26px;
+  }
+  .starbase-stats {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 14px 18px;
+  }
+  .starbase-plan {
+    padding: 18px 0;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) 65px minmax(0, 1fr);
+  }
+  .starbase-core svg {
+    width: calc(100% + 20px);
+    margin: 0 -10px;
+  }
+  .starbase-core strong {
+    font-size: 13px;
+  }
+  .starbase-core small {
+    font-size: 9px;
+  }
+  .starbase-port .build-slot {
+    min-height: 138px;
+  }
+  .starbase-module-detail {
+    flex-direction: column;
+  }
+  .starbase-module-actions {
+    max-width: none;
+  }
+  .starbase-queue-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .starbase-upgrade {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

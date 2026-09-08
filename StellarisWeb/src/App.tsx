@@ -1,9 +1,15 @@
+import { StarbaseControl } from './StarbaseManager';
+import { resourceIcons } from './resource-icons';
+import { ComputeBalance, ResourceBalance, signedAmount } from './ResourceBalance';
+import { RESOURCE_IDS, resourceAmounts, type Resources } from '../shared/resources';
+import { empireLedger } from '../shared/empireEconomy';
+import { economyTotals, economyDate } from '../shared/economy';
 import { EmpireSidebar } from './EmpireSidebar';
 import { ResearchAtlas } from './ResearchAtlas';
 import type { ColonyEntry, InventorySelection } from './inventory-model';
 import { DetailList } from './DetailList';
 import { gameIndices } from './game-indices';
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -50,7 +56,7 @@ import { LabScene } from './LabScene';
 import { BattleOverview } from './BattleOverview';
 import { NativeFleetPanel } from './NativeFleetPanel';
 import { DiplomacyPanel } from './DiplomacyPanel';
-import { StoriesPanel } from './StoriesPanel';
+import { EventWorkspace, EventAnnouncement } from './EventWorkspace';
 import './backend-lab.css';
 import './native-game.css';
 import { useGame } from './useGame';
@@ -59,14 +65,9 @@ import { ownedColonyWorlds } from '../shared/planetColonies';
 import { EmpireLibrary } from './EmpireLibrary';
 import { LiveEmpire } from './LiveEmpire';
 import { EmpireFlag } from './EmpireFlag';
-import { flagForEmpire } from '../shared/flags';
 import { empireModifiers } from '../shared/empireState';
 import { relationBetween } from '../shared/diplomacy';
-import { baseIncome, colonyProduction } from '../shared/colonies';
-import { facilityYield } from '../shared/celestial';
-import { stellarWeatherFactor } from '../shared/stellarWeather';
 import {
-  income,
   SHIPS,
   TECHS,
   WIN_SYSTEMS,
@@ -89,13 +90,12 @@ type Modal =
   | 'library'
   | 'fleet'
   | 'diplomacy'
-  | 'stories'
+  | 'events'
   | null;
 const ignoreSceneStats = () => {};
 const fmt = (n: number) => Math.floor(n).toLocaleString('de-DE');
 const rateFmt = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 1 });
-const resourceIcons = { energy: Zap, minerals: Diamond, data: FlaskConical };
-const resourceNames = { energy: 'Energie', minerals: 'Mineralien', data: 'Daten' };
+
 function shipIcon(type: ShipType) {
   return type === 'scout' ? Telescope : type === 'colony' ? Globe2 : Rocket;
 }
@@ -123,6 +123,7 @@ export function App() {
   const [mode, setMode] = useState<'galaxy' | 'system'>('galaxy');
   const [tacticalBattle, setTacticalBattle] = useState(0);
   const [modal, setModal] = useState<Modal>('library');
+  const [eventSelection, setEventSelection] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const [focus, setFocus] = useState(0);
   const [toast, setToast] = useState('');
@@ -134,11 +135,17 @@ export function App() {
   const [leftOpen, setLeftOpen] = useState(false);
   const previousPlayer = useRef('');
   function selectInventoryColony(colony: ColonyEntry) {
-    setSelected(colony.systemId); setSelectedColony(colony.id); setMoving(false); setTacticalBattle(0);
+    setSelected(colony.systemId);
+    setSelectedColony(colony.id);
+    setMoving(false);
+    setTacticalBattle(0);
     setInventorySelection({ systemId: colony.systemId, bodySlot: colony.world.bodySlot });
   }
   function selectInventoryFleet(fleet: Fleet) {
-    setFleetId(fleet.id); setSelected(fleet.systemId); setMoving(false); setTacticalBattle(0);
+    setFleetId(fleet.id);
+    setSelected(fleet.systemId);
+    setMoving(false);
+    setTacticalBattle(0);
     setInventorySelection({ systemId: fleet.systemId, fleetId: fleet.id });
   }
   const selectedTemplate = net.library?.empires.find((e) => e.id === templateId) || net.library?.empires[0];
@@ -231,12 +238,31 @@ export function App() {
     }
   }
   const ownFleets = game?.fleets.filter((f) => f.owner === game.me.id) || [];
-  const colonies = game?.systems.filter((s) => s.owner === game.me.id) || [];
-  const rates = game ? income(game, game.me) : { energy: 0, minerals: 0, data: 0 };
-  const date = new Date(Date.UTC(2200, 0, 1 + Math.floor(game?.tick || 0)))
-    .toISOString()
-    .slice(0, 10)
-    .replaceAll('-', '.');
+  const colonies = game?.systems.filter((s) => s.owner === game.me.id && s.colony) || [];
+  const ledger = useMemo(
+    () => (game ? empireLedger(game, game.me) : []),
+    [game?.systems, game?.me, game?.planetColonies, game?.sites],
+  );
+  const rates = useMemo(() => economyTotals(ledger), [ledger]);
+  const balances = useMemo(() => {
+    const categories = new Map<string, Resources>(),
+      worlds = new Map<string, Resources>(),
+      systems = new Map<string, Resources>();
+    for (const line of ledger) {
+      for (const [map, key] of [
+        [categories, line.category],
+        [worlds, line.worldId],
+        [systems, line.systemId],
+      ] as const) {
+        if (!key) continue;
+        let total = map.get(key);
+        if (!total) map.set(key, (total = resourceAmounts()));
+        total[line.resource] += line.amount;
+      }
+    }
+    return { categories, worlds, systems };
+  }, [ledger]);
+  const date = economyDate(game?.tick ?? 0);
   return (
     <div className={`app-shell ${game?.backend === 'spacetimedb' ? 'native-game' : ''}`}>
       <aside className="rail">
@@ -302,7 +328,11 @@ export function App() {
             title="Flotten"
             aria-label="Flotten"
             onClick={() => {
-              if (game) { setInventorySection('ships'); setLeftOpen(true); setModal(null); }
+              if (game) {
+                setInventorySection('ships');
+                setLeftOpen(true);
+                setModal(null);
+              }
             }}
           >
             <Rocket size={21} />
@@ -329,14 +359,14 @@ export function App() {
             )}
           </button>
           <button
-            className={modal === 'stories' ? 'active' : ''}
+            className={modal === 'events' ? 'active' : ''}
             title="Lagezentrum"
             aria-label="Lagezentrum"
             disabled={!game}
-            onClick={() => setModal('stories')}
+            onClick={() => setModal('events')}
           >
             <Radio size={21} />
-            {game?.decisions?.some((d) => d.phase === 'pending') && <i className="rail-dot green" />}
+            {game?.situations?.some((d) => d.state.notice > d.state.seen) && <i className="rail-dot green" />}
           </button>
         </nav>
         <div className="rail-bottom">
@@ -359,27 +389,22 @@ export function App() {
       </aside>
       <header className="topbar">
         <div className="resources">
-          {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
+          {RESOURCE_IDS.map((r) => {
             const Icon = resourceIcons[r];
             return (
-              <button
-                className={`resource ${r}`}
+              <ResourceBalance
                 key={r}
-                title={`${resourceNames[r]} · +${rates[r].toLocaleString('de-DE', { maximumFractionDigits: 2 })} pro 4 Spieltage`}
-                onClick={() => setModal('empire')}
-                aria-label={`${resourceNames[r]}: Wirtschaftsübersicht öffnen`}
+                resource={r}
+                stock={game?.me.resources[r] ?? 0}
+                lines={ledger}
+                day={game?.tick ?? 0}
+                onOpen={() => setModal('empire')}
               >
                 <Icon size={17} strokeWidth={1.6} />
-                <div>
-                  <strong>{fmt(game?.me.resources[r] || 0)}</strong>
-                  <span>+{rateFmt(rates[r])}</span>
-                </div>
-              </button>
+              </ResourceBalance>
             );
           })}
-          <button className="resource compute" title="Verfügbare Rechenleistung pro Spieltag" aria-label="Compute: Forschungslandkarte öffnen" onClick={() => setModal('research')}>
-            <Cpu size={17} /><strong>{fmt(game?.me.compute || 0)}</strong><span>Compute</span>
-          </button>
+          <ComputeBalance game={game} onOpen={() => setModal('research')} />
           <div
             className="resource fleet-resource"
             title={`${ownFleets.reduce((n, f) => n + (f.shipCount ?? 1), 0)} eigene Schiffe in ${ownFleets.length} Flotten`}
@@ -485,16 +510,31 @@ export function App() {
                 <Pause size={12} /> SIMULATION PAUSIERT
               </div>
             )}
-            <EmpireSidebar game={game} open={leftOpen} selectedColony={selectedColony || selected} selectedFleet={fleetId}
-                onColony={selectInventoryColony}
-                onFleet={selectInventoryFleet}
-                onOpenColony={(colony) => { setSelected(colony.systemId); setSelectedColony(colony.id); setModal('colony'); }}
-                onOpenFleet={(fleet) => { setFleetId(fleet.id); setModal('fleet'); }}
-                section={inventorySection} onSection={setInventorySection}
-                onStories={() => setModal('stories')} onLog={() => setShowLog(!showLog)} />
+            <EmpireSidebar
+              game={game}
+              open={leftOpen}
+              selectedColony={selectedColony || selected}
+              selectedFleet={fleetId}
+              onColony={selectInventoryColony}
+              onFleet={selectInventoryFleet}
+              onOpenColony={(colony) => {
+                setSelected(colony.systemId);
+                setSelectedColony(colony.id);
+                setModal('colony');
+              }}
+              onOpenFleet={(fleet) => {
+                setFleetId(fleet.id);
+                setModal('fleet');
+              }}
+              section={inventorySection}
+              onSection={setInventorySection}
+              onEvents={() => setModal('events')}
+              onLog={() => setShowLog(!showLog)}
+            />
             {mode === 'galaxy' && (
               <aside className="right-panel">
                 <SystemPanel
+                  production={balances.systems.get(system.id) ?? system.resources}
                   game={game}
                   system={system}
                   fleet={fleet}
@@ -712,12 +752,26 @@ export function App() {
           </button>
         </div>
       )}
+      {game && !modal && (
+        <EventAnnouncement
+          game={game}
+          command={net.command}
+          connected={net.connected}
+          onOpen={(id) => {
+            setEventSelection(id);
+            setModal('events');
+          }}
+        />
+      )}
       {modal && (
         <Dialog onClose={() => setModal(null)}>
           {modal === 'library' && (
             <EmpireLibrary
               library={net.library}
               connected={net.connected}
+              loadError={net.libraryError}
+              profileUnavailable={net.libraryUnavailable}
+              onOpen={net.openLibrary}
               mutate={net.mutateLibrary}
               onUse={(id) => {
                 setTemplateId(id);
@@ -725,8 +779,10 @@ export function App() {
               }}
             />
           )}
-          {modal === 'stories' && game && (
-            <StoriesPanel
+          {modal === 'events' && game && (
+            <EventWorkspace
+              selection={eventSelection}
+              onSelect={setEventSelection}
               game={game}
               command={net.command}
               connected={net.connected}
@@ -788,7 +844,7 @@ export function App() {
                   {game.players.map((p) => (
                     <div key={p.id}>
                       <span className="player-avatar" style={{ color: p.color, background: p.color + '12' }}>
-                        <EmpireFlag flag={p.flag ?? flagForEmpire(p)} width={32} />
+                        <EmpireFlag flag={p.flag} width={32} />
                       </span>
                       <strong>
                         {p.name}
@@ -908,7 +964,9 @@ export function App() {
               </p>
             </>
           )}
-          {modal === 'research' && game && (<ResearchAtlas game={game} command={send} connected={net.connected} />)}
+          {modal === 'research' && game && (
+            <ResearchAtlas game={game} command={send} connected={net.connected} />
+          )}
           {modal === 'empire' && game && (
             <>
               <ModalTitle
@@ -938,16 +996,16 @@ export function App() {
                 </div>
               </div>
               <h3 className="modal-subtitle">
-                Produktion pro Zyklus <span>4 Spieltage</span>
+                Produktion pro Monat <span>30 Spieltage</span>
               </h3>
               <div className="economy-table">
                 <div className="economy-base">
                   <strong>Reichsgrundversorgung</strong>
-                  {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
+                  {RESOURCE_IDS.map((r) => {
                     const Icon = resourceIcons[r];
                     return (
                       <span key={r}>
-                        <Icon size={13} />+{rateFmt(baseIncome(game.me)[r])}
+                        <Icon size={13} />+{rateFmt(balances.categories.get('base')?.[r] ?? 0)}
                       </span>
                     );
                   })}
@@ -967,11 +1025,12 @@ export function App() {
                         <ArrowUpRight size={12} />
                       </button>
                     </strong>
-                    {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
+                    {RESOURCE_IDS.map((r) => {
                       const Icon = resourceIcons[r];
                       return (
                         <span key={r}>
-                          <Icon size={13} />+{rateFmt(colonyProduction(s, game.me)[r])}
+                          <Icon size={13} />
+                          {signedAmount(balances.worlds.get(`${s.id}:${s.colony?.bodySlot ?? 0}`)?.[r] ?? 0)}
                         </span>
                       );
                     })}
@@ -980,23 +1039,36 @@ export function App() {
                 {!!game.sites?.some((s) => s.owner === game.me.id && s.level > 0) && (
                   <div className="economy-base">
                     <strong>Systemanlagen</strong>
-                    {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
+                    {RESOURCE_IDS.map((r) => {
                       const Icon = resourceIcons[r];
                       return (
                         <span key={r}>
-                          <Icon size={13} />+{rateFmt(game.me.installationIncome?.[r] || 0)}
+                          <Icon size={13} />+{rateFmt(balances.categories.get('installations')?.[r] ?? 0)}
                         </span>
                       );
                     })}
                   </div>
                 )}
-                <div className="economy-total">
-                  <strong>Gesamtertrag</strong>
-                  {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
+                <div className="economy-base">
+                  <strong>Datensynthese</strong>
+                  {RESOURCE_IDS.map((r) => {
                     const Icon = resourceIcons[r];
                     return (
                       <span key={r}>
-                        <Icon size={13} />+{rateFmt(rates[r])}
+                        <Icon size={13} />
+                        {signedAmount(balances.categories.get('synthesis')?.[r] ?? 0)}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div className="economy-total">
+                  <strong>Gesamtertrag</strong>
+                  {RESOURCE_IDS.map((r) => {
+                    const Icon = resourceIcons[r];
+                    return (
+                      <span key={r}>
+                        <Icon size={13} />
+                        {signedAmount(rates[r])}
                       </span>
                     );
                   })}
@@ -1014,7 +1086,7 @@ export function App() {
                     <div key={p.id}>
                       <span>0{i + 1}</span>
                       <strong style={{ color: p.color }}>
-                        <EmpireFlag flag={p.flag ?? flagForEmpire(p)} width={24} />
+                        <EmpireFlag flag={p.flag} width={24} />
                         {p.name}
                         {p.ai && <span className="ai-tag">KI</span>}
                       </strong>
@@ -1047,7 +1119,7 @@ export function App() {
                   [
                     '02',
                     'Expandierte Grenzen',
-                    'Schicke ISS Genesis in das untersuchte System. „Kolonie gründen“ kostet 80 Energie + 80 Mineralien und verbraucht das Kolonieschiff.',
+                    'Errichte im untersuchten System einen Außenposten für 100 Energie + 150 Mineralien. Nach 24 Tagen gehört dir das System. Danach gründet ISS Genesis für 80 Energie + 80 Mineralien eine Kolonie.',
                   ],
                   [
                     '03',
@@ -1085,9 +1157,9 @@ export function App() {
               </div>
               <p className="fine-print">
                 Die Sternenkarte ist bekannt. Systemerträge werden durch Untersuchung sichtbar; fremde Schiffe
-                nur bei eigenen Kolonien oder Flotten. Anomalien liefern zusätzliche Daten. Im
-                Multiplayer-Dialog kann der Host KI-Imperien hinzufügen. Eigene Kolonien reparieren Schiffe,
-                solange keine Feinde im System sind.
+                nur in eigenen Systemen oder bei eigenen Flotten. Anomalien liefern zusätzliche Daten. Im
+                Multiplayer-Dialog kann der Host KI-Imperien hinzufügen. Eigene Sternenbasen und besetzte
+                Schildbastionen reparieren Schiffe, solange keine Feinde im System sind.
               </p>
             </>
           )}
@@ -1097,6 +1169,7 @@ export function App() {
   );
 }
 function SystemPanel({
+  production,
   game,
   system: s,
   fleet,
@@ -1107,6 +1180,7 @@ function SystemPanel({
   onColony,
 }: {
   game: GameView;
+  production: Resources;
   system: StarSystem;
   fleet?: Fleet;
   send: (c: GameCommand) => void;
@@ -1119,22 +1193,7 @@ function SystemPanel({
     own = s.owner === game.me.id;
   const atSystem = fleet?.systemId === s.id && !fleet.route.length && !fleet.task;
   const here = game.fleets.filter((f) => f.owner === game.me.id && f.systemId === s.id && !f.route.length);
-  const [yardOpen, setYardOpen] = useState(false);
-  useEffect(() => setYardOpen(false), [s.id]);
   const selectedTask = fleet?.systemId === s.id ? fleet.task : null;
-  const production = own ? colonyProduction(s, game.me) : s.resources;
-  if (own)
-    for (const site of game.sites || []) {
-      if (site.systemId !== s.id || site.owner !== game.me.id || site.suspended) continue;
-      const rate = facilityYield(
-        site.facility,
-        site.level,
-        (s.productionFactor ?? 1) * stellarWeatherFactor(site.facility, s.stellarWeather, game.tick),
-      );
-      production.energy += rate.energy;
-      production.minerals += rate.minerals;
-      production.data += rate.data;
-    }
   return (
     <div className="system-panel">
       <div className="system-panel-top">
@@ -1168,7 +1227,9 @@ function SystemPanel({
           <span>{s.kind === 'star' ? 'Status' : 'Forschungswert'}</span>
           <strong className={own ? 'mint' : ''}>
             {own
-              ? 'Kolonie etabliert'
+              ? s.colony
+                ? 'Kolonie etabliert'
+                : 'System gesichert'
               : s.defense > 0 && !s.owner
                 ? 'Wächterpräsenz'
                 : s.kind !== 'star'
@@ -1176,7 +1237,7 @@ function SystemPanel({
                     ? 'Untersucht'
                     : '+90 Daten'
                   : surveyed
-                    ? 'Zur Kolonisierung bereit'
+                    ? 'Außenposten möglich'
                     : 'Unbekanntes System'}
           </strong>
         </div>
@@ -1190,12 +1251,14 @@ function SystemPanel({
       <div className="system-production">
         <span className="eyebrow">{own ? 'SYSTEMPRODUKTION' : 'RESSOURCENVORKOMMEN'}</span>
         <div>
-          {(['energy', 'minerals', 'data'] as Resource[]).map((r) => {
+          {RESOURCE_IDS.map((r) => {
             const Icon = resourceIcons[r];
             return (
               <span key={r} className={r}>
                 <Icon size={15} />
-                <strong>{surveyed || own ? `+${rateFmt(production[r])}` : '?'}</strong>
+                <strong>
+                  {surveyed || own ? `${production[r] >= 0 ? '+' : ''}${rateFmt(production[r])}` : '?'}
+                </strong>
               </span>
             );
           })}
@@ -1210,6 +1273,7 @@ function SystemPanel({
           </div>
         </div>
       )}
+      <StarbaseControl key={s.id} game={game} system={s} command={send} disabled={!!game.winner} />
       <div className="system-actions">
         {selectedTask && (
           <div className="task-progress">
@@ -1249,14 +1313,13 @@ function SystemPanel({
             <ScanLine size={15} /> Alle Himmelskörper erkunden
           </button>
         )}
-        {!own && !s.owner && s.kind === 'star' && (
+        {own && !s.colony && s.kind === 'star' && (
           <button
             className="secondary-button wide"
             disabled={
               !atSystem ||
               fleet?.type !== 'colony' ||
               !surveyed ||
-              s.defense > 0 ||
               game.me.resources.energy < 80 ||
               game.me.resources.minerals < 80 ||
               !!game.winner
@@ -1276,11 +1339,11 @@ function SystemPanel({
               : !surveyed
                 ? 'Schicke ein Forschungsschiff in dieses System.'
                 : s.kind === 'star'
-                  ? 'Ein Kolonieschiff kann hier eine neue Welt gründen.'
+                  ? 'Errichte einen Außenposten, um das System zu beanspruchen.'
                   : 'Schicke ein Forschungsschiff zur Anomalie.'}
           </p>
         )}
-        {own && (
+        {own && s.colony && (
           <>
             <button className="primary-button wide colony-manage-button" onClick={onColony}>
               <Globe2 size={14} />
@@ -1302,43 +1365,6 @@ function SystemPanel({
                 <Progress
                   value={() => 1 - s.colony!.construction!.remaining / s.colony!.construction!.total}
                 />
-              </div>
-            )}
-            <button className="primary-button wide" onClick={() => setYardOpen(!yardOpen)}>
-              <Rocket size={14} /> Raumwerft{' '}
-              <span>{yardOpen ? <ChevronDown size={14} /> : <Plus size={14} />}</span>
-            </button>
-            {yardOpen && (
-              <div className="shipyard">
-                {(Object.keys(SHIPS) as ShipType[]).map((type) => {
-                  const ship = SHIPS[type];
-                  const Icon = shipIcon(type);
-                  return (
-                    <button
-                      key={type}
-                      disabled={
-                        game.me.resources.energy < ship.cost.energy ||
-                        game.me.resources.minerals < ship.cost.minerals ||
-                        game.me.queue.length >= 5 ||
-                        !!game.winner
-                      }
-                      onClick={() => send({ type: 'build', ship: type, systemId: s.id })}
-                    >
-                      <Icon size={16} />
-                      <div>
-                        <strong>{ship.name}</strong>
-                        <span>
-                          {ship.cost.energy} Energie · {ship.cost.minerals} Mineralien ·{' '}
-                          {Math.ceil(
-                            ship.time / Math.max(0.1, 1 + empireModifiers(game.me.empire).construction),
-                          )}{' '}
-                          s
-                        </span>
-                      </div>
-                      <Plus size={14} />
-                    </button>
-                  );
-                })}
               </div>
             )}
             <button className="secondary-button wide" onClick={onMode}>

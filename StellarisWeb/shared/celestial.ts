@@ -1,4 +1,6 @@
 import type { Resources, StarSystem } from './game';
+import { RESOURCE_IDS, resourceAmounts, addResources } from './resources';
+import { economyLine, type EconomyModifier } from './economy';
 import { type StellarProfile } from './stellar';
 import type { Environment } from './empireCatalog';
 import { MEGASTRUCTURES, isMegastructure, type Megastructure } from './megastructures';
@@ -44,7 +46,7 @@ export function systemHasAsteroidBelt(system: Pick<StarSystem, 'id'>): boolean {
 }
 // Generation is only used when a new world is created.
 export { generateSystemBodies as systemBodies } from './systemGeneration';
-export type Facility = 'solar' | 'mine' | 'habitat' | 'research' | 'gas' | 'starbase' | Megastructure;
+export type Facility = 'solar' | 'mine' | 'habitat' | 'research' | 'gas' | Megastructure;
 export const FACILITIES: Record<
   Facility,
   { name: string; description: string; kinds: BodyKind[]; cost: Resources; days: number; yield: Resources }
@@ -65,14 +67,6 @@ export const FACILITIES: Record<
     days: 60,
     yield: { energy: 0, minerals: 0, data: 0 },
   },
-  starbase: {
-    name: 'Sternenbasis',
-    description: 'Orbitaler Versorgungs- und Handelsstützpunkt am Stern.',
-    kinds: ['star'],
-    cost: { energy: 150, minerals: 180, data: 0 },
-    days: 24,
-    yield: { energy: 2, minerals: 2, data: 1 },
-  },
   solar: {
     name: 'Sonnenkollektor',
     description: 'Orbitale Segel wandeln Sternenlicht in Energie um.',
@@ -90,7 +84,7 @@ export const FACILITIES: Record<
     yield: { energy: 0, minerals: 4, data: 0 },
   },
   habitat: {
-    name: 'Außenposten',
+    name: 'Orbitalhabitat',
     description: 'Geschützter Stützpunkt mit Versorgung und lokaler Industrie.',
     kinds: ['planet', 'moon', 'station'],
     cost: { energy: 90, minerals: 120, data: 0 },
@@ -122,23 +116,45 @@ export function facilitySpec(facility: Facility, level: number) {
   const d = FACILITIES[facility],
     m = 1 + level * 0.65;
   return {
-    cost: { energy: Math.ceil(d.cost.energy * m), minerals: Math.ceil(d.cost.minerals * m), data: 0 },
+    cost: resourceAmounts(
+      Object.fromEntries(RESOURCE_IDS.map((id) => [id, Math.ceil((d.cost[id] ?? 0) * m)])),
+    ),
     days: d.days + level * 8,
   };
 }
 export function facilityYield(facility: Facility, level: number, factor = 1): Resources {
   if (isMegastructure(facility)) {
     const spec = MEGASTRUCTURES[facility],
-      result = { energy: 0, minerals: 0, data: 0 };
+      result = resourceAmounts();
     result[spec.resource] = level > 0 ? spec.stages[Math.min(2, level - 1)].output * factor : 0;
     return result;
   }
   const r = FACILITIES[facility].yield;
-  return {
-    energy: r.energy * level * factor,
-    minerals: r.minerals * level * factor,
-    data: r.data * level * factor,
-  };
+  return addResources(resourceAmounts(), r, level * factor);
+}
+export function facilityLedger(
+  facility: Facility,
+  level: number,
+  modifiers: EconomyModifier[] = [],
+  production = 1,
+  weather = 1,
+  id = facility as string,
+  source = FACILITIES[facility].name,
+) {
+  const rate = facilityYield(facility, level);
+  return RESOURCE_IDS.filter((resource) => rate[resource] > 0).map((resource) =>
+    economyLine(
+      `site:${id}:${resource}`,
+      source,
+      rate[resource],
+      [
+        ...modifiers,
+        { id: 'crisis', name: 'Reichslage / Krise', factor: production },
+        { id: 'weather', name: 'Sternenwetter', factor: weather },
+      ],
+      { category: 'installations', resource, job: facility },
+    ),
+  );
 }
 export interface BodySite {
   id: string;

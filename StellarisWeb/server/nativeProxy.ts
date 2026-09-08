@@ -34,7 +34,7 @@ export function proxyNativeHttp(req: IncomingMessage, res: ServerResponse): bool
   return true;
 }
 /** Same-origin binary tunnel. No simulation, command interpretation, or credentials in URLs/logs. */
-export function installNativeUpgrade(server: Server, legacy: WebSocketServer) {
+export function installNativeUpgrade(server: Server, library: WebSocketServer) {
   const tunnel = new WebSocketServer({ noServer: true, maxPayload: 8 * 1024 * 1024 });
   server.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url || '/', 'http://localhost');
@@ -43,7 +43,7 @@ export function installNativeUpgrade(server: Server, legacy: WebSocketServer) {
       return;
     }
     if (url.pathname === '/ws') {
-      legacy.handleUpgrade(req, socket, head, (ws) => legacy.emit('connection', ws, req));
+      library.handleUpgrade(req, socket, head, (ws) => library.emit('connection', ws, req));
       return;
     }
     if (!/^\/v1\/database\/singularity-game-[a-z0-9-]+\/subscribe$/.test(url.pathname)) {

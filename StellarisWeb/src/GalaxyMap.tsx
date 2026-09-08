@@ -251,7 +251,7 @@ export function GalaxyMap(props: Props) {
       labels: LabelPlacement[] = [];
     function render(now: number) {
       frame = requestAnimationFrame(render);
-      if (document.hidden) return;
+      if (document.hidden || !container.current?.parentElement) return;
       const { game, selected, fleetId, mode } = latest.current;
       if (indexedSystems !== game.systems) {
         indexedSystems = game.systems;

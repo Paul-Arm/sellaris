@@ -1,7 +1,6 @@
 import type { StarSystem } from '../shared/game';
 import { STELLAR_STORM, stellarWeatherFactor } from '../shared/stellarWeather';
 import './stellar-weather.css';
-
 export function StellarWeatherPanel({
   system,
   tick,
@@ -11,11 +10,11 @@ export function StellarWeatherPanel({
   tick: number;
   paused: boolean;
 }) {
-  const weather = system.stellarWeather;
-  if (!weather) return null;
-  const active = stellarWeatherFactor('solar', weather, tick) < 1;
-  const warning = weather.phase !== 'cancelled' && tick < weather.startsAt;
-  const remaining = Math.max(0, Math.ceil((warning ? weather.startsAt : weather.endsAt) - tick));
+  const w = system.stellarWeather;
+  if (!w) return null;
+  const active = stellarWeatherFactor('solar', w, tick) < 1;
+  const warning = w.phase === 'warning';
+  const remaining = Math.max(0, Math.ceil((warning ? w.startsAt : w.endsAt) - tick));
   return (
     <section className={`stellar-weather ${active ? 'active' : ''}`} aria-label="Sternensturm">
       <span className="eyebrow">NATÜRLICHES STERNEREIGNIS</span>
@@ -24,8 +23,8 @@ export function StellarWeatherPanel({
           ? 'Sternensturm aktiv'
           : warning
             ? 'Sternensturm vorhergesagt'
-            : weather.phase === 'cancelled'
-              ? 'Sturm durch Sternveränderung beendet'
+            : w.phase === 'cancelled'
+              ? 'Sternereignis beendet'
               : 'Sternensturm abgeklungen'}
       </h3>
       {active || warning ? (
@@ -35,18 +34,18 @@ export function StellarWeatherPanel({
             {paused ? ' · pausiert' : ''}.
           </p>
           <progress
-            aria-label={warning ? 'Zeit bis zum Sternensturm' : 'Dauer des Sternensturms'}
+            aria-label="Sternensturm"
             max={warning ? STELLAR_STORM.warningDays : STELLAR_STORM.activeDays}
             value={(warning ? STELLAR_STORM.warningDays : STELLAR_STORM.activeDays) - remaining}
           />
-          <p>
-            Sonnenkollektoren und Dyson-Anlagen liefern{' '}
-            {active ? 'derzeit' : `für ${STELLAR_STORM.activeDays} Tage`} nur 25 % ihrer Energie. Andere
-            Anlagen und Kolonien arbeiten weiter.
-          </p>
+          <p>Sonnenkollektoren und Dyson-Anlagen liefern für 60 Tage nur 25 % ihrer Energie.</p>
         </>
       ) : (
-        <p>Die solare Produktion ist wiederhergestellt.</p>
+        <p>
+          {w.phase === 'cancelled'
+            ? 'Der Stern hat sich verändert.'
+            : 'Die solare Produktion ist wiederhergestellt.'}
+        </p>
       )}
     </section>
   );

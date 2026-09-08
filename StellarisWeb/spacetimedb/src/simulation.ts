@@ -1,7 +1,9 @@
+import { ECONOMY_MONTH_DAYS } from '../../shared/economy';
+import { resourceAmounts, addResources, RESOURCE_IDS } from '../../shared/resources';
 import { Range } from 'spacetimedb/server';
 import { combatDay, effectiveHpLost } from '../../backend/domain';
 import { nextGameDay } from '../../shared/time';
-import { ensureBattleReport, publishBattleReport, recordBattleDamage } from './battle-reports';
+import { publishBattleReport, recordBattleDamage } from './battle-reports';
 import { gameStrategic, gameEconomy } from './game-ticks';
 import { gameAI } from './game-ai';
 import { db, strategicSchedule, economySchedule, combatSchedule, aiSchedule, type Context } from './tables';
@@ -150,31 +152,29 @@ export const economyTick = db.reducer(
     const runtime = ctx.db.runtime.name.find('economy')!;
     if (at < runtime.nextGameAt) return;
     // Whole production cycles preserve missed income without replaying one write per pop per tick.
-    const cycles = Math.floor((at - runtime.nextGameAt) / 4) + 1;
-    const producedAt = runtime.nextGameAt + (cycles - 1) * 4;
+    const cycles = Math.floor((at - runtime.nextGameAt) / ECONOMY_MONTH_DAYS) + 1;
+    const producedAt = runtime.nextGameAt + (cycles - 1) * ECONOMY_MONTH_DAYS;
     let writes = 0;
     for (const e of ctx.db.empire.iter()) {
-      let energy = 0,
-        minerals = 0,
-        data = 0;
+      const production = resourceAmounts();
       for (const c of ctx.db.colony.empireId.filter(e.id)) {
-        energy += c.energyRate;
-        minerals += c.mineralsRate;
-        data += c.dataRate;
+        addResources(production, c.monthlyProduction);
         ctx.db.colony.id.update({ ...c, lastProducedAt: producedAt });
         writes++;
       }
       for (const route of ctx.db.trade.empireId.filter(e.id)) {
         if (route.status !== 'active') continue;
-        energy += route.energyPerCycle;
+        production.energy += route.monthlyEnergy;
         ctx.db.trade.id.update({ ...route, deliveredAt: producedAt });
         writes++;
       }
       ctx.db.empire.id.update({
         ...e,
-        energy: e.energy + energy * cycles * e.productionModifier,
-        minerals: e.minerals + minerals * cycles * e.productionModifier,
-        data: e.data + data * cycles * e.productionModifier,
+        ...resourceAmounts(
+          Object.fromEntries(
+            RESOURCE_IDS.map((r) => [r, e[r] + production[r] * cycles * e.productionModifier]),
+          ),
+        ),
       });
       writes++;
       for (const d of ctx.db.decision.empireId.filter(e.id)) {
@@ -200,9 +200,9 @@ export const economyTick = db.reducer(
       ctx,
       'economy',
       writes,
-      4 / ctx.db.clock.id.find(1)!.speed,
+      ECONOMY_MONTH_DAYS / ctx.db.clock.id.find(1)!.speed,
       at - runtime.nextGameAt,
-      producedAt + 4,
+      producedAt + ECONOMY_MONTH_DAYS,
     );
   },
 );
@@ -222,7 +222,6 @@ export const combatTick = db.reducer(
       for (let catchup = 0; catchup < 4 && at >= nextGameDay(b.simulatedAt); catchup++) {
         const stepAt = nextGameDay(b.simulatedAt);
         const fighters = [...ctx.db.participant.battleId.filter(b.id)];
-        ensureBattleReport(ctx, b, fighters, wallNow(ctx));
         const result = combatDay(fighters, b.simulatedAt, stepAt);
         const previous = new Map(fighters.map((p) => [p.shipId, p]));
         const fleetLosses = new Map<number, number>();

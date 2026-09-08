@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { ArrowUpRight, Check, Cpu, Database, Pause, Play, Sparkles } from 'lucide-react';
 import type { GameCommand, GameView } from '../shared/game';
 import {
   baseCompute,
+  reservedCompute,
   dataCost,
   RESEARCH_FIELDS,
   researchAllocation,
@@ -12,6 +13,7 @@ import {
 } from '../shared/research';
 import './research-atlas.css';
 import { ResearchMap } from './ResearchMap';
+import { ComputeBudget } from './ComputeBudget';
 
 const fmt = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 2 });
 const color = (id: TechId) => RESEARCH_FIELDS[TECHS[id].field].color;
@@ -28,8 +30,6 @@ export function ResearchAtlas({
   const [focusRequest, setFocusRequest] = useState<{ id: TechId; revision: number } | null>(null);
   const revealed = visibleResearch(game.me.techs);
   const selected = revealed.includes(selection) ? selection : revealed[0];
-  const [share, setShare] = useState(game.me.research.synthesis);
-  const pendingShare = useRef<number | null>(null);
   const me = game.me,
     program = me.research,
     spec = TECHS[selected];
@@ -39,12 +39,6 @@ export function ResearchAtlas({
   const selectedProject = program.projects.find((p) => p.tech === selected);
   const complete = me.techs.includes(selected);
   const activeCount = [...allocation.rates.values()].filter((r) => r > 0).length;
-  useEffect(() => {
-    if (pendingShare.current === null || pendingShare.current === program.synthesis) {
-      pendingShare.current = null;
-      setShare(program.synthesis);
-    }
-  }, [program.synthesis]);
   const focus = (id: TechId) => {
     if (!revealed.includes(id)) return;
     select(id);
@@ -73,7 +67,7 @@ export function ResearchAtlas({
           <Cpu size={20} />
           <div>
             <strong>{fmt(compute)}</strong>
-            <span>Compute / Tag</span>
+            <span>Compute / Monat</span>
           </div>
         </div>
       </header>
@@ -86,65 +80,7 @@ export function ResearchAtlas({
             onSelect={select}
             focusRequest={focusRequest}
           />
-          <section className="ra-allocation" aria-label="Compute verteilen">
-            <div className="ra-section-head">
-              <h3>Dein Rechenbudget</h3>
-              <span>{game.paused ? 'SIMULATION PAUSIERT' : 'LIVE'}</span>
-            </div>
-            <div className="ra-budget-labels">
-              <span>
-                <Cpu size={14} /> Forschung <b>{fmt(allocation.research)} C/Tag</b>
-              </span>
-              <span>
-                <Sparkles size={14} /> Datensynthese <b>{fmt(allocation.synthesis)} C/Tag</b>
-              </span>
-            </div>
-            <div className="ra-budget-bar">
-              <span style={{ width: `${compute ? (allocation.research / compute) * 100 : 0}%` }} />
-            </div>
-            <label className="ra-share">
-              Compute für Datensynthese <b>{share} %</b>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                aria-label="Compute-Anteil für Datensynthese"
-                value={share}
-                disabled={disabled}
-                onChange={(e) => {
-                  pendingShare.current = Number(e.target.value);
-                  setShare(pendingShare.current);
-                }}
-                onPointerUp={(e) =>
-                  command({ type: 'research_synthesis', percent: Number(e.currentTarget.value) })
-                }
-                onKeyUp={(e) => {
-                  if (
-                    [
-                      'ArrowLeft',
-                      'ArrowRight',
-                      'ArrowUp',
-                      'ArrowDown',
-                      'Home',
-                      'End',
-                      'PageUp',
-                      'PageDown',
-                    ].includes(e.key)
-                  )
-                    command({ type: 'research_synthesis', percent: Number(e.currentTarget.value) });
-                }}
-                onBlur={(e) => {
-                  if (pendingShare.current !== null)
-                    command({ type: 'research_synthesis', percent: Number(e.currentTarget.value) });
-                }}
-              />
-            </label>
-            <p>
-              <strong>+{fmt(allocation.data)} Daten / Tag</strong> aus Simulationen. Freies Compute erzeugt
-              automatisch Daten. Rechenzentren und Technologien erhöhen dein Budget.
-            </p>
-          </section>
+          <ComputeBudget game={game} command={command} disabled={disabled} />
         </div>
         <aside className="ra-inspector">
           <section className="ra-detail" style={{ '--node-color': color(selected) } as CSSProperties}>
@@ -231,12 +167,12 @@ export function ResearchAtlas({
                         ? 'Geparkt · Fortschritt gespeichert'
                         : missing.length
                           ? `Wartet auf ${missing.map((id) => TECHS[id].name).join(', ')}`
-                          : program.synthesis === 100
-                            ? 'Compute vollständig in Datensynthese'
+                          : reservedCompute(program) === 100
+                            ? 'Compute vollständig für andere Aufgaben reserviert'
                             : p.paid === null
                               ? `Wartet auf ${dataCost(p.tech, me.techs)} Daten`
                               : rate
-                                ? `${fmt(rate)} C/Tag · ${Math.ceil((t.work - p.done) / rate)} Tage${game.paused ? ' · pausiert' : ''}`
+                                ? `${fmt(rate)} C/Monat · ${Math.ceil((t.work - p.done) / rate)} Monate${game.paused ? ' · pausiert' : ''}`
                                 : 'Wartet auf Compute'}
                     </div>
                     <div className="ra-project-controls">

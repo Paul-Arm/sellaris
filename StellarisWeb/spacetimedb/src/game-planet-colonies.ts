@@ -1,3 +1,7 @@
+import { triggerSituation } from './game-situations';
+import { researchState, researchCapacity } from './game-research';
+import { monthsDue, monthBoundary, ECONOMY_MONTH_DAYS } from '../../shared/economy';
+import { RESOURCE_IDS, resourceAmounts } from '../../shared/resources';
 import { SenderError, t } from 'spacetimedb/server';
 import { db, type Context } from './tables';
 import { now, NEVER } from './rules';
@@ -23,7 +27,7 @@ export function planetColonyTarget(ctx: Context, owner: number, systemId: number
     throw new SenderError('Planet nicht verfügbar.');
   const body: CelestialBody = JSON.parse(object.bodyJson);
   if (ctx.db.star.id.find(systemId)?.ownerId !== owner)
-    throw new SenderError('Gründe zuerst die Hauptkolonie dieses Systems.');
+    throw new SenderError('Errichte zuerst einen Außenposten in diesem System.');
   if (!ctx.db.gamePlayer.id.find(owner)!.surveyed.includes(systemId))
     throw new SenderError('Untersuche zuerst das System.');
   if (!colonizableBody(body)) throw new SenderError('Dieser Körper ist kein besiedelbarer Nebenplanet.');
@@ -66,6 +70,7 @@ export function completePlanetColony(
   const body: CelestialBody = JSON.parse(object.bodyJson),
     empire = JSON.parse(ctx.db.gamePlayer.id.find(owner)!.empireJson),
     colony = createColony(false, `${ctx.db.gameSettings.id.find(1)!.code}:${object.id}`, colonyPlanet(body));
+  colony.bodySlot = object.slot;
   colony.populations = [{ speciesId: empire.primarySpeciesId, population: colony.population }];
   ctx.db.gamePlanetColony.insert({
     id: object.id,
@@ -75,14 +80,15 @@ export function completePlanetColony(
     growthAt: at,
     lastProducedAt: at,
   });
+  triggerSituation(ctx, owner, 'colony', `planet:${object.id}`, object.systemId);
   event(ctx, owner, `${body.name} besiedelt. Eine weitere Kolonie im System ist gegründet.`, 'success');
   return true;
 }
 /** Settle the old climate/empire/building state before any change to its inputs. */
 export function settlePlanetColonies(ctx: Context, owner: number, at: number): Resources {
   const p = ctx.db.gamePlayer.id.find(owner)!,
-    player = { techs: p.techs as TechId[], empire: JSON.parse(p.empireJson) },
-    result = { energy: 0, minerals: 0, data: 0 };
+    player = { techs: p.techs as TechId[], empire: JSON.parse(p.empireJson), research: researchState(ctx, owner), compute: researchCapacity(ctx, owner) },
+    result = resourceAmounts();
   for (const row of ctx.db.gamePlanetColony.empireId.filter(owner)) {
     const object = ctx.db.gameObject.id.find(row.id);
     if (!object || object.state !== 'active' || ctx.db.star.id.find(row.systemId)?.ownerId !== owner)
@@ -90,8 +96,8 @@ export function settlePlanetColonies(ctx: Context, owner: number, at: number): R
     const body: CelestialBody = JSON.parse(object.bodyJson),
       colony: Colony = JSON.parse(row.colonyJson),
       planet = colonyPlanet(body),
-      n = Math.floor(Math.max(0, at - row.lastProducedAt) / 4),
-      elapsed = Math.max(0, at - row.growthAt);
+      n = monthsDue(row.lastProducedAt, at),
+      elapsed = monthsDue(row.growthAt, at) * ECONOMY_MONTH_DAYS;
     if (!n && !elapsed) continue;
     const rate = colonyProduction(
       {
@@ -103,13 +109,13 @@ export function settlePlanetColonies(ctx: Context, owner: number, at: number): R
       },
       player,
     );
-    for (const r of ['energy', 'minerals', 'data'] as const) result[r] += rate[r] * n;
+    for (const r of RESOURCE_IDS) result[r] += rate[r] * n;
     growColony(colony, planet, player, elapsed);
     ctx.db.gamePlanetColony.id.update({
       ...row,
       colonyJson: JSON.stringify(colony),
-      growthAt: at,
-      lastProducedAt: row.lastProducedAt + n * 4,
+      growthAt: monthBoundary(at),
+      lastProducedAt: monthBoundary(at),
     });
   }
   return result;

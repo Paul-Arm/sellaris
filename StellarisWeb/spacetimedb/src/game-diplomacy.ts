@@ -1,25 +1,31 @@
+import { resourceAmounts } from '../../shared/resources';
+import { TRADE_RESOURCES } from '../../shared/diplomacy';
 import { SenderError } from 'spacetimedb/server';
 import type { Resources } from '../../shared/game';
 import { OFFER_LIFETIME, TRUCE_DURATION, type DiplomacyCommand } from '../../shared/diplomacy';
 import { db, type Context } from './tables';
-import { admin, finishBattle, now } from './rules';
+import { finishBattle, now } from './rules';
 import { event, settleEconomy } from './game-model';
 import { atWar, pairKey } from './game-relations';
 
 const zero = (): Resources => ({ energy: 0, minerals: 0, data: 0 });
-const keys = ['energy', 'minerals', 'data'] as const;
+const keys = TRADE_RESOURCES;
 const sum = (r: Resources) => r.energy + r.minerals + r.data;
 function amounts(value: unknown): Resources {
   if (!value || typeof value !== 'object') throw new SenderError('Rohstoffmengen fehlen.');
   const r = value as Resources;
+  if (r.unity !== undefined && r.unity !== 0) throw new SenderError('Einigkeit kann nicht gehandelt werden.');
   if (keys.some((k) => !Number.isSafeInteger(r[k]) || r[k] < 0 || r[k] > 10000))
     throw new SenderError('Je Rohstoff sind ganze Mengen von 0 bis 10.000 erlaubt.');
   return { energy: r.energy, minerals: r.minerals, data: r.data };
 }
 function transfer(ctx: Context, owner: number, debit: Resources, credit: Resources) {
   const e = ctx.db.empire.id.find(owner)!;
-  if (keys.some((k) => e[k] < debit[k])) throw new SenderError('Nicht genug verfügbare Rohstoffe.');
-  ctx.db.empire.id.update({ ...e, ...Object.fromEntries(keys.map((k) => [k, e[k] - debit[k] + credit[k]])) });
+  if (keys.some((k) => e[k] < (debit[k] ?? 0))) throw new SenderError('Nicht genug verfügbare Rohstoffe.');
+  ctx.db.empire.id.update({
+    ...e,
+    ...Object.fromEntries(keys.map((k) => [k, e[k] - (debit[k] ?? 0) + (credit[k] ?? 0)])),
+  });
 }
 function relation(ctx: Context, a: number, b: number, state: string, truceUntil = 0) {
   const id = pairKey(a, b),
@@ -115,7 +121,12 @@ export function applyDiplomacy(ctx: Context, owner: number, cmd: DiplomacyComman
       status: 'pending',
       expiresAt: at + OFFER_LIFETIME,
     });
-    ctx.db.gameOffer.insert({ id: t.id, give, receive, createdAt: at });
+    ctx.db.gameOffer.insert({
+      id: t.id,
+      give: resourceAmounts(give),
+      receive: resourceAmounts(receive),
+      createdAt: at,
+    });
     notifyPair(
       ctx,
       owner,
@@ -166,13 +177,6 @@ export function applyDiplomacy(ctx: Context, owner: number, cmd: DiplomacyComman
   }
   ctx.db.treaty.id.update({ ...t, status: 'accepted' });
 }
-/** Additive upgrade: keep existing battles at war, leave all other pairs peaceful. */
-export const initializeDiplomacy = db.reducer((ctx) => {
-  admin(ctx);
-  for (const b of ctx.db.battle.state.filter('active'))
-    if (!ctx.db.gameRelation.id.find(pairKey(b.attackers, b.defenders)))
-      relation(ctx, b.attackers, b.defenders, 'war');
-});
 export function diplomacyAI(ctx: Context, owner: number) {
   for (const t of ctx.db.treaty.empireB.filter(owner)) {
     const o = ctx.db.gameOffer.id.find(t.id);

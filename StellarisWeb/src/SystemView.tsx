@@ -1,3 +1,9 @@
+import { optimizeProduction } from '../shared/compute';
+import { BuildSlot, SlotPicker } from './BuildSlots';
+import { StarbaseControl } from './StarbaseManager';
+import { economyTotals } from '../shared/economy';
+import { resourceIcons as icons } from './resource-icons';
+import { RESOURCE_NAMES } from '../shared/resources';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { InventorySelection } from './inventory-model';
 import type { Client } from '../backend/client';
@@ -39,15 +45,14 @@ import {
   BODY_NAMES,
   FACILITIES,
   facilitySpec,
-  facilityYield,
+  facilityLedger,
   facilityFits,
   type Facility,
 } from '../shared/celestial';
-import { crisisProductionFactor } from '../shared/stories';
+import { crisisProductionFactor } from '../shared/crises';
 import { SystemScene, type SystemTarget } from './SystemSpaceScene';
 import './system-view.css';
 
-const icons = { energy: Zap, minerals: Diamond, data: FlaskConical };
 const format = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 1 });
 function BodyName({ body, client, disabled }: { body: StoredBody; client: Client; disabled: boolean }) {
   const [editing, setEditing] = useState(false),
@@ -93,7 +98,7 @@ function BodyName({ body, client, disabled }: { body: StoredBody; client: Client
     </form>
   );
 }
-function Amounts({ values }: { values: { energy: number; minerals: number; data: number } }) {
+function Amounts({ values }: { values: import('../shared/resources').Resources }) {
   return (
     <span className="site-amounts">
       {(Object.keys(values) as Resource[])
@@ -101,7 +106,7 @@ function Amounts({ values }: { values: { energy: number; minerals: number; data:
         .map((r) => {
           const Icon = icons[r];
           return (
-            <span key={r} title={r === 'energy' ? 'Energie' : r === 'minerals' ? 'Mineralien' : 'Daten'}>
+            <span key={r} title={RESOURCE_NAMES[r]}>
               <Icon size={12} />
               {format(values[r])}
             </span>
@@ -150,6 +155,7 @@ export function SystemView({
   const [point, setPoint] = useState<Point3>({ x: 500, y: 80, z: 300 });
   const [picking, setPicking] = useState(false),
     [stationMode, setStationMode] = useState(false);
+  const [facilityPicker, setFacilityPicker] = useState<string | null>(null);
   const [stationFacility, setStationFacility] = useState<'habitat' | 'research'>('research');
   const [zoom, setZoom] = useState(1),
     [zoomStep, setZoomStep] = useState(0),
@@ -161,12 +167,19 @@ export function SystemView({
   const bodies = objects.bodies || [];
   const appliedInventorySelection = useRef<InventorySelection | null>(null);
   useEffect(() => {
-    if (!inventorySelection || inventorySelection === appliedInventorySelection.current || inventorySelection.systemId !== system.id) return;
+    if (
+      !inventorySelection ||
+      inventorySelection === appliedInventorySelection.current ||
+      inventorySelection.systemId !== system.id
+    )
+      return;
     const slot = inventorySelection.bodySlot ?? bodies.find((body) => body.main)?.slot;
     if (!inventorySelection.fleetId && slot === undefined) return;
     appliedInventorySelection.current = inventorySelection;
     setSelection((previous) => ({ slot: slot ?? previous.slot, fleet: inventorySelection.fleetId ?? null }));
-    setStationMode(false); setPicking(false); setContext(null);
+    setStationMode(false);
+    setPicking(false);
+    setContext(null);
     setFocusSelection((n) => n + 1);
   }, [inventorySelection, system.id, bodies]);
   const body = bodies.find((b) => b.slot === selection.slot) || bodies[0];
@@ -181,7 +194,7 @@ export function SystemView({
   const ownFleet = fleets.find((f) => f.owner === game.me.id && !f.battleId);
   const scout = fleets.find((f) => f.owner === game.me.id && f.type === 'scout' && !f.task && !f.battleId);
   const colony = fleets.find((f) => f.owner === game.me.id && f.type === 'colony' && !f.task && !f.battleId);
-  const allowed = surveyed && (own || (system.kind !== 'star' && !system.owner && !!ownFleet));
+  const allowed = surveyed && own;
   const disabled = !connected || !!game.winner;
   const factor = Math.min(1, ...(game.crises || []).map((c) => crisisProductionFactor(c.phase, c.shielded)));
   const chooseFleet = (id: string) => {
@@ -283,9 +296,24 @@ export function SystemView({
         </button>
       </div>
       <aside ref={inspector} className="body-inspector" aria-label="Systemobjekt verwalten">
+        <StarbaseControl key={system.id} game={game} system={system} command={command} disabled={disabled} />
         <div className="inspector-tools">
-          {own && surveyed && <button aria-pressed={stationMode} onClick={() => { setStationMode((v) => !v); setPicking(false); }}><Plus size={13} /> Station</button>}
-          {onBattle && <button onClick={onBattle}><Shield size={13} /> Gefecht</button>}
+          {own && surveyed && (
+            <button
+              aria-pressed={stationMode}
+              onClick={() => {
+                setStationMode((v) => !v);
+                setPicking(false);
+              }}
+            >
+              <Plus size={13} /> Station
+            </button>
+          )}
+          {onBattle && (
+            <button onClick={onBattle}>
+              <Shield size={13} /> Gefecht
+            </button>
+          )}
         </div>
         {stationMode ? (
           <section className="navigation-panel" aria-label="Stationsplatzierung">
@@ -302,7 +330,7 @@ export function SystemView({
                 onChange={(e) => setStationFacility(e.target.value as 'habitat' | 'research')}
               >
                 <option value="research">Forschungsstation</option>
-                <option value="habitat">Außenposten</option>
+                <option value="habitat">Orbitalhabitat</option>
               </select>
             </label>
             <p>
@@ -436,7 +464,7 @@ export function SystemView({
                 Anlagenplatz <b>{site ? `${FACILITIES[site.facility].name} · ${site.level}/3` : 'Frei'}</b>
               </span>
             </div>
-            {(body.main || planetColony) && own && (
+            {((body.main && system.colony) || planetColony) && own && (
               <button className="body-colony-link" onClick={() => onColony(planetColony?.objectId)}>
                 <Globe2 size={18} />
                 <span>
@@ -459,10 +487,10 @@ export function SystemView({
                 {!scout && <small>Ein freies Forschungsschiff muss vor Ort sein.</small>}
               </div>
             )}
-            {body.main && !system.owner && surveyed && (
+            {body.main && own && !system.colony && surveyed && (
               <button
                 className="secondary-button"
-                disabled={disabled || !colony || system.defense > 0}
+                disabled={disabled || !colony}
                 onClick={() => colony && command({ type: 'colonize', fleetId: colony.id })}
               >
                 <Globe2 size={15} />
@@ -517,9 +545,7 @@ export function SystemView({
               <p className="body-hint">
                 {!surveyed
                   ? 'Zuerst untersuchen.'
-                  : system.kind === 'star'
-                    ? 'Für den Anlagenbau muss dieses Sternsystem deinem Reich gehören.'
-                    : 'Eine eigene Flotte muss die Außenstation vor Ort errichten.'}
+                  : 'Für den Anlagenbau muss dieses System deinem Reich gehören.'}
               </p>
             )}
             {site && site.owner !== game.me.id ? (
@@ -554,66 +580,101 @@ export function SystemView({
                     <small>Abbrechen erstattet 50 % der Baukosten.</small>
                   </div>
                 ) : (
-                  <div className="facility-options">
-                    {(Object.keys(FACILITIES) as Facility[])
-                      .filter(
-                        (id) =>
-                          !isMegastructure(id) && facilityFits(id, body) && (!site || site.facility === id),
-                      )
-                      .map((id) => {
-                        const def = FACILITIES[id],
-                          level = site?.level || 0,
-                          spec = facilitySpec(id, level),
-                          max = level >= 3;
-                        const affordable =
-                          game.me.resources.energy >= spec.cost.energy &&
-                          game.me.resources.minerals >= spec.cost.minerals;
-                        return (
-                          <article key={id}>
-                            <header>
-                              <strong>{def.name}</strong>
-                              <small>{max ? 'MAX' : `STUFE ${level + 1}`}</small>
-                            </header>
-                            <div className="facility-yield">
-                              <small>Ertrag pro Stufe / 4 Tage</small>
-                              <Amounts
-                                values={facilityYield(
-                                  id,
-                                  1,
-                                  factor * stellarWeatherFactor(id, system.stellarWeather, game.tick),
+                  <>
+                    {(Object.keys(FACILITIES) as Facility[]).some(
+                      (id) => !isMegastructure(id) && facilityFits(id, body),
+                    ) && (
+                      <BuildSlot
+                        label="ORBITALER ANLAGENPLATZ"
+                        name={site ? FACILITIES[site.facility].name : 'Freier Anlagenplatz'}
+                        icon={<Orbit />}
+                        state={site ? 'occupied' : allowed ? 'empty' : 'locked'}
+                        level={site?.level}
+                        detail={site ? (site.level >= 3 ? 'Voll ausgebaut' : 'Anlage verwalten') : undefined}
+                        onClick={() => setFacilityPicker(body.objectId)}
+                      />
+                    )}
+                    {facilityPicker === body.objectId && (
+                      <SlotPicker
+                        title={`${body.name} · Anlagenplatz`}
+                        subtitle={
+                          site ? 'Bestehende Anlage ausbauen.' : 'Wähle die Anlage für diesen Himmelskörper.'
+                        }
+                        close={() => setFacilityPicker(null)}
+                      >
+                        {(Object.keys(FACILITIES) as Facility[])
+                          .filter(
+                            (id) =>
+                              !isMegastructure(id) &&
+                              facilityFits(id, body) &&
+                              (!site || site.facility === id),
+                          )
+                          .map((id) => {
+                            const def = FACILITIES[id],
+                              level = site?.level || 0,
+                              spec = facilitySpec(id, level),
+                              max = level >= 3;
+                            const affordable =
+                              game.me.resources.energy >= spec.cost.energy &&
+                              game.me.resources.minerals >= spec.cost.minerals;
+                            const Icon =
+                              id === 'research'
+                                ? FlaskConical
+                                : id === 'mine'
+                                  ? Diamond
+                                  : id === 'solar'
+                                    ? Zap
+                                    : Orbit;
+                            return (
+                              <button
+                                className="slot-choice"
+                                key={id}
+                                disabled={disabled || !allowed || !affordable || max || !builder}
+                                onClick={() => {
+                                  issueConstruction({
+                                    type: 'site_build',
+                                    systemId: system.id,
+                                    bodySlot: body.slot,
+                                    facility: id,
+                                  });
+                                  setFacilityPicker(null);
+                                }}
+                              >
+                                <Icon />
+                                <strong>{def.name}</strong>
+                                <small>
+                                  {max
+                                    ? 'Voll ausgebaut'
+                                    : `Stufe ${level + 1} ${level ? 'ausbauen' : 'einsetzen'}`}
+                                </small>
+                                <small>Ertrag pro Stufe / Monat</small>
+                                <Amounts
+                                  values={economyTotals(
+                                    optimizeProduction(facilityLedger(
+                                      id,
+                                      1,
+                                      game.me.empire.economyModifiers ?? [],
+                                      factor,
+                                      stellarWeatherFactor(id, system.stellarWeather, game.tick),
+                                    ), game.me),
+                                  )}
+                                />
+                                {!max && (
+                                  <span className="slot-choice-cost">
+                                    {spec.cost.energy} Energie · {spec.cost.minerals} Mineralien · {spec.days}{' '}
+                                    T
+                                  </span>
                                 )}
-                              />
-                            </div>
-                            <button
-                              className="secondary-button"
-                              disabled={disabled || !allowed || !affordable || max || !builder}
-                              onClick={() =>
-                                issueConstruction({
-                                  type: 'site_build',
-                                  systemId: system.id,
-                                  bodySlot: body.slot,
-                                  facility: id,
-                                })
-                              }
-                            >
-                              {max ? (
-                                <>
-                                  <Check size={13} />
-                                  Voll ausgebaut
-                                </>
-                              ) : (
-                                <>
-                                  <Hammer size={13} />
-                                  <span>{level ? 'Ausbauen' : 'Errichten'}</span>
-                                  <Amounts values={spec.cost} />
-                                  <small>{spec.days} T</small>
-                                </>
-                              )}
-                            </button>
-                          </article>
-                        );
-                      })}
-                  </div>
+                                {!builder && (
+                                  <small>Ein eigenes freies Schiff im System wird benötigt.</small>
+                                )}
+                                {!affordable && <small>Rohstoffe fehlen</small>}
+                              </button>
+                            );
+                          })}
+                      </SlotPicker>
+                    )}
+                  </>
                 )}
                 {!!site?.level && (
                   <div className="site-current">
@@ -621,13 +682,19 @@ export function SystemView({
                     <span>
                       Aktiver Ertrag · Stufe {site.level}
                       <Amounts
-                        values={facilityYield(
-                          site.facility,
-                          site.level,
+                        values={
                           site.suspended
-                            ? 0
-                            : factor * stellarWeatherFactor(site.facility, system.stellarWeather, game.tick),
-                        )}
+                            ? {}
+                            : economyTotals(
+                                optimizeProduction(facilityLedger(
+                                  site.facility,
+                                  site.level,
+                                  game.me.empire.economyModifiers ?? [],
+                                  factor,
+                                  stellarWeatherFactor(site.facility, system.stellarWeather, game.tick),
+                                ), game.me),
+                              )
+                        }
                       />
                     </span>
                   </div>

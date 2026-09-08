@@ -3,7 +3,6 @@ import { SHIP_SETS, type ShipSet } from './shipSets';
 import {
   AUTHORITIES,
   CIVICS,
-  EMBLEMS,
   EMPIRE_KINDS,
   ENVIRONMENTS,
   ETHICS,
@@ -18,7 +17,7 @@ import {
   type Modifiers,
   type SpeciesKind,
 } from './empireCatalog';
-import { parseFlag, type FlagDesign } from './flags';
+import { defaultFlag, parseFlag, type FlagDesign } from './flags';
 import { governmentRuleModifiers, speciesRuleModifiers } from './empireRules';
 
 export const TEMPLATE_VERSION = 1;
@@ -52,10 +51,9 @@ export interface EmpireDesign {
   description: string;
   lore: string;
   color: string;
-  emblem: keyof typeof EMBLEMS;
-  flag?: FlagDesign;
+  flag: FlagDesign;
   shipPrefix: string;
-  shipSet?: ShipSet;
+  shipSet: ShipSet;
   rulerName: string;
   rulerTitle: string;
   homeworldName: string;
@@ -211,7 +209,7 @@ export function parseEmpireTemplate(value: unknown, species: SpeciesTemplate[]):
     throw new Error('Dieser Ursprung passt nicht zur Spezies.');
   if (typeof o.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(o.color))
     throw new Error('Wähle eine gültige Reichsfarbe.');
-  const flag = parseFlag(o.flag, { color: o.color, emblem: choice(EMBLEMS, o.emblem, 'Emblem') });
+  const flag = parseFlag(o.flag);
   return {
     ...meta(o),
     name: text(o.name, 'Reichsname', 64, true),
@@ -219,10 +217,9 @@ export function parseEmpireTemplate(value: unknown, species: SpeciesTemplate[]):
     description: text(o.description, 'Beschreibung', 240),
     lore: text(o.lore, 'Reichsgeschichte', 4000),
     color: o.color.toLowerCase(),
-    emblem: flag.emblem,
     flag,
     shipPrefix: text(o.shipPrefix, 'Schiffspräfix', 12),
-    shipSet: o.shipSet === undefined ? 'prisma' : choice(SHIP_SETS, o.shipSet, 'Schiffsdesign'),
+    shipSet: choice(SHIP_SETS, o.shipSet, 'Schiffsdesign'),
     rulerName: text(o.rulerName, 'Herrschername', 48),
     rulerTitle: text(o.rulerTitle, 'Herrschertitel', 48),
     homeworldName: text(o.homeworldName, 'Heimatwelt', 48, true),
@@ -284,7 +281,7 @@ export function newEmpire(
     description: 'Eine gemeinsame Zukunft zwischen den Sternen.',
     lore: '',
     color: '#9c91ff',
-    emblem: 'orbit',
+    flag: defaultFlag(),
     shipPrefix: 'ISS',
     shipSet: kind === 'machine' ? 'nexus' : kind === 'hive' ? 'parallax' : 'prisma',
     rulerName: '',
@@ -334,7 +331,7 @@ export function starterLibrary(): EmpireLibrary {
         name: 'Myzelischer Verbund',
         adjective: 'myzelisch',
         color: '#58d9cf',
-        emblem: 'nexus',
+        flag: defaultFlag('#58d9cf', 'nexus'),
         homeworldName: 'Keimstatt',
         systemName: 'Viridia',
         origin: 'first_consensus',
@@ -348,7 +345,7 @@ export function starterLibrary(): EmpireLibrary {
         name: 'Axiom-Kontinuum',
         adjective: 'axiomatisch',
         color: '#f3b36b',
-        emblem: 'diamond',
+        flag: defaultFlag('#f3b36b', 'diamond'),
         homeworldName: 'Kern 01',
         systemName: 'Axiom',
         origin: 'awakening',

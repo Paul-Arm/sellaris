@@ -1,3 +1,4 @@
+import { ECONOMY_MONTH_DAYS, monthBoundary } from './economy';
 import type { CelestialBody, Facility } from './celestial';
 import { stableHash } from './celestial';
 
@@ -11,7 +12,7 @@ export interface StellarWeather {
   endsAt: number;
 }
 
-/** A reproducible subset of giant stars has one discoverable eruption cycle. */
+/** Reproducible storms on surveyed giant stars. */
 export function hasStellarStorm(body: CelestialBody, systemId: string) {
   return (
     body.slot === 0 &&
@@ -33,7 +34,7 @@ export function stellarWeatherFactor(
     : 1;
 }
 
-/** Count affected four-day payouts exactly, including a settlement across both boundaries. */
+/** Count affected monthly payouts exactly, including a settlement across both boundaries. */
 export function stellarWeatherCycles(
   facility: Facility,
   weather: StellarWeather | null | undefined,
@@ -41,8 +42,14 @@ export function stellarWeatherCycles(
   cycles: number,
 ) {
   if (!weather || (facility !== 'solar' && facility !== 'dyson')) return cycles;
-  const first = Math.max(1, Math.ceil((weather.startsAt - lastProducedAt) / 4));
-  const last = Math.min(cycles, Math.ceil((weather.endsAt - lastProducedAt) / 4) - 1);
+  const first = Math.max(
+    1,
+    Math.ceil((weather.startsAt - monthBoundary(lastProducedAt)) / ECONOMY_MONTH_DAYS),
+  );
+  const last = Math.min(
+    cycles,
+    Math.ceil((weather.endsAt - monthBoundary(lastProducedAt)) / ECONOMY_MONTH_DAYS) - 1,
+  );
   const affected = Math.max(0, last - first + 1);
   return cycles - affected * (1 - STELLAR_STORM.solarFactor);
 }

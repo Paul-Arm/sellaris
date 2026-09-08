@@ -13,6 +13,9 @@ export function useGame() {
   const [error, setError] = useState('');
   const [latency, setLatency] = useState(0);
   const [library, setLibrary] = useState<EmpireLibrary | null>(null);
+  const [libraryError, setLibraryError] = useState('');
+  const [libraryUnavailable, setLibraryUnavailable] = useState(false);
+  const openingLibrary = useRef(false);
   const [nativeClient, setNativeClient] = useState<Client | null>(null);
   const native = useRef<Client | null>(null),
     nativeSession = useRef<NativeSession | null>(null),
@@ -146,7 +149,12 @@ export function useGame() {
         attempts = 0;
         setConnected(true);
         setError('');
-        ws.send(JSON.stringify({ type: 'library_open', token: profileToken.current }));
+        setLibraryError('');
+        setLibraryUnavailable(false);
+        openingLibrary.current = true;
+        ws.send(
+          JSON.stringify({ type: 'library_open', token: profileToken.current, requestId: 'library-open' }),
+        );
         if (
           nativeSession.current &&
           (!inviteRef.current || nativeSession.current.code === inviteRef.current.toUpperCase())
@@ -158,6 +166,12 @@ export function useGame() {
         if (stopped) return;
         const msg = JSON.parse(event.data);
         if (msg.type === 'library') {
+          if (msg.requestId === 'library-open') {
+            openingLibrary.current = false;
+            setLibraryError('');
+            setLibraryUnavailable(false);
+            setError('');
+          }
           setLibrary(msg.library);
           if (msg.token) {
             profileToken.current = msg.token;
@@ -179,6 +193,11 @@ export function useGame() {
           void attachNative({ code: msg.code, database: msg.database, ticket: msg.ticket });
         } else if (msg.type === 'error') {
           setError(msg.message);
+          if (msg.requestId === 'library-open') {
+            openingLibrary.current = false;
+            setLibraryError(msg.message);
+            setLibraryUnavailable(msg.code === 'LIBRARY_PROFILE_UNAVAILABLE');
+          }
           const pending = pendingLibrary.current.get(msg.requestId);
           if (pending) {
             clearTimeout(pending.timer);
@@ -189,6 +208,7 @@ export function useGame() {
       };
       ws.onclose = () => {
         if (stopped) return;
+        openingLibrary.current = false;
         for (const pending of pendingLibrary.current.values()) {
           clearTimeout(pending.timer);
           pending.reject(
@@ -258,6 +278,31 @@ export function useGame() {
       socket.current!.send(JSON.stringify({ type: 'library_mutate', mutation, requestId }));
     });
   }, []);
+  const openLibrary = useCallback((createNew = false) => {
+    if (openingLibrary.current || socket.current?.readyState !== WebSocket.OPEN) return;
+    if (createNew && profileToken.current) {
+      try {
+        // Preserve access to the previous server's library before replacing its key.
+        localStorage.setItem(`singularity.library-token.backup.${Date.now()}`, profileToken.current);
+      } catch {
+        setLibraryError(
+          'Der bisherige Bibliotheksschlüssel konnte nicht gesichert werden. Erlaube lokale Speicherung und versuche es erneut.',
+        );
+        return;
+      }
+    }
+    openingLibrary.current = true;
+    setLibraryError('');
+    setLibraryUnavailable(false);
+    setError('');
+    socket.current.send(
+      JSON.stringify({
+        type: 'library_open',
+        token: createNew ? null : profileToken.current,
+        requestId: 'library-open',
+      }),
+    );
+  }, []);
   return {
     state,
     connected,
@@ -266,6 +311,9 @@ export function useGame() {
     latency,
     invite,
     library,
+    libraryError,
+    libraryUnavailable,
+    openLibrary,
     mutateLibrary,
     nativeClient,
     battles: nativeClient ? [...nativeClient.conn.db.visibleBattleSummaries.iter()] : [],

@@ -1,7 +1,7 @@
 import { SenderError, t } from 'spacetimedb/server';
 import { gameTimeAt, progressAt } from '../../backend/domain';
 import { db } from './tables';
-import { ensureBattleReport, publishBattleReport } from './battle-reports';
+import { publishBattleReport } from './battle-reports';
 import { refreshFleetCondition } from './game-model';
 import {
   admin,
@@ -167,7 +167,6 @@ export const withdrawFleet = db.reducer({ fleetId: t.u32() }, (ctx, { fleetId })
   const battle = ctx.db.battle.id.find(f.battleId)!;
   const meta = ctx.db.gameFleet.id.find(f.id);
   if (meta) ctx.db.gameFleet.id.update({ ...meta, retreatUntil: at + 5 });
-  ensureBattleReport(ctx, battle, [...ctx.db.participant.battleId.filter(f.battleId)], wallNow(ctx));
   const leaving = new Set([...ctx.db.participant.fleetId.filter(f.id)].map((p) => p.shipId));
   for (const id of leaving) ctx.db.participant.shipId.delete(id);
   for (const p of ctx.db.participant.battleId.filter(f.battleId)) {
@@ -204,13 +203,6 @@ export const setClock = db.reducer({ paused: t.bool(), speed: t.f64() }, (ctx, {
   for (const r of ctx.db.runtime.iter())
     ctx.db.runtime.name.update({ ...r, lastWallAt: wallTime, lastLagMs: 0 });
 });
-// Additive migration: initialize only missing summaries, including paused worlds.
-// Historical damage cannot be reconstructed; baselineAt marks when accounting starts.
-export const initializeBattleReports = db.reducer((ctx) => {
-  admin(ctx);
-  for (const b of ctx.db.battle.iter())
-    ensureBattleReport(ctx, b, [...ctx.db.participant.battleId.filter(b.id)], wallNow(ctx));
-});
 export const startJob = db.reducer({ kind: t.string(), targetId: t.u32() }, (ctx, { kind, targetId }) => {
   if (ctx.db.gameSettings.id.find(1)) throw new SenderError('Use game_command for game production.');
   const owner = member(ctx),
@@ -219,8 +211,7 @@ export const startJob = db.reducer({ kind: t.string(), targetId: t.u32() }, (ctx
   if ([...ctx.db.job.empireId.filter(owner)].filter((j) => j.status === 'active').length >= 8)
     throw new SenderError('Project queue full');
   if (kind === 'construction') ownedFleet(ctx, targetId, owner);
-  if (kind === 'research' ? e.data < 100 : e.minerals < 100)
-    throw new SenderError('Insufficient resources');
+  if (kind === 'research' ? e.data < 100 : e.minerals < 100) throw new SenderError('Insufficient resources');
   ctx.db.empire.id.update({
     ...e,
     data: e.data - (kind === 'research' ? 100 : 0),

@@ -1,9 +1,9 @@
+import { RESOURCE_IDS, RESOURCE_NAMES, type Resource } from '../shared/resources';
 import { useEffect, useState } from 'react';
 import { Copy, Crosshair, Download, ExternalLink, Pause, Play, Plus, Trash2 } from 'lucide-react';
 import type { AdminAction, AdminEmpire, AdminMatch, AdminServer } from '../shared/admin';
 import { AUTHORITIES, CIVICS, ETHICS, ORIGINS, ENVIRONMENTS, TRAITS } from '../shared/empireCatalog';
 import { TECHS } from '../shared/game';
-import { flagForEmpire } from '../shared/flags';
 import { EmpireFlag } from './EmpireFlag';
 import { AdminGalaxyMap } from './AdminGalaxyMap';
 const number = (value: number) => Math.floor(value).toLocaleString('de-DE');
@@ -243,9 +243,9 @@ export function AdminMatchView({
                       <th>Kontrolle</th>
                       <th>Kolonien</th>
                       <th>Schiffe</th>
-                      <th>Energie</th>
-                      <th>Mineralien</th>
-                      <th>Forschung</th>
+                      {RESOURCE_IDS.map((id) => (
+                        <th key={id}>{RESOURCE_NAMES[id]}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -273,9 +273,9 @@ export function AdminMatchView({
                               .reduce((sum, f) => sum + f.ships, 0),
                           )}
                         </td>
-                        <td>{number(e.energy)}</td>
-                        <td>{number(e.minerals)}</td>
-                        <td>{number(e.data)}</td>
+                        {RESOURCE_IDS.map((id) => (
+                          <td key={id}>{number(e.resources[id])}</td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -286,7 +286,7 @@ export function AdminMatchView({
               {empire ? (
                 <>
                   <div className="admin-empire-heading">
-                    <EmpireFlag flag={flagForEmpire(empire.design)} width={42} />
+                    <EmpireFlag flag={empire.design.flag} width={42} />
                     <div>
                       <h3>{empire.name}</h3>
                       <span>
@@ -400,8 +400,10 @@ export function AdminMatchView({
                             </button>
                             <span>{population(c.population)} Mrd. Einwohner</span>
                             <small>
-                              Produktion / Zyklus: {number(c.energy)} Energie · {number(c.minerals)}{' '}
-                              Mineralien · {number(c.data)} Forschung
+                              Produktion / Monat:{' '}
+                              {RESOURCE_IDS.map(
+                                (id) => `${number(c.monthlyProduction[id])} ${RESOURCE_NAMES[id]}`,
+                              ).join(' · ')}
                             </small>
                           </div>
                         ))}
@@ -456,13 +458,16 @@ function ResourceAdjustment({
 }: {
   empire: AdminEmpire;
   disabled: boolean;
-  submit: (resource: 'energy' | 'minerals' | 'data', amount: number) => Promise<boolean>;
+  submit: (resource: Resource, amount: number) => Promise<boolean>;
 }) {
-  const [resource, setResource] = useState<'energy' | 'minerals' | 'data'>('energy');
+  const [resource, setResource] = useState<Resource>('energy');
   const [amount, setAmount] = useState('');
   const value = Number(amount);
   const valid =
-    Number.isInteger(value) && value !== 0 && Math.abs(value) <= 100000 && empire[resource] + value >= 0;
+    Number.isInteger(value) &&
+    value !== 0 &&
+    Math.abs(value) <= 100000 &&
+    empire.resources[resource] + value >= 0;
   return (
     <form
       className="admin-resource-form"
@@ -483,16 +488,18 @@ function ResourceAdjustment({
         disabled={disabled}
         onChange={(e) => setResource(e.target.value as typeof resource)}
       >
-        <option value="energy">Energie</option>
-        <option value="minerals">Mineralien</option>
-        <option value="data">Daten</option>
+        {RESOURCE_IDS.map((id) => (
+          <option key={id} value={id}>
+            {RESOURCE_NAMES[id]}
+          </option>
+        ))}
       </select>
       <label htmlFor="admin-resource-amount">Änderung (−100.000 bis +100.000)</label>
       <input
         id="admin-resource-amount"
         type="number"
         step="1"
-        min={Math.max(-100000, -Math.floor(empire[resource]))}
+        min={Math.max(-100000, -Math.floor(empire.resources[resource]))}
         max="100000"
         required
         value={amount}
@@ -500,7 +507,7 @@ function ResourceAdjustment({
         onChange={(e) => setAmount(e.target.value)}
       />
       <p>
-        {number(empire[resource])} → {valid ? number(empire[resource] + value) : '—'}
+        {number(empire.resources[resource])} → {valid ? number(empire.resources[resource] + value) : '—'}
       </p>
       <button disabled={disabled || !valid}>Buchung anwenden</button>
     </form>

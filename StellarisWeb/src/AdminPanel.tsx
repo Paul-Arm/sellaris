@@ -256,7 +256,7 @@ export function AdminPanel() {
                       <span className={`admin-status ${s.status}`}>{adminStatus[s.status]}</span>
                     </td>
                     <td>{s.galaxy ? GALAXY_TYPES[s.galaxy.type].name : '—'}</td>
-                    <td>{s.galaxy?.systems.toLocaleString('de-DE') ?? '—'}</td>
+                    <td>{s.galaxy.systems.toLocaleString('de-DE')}</td>
                     <td>{s.day?.toLocaleString('de-DE') ?? '—'}</td>
                     <td>{s.speed ? `${s.speed}×` : '—'}</td>
                     <td>{s.players ? `${s.players.length} / ${s.capacity}` : '—'}</td>

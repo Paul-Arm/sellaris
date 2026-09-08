@@ -55,9 +55,6 @@ export const BattleMotionProjection = __t.object("BattleMotionProjection", {
 });
 export type BattleMotionProjection = __Infer<typeof BattleMotionProjection>;
 
-export const BattleParticipants = __t.object("BattleParticipants", {});
-export type BattleParticipants = __Infer<typeof BattleParticipants>;
-
 export const BattleReport = __t.object("BattleReport", {
   id: __t.u32(),
   systemId: __t.u32(),
@@ -102,8 +99,7 @@ export const BattleSummarySnapshot = __t.object("BattleSummarySnapshot", {
   defenders: __t.u32(),
   winnerId: __t.u32(),
   sampledAt: __t.f64(),
-  baselineAt: __t.f64(),
-  tracked: __t.bool(),
+  startedAt: __t.f64(),
   attackerLosses: __t.u32(),
   defenderLosses: __t.u32(),
   get attacker() {
@@ -161,9 +157,9 @@ export const Colony = __t.object("Colony", {
   id: __t.u32(),
   empireId: __t.u32(),
   population: __t.u32(),
-  energyRate: __t.f64(),
-  mineralsRate: __t.f64(),
-  dataRate: __t.f64(),
+  get monthlyProduction() {
+    return MonthlyProduction;
+  },
   lastProducedAt: __t.f64(),
 });
 export type Colony = __Infer<typeof Colony>;
@@ -206,6 +202,7 @@ export const DiplomaticResources = __t.object("DiplomaticResources", {
   energy: __t.f64(),
   minerals: __t.f64(),
   data: __t.f64(),
+  unity: __t.f64(),
 });
 export type DiplomaticResources = __Infer<typeof DiplomaticResources>;
 
@@ -220,6 +217,7 @@ export const Empire = __t.object("Empire", {
   energy: __t.f64(),
   minerals: __t.f64(),
   data: __t.f64(),
+  unity: __t.f64(),
   productionModifier: __t.f64(),
   researchLevel: __t.u32(),
   ai: __t.bool(),
@@ -351,6 +349,12 @@ export const GameEvent = __t.object("GameEvent", {
 });
 export type GameEvent = __Infer<typeof GameEvent>;
 
+export const GameEventDirector = __t.object("GameEventDirector", {
+  id: __t.u32(),
+  stateJson: __t.string(),
+});
+export type GameEventDirector = __Infer<typeof GameEventDirector>;
+
 export const GameFleet = __t.object("GameFleet", {
   id: __t.u32(),
   externalId: __t.string(),
@@ -398,11 +402,14 @@ export const GameIntelRow = __t.object("GameIntelRow", {
   energy: __t.f64(),
   minerals: __t.f64(),
   data: __t.f64(),
+  unity: __t.f64(),
   defense: __t.f64(),
   mined: __t.bool(),
   studied: __t.bool(),
   colonyName: __t.string(),
   colonyJson: __t.string(),
+  starbaseJson: __t.string(),
+  starbaseLevel: __t.u32(),
 });
 export type GameIntelRow = __Infer<typeof GameIntelRow>;
 
@@ -529,7 +536,7 @@ export const GameSettings = __t.object("GameSettings", {
   winnerId: __t.u32(),
   capacity: __t.u32(),
   autoPaused: __t.bool(),
-  migrationKey: __t.string(),
+  creationKey: __t.string(),
 });
 export type GameSettings = __Infer<typeof GameSettings>;
 
@@ -550,6 +557,17 @@ export const GameSite = __t.object("GameSite", {
 });
 export type GameSite = __Infer<typeof GameSite>;
 
+export const GameSituation = __t.object("GameSituation", {
+  id: __t.u32(),
+  empireId: __t.u32(),
+  definitionId: __t.string(),
+  sourceKey: __t.string(),
+  systemId: __t.u32(),
+  stateJson: __t.string(),
+  nextTick: __t.u64(),
+});
+export type GameSituation = __Infer<typeof GameSituation>;
+
 export const GameStellarWeather = __t.object("GameStellarWeather", {
   id: __t.u32(),
   objectId: __t.string(),
@@ -561,16 +579,6 @@ export const GameStellarWeather = __t.object("GameStellarWeather", {
 });
 export type GameStellarWeather = __Infer<typeof GameStellarWeather>;
 
-export const GameStory = __t.object("GameStory", {
-  id: __t.u32(),
-  sourceKey: __t.string(),
-  systemId: __t.u32(),
-  createdAt: __t.f64(),
-  resolvedAt: __t.f64(),
-  result: __t.string(),
-});
-export type GameStory = __Infer<typeof GameStory>;
-
 export const GameSystem = __t.object("GameSystem", {
   id: __t.u32(),
   externalId: __t.string(),
@@ -580,12 +588,15 @@ export const GameSystem = __t.object("GameSystem", {
   energy: __t.f64(),
   minerals: __t.f64(),
   data: __t.f64(),
+  unity: __t.f64(),
   defense: __t.f64(),
   mined: __t.bool(),
   anomaly: __t.bool(),
   studied: __t.bool(),
   colonyName: __t.string(),
   colonyJson: __t.string(),
+  starbaseJson: __t.string(),
+  starbaseRevision: __t.u32(),
   growthAt: __t.f64(),
 });
 export type GameSystem = __Infer<typeof GameSystem>;
@@ -598,6 +609,10 @@ export const GameTerraform = __t.object("GameTerraform", {
   target: __t.string(),
   startedAt: __t.f64(),
   finishAt: __t.f64(),
+  workTotal: __t.f64(),
+  workDone: __t.f64(),
+  updatedAt: __t.f64(),
+  rate: __t.f64(),
   finishTick: __t.u64(),
   paidEnergy: __t.f64(),
   paidMinerals: __t.f64(),
@@ -633,6 +648,14 @@ export const Membership = __t.object("Membership", {
 });
 export type Membership = __Infer<typeof Membership>;
 
+export const MonthlyProduction = __t.object("MonthlyProduction", {
+  energy: __t.f64(),
+  minerals: __t.f64(),
+  data: __t.f64(),
+  unity: __t.f64(),
+});
+export type MonthlyProduction = __Infer<typeof MonthlyProduction>;
+
 export const MyCohorts = __t.object("MyCohorts", {});
 export type MyCohorts = __Infer<typeof MyCohorts>;
 
@@ -657,9 +680,6 @@ export type MyGameOffers = __Infer<typeof MyGameOffers>;
 export const MyGamePlayer = __t.object("MyGamePlayer", {});
 export type MyGamePlayer = __Infer<typeof MyGamePlayer>;
 
-export const MyGameStories = __t.object("MyGameStories", {});
-export type MyGameStories = __Infer<typeof MyGameStories>;
-
 export const MyJobs = __t.object("MyJobs", {});
 export type MyJobs = __Infer<typeof MyJobs>;
 
@@ -668,6 +688,9 @@ export type MyPlanetColonies = __Infer<typeof MyPlanetColonies>;
 
 export const MyResearch = __t.object("MyResearch", {});
 export type MyResearch = __Infer<typeof MyResearch>;
+
+export const MySituations = __t.object("MySituations", {});
+export type MySituations = __Infer<typeof MySituations>;
 
 export const MyTerraformProjects = __t.object("MyTerraformProjects", {});
 export type MyTerraformProjects = __Infer<typeof MyTerraformProjects>;
@@ -765,6 +788,15 @@ export const Ship = __t.object("Ship", {
 });
 export type Ship = __Infer<typeof Ship>;
 
+export const SituationSnapshot = __t.object("SituationSnapshot", {
+  id: __t.u32(),
+  definitionId: __t.string(),
+  systemId: __t.u32(),
+  stateJson: __t.string(),
+  availableChoices: __t.array(__t.string()),
+});
+export type SituationSnapshot = __Infer<typeof SituationSnapshot>;
+
 export const Star = __t.object("Star", {
   id: __t.u32(),
   name: __t.string(),
@@ -786,7 +818,7 @@ export const Trade = __t.object("Trade", {
   empireId: __t.u32(),
   fromSystem: __t.u32(),
   toSystem: __t.u32(),
-  energyPerCycle: __t.f64(),
+  monthlyEnergy: __t.f64(),
   deliveredAt: __t.f64(),
   status: __t.string(),
 });
@@ -813,8 +845,7 @@ export const VisibleBattleSummaryProjection = __t.object("VisibleBattleSummaryPr
   defenders: __t.u32(),
   winnerId: __t.u32(),
   sampledAt: __t.f64(),
-  baselineAt: __t.f64(),
-  tracked: __t.bool(),
+  startedAt: __t.f64(),
   attackerLosses: __t.u32(),
   defenderLosses: __t.u32(),
   get attacker() {
@@ -825,9 +856,6 @@ export const VisibleBattleSummaryProjection = __t.object("VisibleBattleSummaryPr
   },
 });
 export type VisibleBattleSummaryProjection = __Infer<typeof VisibleBattleSummaryProjection>;
-
-export const VisibleBattles = __t.object("VisibleBattles", {});
-export type VisibleBattles = __Infer<typeof VisibleBattles>;
 
 export const VisibleGameSites = __t.object("VisibleGameSites", {});
 export type VisibleGameSites = __Infer<typeof VisibleGameSites>;

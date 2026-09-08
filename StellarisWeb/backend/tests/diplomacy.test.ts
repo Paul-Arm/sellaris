@@ -45,7 +45,7 @@ async function fixture(configure?: (game: GameState) => void) {
       code: game.code,
       seed: 1,
       sourceJson: JSON.stringify(game),
-      migrationKey: 'diplomacy-tests',
+      creationKey: 'diplomacy-tests',
     });
     for (const id of ['a', 'b', 'c']) {
       const client = await connect(database);
@@ -93,6 +93,7 @@ test(
       for (const energy of [-1, 1.5, 10001, NaN, startA.energy + 1])
         await assert.rejects(issue(a, { ...trade, give: { ...zero, energy } }));
       await assert.rejects(issue(a, { ...trade, empireId: 'a' }));
+      await assert.rejects(issue(a, { ...trade, give: { ...zero, unity: 1 } }), /Einigkeit/);
       assert.deepEqual(funds(a), startA);
       await issue(a, trade);
       const id = offer(a).id;

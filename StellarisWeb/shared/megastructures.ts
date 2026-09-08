@@ -47,14 +47,14 @@ export function hostMegastructure(body: CelestialBody): Megastructure | undefine
 export function megastructureStage(type: Megastructure, level: number) {
   return level > 0 ? MEGASTRUCTURES[type].stages[Math.min(2, level - 1)].name : 'Baustelle';
 }
-/** Exotic installations have their own owner without claiming a colony system. */
+/** All installations require territory secured by a starbase. */
 export function megastructureTerritory(
   type: Megastructure,
   kind: string,
   owner: string | number | null,
   player: string | number,
 ) {
-  return owner === player || (type === 'decompressor' && kind === 'blackhole' && !owner);
+  return owner === player;
 }
 
 export function dysonHost(body: CelestialBody) {

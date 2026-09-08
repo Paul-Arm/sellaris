@@ -80,9 +80,32 @@ test(
       assert.ok(disk.profiles.some((p: any) => p.library.empires.some((e: any) => e.name === custom.name)));
 
       const b = await open(first.port);
+      for (const token of ['0'.repeat(64), 'invalid-key']) {
+        const requestId = `unavailable-${token.length}`;
+        b.send({ type: 'library_open', token, requestId });
+        await until(() => b.messages.some((m) => m.requestId === requestId));
+        const failure = b.messages.find((m) => m.requestId === requestId);
+        assert.equal(failure.type, 'error');
+        assert.equal(failure.code, 'LIBRARY_PROFILE_UNAVAILABLE');
+        assert.equal(failure.library, undefined);
+      }
+      assert.deepEqual(JSON.parse(await readFile(join(dataDir, 'empire-libraries.json'), 'utf8')), disk);
+      b.send({
+        type: 'library_mutate',
+        requestId: 'unavailable-write',
+        mutation: { type: 'save_empire', template: custom },
+      });
+      await until(() => b.messages.some((m) => m.requestId === 'unavailable-write'));
+      assert.equal(b.messages.find((m) => m.requestId === 'unavailable-write').type, 'error');
       b.send({ type: 'library_open', requestId: 'open-b' });
       await until(() => b.messages.some((m) => m.requestId === 'open-b'));
       const peerLibrary = b.messages.find((m) => m.requestId === 'open-b').library as EmpireLibrary;
+      assert.notEqual(b.messages.find((m) => m.requestId === 'open-b').token, profile.token);
+      assert.ok(
+        JSON.parse(await readFile(join(dataDir, 'empire-libraries.json'), 'utf8')).profiles.some((p: any) =>
+          p.library.empires.some((e: any) => e.name === custom.name),
+        ),
+      );
       assert.equal(
         peerLibrary.empires.some((e) => e.id === custom.id),
         false,

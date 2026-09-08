@@ -1,17 +1,16 @@
+import { resourceAmounts } from '../shared/resources';
 import { GALAXY_QUERIES, type Client } from './client';
-import { isShipSet } from '../shared/shipSets';
+import { type ShipSet } from '../shared/shipSets';
 import { progressAt } from './domain';
 import { ProjectionCache, watchTables, type ReadTable } from './projection-cache';
 import { gameDay, travelProgress } from '../shared/time';
 import type { GameView, Player, ShipType, TechId } from '../shared/game';
-import { colonyProduction, colonyEconomy, type Colony } from '../shared/colonies';
-import { colonyPlanet, planetWorld, type PlanetColony } from '../shared/planetColonies';
+import { colonyEconomy, type Colony } from '../shared/colonies';
+import { colonyPlanet, type PlanetColony } from '../shared/planetColonies';
 import type { TreatyOffer, Relation } from '../shared/diplomacy';
-import { crisisProductionFactor, type CrisisView, type StoryKind } from '../shared/stories';
-import { facilityYield, type Facility, type BodySite } from '../shared/celestial';
-import { stellarClass, stellarProfile } from '../shared/stellar';
-import { stellarWeatherFactor } from '../shared/stellarWeather';
-import { researchAllocation, type ResearchProgram } from '../shared/research';
+import { crisisProductionFactor, type CrisisView } from '../shared/crises';
+import { type Facility, type BodySite } from '../shared/celestial';
+import { type ResearchProgram } from '../shared/research';
 
 export const GAME_QUERIES = [
   ...GALAXY_QUERIES,
@@ -27,7 +26,7 @@ export const GAME_QUERIES = [
     'my_game_events',
     'game_relation',
     'my_game_offers',
-    'my_game_stories',
+    'my_situations',
     'game_crisis',
     'my_crisis_pledges',
     'visible_game_sites',
@@ -64,11 +63,6 @@ export function gameView(client: Client): GameView | null {
     infos = index('infos', db.gameFleetInfo);
   const stars = index('stars', db.star);
   const weather = index('stellarWeather', db.visibleStellarWeather);
-  const weatherBySystem = memo(
-    'weatherBySystem',
-    [weather, atlas],
-    () => new Map([...weather.values()].map((w) => [atlas.get(w.id)?.externalId, w])),
-  );
   const jobs = memo('jobs', [read('jobRows', db.myJobs)], () =>
     [...db.myJobs.iter()]
       .filter((j) => ['active', 'queued', 'blocked'].includes(j.status))
@@ -109,22 +103,11 @@ export function gameView(client: Client): GameView | null {
           startedAt: site.startedAt,
           finishAt: site.finishAt,
           suspended:
-            stars.get(site.systemId)?.kind === 'star' && stars.get(site.systemId)?.ownerId !== site.empireId,
+            stars.get(site.systemId)?.ownerId !== site.empireId,
         })),
       ),
   );
-  const installationIncome = { energy: 0, minerals: 0, data: 0 };
-  for (const site of sites)
-    if (site.owner === p.externalId && !site.suspended) {
-      const rate = facilityYield(
-        site.facility,
-        site.level,
-        factor * stellarWeatherFactor(site.facility, weatherBySystem.get(site.systemId), at),
-      );
-      installationIncome.energy += rate.energy;
-      installationIncome.minerals += rate.minerals;
-      installationIncome.data += rate.data;
-    }
+  const empireState = memo('empireJson', [p.empireJson], () => JSON.parse(p.empireJson));
   const planetDefenses = memo('planetDefenses', [read('planetRows', db.myPlanetColonies)], () => {
     const result = new Map<number, number>();
     for (const c of db.myPlanetColonies.iter())
@@ -155,25 +138,18 @@ export function gameView(client: Client): GameView | null {
                   enumerable: true,
                   get: () => remaining(upgrade),
                 });
-              const descriptor = {
-                id: m.externalId,
-                kind: s.kind as 'star' | 'rift' | 'blackhole',
-                class: m.starClass,
-                color: m.color,
-              };
-              const starClass = stellarClass(descriptor);
               return {
                 id: m.externalId,
                 name: s.name,
                 stellarWeather: weather.get(s.id),
                 x: s.x,
                 y: s.y,
-                color: starClass === m.starClass ? m.color : stellarProfile(descriptor).color,
+                color: m.color,
                 kind: s.kind as 'star' | 'rift' | 'blackhole',
-                class: starClass,
+                class: m.starClass,
                 planet: m.planet,
                 owner: s.ownerId ? players.get(s.ownerId)?.externalId || null : null,
-                resources: { energy: i?.energy || 0, minerals: i?.minerals || 0, data: i?.data || 0 },
+                resources: resourceAmounts(i),
                 productionFactor: s.ownerId === p.id ? factor : 1,
                 defense: i?.defense || 0,
                 planetDefense: planetDefenses.get(s.id) || 0,
@@ -181,6 +157,8 @@ export function gameView(client: Client): GameView | null {
                 anomaly: m.anomaly,
                 studied: i?.studied || false,
                 colony,
+                starbase: i?.starbaseJson ? JSON.parse(i.starbaseJson) : null,
+                starbaseLevel: i?.starbaseLevel ?? 0,
                 colonyName: i?.colonyName || undefined,
               };
             },
@@ -188,10 +166,12 @@ export function gameView(client: Client): GameView | null {
         ];
       }),
   );
-  const research = [...db.myResearch.iter()][0], identity = summary.get(p.id)!;
+  const research = [...db.myResearch.iter()][0],
+    identity = summary.get(p.id)!;
   if (!research) return null;
-  const program: ResearchProgram = memo('researchProgram', [research.programJson], () => JSON.parse(research.programJson));
-  const synthesisIncome = researchAllocation(program, p.techs as TechId[], research.compute).data * 4;
+  const program: ResearchProgram = memo('researchProgram', [research.programJson], () =>
+    JSON.parse(research.programJson),
+  );
   const planetColonies: PlanetColony[] = memo(
     'planetColonies',
     [read('planetRows', db.myPlanetColonies), jobs, atlas],
@@ -215,37 +195,23 @@ export function gameView(client: Client): GameView | null {
         };
       }),
   );
-  const planetIncome = memo('planetIncome', [planetColonies, systems, p.techs, p.empireJson], () => {
-    const result = { energy: 0, minerals: 0, data: 0 },
-      player = { techs: p.techs as TechId[], empire: JSON.parse(p.empireJson) },
-      byId = new Map(systems.map((s) => [s.id, s]));
-    for (const colony of planetColonies) {
-      const system = byId.get(colony.systemId);
-      if (!system) continue;
-      const rate = colonyProduction(planetWorld(system, colony), player);
-      for (const r of ['energy', 'minerals', 'data'] as const) result[r] += rate[r];
-    }
-    return result;
-  });
   const me: Player = memo(
     'me',
-    [p, e, research, jobs, identity, factor, sites, atlas, planetColonies, systems, synthesisIncome],
+    [p, e, research, jobs, identity, factor, sites, atlas, planetColonies, systems],
     () => ({
-      planetIncome,
+      productionFactor: factor,
       id: p.externalId,
       name: identity.name,
       color: `#${identity.color.toString(16).padStart(6, '0')}`,
       home: systemId(p.homeId),
-      resources: { energy: e.energy, minerals: e.minerals, data: e.data },
+      resources: resourceAmounts(e),
       techs: p.techs as TechId[],
       surveyed: p.surveyed.map(systemId),
       discovered: p.discovered.map(systemId),
-      installationIncome,
-      empire: memo('empireJson', [p.empireJson], () => JSON.parse(p.empireJson)),
+      empire: empireState,
       online: true,
       research: program,
       compute: research.compute,
-      synthesisIncome,
       queue: jobs
         .filter((j) => j.kind === 'game_build')
         .map((j) => ({
@@ -262,7 +228,7 @@ export function gameView(client: Client): GameView | null {
     jobs.filter((j) => ['game_scan', 'game_colonize'].includes(j.kind)).map((j) => [j.targetId, j]),
   );
   return {
-    version: 2,
+    version: 6,
     displayClock: client.clock,
     code: config.code,
     tick: at,
@@ -285,21 +251,9 @@ export function gameView(client: Client): GameView | null {
           return remaining(j);
         },
       })),
-    decisions: [...db.myDecisions.iter()].flatMap((d) => {
-      const story = db.myGameStories.id.find(d.id);
-      return story
-        ? [
-            {
-              ...d,
-              kind: d.kind as StoryKind,
-              systemId: systemId(story.systemId),
-              createdAt: story.createdAt,
-              resolvedAt: story.resolvedAt,
-              result: story.result,
-            },
-          ]
-        : [];
-    }),
+    situations: memo('situations', [read('situationRows', db.mySituations), atlas], () => [...db.mySituations.iter()].map((row) => ({
+      id: row.id, definitionId: row.definitionId, systemId: row.systemId ? systemId(row.systemId) : '', state: JSON.parse(row.stateJson), availableChoices: row.availableChoices,
+    }))),
     relations: [...db.gameRelation.iter()].map((r) => ({
       ...r,
       empireA: players.get(r.empireA)?.externalId || '',
@@ -339,7 +293,7 @@ export function gameView(client: Client): GameView | null {
             colonies: p.colonies,
             ai: s.ai,
             flag: JSON.parse(p.flagJson),
-            shipSet: isShipSet(p.shipSet) ? p.shipSet : 'prisma',
+            shipSet: p.shipSet as ShipSet,
           };
         }),
       ),
@@ -427,7 +381,7 @@ export function observeGame(client: Client, publish: (view: GameView | null) => 
       db.crisis,
       db.myCrisisPledges,
       db.myDecisions,
-      db.myGameStories,
+      db.mySituations,
       db.gameRelation,
       db.myTreaties,
       db.myGameOffers,

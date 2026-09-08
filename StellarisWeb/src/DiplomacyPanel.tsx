@@ -1,14 +1,16 @@
+import { resourceAmounts } from '../shared/resources';
+import { RESOURCE_NAMES } from '../shared/resources';
 import { DetailList } from './DetailList';
 import { useState } from 'react';
 import { ArrowLeftRight, Handshake, ShieldCheck, Swords } from 'lucide-react';
 import type { GameCommand, GameView, Resource, Resources } from '../shared/game';
-import { relationBetween, OFFER_LIFETIME, TRUCE_DURATION } from '../shared/diplomacy';
+import { relationBetween, OFFER_LIFETIME, TRUCE_DURATION, TRADE_RESOURCES } from '../shared/diplomacy';
 import { EmpireFlag } from './EmpireFlag';
 import { FLAG_PRESETS } from '../shared/flags';
 import './diplomacy.css';
 
-const keys: Resource[] = ['energy', 'minerals', 'data'];
-const names = { energy: 'Energie', minerals: 'Mineralien', data: 'Daten' };
+const keys = TRADE_RESOURCES;
+const names = RESOURCE_NAMES;
 const statuses = {
   pending: 'Offen',
   accepted: 'Angenommen',
@@ -16,7 +18,7 @@ const statuses = {
   cancelled: 'Zurückgezogen',
   expired: 'Abgelaufen',
 };
-const empty = (): Resources => ({ energy: 0, minerals: 0, data: 0 });
+const empty = resourceAmounts;
 const format = (r: Resources) =>
   keys
     .filter((k) => r[k] > 0)

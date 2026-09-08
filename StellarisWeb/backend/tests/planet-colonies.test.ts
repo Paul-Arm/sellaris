@@ -1,3 +1,6 @@
+import { planetIncome } from './economy-helpers';
+import { resourceAmounts } from '../../shared/resources';
+import { ECONOMY_MONTH_DAYS, monthsDue } from '../../shared/economy';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -12,7 +15,6 @@ import { objectBodies } from '../../shared/systemObjects';
 import { colonizableBody, ownedColonyWorlds, planetWorld } from '../../shared/planetColonies';
 import { baseIncome, colonyProduction, districtSpec, occupiedDistricts } from '../../shared/colonies';
 import { ENVIRONMENTS } from '../../shared/empireCatalog';
-import { shipSetFor } from '../../shared/shipSets';
 
 async function until(check: () => boolean, timeout = 60000) {
   const end = Date.now() + timeout;
@@ -51,7 +53,7 @@ test(
         code: source.code,
         seed: 42,
         sourceJson: JSON.stringify(source),
-        migrationKey: 'planet-colonies',
+        creationKey: 'planet-colonies',
       });
       for (const id of [p.id, other.id]) {
         const c = await connect(database);
@@ -112,6 +114,7 @@ test(
       const homeSector = home().colony!.sectors.find((s) => s.districts.length < s.slots)!;
       const build: GameCommand = {
         type: 'colony_build',
+        slot: sector.districts.length,
         systemId: p.home,
         bodySlot: target.slot,
         revision: world().colony.revision,
@@ -120,7 +123,7 @@ test(
       };
       await issue({
         type: 'empire_ship_set',
-        shipSet: shipSetFor(view().me.empire!.design),
+        shipSet: view().me.empire!.design.shipSet,
         revision: view().me.empire!.revision,
       });
       const before = view().me.resources.minerals;
@@ -134,6 +137,7 @@ test(
       );
       await issue({
         type: 'colony_build',
+        slot: homeSector.districts.length,
         systemId: p.home,
         revision: home().colony!.revision,
         sectorId: homeSector.id,
@@ -164,17 +168,16 @@ test(
       assert.equal(occupiedDistricts(world().colony), buildings + 1);
       assert(world().colony.population >= population);
       const rate = colonyProduction(planetWorld(home(), world()), view().me);
-      assert.deepEqual(view().me.planetIncome, rate);
+      assert.deepEqual(planetIncome(view()), rate);
       const total = income(view(), view().me),
         mainRate = colonyProduction(home(), view().me),
         base = baseIncome(view().me);
-      assert(Math.abs(total.energy - base.energy - mainRate.energy - rate.energy) < 1e-6);
+      assert(Math.abs(total.energy - base.energy - mainRate.energy - rate.energy + 5) < 1e-6);
       const energy = view().me.resources.energy,
         producedFrom = view().tick;
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
-      // Each world has its own four-day production anchor, so the first payout
-      // may belong to only one world. Observe a full interval for both anchors.
-      await until(() => view().tick >= producedFrom + 8);
+      // Both worlds participate in the next common monthly payout.
+      await until(() => view().tick >= producedFrom + ECONOMY_MONTH_DAYS);
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
       assert(
         view().me.resources.energy - energy >= total.energy - 0.1,
@@ -224,6 +227,7 @@ test(
         ...build,
         building: 'bastion',
         sectorId: world().colony.sectors.find((s) => s.districts.length < s.slots)!.id,
+        slot: world().colony.sectors.find((s) => s.districts.length < s.slots)!.districts.length,
         revision: world().colony.revision,
       });
       await admin.conn.reducers.setClock({ paused: false, speed: 4 });
@@ -245,7 +249,7 @@ test(
         revision: world().colony.revision,
       });
       assert.equal(home().planetDefense, 0);
-      assert.equal(home().defense, 30, 'disabled bastion cannot leave extra defense behind');
+      assert.equal(home().defense, 100, 'disabled bastion cannot leave extra defense behind');
       const empire = view().me.empire!,
         species = empire.species.find((s) => s.id === empire.primarySpeciesId)!;
       await issue({
@@ -264,6 +268,7 @@ test(
       await issue({
         ...build,
         sectorId: world().colony.sectors.find((s) => s.districts.length < s.slots)!.id,
+        slot: world().colony.sectors.find((s) => s.districts.length < s.slots)!.districts.length,
         revision: world().colony.revision,
       });
       assert(world().colony.construction);
@@ -274,7 +279,7 @@ test(
       await until(() => home().owner === null);
       await admin.conn.reducers.setClock({ paused: true, speed: 4 });
       assert.equal(view().planetColonies!.length, 0, 'loss removes every planet colony in system');
-      assert.deepEqual(view().me.planetIncome, { energy: 0, minerals: 0, data: 0 });
+      assert.deepEqual(planetIncome(view()), resourceAmounts());
       assert(
         ![...a.conn.db.myJobs.iter()].some((j) => j.kind === 'game_planet_upgrade' && j.status === 'active'),
         'lost world construction is cancelled',

@@ -15,9 +15,12 @@ export default __t.row({
   energy: __t.f64(),
   minerals: __t.f64(),
   data: __t.f64(),
+  unity: __t.f64(),
   defense: __t.f64(),
   mined: __t.bool(),
   studied: __t.bool(),
   colonyName: __t.string().name("colony_name"),
   colonyJson: __t.string().name("colony_json"),
+  starbaseJson: __t.string().name("starbase_json"),
+  starbaseLevel: __t.u32().name("starbase_level"),
 });

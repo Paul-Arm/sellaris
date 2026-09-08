@@ -1,4 +1,5 @@
 import type { Resources } from './game';
+export const TRADE_RESOURCES = ['energy', 'minerals', 'data'] as const;
 
 export const OFFER_LIFETIME = 60;
 export const TRUCE_DURATION = 120;

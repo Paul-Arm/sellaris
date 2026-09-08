@@ -1,6 +1,6 @@
 {
-  "measuredAt": "2026-09-06T21:05:41.388Z",
-  "database": "singularity-restart-1788728737614",
+  "measuredAt": "2026-09-08T22:41:14.392Z",
+  "database": "singularity-restart-1788907270583",
   "result": "pass",
   "assertion": "Identical durable snapshots after forced process termination, same identity, scheduled battle resumed",
   "retained": [
@@ -13,7 +13,7 @@
     "decisions",
     "crisis",
     "production game identity, private empire, research, fleet travel and disconnect lifecycle",
-    "production stories, crisis phase, deadlines and paid contributions"
+    "event instances, crisis phase, deadlines and paid contributions"
   ],
   "limitation": "Clock was paused immediately before the forced termination to compare exact snapshots; live reconnects are covered separately."
 }

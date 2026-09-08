@@ -1,3 +1,7 @@
+import { starbaseLedger } from '../../shared/starbases';
+import { optimizeProduction } from '../../shared/compute';
+import { economyTotals, monthBoundary, monthsDue, ECONOMY_MONTH_DAYS } from '../../shared/economy';
+import { resourceAmounts, addResources } from '../../shared/resources';
 import { Range } from 'spacetimedb/server';
 import { progressAt, positionAt } from '../../backend/domain';
 import { baseIncome, colonyProduction, colonyEconomy, growColony, type Colony } from '../../shared/colonies';
@@ -16,7 +20,7 @@ import { type Context, type ReadContext } from './tables';
 import { NEVER, now, tickAt } from './rules';
 import { atWar } from './game-relations';
 import { productionFactor } from './game-crisis-state';
-import { facilityYield, type Facility } from '../../shared/celestial';
+import { facilityLedger, type Facility } from '../../shared/celestial';
 import { syncPrimaryObjects } from './game-objects';
 import { settlePlanetColonies } from './game-planet-colonies';
 import { stellarWeatherCycles } from '../../shared/stellarWeather';
@@ -51,12 +55,14 @@ export function systemModel(ctx: Context | ReadContext, id: number): StarSystem 
     class: m.starClass,
     planet: m.planet,
     owner: s.ownerId ? ctx.db.gamePlayer.id.find(s.ownerId)!.externalId : null,
-    resources: { energy: m.energy, minerals: m.minerals, data: m.data },
+    resources: resourceAmounts(m),
     productionFactor: s.ownerId ? productionFactor(ctx, s.ownerId) : 1,
     defense: m.defense,
     mined: m.mined,
     anomaly: m.anomaly,
     studied: m.studied,
+    starbaseRevision: m.starbaseRevision,
+    starbase: m.starbaseJson ? JSON.parse(m.starbaseJson) : null,
     colony: m.colonyJson ? JSON.parse(m.colonyJson) : null,
     colonyName: m.colonyName || undefined,
   };
@@ -78,7 +84,7 @@ export function playerModel(ctx: Context | ReadContext, owner: number, at: numbe
     name: summary.name,
     color: `#${summary.color.toString(16).padStart(6, '0')}`,
     home: ctx.db.gameSystem.id.find(p.homeId)!.externalId,
-    resources: { energy: e.energy, minerals: e.minerals, data: e.data },
+    resources: resourceAmounts(e),
     techs: p.techs as TechId[],
     surveyed: p.surveyed.map((id) => ctx.db.gameSystem.id.find(id)!.externalId),
     discovered: p.discovered.map((id) => ctx.db.gameSystem.id.find(id)!.externalId),
@@ -97,7 +103,7 @@ export function playerModel(ctx: Context | ReadContext, owner: number, at: numbe
       })),
   };
 }
-/** Compatibility facade for pure command validation, never a stored/broadcast world blob.
+/** Project current native rows into the shared command-validation domain.
  * Reads strategic rows and this player's projects, not individual ship tables. */
 export function commandModel(ctx: Context, owner: number): GameState {
   const at = now(ctx),
@@ -116,7 +122,7 @@ export function commandModel(ctx: Context, owner: number): GameState {
     if (c?.construction) c.construction.remaining = j.workTotal - progressAt(j, at);
   }
   return {
-    version: 2,
+    version: 6,
     code: config.code,
     tick: at,
     speed: clock.speed,
@@ -196,30 +202,28 @@ export function updateColony(ctx: Context, id: number, colony: Colony | null, ow
     });
   refreshColonyRate(ctx, id, owner);
 }
-export function settlePopulation(ctx: Context, id: number, at = now(ctx), force = false) {
+export function settlePopulation(ctx: Context, id: number, at = now(ctx)) {
   const meta = ctx.db.gameSystem.id.find(id)!,
     owner = ctx.db.star.id.find(id)!.ownerId;
   if (!owner || !meta.colonyJson) return;
-  const elapsed = Math.max(0, at - meta.growthAt);
-  if (elapsed <= 0 || (!force && elapsed < 4)) return;
+  const elapsed = monthsDue(meta.growthAt, at) * ECONOMY_MONTH_DAYS;
+  if (!elapsed) return;
   const colony: Colony = JSON.parse(meta.colonyJson);
   const empire: EmpireState = JSON.parse(ctx.db.gamePlayer.id.find(owner)!.empireJson);
   growColony(colony, meta.planet, { empire }, elapsed);
-  ctx.db.gameSystem.id.update({ ...meta, growthAt: at });
+  ctx.db.gameSystem.id.update({ ...meta, growthAt: monthBoundary(at) });
   updateColony(ctx, id, colony, owner);
 }
 export function refreshColonyRate(ctx: Context, id: number, owner: number) {
   const s = systemModel(ctx, id),
     p = ctx.db.gamePlayer.id.find(owner)!;
-  const rate = colonyProduction(s, { techs: p.techs as TechId[], empire: JSON.parse(p.empireJson) });
+  const rate = colonyProduction(s, { techs: p.techs as TechId[], empire: JSON.parse(p.empireJson), research: researchState(ctx, owner), compute: researchCapacity(ctx, owner) });
   const old = ctx.db.colony.id.find(id);
   const row = {
     id,
     empireId: owner,
     population: Math.round((s.colony?.population || 0) * 1000000),
-    energyRate: rate.energy,
-    mineralsRate: rate.minerals,
-    dataRate: rate.data,
+    monthlyProduction: resourceAmounts(rate),
     lastProducedAt: old?.lastProducedAt ?? now(ctx),
   };
   if (old) ctx.db.colony.id.update(row);
@@ -327,10 +331,9 @@ export function addJob(
   const at = now(ctx),
     p = ctx.db.gamePlayer.id.find(owner)!;
   const mods = empireModifiers(JSON.parse(p.empireJson));
-  const rate =
-    ['game_build', 'game_upgrade', 'game_planet_upgrade'].includes(kind)
-        ? Math.max(0.1, 1 + mods.construction)
-        : 1;
+  const rate = ['game_build', 'game_upgrade', 'game_planet_upgrade'].includes(kind)
+    ? Math.max(0.1, 1 + mods.construction)
+    : 1;
   return ctx.db.job.insert({
     id: 0,
     empireId: owner,
@@ -346,48 +349,56 @@ export function addJob(
   });
 }
 export function settleEconomy(ctx: Context, owner: number, at = now(ctx)) {
-  const e = ctx.db.empire.id.find(owner)!,
-    p = ctx.db.gamePlayer.id.find(owner)!;
-  const base = baseIncome({ techs: p.techs as TechId[] });
   const anchor = ctx.db.gameIncome.id.find(owner)!;
-  const cycles = Math.floor(Math.max(0, at - anchor.producedAt) / 4);
-  if (cycles) ctx.db.gameIncome.id.update({ ...anchor, producedAt: anchor.producedAt + cycles * 4 });
-  const planets = settlePlanetColonies(ctx, owner, at);
-  let energy = base.energy * cycles + planets.energy,
-    minerals = base.minerals * cycles + planets.minerals,
-    data = base.data * cycles + planets.data;
-  for (const c of ctx.db.colony.empireId.filter(owner)) {
-    const n = Math.floor(Math.max(0, at - c.lastProducedAt) / 4);
-    if (!n) continue;
-    energy += c.energyRate * n;
-    minerals += c.mineralsRate * n;
-    data += c.dataRate * n;
-    ctx.db.colony.id.update({ ...c, lastProducedAt: c.lastProducedAt + n * 4 });
-  }
-  const factor = productionFactor(ctx, owner);
-  for (const site of ctx.db.gameSite.empireId.filter(owner)) {
-    const n = Math.floor(Math.max(0, at - site.lastProducedAt) / 4);
-    if (!n) continue;
-    const star = ctx.db.star.id.find(site.systemId)!;
-    if (star.kind !== 'star' || star.ownerId === owner) {
-      const rate = facilityYield(site.facility as Facility, site.level, factor);
-      const effective = stellarWeatherCycles(
-        site.facility as Facility,
-        ctx.db.gameStellarWeather.id.find(site.systemId),
-        site.lastProducedAt,
-        n,
-      );
-      energy += rate.energy * effective;
-      minerals += rate.minerals * effective;
-      data += rate.data * effective;
+  if (!monthsDue(anchor.producedAt, at)) return;
+  // One indexed pass per empire/month. Commands in the same month exit above without
+  // scanning colonies, populations or installations. Each month is committed once.
+  for (
+    let boundary = monthBoundary(anchor.producedAt) + ECONOMY_MONTH_DAYS;
+    boundary <= monthBoundary(at);
+    boundary += ECONOMY_MONTH_DAYS
+  ) {
+    const p = ctx.db.gamePlayer.id.find(owner)!;
+    const player = { techs: p.techs as TechId[], empire: JSON.parse(p.empireJson), research: researchState(ctx, owner), compute: researchCapacity(ctx, owner) };
+    const balance = baseIncome(player);
+    for (const s of ctx.db.star.ownerId.filter(owner)) addResources(balance, economyTotals(starbaseLedger(systemModel(ctx, s.id))));
+    addResources(balance, settlePlanetColonies(ctx, owner, boundary));
+    for (const c of ctx.db.colony.empireId.filter(owner)) {
+      if (monthsDue(c.lastProducedAt, boundary)) {
+        // The month's closing state is authoritative, including direct player changes.
+        addResources(balance, colonyProduction(systemModel(ctx, c.id), player));
+        ctx.db.colony.id.update({ ...c, lastProducedAt: boundary });
+      }
     }
-    ctx.db.gameSite.id.update({ ...site, lastProducedAt: site.lastProducedAt + n * 4 });
+    const factor = productionFactor(ctx, owner);
+    for (const site of ctx.db.gameSite.empireId.filter(owner)) {
+      if (!monthsDue(site.lastProducedAt, boundary)) continue;
+      const star = ctx.db.star.id.find(site.systemId)!;
+      if (star.ownerId === owner) {
+        const effective = stellarWeatherCycles(
+          site.facility as Facility,
+          ctx.db.gameStellarWeather.id.find(site.systemId),
+          boundary - ECONOMY_MONTH_DAYS,
+          1,
+        );
+        addResources(
+          balance,
+          economyTotals(
+            optimizeProduction(facilityLedger(
+              site.facility as Facility,
+              site.level,
+              player.empire.economyModifiers ?? [],
+              factor,
+              effective,
+            ), player),
+          ),
+        );
+      }
+      ctx.db.gameSite.id.update({ ...site, lastProducedAt: boundary });
+    }
+    const e = ctx.db.empire.id.find(owner)!;
+    ctx.db.empire.id.update({ ...e, ...addResources(resourceAmounts(e), balance) });
+    ctx.db.gameIncome.id.update({ ...anchor, producedAt: boundary });
+    for (const c of ctx.db.colony.empireId.filter(owner)) settlePopulation(ctx, c.id, boundary);
   }
-  if (energy || minerals || data)
-    ctx.db.empire.id.update({
-      ...e,
-      energy: e.energy + energy,
-      minerals: e.minerals + minerals,
-      data: e.data + data,
-    });
 }

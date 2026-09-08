@@ -63,7 +63,7 @@ export function MegastructurePanel({
               {stage.energy} Energie · {stage.minerals} Mineralien · {stage.days} Tage
             </small>
             <small>
-              {stage.output} {definition.resourceName} pro 4 Tage nach Abschluss dieser Etappe
+              {stage.output} {definition.resourceName} pro Monat nach Abschluss dieser Etappe
             </small>
           </li>
         ))}

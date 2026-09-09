@@ -12,12 +12,12 @@ type HtmlCanvas = HTMLCanvasElement & {
 type HtmlContext = CanvasRenderingContext2D & {
   drawElementImage?: (element: Element, x: number, y: number, w: number, h: number) => DOMMatrix | void;
 };
-type State = { selected: boolean; built: boolean; compact: boolean };
+type State = { selected: boolean; built: boolean };
 
 export class HudLabel {
   readonly element: HTMLButtonElement;
   readonly object: CSS2DObject;
-  readonly state: State = { selected: false, built: false, compact: false };
+  readonly state: State = { selected: false, built: false };
   width = 1;
   height = 26;
   x = 0;
@@ -26,32 +26,18 @@ export class HudLabel {
 
   constructor(
     readonly hud: CanvasHud,
-    readonly kind: 'body' | 'exit',
     readonly text: string,
-    activate: () => void,
+    activate: (event: MouseEvent) => void,
   ) {
     this.element = document.createElement('button');
     this.element.type = 'button';
     this.element.hidden = true;
-    this.element.className = kind === 'body' ? 'orbital-label' : 'hyperlane-label';
-    this.element.setAttribute(
-      'aria-label',
-      kind === 'body' ? `${text} auswählen` : `Hyperlane nach ${text}: System ansehen`,
-    );
+    this.element.className = 'orbital-label';
+    this.element.setAttribute('aria-label', `${text} auswählen`);
     this.element.onclick = activate;
-    if (kind === 'body') this.element.textContent = text;
-    else {
-      const arrow = document.createElement('span');
-      arrow.className = 'hyperlane-arrow';
-      arrow.textContent = '↗';
-      const title = document.createElement('strong');
-      title.textContent = text;
-      const sub = document.createElement('small');
-      sub.textContent = 'HYPERLANE · SYSTEM ANSEHEN';
-      this.element.append(arrow, title, sub);
-    }
+    this.element.textContent = text;
     this.object = new CSS2DObject(this.element);
-    this.object.center.set(0.5, kind === 'body' ? 0 : 0.5);
+    this.object.center.set(0.5, 0);
     this.object.visible = false;
     this.measure();
   }
@@ -67,8 +53,7 @@ export class HudLabel {
     if (!changed) return;
     this.element.classList.toggle('selected', this.state.selected);
     this.element.classList.toggle('built', this.state.built);
-    this.element.classList.toggle('compact', this.state.compact);
-    if (this.kind === 'body') this.element.setAttribute('aria-pressed', String(this.state.selected));
+    this.element.setAttribute('aria-pressed', String(this.state.selected));
     this.measure();
   }
 
@@ -78,13 +63,9 @@ export class HudLabel {
       ctx.font = '10px "Segoe UI", sans-serif';
       ctx.letterSpacing = '.6px';
     }
-    this.width =
-      this.kind === 'exit'
-        ? 168
-        : Math.ceil(
-            (ctx?.measureText(this.text).width ?? this.text.length * 7) + 20 + (this.state.built ? 12 : 0),
-          );
-    this.height = this.kind === 'exit' && !this.state.compact ? 41 : 26;
+    this.width = Math.ceil(
+      (ctx?.measureText(this.text).width ?? this.text.length * 7) + 20 + (this.state.built ? 12 : 0),
+    );
     this.element.style.width = `${this.width}px`;
     this.element.style.height = `${this.height}px`;
   }
@@ -98,11 +79,6 @@ export class HudLabel {
       this.element.hidden = !visible;
       if (!visible && this.hud.native) this.hud.canvas.clearElementGeometry?.(this.element);
     }
-  }
-
-  bearing(angle: number) {
-    // Appearance changes before layout/paint, independently from canvas hit-test geometry.
-    this.element.style.setProperty('--bearing', `${angle}rad`);
   }
 }
 
@@ -149,8 +125,8 @@ export class CanvasHud {
     document.fonts?.addEventListener('loadingdone', this.fontsChanged);
   }
 
-  add(kind: 'body' | 'exit', text: string, activate: () => void) {
-    const label = new HudLabel(this, kind, text, activate);
+  add(text: string, activate: (event: MouseEvent) => void) {
+    const label = new HudLabel(this, text, activate);
     label.element.setAttribute('drawable', '');
     if (this.native) label.element.style.position = 'static';
     (this.native ? this.canvas : this.targets).append(label.element);

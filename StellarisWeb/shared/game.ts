@@ -7,6 +7,8 @@ import {
   type StarbaseCommand,
 } from './starbases';
 import { empireLedger, empireCompute } from './empireEconomy';
+import { fleetGroupCommands } from './fleetGroups';
+import { cloneData } from './clone';
 import { economyTotals } from './economy';
 import {
   BUILDINGS,
@@ -50,7 +52,6 @@ import {
   empireModifiers,
   populationGrowth,
   planReform,
-  planShipSet,
   planSpeciesModification,
   REFORM_COST,
   MODIFICATION_COST,
@@ -153,6 +154,7 @@ export interface GameState {
   winner: string | null;
 }
 export type GameCommand =
+  | import('./fleetGroups').FleetGroupCommand
   | StarbaseCommand
   | import('./stellarProjects').StellarCommand
   | import('./diplomacy').DiplomacyCommand
@@ -175,7 +177,6 @@ export type GameCommand =
   | import('./research').ResearchCommand
   | ColonyCommand
   | { type: 'empire_reform'; government: Government; revision: number }
-  | { type: 'empire_ship_set'; shipSet: import('./shipSets').ShipSet; revision: number }
   | { type: 'species_modify'; sourceId: string; design: SpeciesDesign; colonyIds: string[]; revision: number }
   | { type: 'add_ai' }
   | { type: 'pause' }
@@ -487,8 +488,11 @@ export function command(game: GameState, playerId: string, cmd: GameCommand) {
   if (!player) throw new Error('Spieler nicht gefunden.');
   if (game.winner) throw new Error('Diese Partie ist beendet. Erstelle einen neuen Sektor.');
   if (!cmd || typeof cmd !== 'object') throw new Error('Ungültiger Befehl.');
-  if (cmd.type === 'empire_ship_set') {
-    player.empire = planShipSet(player.empire!, cmd.shipSet, game.tick, cmd.revision);
+  if (cmd.type === 'fleet_group') {
+    const orders = fleetGroupCommands(cmd);
+    const preview = cloneData(game);
+    for (const order of orders) command(preview, playerId, order);
+    for (const order of orders) command(game, playerId, order);
     return;
   }
   if (cmd.type === 'empire_reform') {

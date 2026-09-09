@@ -11,7 +11,22 @@
   background: #0c131e;
   height: 100%;
   overflow: auto;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
+  scrollbar-color: #364c57 transparent;
+}
+.event-overview {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.event-overview > .event-overview-header {
+  flex: none;
+}
+.event-overview-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
   scrollbar-color: #364c57 transparent;
 }
 .event-workspace button,

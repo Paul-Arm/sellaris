@@ -11,6 +11,7 @@ import { MEGASTRUCTURES, hostMegastructure, isMegastructure } from '../shared/me
 import { bodyPosition, constructionFleet } from '../shared/navigation';
 import type { SystemTarget } from './SystemSpaceScene';
 import { colonizableBody } from '../shared/planetColonies';
+import { MAX_FLEET_GROUP, type FleetGroupOrder } from '../shared/fleetGroups';
 
 export function SystemContextMenu({
   target,
@@ -20,6 +21,8 @@ export function SystemContextMenu({
   system,
   bodies,
   fleet,
+  groupCount,
+  onGroupOrder,
   disabled,
   command,
   close,
@@ -35,6 +38,8 @@ export function SystemContextMenu({
   system: StarSystem;
   bodies: CelestialBody[];
   fleet?: Fleet;
+  groupCount: number;
+  onGroupOrder: (order: FleetGroupOrder) => void;
   disabled: boolean;
   command: (c: GameCommand) => void;
   close: () => void;
@@ -148,6 +153,28 @@ export function SystemContextMenu({
       onContextMenu={(e) => e.preventDefault()}
     >
       <strong>{body?.name || targetFleet?.name || destination?.name || 'Systemobjekt'}</strong>
+      {groupCount > 0 && (body || destination) && (
+        <button
+          role="menuitem"
+          disabled={disabled || groupCount > MAX_FLEET_GROUP}
+          onClick={(e) => {
+            if (destination) onGroupOrder({ type: 'move', systemId: destination.id, append: e.shiftKey });
+            else if (body) {
+              const p = bodyPosition(body, bodies, game.tick);
+              onGroupOrder({
+                type: 'local_move',
+                systemId: system.id,
+                point: { ...p, x: p.x + body.radius + 25, y: Math.max(24, Math.min(400, p.y + body.radius)) },
+                append: e.shiftKey,
+              });
+            }
+            close();
+          }}
+        >
+          {groupCount} Flotten {destination ? 'verlegen' : 'anfliegen lassen'}
+          <small>Umschalt: anhängen</small>
+        </button>
+      )}
       <button
         role="menuitem"
         onClick={() => {
@@ -159,7 +186,7 @@ export function SystemContextMenu({
       >
         Details ansehen
       </button>
-      {body && localFleet && (
+      {body && localFleet && !groupCount && (
         <>
           <button role="menuitem" disabled={disabled} onClick={(e) => visit(e.shiftKey)}>
             Anfliegen <small>Umschalt: anhängen</small>
@@ -169,7 +196,7 @@ export function SystemContextMenu({
           </button>
         </>
       )}
-      {destination && localFleet && (
+      {destination && localFleet && !groupCount && (
         <button
           role="menuitem"
           disabled={disabled}

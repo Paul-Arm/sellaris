@@ -51,6 +51,8 @@ import {
 } from '../shared/celestial';
 import { crisisProductionFactor } from '../shared/crises';
 import { SystemScene, type SystemTarget } from './SystemSpaceScene';
+import { selectTargets, targetKey, type SpaceTarget, type SelectionMode } from './space-selection';
+import { MAX_FLEET_GROUP, type FleetGroupOrder } from '../shared/fleetGroups';
 import './system-view.css';
 
 const format = (n: number) => n.toLocaleString('de-DE', { maximumFractionDigits: 1 });
@@ -138,7 +140,7 @@ export function SystemView({
   inventorySelection?: InventorySelection | null;
   command: (c: GameCommand) => void;
   connected: boolean;
-  onFleet: (id: string) => void;
+  onFleet: (id: string | null) => void;
   onBack: () => void;
   onColony: (objectId?: string) => void;
   onFleetDetails: () => void;
@@ -146,10 +148,11 @@ export function SystemView({
   onBattle?: () => void;
   onNavigate: (id: string) => void;
 }) {
-  const [selection, setSelection] = useState<{ slot: number; fleet: string | null }>({
-    slot: system.kind === 'star' ? 1 : 0,
-    fleet: game.fleets.find((f) => f.id === fleetId)?.navigation?.orders.length ? fleetId : null,
-  });
+  const [selection, setSelection] = useState<SpaceTarget[]>(() =>
+    fleetId && game.fleets.find((f) => f.id === fleetId)?.navigation?.orders.length
+      ? [{ kind: 'fleet', id: fleetId }]
+      : [{ kind: 'body', slot: system.kind === 'star' ? 1 : 0 }],
+  );
   const [context, setContext] = useState<{ target: SystemTarget; x: number; y: number } | null>(null);
   const closeContext = useCallback(() => setContext(null), []);
   const [point, setPoint] = useState<Point3>({ x: 500, y: 80, z: 300 });
@@ -176,17 +179,38 @@ export function SystemView({
     const slot = inventorySelection.bodySlot ?? bodies.find((body) => body.main)?.slot;
     if (!inventorySelection.fleetId && slot === undefined) return;
     appliedInventorySelection.current = inventorySelection;
-    setSelection((previous) => ({ slot: slot ?? previous.slot, fleet: inventorySelection.fleetId ?? null }));
+    setSelection(
+      inventorySelection.fleetId
+        ? [{ kind: 'fleet', id: inventorySelection.fleetId }]
+        : [{ kind: 'body', slot: slot! }],
+    );
     setStationMode(false);
     setPicking(false);
     setContext(null);
     setFocusSelection((n) => n + 1);
   }, [inventorySelection, system.id, bodies]);
-  const body = bodies.find((b) => b.slot === selection.slot) || bodies[0];
+  useEffect(() => {
+    if (!objects.bodies) return;
+    setSelection((current) => {
+      const next = current.filter((t) =>
+        t.kind === 'body'
+          ? objects.bodies!.some((b) => b.slot === t.slot)
+          : game.fleets.some((f) => f.id === t.id && f.systemId === system.id && !f.route.length),
+      );
+      return next.length === current.length ? current : next;
+    });
+  }, [objects.bodies, game.fleets, system.id]);
+  const primary = selection.at(-1);
+  const body = (primary?.kind === 'body' && bodies.find((b) => b.slot === primary.slot)) || bodies[0];
   const planetColony =
     body && game.planetColonies?.find((c) => c.systemId === system.id && c.bodySlot === body.slot);
   const fleets = game.fleets.filter((f) => f.systemId === system.id && !f.route.length);
-  const selectedFleet = game.fleets.find((f) => f.id === selection.fleet);
+  const selectedFleet = primary?.kind === 'fleet' ? fleets.find((f) => f.id === primary.id) : undefined;
+  const selectedFleets = fleets.filter((f) => selection.some((t) => t.kind === 'fleet' && t.id === f.id));
+  const commandFleets = selectedFleets.filter((f) => f.owner === game.me.id && !f.battleId);
+  useEffect(() => {
+    onFleet(selectedFleet?.id ?? null);
+  }, [selectedFleet?.id, onFleet]);
   const builder = constructionFleet(game, system.id, selectedFleet?.id);
   const site = game.sites?.find((s) => s.systemId === system.id && s.bodySlot === body?.slot);
   const own = system.owner === game.me.id,
@@ -197,12 +221,17 @@ export function SystemView({
   const allowed = surveyed && own;
   const disabled = !connected || !!game.winner;
   const factor = Math.min(1, ...(game.crises || []).map((c) => crisisProductionFactor(c.phase, c.shielded)));
-  const chooseFleet = (id: string) => {
+  const chooseSelection = (targets: SpaceTarget[], mode: SelectionMode = 'replace') => {
     closeContext();
-    onFleet(id);
-    setSelection((s) => ({ ...s, fleet: id }));
+    setSelection((current) => selectTargets(current, targets, mode));
     setStationMode(false);
     setPicking(false);
+  };
+  const chooseFleet = (id: string) => chooseSelection([{ kind: 'fleet', id }]);
+  const issueGroup = (order: FleetGroupOrder) => {
+    if (disabled || !commandFleets.length || commandFleets.length > MAX_FLEET_GROUP) return;
+    command({ type: 'fleet_group', fleetIds: commandFleets.map((f) => f.id), order });
+    closeContext();
   };
   const inspector = useRef<HTMLElement>(null);
   const [projectFocus, setProjectFocus] = useState(0);
@@ -212,7 +241,7 @@ export function SystemView({
   }, [projectFocus]);
   const chooseBody = (slot: number, project = false) => {
     closeContext();
-    setSelection({ slot, fleet: null });
+    setSelection([{ kind: 'body', slot }]);
     if (project) setProjectFocus((n) => n + 1);
     setStationMode(false);
     setPicking(false);
@@ -250,20 +279,10 @@ export function SystemView({
         onPoint={(p) => setPoint({ ...p, y: point.y })}
         onContext={(target, x, y) => setContext({ target, x, y })}
         onMove={(p, append) => {
-          closeContext();
-          if (
-            !disabled &&
-            selectedFleet?.owner === game.me.id &&
-            selectedFleet.systemId === system.id &&
-            !selectedFleet.route.length &&
-            !selectedFleet.battleId
-          )
-            command({ type: 'local_move', fleetId: selectedFleet.id, systemId: system.id, point: p, append });
+          issueGroup({ type: 'local_move', systemId: system.id, point: p, append });
         }}
-        selectedBody={selectedFleet ? -1 : body.slot}
-        fleetId={fleetId}
-        onBody={chooseBody}
-        onFleet={chooseFleet}
+        selection={selection}
+        onSelection={chooseSelection}
         zoomStep={zoomStep}
         onZoom={setZoom}
         bloom={bloom}
@@ -364,6 +383,50 @@ export function SystemView({
             >
               Zurück zur Auswahl
             </button>
+          </section>
+        ) : selection.length > 1 ? (
+          <section className="group-selection" aria-label="Mehrfachauswahl">
+            <h2>{selection.length} Objekte ausgewählt</h2>
+            <p>
+              {selectedFleets.length} Flotten · {selection.filter((t) => t.kind === 'body').length}{' '}
+              Himmelskörper
+            </p>
+            <div className="group-selection-list">
+              {selection.map((target) => (
+                <div key={targetKey(target)}>
+                  <button onClick={() => chooseSelection([target])}>
+                    {target.kind === 'body'
+                      ? bodies.find((b) => b.slot === target.slot)?.name
+                      : fleets.find((f) => f.id === target.id)?.name}
+                  </button>
+                  <button
+                    aria-label={`Aus Auswahl entfernen: ${target.kind === 'body' ? bodies.find((b) => b.slot === target.slot)?.name : fleets.find((f) => f.id === target.id)?.name}`}
+                    onClick={() => chooseSelection([target], 'toggle')}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p>
+              {commandFleets.length} eigene Flotten steuerbar. Rechtsklick auf freien Raum setzt ihr Flugziel;
+              Umschalt hängt den Flug an.
+            </p>
+            {commandFleets.length > MAX_FLEET_GROUP && (
+              <p role="status">Höchstens {MAX_FLEET_GROUP} Flotten je Gruppenbefehl auswählen.</p>
+            )}
+            <button
+              disabled={disabled || !commandFleets.length || commandFleets.length > MAX_FLEET_GROUP}
+              onClick={() => issueGroup({ type: 'fleet_stop' })}
+            >
+              Ausgewählte Flotten stoppen
+            </button>
+            <button onClick={() => chooseSelection([])}>Auswahl aufheben</button>
+          </section>
+        ) : !selection.length ? (
+          <section className="group-selection">
+            <h2>Kein Objekt ausgewählt</h2>
+            <p>Klicke auf ein Objekt oder ziehe einen Auswahlrahmen auf.</p>
           </section>
         ) : selectedFleet ? (
           <>
@@ -650,13 +713,16 @@ export function SystemView({
                                 <small>Ertrag pro Stufe / Monat</small>
                                 <Amounts
                                   values={economyTotals(
-                                    optimizeProduction(facilityLedger(
-                                      id,
-                                      1,
-                                      game.me.empire.economyModifiers ?? [],
-                                      factor,
-                                      stellarWeatherFactor(id, system.stellarWeather, game.tick),
-                                    ), game.me),
+                                    optimizeProduction(
+                                      facilityLedger(
+                                        id,
+                                        1,
+                                        game.me.empire.economyModifiers ?? [],
+                                        factor,
+                                        stellarWeatherFactor(id, system.stellarWeather, game.tick),
+                                      ),
+                                      game.me,
+                                    ),
                                   )}
                                 />
                                 {!max && (
@@ -686,13 +752,16 @@ export function SystemView({
                           site.suspended
                             ? {}
                             : economyTotals(
-                                optimizeProduction(facilityLedger(
-                                  site.facility,
-                                  site.level,
-                                  game.me.empire.economyModifiers ?? [],
-                                  factor,
-                                  stellarWeatherFactor(site.facility, system.stellarWeather, game.tick),
-                                ), game.me),
+                                optimizeProduction(
+                                  facilityLedger(
+                                    site.facility,
+                                    site.level,
+                                    game.me.empire.economyModifiers ?? [],
+                                    factor,
+                                    stellarWeatherFactor(site.facility, system.stellarWeather, game.tick),
+                                  ),
+                                  game.me,
+                                ),
                               )
                         }
                       />
@@ -711,6 +780,8 @@ export function SystemView({
           system={system}
           bodies={bodies}
           fleet={selectedFleet}
+          groupCount={selection.length > 1 ? commandFleets.length : 0}
+          onGroupOrder={issueGroup}
           disabled={disabled}
           command={issueConstruction}
           close={closeContext}
@@ -748,6 +819,9 @@ export function SystemView({
         <button aria-label="Systemansicht hineinzoomen" onClick={() => setZoomStep((z) => z + 1)}>
           <Plus size={15} />
         </button>
+      </div>
+      <div className="system-input-hint">
+        Links ziehen: Auswahl · Umschalt: ergänzen · Rechts ziehen: drehen · Mitteltaste: verschieben
       </div>
     </div>
   );

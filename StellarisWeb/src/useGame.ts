@@ -9,6 +9,15 @@ import { BattleDetailSubscription } from '../backend/detail-subscriptions';
 type NativeSession = { code: string; database: string; token?: string; ticket?: string };
 export function useGame() {
   const [state, setState] = useState<GameView | null>(null);
+  const [hasSession, setHasSession] = useState(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('singularity.native-session') || 'null');
+      const room = new URLSearchParams(location.search).get('room');
+      return !!saved && (!room || saved.code === room.toUpperCase());
+    } catch {
+      return false;
+    }
+  });
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
   const [latency, setLatency] = useState(0);
@@ -53,6 +62,7 @@ export function useGame() {
       nativeGeneration = 0,
       nativeAttempts = 0;
     async function attachNative(saved: NativeSession) {
+      setHasSession(true);
       clearTimeout(nativeRetry);
       const generation = ++nativeGeneration;
       unobserve();
@@ -73,6 +83,7 @@ export function useGame() {
         if (availability.status === 404) {
           nativeGeneration++;
           nativeSession.current = null;
+          setHasSession(false);
           sessionStorage.removeItem('singularity.native-session');
           inviteRef.current = '';
           setInvite('');
@@ -305,6 +316,7 @@ export function useGame() {
   }, []);
   return {
     state,
+    hasSession,
     connected,
     error,
     setError,

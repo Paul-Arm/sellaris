@@ -267,7 +267,7 @@ export function EventWorkspace(props: Props) {
       (a, b) => Number(b.state.status === 'decision') - Number(a.state.status === 'decision') || b.id - a.id,
     );
   return (
-    <section className="event-workspace">
+    <section className="event-workspace event-overview">
       <header className="event-overview-header">
         <div>
           <span className="event-kicker">
@@ -282,101 +282,103 @@ export function EventWorkspace(props: Props) {
           <span>aktive Vorgänge</span>
         </div>
       </header>
-      <div className="event-toolbar">
-        <div role="tablist" aria-label="Vorgänge filtern">
-          {(
-            [
-              ['all', 'Alle Vorgänge'],
-              ['event', 'Ereignisse'],
-              ['project', 'Spezialprojekte'],
-              ['archive', 'Archiv'],
-            ] as const
-          ).map(([id, label]) => (
-            <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <label>
-          <Search size={15} />
-          <input
-            aria-label="Vorgänge durchsuchen"
-            placeholder="Suchen …"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
-      </div>
-      {tab === 'all' && !query && (
-        <div className="event-alert-strip">
-          {game.crises
-            ?.filter((c) => !['dormant', 'contained'].includes(c.phase))
-            .map((c) => (
-              <button key={c.id} onClick={() => onSelect(`c:${c.id}`)}>
-                <Radio size={17} />
-                <span>
-                  {CRISIS.title}
-                  <small>{phaseNames[c.phase]}</small>
-                </span>
-                <ArrowRight size={16} />
+      <div className="event-overview-content">
+        <div className="event-toolbar">
+          <div role="tablist" aria-label="Vorgänge filtern">
+            {(
+              [
+                ['all', 'Alle Vorgänge'],
+                ['event', 'Ereignisse'],
+                ['project', 'Spezialprojekte'],
+                ['archive', 'Archiv'],
+              ] as const
+            ).map(([id, label]) => (
+              <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
+                {label}
               </button>
             ))}
-          {game.systems
-            .filter((s) => s.stellarWeather && ['warning', 'active'].includes(s.stellarWeather.phase))
-            .map((s) => (
-              <button key={s.id} onClick={() => onSelect(`w:${s.id}`)}>
-                <Sparkles size={17} />
-                <span>
-                  Sternensturm<small>{s.name}</small>
-                </span>
-                <ArrowRight size={16} />
-              </button>
-            ))}
+          </div>
+          <label>
+            <Search size={15} />
+            <input
+              aria-label="Vorgänge durchsuchen"
+              placeholder="Suchen …"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
         </div>
-      )}
-      <div className="event-card-grid">
-        {visible.map((s) => {
-          const d = EVENT_DEFINITIONS[s.definitionId];
-          return (
-            <button key={s.id} className={`event-card event-theme-${d.theme}`} onClick={() => open(s)}>
-              <div className="event-card-art" style={{ backgroundImage: `url(${d.artwork})` }}>
-                <span>
-                  {d.kind === 'project' ? <FlaskConical size={14} /> : <Radio size={14} />}{' '}
-                  {d.kind === 'project' ? 'Spezialprojekt' : 'Ereignis'}
-                </span>
-                {s.state.seen < s.state.notice && <b>NEU</b>}
-              </div>
-              <div className="event-card-body">
-                <span className={`event-status ${s.state.status}`}>{statusNames[s.state.status]}</span>
-                <h2>{d.title}</h2>
-                <p>{d.summary}</p>
-                {d.progress && <EventProgress value={s.state.progress} max={d.progress.target} />}
-                <footer>
-                  <span>{game.systems.find((w) => w.id === s.systemId)?.name ?? 'Reichsweit'}</span>
+        {tab === 'all' && !query && (
+          <div className="event-alert-strip">
+            {game.crises
+              ?.filter((c) => !['dormant', 'contained'].includes(c.phase))
+              .map((c) => (
+                <button key={c.id} onClick={() => onSelect(`c:${c.id}`)}>
+                  <Radio size={17} />
+                  <span>
+                    {CRISIS.title}
+                    <small>{phaseNames[c.phase]}</small>
+                  </span>
                   <ArrowRight size={16} />
-                </footer>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      {!visible.length && (
-        <div className="event-empty">
-          <Compass size={34} />
-          <h2>
-            {query
-              ? 'Keine passenden Vorgänge'
-              : tab === 'archive'
-                ? 'Noch keine abgeschlossenen Vorgänge'
-                : 'Der nächste Fund liegt hinter dem Horizont'}
-          </h2>
-          <p>
-            {query
-              ? 'Ändere den Suchbegriff oder den Filter.'
-              : 'Erkundung, Forschung und die Entwicklung deines Reichs eröffnen neue Ereignisse und Projekte.'}
-          </p>
+                </button>
+              ))}
+            {game.systems
+              .filter((s) => s.stellarWeather && ['warning', 'active'].includes(s.stellarWeather.phase))
+              .map((s) => (
+                <button key={s.id} onClick={() => onSelect(`w:${s.id}`)}>
+                  <Sparkles size={17} />
+                  <span>
+                    Sternensturm<small>{s.name}</small>
+                  </span>
+                  <ArrowRight size={16} />
+                </button>
+              ))}
+          </div>
+        )}
+        <div className="event-card-grid">
+          {visible.map((s) => {
+            const d = EVENT_DEFINITIONS[s.definitionId];
+            return (
+              <button key={s.id} className={`event-card event-theme-${d.theme}`} onClick={() => open(s)}>
+                <div className="event-card-art" style={{ backgroundImage: `url(${d.artwork})` }}>
+                  <span>
+                    {d.kind === 'project' ? <FlaskConical size={14} /> : <Radio size={14} />}{' '}
+                    {d.kind === 'project' ? 'Spezialprojekt' : 'Ereignis'}
+                  </span>
+                  {s.state.seen < s.state.notice && <b>NEU</b>}
+                </div>
+                <div className="event-card-body">
+                  <span className={`event-status ${s.state.status}`}>{statusNames[s.state.status]}</span>
+                  <h2>{d.title}</h2>
+                  <p>{d.summary}</p>
+                  {d.progress && <EventProgress value={s.state.progress} max={d.progress.target} />}
+                  <footer>
+                    <span>{game.systems.find((w) => w.id === s.systemId)?.name ?? 'Reichsweit'}</span>
+                    <ArrowRight size={16} />
+                  </footer>
+                </div>
+              </button>
+            );
+          })}
         </div>
-      )}
+        {!visible.length && (
+          <div className="event-empty">
+            <Compass size={34} />
+            <h2>
+              {query
+                ? 'Keine passenden Vorgänge'
+                : tab === 'archive'
+                  ? 'Noch keine abgeschlossenen Vorgänge'
+                  : 'Der nächste Fund liegt hinter dem Horizont'}
+            </h2>
+            <p>
+              {query
+                ? 'Ändere den Suchbegriff oder den Filter.'
+                : 'Erkundung, Forschung und die Entwicklung deines Reichs eröffnen neue Ereignisse und Projekte.'}
+            </p>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

@@ -121,11 +121,6 @@ test(
         sectorId: sector.id,
         building: 'reactor',
       };
-      await issue({
-        type: 'empire_ship_set',
-        shipSet: view().me.empire!.design.shipSet,
-        revision: view().me.empire!.revision,
-      });
       const before = view().me.resources.minerals;
       await issue(build);
       assert.equal(view().me.resources.minerals, before - districtSpec('reactor', 1).cost.minerals);

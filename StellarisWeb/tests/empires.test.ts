@@ -154,11 +154,23 @@ test('two matches receive independent deep snapshots; editing and deleting templ
   assert.equal(other.empire!.species[0].traits.includes('curious'), false);
   const changed = mutateLibrary(library, {
     type: 'save_empire',
-    template: { ...library.empires[0], name: 'Renamed' },
+    template: { ...library.empires[0], name: 'Renamed', shipSet: 'aureole' },
   });
   mutateLibrary(changed, { type: 'delete_empire', id: 'empire-union', revision: 2 });
   assert.equal(player.name, 'Terranische Union');
   assert.equal(player.empire!.founding.empire.name, 'Terranische Union');
+  assert.equal(player.empire.design.shipSet, library.empires[0].shipSet);
+  const before = structuredClone(player.empire);
+  assert.throws(
+    () =>
+      command(game, player.id, {
+        type: 'empire_ship_set',
+        shipSet: 'aureole',
+        revision: before.revision,
+      } as unknown as GameCommand),
+    /Unbekannter Befehl/,
+  );
+  assert.deepEqual(player.empire, before);
   assert.equal(game.players.length, 1);
 });
 test('every origin awards start resources and populations exactly once, including repeated view projection', () => {

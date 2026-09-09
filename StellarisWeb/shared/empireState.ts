@@ -1,5 +1,4 @@
 import { cloneData } from './clone';
-import { isShipSet, SHIP_SETS, type ShipSet } from './shipSets';
 import { addEffects, emptyModifiers, type Environment, type Modifiers } from './empireCatalog';
 import {
   governmentModifiers,
@@ -38,7 +37,7 @@ export interface EmpireState {
   nextSpecies: number;
   reformAvailableAt: number;
   modificationAvailableAt: number;
-  history: { tick: number; kind: 'founded' | 'reform' | 'species' | 'design'; text: string }[];
+  history: { tick: number; kind: 'founded' | 'reform' | 'species'; text: string }[];
 }
 export interface PopulationGroup {
   speciesId: string;
@@ -124,26 +123,6 @@ export function populationGrowth(
 function expectRevision(empire: EmpireState, expected: number) {
   if (empire.revision !== expected)
     throw new Error('Das Reich hat sich zwischenzeitlich verändert. Öffne die aktuelle Fassung.');
-}
-export function planShipSet(
-  empire: EmpireState,
-  shipSet: ShipSet,
-  tick: number,
-  expected: number,
-): EmpireState {
-  expectRevision(empire, expected);
-  if (!isShipSet(shipSet)) throw new Error('Unbekanntes Schiffsdesign.');
-  if (empire.design.shipSet === shipSet) return empire;
-  const next = cloneData(empire);
-  next.design.shipSet = shipSet;
-  next.revision++;
-  next.history.push({
-    tick,
-    kind: 'design',
-    text: `Schiffs- und Stationsdesign auf ${SHIP_SETS[shipSet].name} geändert.`,
-  });
-  next.history = next.history.slice(-64);
-  return next;
 }
 export function planReform(
   empire: EmpireState,

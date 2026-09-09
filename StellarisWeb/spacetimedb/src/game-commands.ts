@@ -30,11 +30,23 @@ import { COLONY_COMMANDS, type ColonyCommand } from '../../shared/colonies';
 import { applyPlanetColonyCommand } from './game-planet-colonies';
 import { colonyPlanet } from '../../shared/planetColonies';
 import { applyResearchCommand } from './game-research';
+import { fleetGroupCommands } from '../../shared/fleetGroups';
 
 export function applyGameCommand(ctx: Context, owner: number, cmd: GameCommand, executing = false) {
   const config = ctx.db.gameSettings.id.find(1);
   if (!config || config.winnerId) throw new SenderError('Partie nicht verfügbar.');
   if (!cmd || typeof cmd !== 'object') throw new SenderError('Ungültiger Befehl.');
+  if (cmd.type === 'fleet_group') {
+    let orders: GameCommand[];
+    try {
+      orders = fleetGroupCommands(cmd);
+    } catch (error) {
+      throw new SenderError((error as Error).message);
+    }
+    // Reducer rollback keeps the entire group unchanged if any ownership/order check fails.
+    for (const order of orders) applyGameCommand(ctx, owner, order);
+    return;
+  }
   if (cmd.type === 'mine')
     throw new SenderError('Bergbaustationen werden am Systemobjekt mit einem Schiff gebaut.');
   const at = now(ctx);

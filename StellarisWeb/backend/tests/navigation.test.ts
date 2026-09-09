@@ -73,6 +73,40 @@ test(
       const detail = new SystemSubscription(a);
       await detail.focus(home);
       const bodies = () => objectBodies(a.conn.db.focusedSystemObjects.iter());
+      const partner = source.fleets.find((f) => f.owner === pa.id && f.id !== scout.id)!;
+      const foreign = source.fleets.find((f) => f.owner === pb.id)!;
+      const groupIds = [scout.id, partner.id];
+      const groupState = () => groupIds.map((id) => gameView(a)!.fleets.find((f) => f.id === id)!.navigation);
+      await issue({
+        type: 'fleet_group',
+        fleetIds: groupIds,
+        order: { type: 'local_move', systemId: initial, point: { x: 200, y: 100, z: 200 } },
+      });
+      await issue({
+        type: 'fleet_group',
+        fleetIds: groupIds,
+        order: { type: 'local_move', systemId: initial, point: { x: -200, y: 100, z: 200 }, append: true },
+      });
+      assert(groupState().every((navigation) => navigation!.orders.length === 2));
+      const groupBefore = structuredClone(groupState());
+      await assert.rejects(
+        issue({ type: 'fleet_group', fleetIds: [scout.id, foreign.id], order: { type: 'fleet_stop' } }),
+      );
+      assert.deepEqual(groupState(), groupBefore, 'one foreign fleet rolls back the entire group');
+      await assert.rejects(
+        issue({ type: 'fleet_group', fleetIds: [scout.id, scout.id], order: { type: 'fleet_stop' } }),
+      );
+      await delay(600);
+      assert.deepEqual(groupState(), groupBefore, 'group navigation remains paused');
+      const groupReconnect = await connect(database, { token: a.token });
+      clients.push(groupReconnect);
+      await subscribe(groupReconnect.conn, GAME_QUERIES);
+      assert.deepEqual(
+        groupIds.map((id) => gameView(groupReconnect)!.fleets.find((f) => f.id === id)!.navigation),
+        groupBefore,
+      );
+      await issue({ type: 'fleet_group', fleetIds: groupIds, order: { type: 'fleet_stop' } });
+      assert(groupState().every((navigation) => navigation!.orders.length === 0));
       await assert.rejects(
         issue({ type: 'local_move', fleetId: scout.id, systemId: initial, point: { x: 1700, y: 0, z: 0 } }),
       );

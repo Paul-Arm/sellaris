@@ -4,8 +4,8 @@ import { AUTHORITIES, EMPIRE_KINDS, ORIGINS, ENVIRONMENTS, TRAITS } from '../sha
 import { parseGovernment, parseSpeciesDesign, type SpeciesDesign } from '../shared/empires';
 import { empireModifiers, MODIFICATION_COST, REFORM_COST } from '../shared/empireState';
 import type { GameCommand, GameView } from '../shared/game';
-import { EffectList, GovernmentFields, SpeciesFields, SelectField } from './EmpireFields';
-import { SHIP_SETS, isShipSet } from '../shared/shipSets';
+import { EffectList, GovernmentFields, SpeciesFields } from './EmpireFields';
+import { SHIP_SETS } from '../shared/shipSets';
 import { EmpireFlag } from './EmpireFlag';
 import './empires.css';
 import { ownedColonyWorlds } from '../shared/planetColonies';
@@ -79,33 +79,17 @@ export function LiveEmpire({ game, command }: { game: GameView; command: (comman
               <span>{empire.design.rulerTitle || 'FÜHRUNG'}</span>
               <strong>{empire.design.rulerName || 'Unbenannt'}</strong>
             </div>
+            <div>
+              <span>SCHIFFS- UND STATIONSDESIGN</span>
+              <strong>{SHIP_SETS[empire.design.shipSet].name}</strong>
+            </div>
           </div>
           {empire.design.description && <p className="archive-note">{empire.design.description}</p>}
-          <fieldset disabled={!!game.winner} style={{ border: 0, padding: 0 }}>
-            <SelectField
-              label="Schiffs- und Stationsdesign"
-              value={empire.design.shipSet}
-              options={SHIP_SETS}
-              onChange={(shipSet) => {
-                if (isShipSet(shipSet))
-                  command({ type: 'empire_ship_set', shipSet, revision: empire.revision });
-              }}
-            />
-          </fieldset>
-          <p className="archive-note">
-            {SHIP_SETS[empire.design.shipSet].description} Der Wechsel ist kostenlos und verändert keine
-            Spielwerte.{' '}
-            <a href="/models" target="_blank" rel="noreferrer">
-              Designhangar öffnen ↗
-            </a>
-          </p>
           {empire.design.lore && <p className="living-lore">{empire.design.lore}</p>}
           <EffectList effects={empireModifiers(empire)} />
           <p className="archive-note">
-            Gründung aus „{empire.founding.empire.name}“, Revision {empire.founding.empire.revision}. Die
-            Gründungskopie bleibt erhalten, auch wenn du ihre Vorlage änderst oder löschst. Kolonieerträge und
-            Wachstum berücksichtigen die dort lebenden Spezies; reichsweite Werte verwenden die
-            Gründungsspezies.
+            Kolonieerträge und Wachstum berücksichtigen die dort lebenden Spezies; reichsweite Werte verwenden
+            die Gründungsspezies.
           </p>
           <details className="living-history">
             <summary>Reichschronik · {empire.history.length} Ereignisse</summary>

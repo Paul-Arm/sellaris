@@ -19,6 +19,14 @@ import { createBody, lineLoop, shipGeometry, type Disposable } from './system-ob
 import { createAsteroidBelt } from './asteroid-belts';
 import { fieldVertex, fieldFragment } from './system-shaders';
 import { CanvasHud } from './canvas-hud';
+import { HyperlaneLabel } from './hyperlane-label';
+import {
+  nearbyTarget,
+  targetsInBox,
+  type ScreenTarget,
+  type SpaceTarget,
+  type SelectionMode,
+} from './space-selection';
 import { BlackHolePass } from './BlackHolePass';
 import {
   PORTAL_BEND_INNER,
@@ -50,10 +58,8 @@ interface Props {
   bodies: CelestialBody[];
   game: GameView;
   system: StarSystem;
-  selectedBody: number;
-  fleetId: string | null;
-  onBody: (slot: number) => void;
-  onFleet: (id: string) => void;
+  selection: SpaceTarget[];
+  onSelection: (targets: SpaceTarget[], mode?: SelectionMode) => void;
   onNavigate: (id: string) => void;
   onZoom: (zoom: number) => void;
   zoomStep: number;
@@ -92,7 +98,7 @@ export function SystemScene(props: Props) {
     renderer.toneMappingExposure = 1;
     renderer.domElement.setAttribute(
       'aria-label',
-      'Dreidimensionale Raumzeitkarte. Ziehen zum Drehen, Mausrad zum Zoomen.',
+      'Dreidimensionale Raumzeitkarte. Links ziehen: Auswahl. Rechts ziehen: drehen. Mitteltaste: verschieben. Mausrad: zoomen.',
     );
     renderer.domElement.tabIndex = 0;
     root.prepend(renderer.domElement);
@@ -120,6 +126,7 @@ export function SystemScene(props: Props) {
     controls.minPolarAngle = 0.12;
     controls.maxPolarAngle = Math.PI * 0.47;
     controls.screenSpacePanning = false;
+    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
     const baseDirection = new THREE.Vector3(0.34, 0.65, 0.8).normalize();
     const homeDistance = Math.max(
       1950,
@@ -253,7 +260,9 @@ export function SystemScene(props: Props) {
           const well = bodyGravityWell(b);
           wells[i].set(well.x, well.y, well.z, well.w);
         }
-        const label = hud.add('body', b.name, () => latest.current.onBody(b.slot));
+        const label = hud.add(b.name, (event) =>
+          latest.current.onSelection([{ kind: 'body', slot: b.slot }], event.shiftKey ? 'toggle' : 'replace'),
+        );
         label.element.oncontextmenu = (e) => {
           e.preventDefault();
           latest.current.onContext({ kind: 'body', slot: b.slot }, e.clientX, e.clientY);
@@ -332,8 +341,13 @@ export function SystemScene(props: Props) {
     colonyYard.group.position.set((bodies[0]?.radius ?? 30) + 110, 30, -35);
     defenses[0].group.position.set(22, 12, 55);
     defenses[1].group.position.set(-22, 12, 55);
-    const selection = lineLoop(1, resources, '#e8f4db', 0.9);
-    scene.add(selection);
+    const selectionRings = new Map(
+      bodies.map((body) => {
+        const ring = lineLoop(1, resources, '#e8f4db', 0.9);
+        scene.add(ring);
+        return [body.slot, ring] as const;
+      }),
+    );
     const exits = connections.map(({ id, destination, direction, position, mouth }) => {
       const { portal, route } = createWormhole(
         mouth,
@@ -353,15 +367,31 @@ export function SystemScene(props: Props) {
       scene.add(pick);
       selectable.push(pick);
       resources.push(pickGeo, pickMat);
-      const label = hud.add('exit', destination.name, () => latest.current.onNavigate(id));
-      label.element.oncontextmenu = (e) => {
-        e.preventDefault();
-        latest.current.onContext({ kind: 'exit', id }, e.clientX, e.clientY);
+      const label = new HyperlaneLabel(root, id, destination.name, mouth, () =>
+        latest.current.onNavigate(id),
+      );
+      label.button.onfocus = () => {
+        const offset = camera.position.clone().sub(controls.target).setLength(900);
+        controls.target.copy(label.anchor);
+        camera.position.copy(label.anchor).add(offset);
       };
-      scene.add(label.object);
+      label.button.oncontextmenu = (e) => {
+        e.preventDefault();
+        const point = label.anchor.clone().project(camera),
+          bounds = root.getBoundingClientRect();
+        latest.current.onContext(
+          { kind: 'exit', id },
+          bounds.left + ((point.x + 1) * bounds.width) / 2,
+          bounds.top + ((1 - point.y) * bounds.height) / 2,
+        );
+      };
+      scene.add(label.mesh);
+      selectable.push(label.mesh);
+      resources.push(label);
       return { id, position, mouth, portal, pick, label, direction };
     });
     renderer.domElement.dataset.hyperlaneStyle = 'upright-wormholes-compact-wide-approach';
+    renderer.domElement.dataset.hyperlaneLabels = 'surface-arcs';
     const shipMeshes = new Map(
       ['scout', 'colony', 'corvette'].map((kind) => {
         const geo = shipGeometry(kind),
@@ -451,6 +481,12 @@ export function SystemScene(props: Props) {
     resize();
     const ray = new THREE.Raycaster(),
       pointer = new THREE.Vector2();
+    const screenTargets: ScreenTarget[] = [];
+    const fleetPickPoints: { id: string; x: number; y: number; z: number }[] = [];
+    const marquee = document.createElement('div');
+    marquee.className = 'system-selection-box';
+    marquee.hidden = true;
+    root.append(marquee);
     const previewGeo = new THREE.OctahedronGeometry(18),
       previewMat = new THREE.MeshBasicMaterial({ color: '#9ee9d4', wireframe: true });
     const preview = new THREE.Mesh(previewGeo, previewMat);
@@ -464,21 +500,81 @@ export function SystemScene(props: Props) {
     pathLine.frustumCulled = false;
     scene.add(pathLine);
     resources.push(pathGeo, pathMat);
-    const drag = { x: 0, y: 0, moved: 0, valid: false, button: 0 };
+    const drag = { x: 0, y: 0, moved: 0, valid: false, button: 0, box: false, pointerId: -1, append: false };
+    let hoveredExit: string | undefined;
     const down = (e: PointerEvent) => {
+      if (!e.isPrimary || drag.valid) return;
       drag.x = e.clientX;
       drag.y = e.clientY;
       drag.moved = 0;
       drag.button = e.button;
       drag.valid = (e.button === 0 || e.button === 2) && e.isPrimary;
+      drag.box = e.button === 0 && e.pointerType !== 'touch';
+      drag.append = e.shiftKey;
+      drag.pointerId = e.pointerId;
+      if (drag.box) {
+        e.stopImmediatePropagation();
+        renderer.domElement.focus({ preventScroll: true });
+        renderer.domElement.setPointerCapture(e.pointerId);
+      }
+    };
+    const hitTarget = (e: PointerEvent): SystemTarget | undefined => {
+      const bounds = renderer.domElement.getBoundingClientRect();
+      const x = e.clientX - bounds.left,
+        y = e.clientY - bounds.top;
+      pointer.set((x / width) * 2 - 1, 1 - (y / height) * 2);
+      ray.setFromCamera(pointer, camera);
+      const hit = ray.intersectObjects(selectable, true)[0];
+      const data = hit?.object.userData;
+      if (data?.destination) return { kind: 'exit', id: data.destination };
+      const id = hit?.instanceId === undefined ? undefined : data?.fleets?.[hit.instanceId];
+      if (id) return { kind: 'fleet', id };
+      // Prefer a nearby small ship over the broad silhouette of a star beneath it.
+      const near = nearbyTarget(screenTargets, x, y);
+      if (near) return near;
+      if (data?.slot !== undefined) return { kind: 'body', slot: data.slot };
     };
     const move = (e: PointerEvent) => {
       drag.moved = Math.max(drag.moved, Math.hypot(e.clientX - drag.x, e.clientY - drag.y));
+      if (drag.valid && drag.box && drag.moved >= 5 && !latest.current.placement) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        marquee.hidden = false;
+        marquee.style.left = `${Math.max(0, Math.min(drag.x, e.clientX) - bounds.left)}px`;
+        marquee.style.top = `${Math.max(0, Math.min(drag.y, e.clientY) - bounds.top)}px`;
+        marquee.style.width = `${Math.min(width, Math.max(drag.x, e.clientX) - bounds.left) - parseFloat(marquee.style.left)}px`;
+        marquee.style.height = `${Math.min(height, Math.max(drag.y, e.clientY) - bounds.top) - parseFloat(marquee.style.top)}px`;
+        return;
+      }
+      const target = hitTarget(e);
+      hoveredExit = target?.kind === 'exit' ? target.id : undefined;
+      renderer.domElement.style.cursor = target ? 'pointer' : '';
     };
     const cancel = () => {
       drag.valid = false;
+      marquee.hidden = true;
+      if (renderer.domElement.hasPointerCapture(drag.pointerId))
+        renderer.domElement.releasePointerCapture(drag.pointerId);
+      hoveredExit = undefined;
+      renderer.domElement.style.cursor = '';
     };
     const up = (e: PointerEvent) => {
+      if (e.pointerId !== drag.pointerId) return;
+      drag.moved = Math.max(drag.moved, Math.hypot(e.clientX - drag.x, e.clientY - drag.y));
+      if (drag.valid && drag.box && drag.moved >= 5 && !latest.current.placement) {
+        const bounds = renderer.domElement.getBoundingClientRect();
+        latest.current.onSelection(
+          targetsInBox(
+            screenTargets,
+            drag.x - bounds.left,
+            drag.y - bounds.top,
+            e.clientX - bounds.left,
+            e.clientY - bounds.top,
+          ),
+          drag.append ? 'add' : 'replace',
+        );
+        cancel();
+        return;
+      }
       if (drag.valid && drag.moved < 5) {
         const r = renderer.domElement.getBoundingClientRect();
         pointer.set(((e.clientX - r.left) / width) * 2 - 1, 1 - ((e.clientY - r.top) / height) * 2);
@@ -495,44 +591,39 @@ export function SystemScene(props: Props) {
               { x: Math.round(point.x), y: point.y, z: Math.round(point.z) },
               e.shiftKey,
             );
-          drag.valid = false;
+          cancel();
           return;
         }
-        const hit = ray.intersectObjects(selectable, true)[0];
+        const target = hitTarget(e);
         if (drag.button === 2) {
-          const data = hit?.object.userData;
-          const id = hit?.instanceId === undefined ? undefined : data?.fleets?.[hit.instanceId];
-          const target: SystemTarget | undefined = data?.destination
-            ? { kind: 'exit', id: data.destination }
-            : id
-              ? { kind: 'fleet', id }
-              : data?.slot !== undefined
-                ? { kind: 'body', slot: data.slot }
-                : undefined;
           if (target) latest.current.onContext(target, e.clientX, e.clientY);
           else {
             const p = latest.current;
-            const fleet = p.game.fleets.find((f) => f.id === p.fleetId);
+            const fleetIds = p.selection.filter((t) => t.kind === 'fleet').map((t) => t.id);
+            const fleet = p.game.fleets.find((f) => fleetIds.includes(f.id) && f.owner === p.game.me.id);
             const y = fleet?.navigation ? localPosition(fleet.navigation.motion, p.game.tick).y : 24;
             const point = new THREE.Vector3();
             if (ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), point))
               p.onMove({ x: Math.round(point.x), y, z: Math.round(point.z) }, e.shiftKey);
           }
-          drag.valid = false;
+          cancel();
           return;
         }
-        if (hit?.object.userData.destination) latest.current.onNavigate(hit.object.userData.destination);
-        else if (hit?.instanceId !== undefined) {
-          const id = hit.object.userData.fleets?.[hit.instanceId];
-          if (id) latest.current.onFleet(id);
-        } else if (hit?.object.userData.slot !== undefined) latest.current.onBody(hit.object.userData.slot);
+        if (target?.kind === 'exit') latest.current.onNavigate(target.id);
+        else latest.current.onSelection(target ? [target] : [], e.shiftKey ? 'toggle' : 'replace');
       }
-      drag.valid = false;
+      cancel();
     };
-    renderer.domElement.addEventListener('pointerdown', down);
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cancel();
+    };
+    renderer.domElement.addEventListener('pointerdown', down, true);
     renderer.domElement.addEventListener('pointermove', move);
     renderer.domElement.addEventListener('pointerup', up);
     renderer.domElement.addEventListener('pointercancel', cancel);
+    renderer.domElement.addEventListener('lostpointercapture', cancel);
+    window.addEventListener('blur', cancel);
+    window.addEventListener('keydown', escape);
     const dummy = new THREE.Object3D(),
       color = new THREE.Color(),
       projection = new THREE.Vector3(),
@@ -556,6 +647,10 @@ export function SystemScene(props: Props) {
           p.game.displayClock?.now(at) ??
           p.game.tick + (p.game.paused ? 0 : Math.min(1, (at - sample.current.at) / 1000) * p.game.speed);
       const indices = gameIndices(p.game);
+      const selectedBodies = new Set(p.selection.filter((t) => t.kind === 'body').map((t) => t.slot));
+      const selectedFleets = new Set(p.selection.filter((t) => t.kind === 'fleet').map((t) => t.id));
+      const primary = p.selection.at(-1);
+      const primaryFleetId = primary?.kind === 'fleet' ? primary.id : null;
       time.value = t;
       for (const belt of asteroidBelts) belt.animate(t);
       fieldMat.uniforms.contours.value = p.contours ? 1 : 0;
@@ -590,7 +685,7 @@ export function SystemScene(props: Props) {
         if (b.kind === 'station')
           v.group.children[0].visible = !indices.sites.get(`${p.system.id}:${b.slot}`)?.level;
         if (v.orbit) {
-          v.orbit.visible = b.slot === p.selectedBody;
+          v.orbit.visible = selectedBodies.has(b.slot);
           if (b.parent !== undefined) v.orbit.position.copy(bodyObjects.get(b.parent)!.group.position);
           else v.orbit.position.y = -8;
         }
@@ -612,7 +707,7 @@ export function SystemScene(props: Props) {
         station.visible = !!site && !facility.ready;
         station.scale.setScalar(site?.building ? 0.85 + Math.sin(t * 2) * 0.15 : 1);
         station.rotation.y = t * 0.08;
-        v.label.update({ selected: p.selectedBody === b.slot, built: !!site?.level });
+        v.label.update({ selected: selectedBodies.has(b.slot), built: !!site?.level });
       }
       const colony = p.system.colony;
       const ownerSet = playerShipSet(p.game, p.system.owner);
@@ -668,11 +763,12 @@ export function SystemScene(props: Props) {
       });
       sunLight.position.copy(bodyObjects.get(0)!.group.position);
       sunLight.position.y += 50;
-      const chosen = bodies.find((b) => b.slot === p.selectedBody);
-      selection.visible = !!chosen && chosen.kind !== 'blackhole';
-      if (chosen) {
-        selection.position.copy(bodyObjects.get(chosen.slot)!.group.position);
-        selection.scale.setScalar(chosen.radius + 12);
+      const chosen = primary?.kind === 'body' ? bodies.find((b) => b.slot === primary.slot) : undefined;
+      for (const body of bodies) {
+        const ring = selectionRings.get(body.slot)!;
+        ring.visible = selectedBodies.has(body.slot);
+        ring.position.copy(bodyObjects.get(body.slot)!.group.position);
+        ring.scale.setScalar(body.radius + 12);
       }
       const counts: Record<string, number> = { scout: 0, colony: 0, corvette: 0 };
       for (const { model } of modelBatches.values()) model.begin();
@@ -687,6 +783,7 @@ export function SystemScene(props: Props) {
       const perKind = new Map<string, number>();
       for (const f of fleets) perKind.set(f.type, (perKind.get(f.type) || 0) + 1);
       fleetPositions.clear();
+      fleetPickPoints.length = 0;
       for (const [k, f] of fleets.entries()) {
         const mesh = shipMeshes.get(f.type);
         if (!mesh) continue;
@@ -729,11 +826,11 @@ export function SystemScene(props: Props) {
             Math.min(1, (f.journey ? travelProgress(f.journey, t) : f.progress) / 0.15),
           );
         fleetPositions.set(f.id, center);
-        color.set(f.id === p.fleetId ? '#e9e8ae' : indices.players.get(f.owner)?.color || '#c8d9e6');
+        color.set(selectedFleets.has(f.id) ? '#e9e8ae' : indices.players.get(f.owner)?.color || '#c8d9e6');
         if (markerCount < 4096) {
           dummy.position.copy(center).add(offset.set(0, -7, 0));
           dummy.rotation.set(0, 0, 0);
-          dummy.scale.setScalar(f.id === p.fleetId ? 1.4 : 1);
+          dummy.scale.setScalar(selectedFleets.has(f.id) ? 1.4 : 1);
           dummy.updateMatrix();
           instanceMatrix(fleetMarkers, markerCount, dummy.matrix);
           instanceColor(fleetMarkers, markerCount, color);
@@ -744,12 +841,13 @@ export function SystemScene(props: Props) {
             row = Math.floor(Math.sqrt(i)),
             col = i - row * row;
           dummy.position.copy(center).add(offset.set((col - row) * 20, 0, row * 28));
+          fleetPickPoints.push({ id: f.id, x: dummy.position.x, y: dummy.position.y, z: dummy.position.z });
           dummy.rotation.set(
             0,
             exit ? Math.atan2(-exit.direction.x, -exit.direction.z) : yaw,
             Math.max(-0.22, Math.min(0.22, (-turn * speed) / 160)),
           );
-          const scale = f.id === p.fleetId ? 1.45 : 1.2;
+          const scale = selectedFleets.has(f.id) ? 1.45 : 1.2;
           dummy.scale.setScalar(scale);
           dummy.updateMatrix();
           if (batch?.model.ready) batch.model.add(dummy.matrix, f.id);
@@ -776,7 +874,7 @@ export function SystemScene(props: Props) {
       preview.visible = !!p.previewPoint;
       if (p.previewPoint) preview.position.set(p.previewPoint.x, p.previewPoint.y, p.previewPoint.z);
       const navigatingFleet = p.game.fleets.find(
-        (f) => f.id === p.fleetId && f.owner === p.game.me.id && f.systemId === p.system.id,
+        (f) => f.id === primaryFleetId && f.owner === p.game.me.id && f.systemId === p.system.id,
       );
       const nav = navigatingFleet?.navigation;
       let pathCount = 0;
@@ -808,23 +906,59 @@ export function SystemScene(props: Props) {
       }
       if (lastFocus !== p.focusSelection) {
         lastFocus = p.focusSelection;
+        const groupBounds = new THREE.Box3();
+        for (const selected of p.selection) {
+          const position =
+            selected.kind === 'body'
+              ? bodyObjects.get(selected.slot)?.group.position
+              : fleetPositions.get(selected.id);
+          if (!position) continue;
+          const radius =
+            selected.kind === 'body' ? (bodies.find((b) => b.slot === selected.slot)?.radius ?? 0) : 50;
+          groupBounds.expandByPoint(position.clone().addScalar(radius));
+          groupBounds.expandByPoint(position.clone().addScalar(-radius));
+        }
+        for (const point of fleetPickPoints) {
+          if (!selectedFleets.has(point.id)) continue;
+          groupBounds.expandByPoint(new THREE.Vector3(point.x - 50, point.y - 50, point.z - 50));
+          groupBounds.expandByPoint(new THREE.Vector3(point.x + 50, point.y + 50, point.z + 50));
+        }
+        const group =
+          p.selection.length > 1 && !groupBounds.isEmpty()
+            ? groupBounds.getBoundingSphere(new THREE.Sphere())
+            : undefined;
         const target = chosen
           ? bodyObjects.get(chosen.slot)!.group.position
-          : fleetPositions.get(p.fleetId || '');
-        if (target) {
+          : fleetPositions.get(primaryFleetId || '');
+        if (group || target) {
+          const center = group?.center ?? target!;
           offset.copy(camera.position).sub(controls.target).normalize();
-          controls.target.copy(target);
+          controls.target.copy(center);
           camera.position
-            .copy(target)
+            .copy(center)
             .addScaledVector(
               offset,
-              chosen
-                ? Math.max(
-                    160,
-                    chosen.radius * (chosen.kind === 'blackhole' ? 16 : 9),
-                    chosen.kind === 'asteroid' && systemHasAsteroidBelt(p.system) ? 650 : 0,
+              group
+                ? Math.min(
+                    controls.maxDistance,
+                    Math.max(
+                      800,
+                      (group.radius * 1.4) /
+                        Math.sin(
+                          Math.min(
+                            THREE.MathUtils.degToRad(camera.fov) / 2,
+                            Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * camera.aspect),
+                          ),
+                        ),
+                    ),
                   )
-                : 250,
+                : chosen
+                  ? Math.max(
+                      160,
+                      chosen.radius * (chosen.kind === 'blackhole' ? 16 : 9),
+                      chosen.kind === 'asteroid' && systemHasAsteroidBelt(p.system) ? 650 : 0,
+                    )
+                  : 250,
             );
         }
       }
@@ -840,8 +974,32 @@ export function SystemScene(props: Props) {
         camera.position.copy(controls.target).add(offset);
         lastStep = p.zoomStep;
       }
-      controls.update(delta);
+      if (!(drag.valid && drag.box)) controls.update(delta);
       camera.updateMatrixWorld();
+      screenTargets.length = 0;
+      const projectTarget = (target: SpaceTarget, position: THREE.Vector3, radius: number) => {
+        projection.copy(position).project(camera);
+        if (projection.z < -1 || projection.z > 1 || Math.abs(projection.x) > 1 || Math.abs(projection.y) > 1)
+          return;
+        const depth = position.distanceTo(camera.position);
+        screenTargets.push({
+          target,
+          x: ((projection.x + 1) * width) / 2,
+          y: ((1 - projection.y) * height) / 2,
+          radius: (radius * height) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * depth),
+          depth,
+        });
+      };
+      for (const body of bodies)
+        projectTarget(
+          { kind: 'body', slot: body.slot },
+          bodyObjects.get(body.slot)!.group.position,
+          body.radius,
+        );
+      for (const point of fleetPickPoints)
+        projectTarget({ kind: 'fleet', id: point.id }, offset.set(point.x, point.y, point.z), 12);
+      for (const exit of exits)
+        exit.label.update(wells, mouths, mouthHeights, camera, exit.id === hoveredExit);
       scene.updateMatrixWorld();
       bloomPass.strength = 0.75 * THREE.MathUtils.clamp(controls.getDistance() / 700, 0.24, 1);
       const zoom = Math.round((baseDistance / controls.getDistance()) * 100) / 100;
@@ -856,7 +1014,7 @@ export function SystemScene(props: Props) {
       {
         const occupied: { x: number; y: number; w: number }[] = [];
         const ordered = [...bodies].sort(
-          (a, b) => Number(b.slot === p.selectedBody) - Number(a.slot === p.selectedBody),
+          (a, b) => Number(selectedBodies.has(b.slot)) - Number(selectedBodies.has(a.slot)),
         );
         for (const b of ordered) {
           const v = bodyObjects.get(b.slot)!;
@@ -872,39 +1030,10 @@ export function SystemScene(props: Props) {
             x < width - 10 &&
             y > 160 &&
             y < height - 120 &&
-            (b.parent === undefined || b.slot === p.selectedBody || zoom > 2) &&
+            (b.parent === undefined || selectedBodies.has(b.slot) || zoom > 2) &&
             !occupied.some((o) => Math.abs(x - o.x) < (w + o.w) / 2 + 6 && Math.abs(y - o.y) < 26);
           v.label.place(x - w / 2, y, visible);
           if (visible) occupied.push({ x, y, w });
-        }
-        const edgePoints = exits.map((exit) => {
-          projection.copy(exit.position).project(camera);
-          let dx = (projection.x * width) / 2,
-            dy = (-projection.y * height) / 2;
-          if (projection.z > 1) {
-            dx = -dx;
-            dy = -dy;
-          }
-          exit.label.bearing(Math.atan2(dy, dx) + Math.PI / 4);
-          return { exit, side: dx < 0 ? -1 : 1, y: height / 2 + dy };
-        });
-        for (const side of [-1, 1]) {
-          const points = edgePoints.filter((e) => e.side === side).sort((a, b) => a.y - b.y);
-          const top = Math.min(195, height * 0.36),
-            bottom = Math.max(top + 50, height - 195);
-          const gap = Math.min(49, (bottom - top) / Math.max(1, points.length - 1));
-          let previousY = top - gap;
-          for (const [i, point] of points.entries()) {
-            const upper = bottom - (points.length - i - 1) * gap;
-            const y = THREE.MathUtils.clamp(point.y, Math.max(top, previousY + gap), upper);
-            const label = point.exit.label,
-              x = side < 0 ? 92 : width - 92;
-            label.update({ compact: gap < 39 });
-            label.place(x - label.width / 2, y - label.height / 2);
-            // Keep edge-pinned destinations in the same Three.js label scene as body anchors.
-            label.object.position.set((x / width) * 2 - 1, 1 - (y / height) * 2, 0).unproject(camera);
-            previousY = y;
-          }
         }
       }
       profiler.begin();
@@ -919,10 +1048,14 @@ export function SystemScene(props: Props) {
       observer.disconnect();
       controls.dispose();
       hud.dispose();
-      renderer.domElement.removeEventListener('pointerdown', down);
+      renderer.domElement.removeEventListener('pointerdown', down, true);
       renderer.domElement.removeEventListener('pointermove', move);
       renderer.domElement.removeEventListener('pointerup', up);
       renderer.domElement.removeEventListener('pointercancel', cancel);
+      renderer.domElement.removeEventListener('lostpointercapture', cancel);
+      window.removeEventListener('blur', cancel);
+      window.removeEventListener('keydown', escape);
+      marquee.remove();
       resources.forEach((r) => r.dispose());
       renderPass.dispose();
       blackHolePass?.dispose();

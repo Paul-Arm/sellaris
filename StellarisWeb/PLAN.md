@@ -2,9 +2,9 @@
 
 ## TODO: Spieloberfläche und Bedienung
 
-- [ ] Oberfläche nach dem Spielstart aufräumen: sämtliche Funktionen der Spielvorbereitung aus der laufenden Partie entfernen, insbesondere Bearbeiten und Wechseln von Reichs-/Speziesvorlagen sowie den Shipset-Wechsel.
-- [ ] Hyperlane-Namen als gebogene Schrift direkt auf der Raumzeitfläche darstellen; die schwebenden Namenskarten ersetzen.
-- [ ] Weltraumobjekte leichter anklickbar machen und Mehrfachauswahl durch Aufziehen eines Auswahlrahmens (Drag Select) ergänzen.
+- [x] Oberfläche nach dem Spielstart aufräumen: sämtliche Funktionen der Spielvorbereitung aus der laufenden Partie entfernen, insbesondere Bearbeiten und Wechseln von Reichs-/Speziesvorlagen sowie den Shipset-Wechsel.
+- [x] Hyperlane-Namen als gebogene Schrift direkt auf der Raumzeitfläche darstellen; die schwebenden Namenskarten ersetzen.
+- [x] Weltraumobjekte leichter anklickbar machen und Mehrfachauswahl durch Aufziehen eines Auswahlrahmens (Drag Select) ergänzen.
 - [ ] Rechte Seitenpanels aufräumen: überflüssige Texte entfernen und dauerhaft sichtbare Aktionslisten auf der obersten Ebene durch Untermenüs, Dropdowns oder Modals ersetzen.
 - [ ] Die aktuelle Auswahl deutlicher anzeigen und ausgewählte Schiffe, Planeten und andere Objekte eindeutig hervorheben.
 - [ ] Hotkeys 1–9 für Schiffe und Planeten einführen.
@@ -13,6 +13,28 @@
 ## Geltende Vorgabe
 
 Alte Galaxien dürfen für die Entwicklung gelöscht werden. Abwärtskompatibilität ist keine Anforderung; inkompatible Spielstände werden durch neue Partien ersetzt. Diese Vorgabe ersetzt die Erhaltungszusagen der historischen Umsetzungsberichte.
+
+## Umgesetzt: Spielvorbereitung und laufende Partie trennen
+
+- Vorlagenbibliothek, Designhangar, Vorlagenwahl, Beitrittsformular und Galaxieerstellung sind nur vor dem Einstieg zugänglich. Der Multiplayer-Dialog einer laufenden Partie enthält Raumcode, Einladung, Spielerübersicht und die bestehende KI-Spielerverwaltung.
+- Das Schiffs- und Stationsdesign wird bei der Gründung aus der Vorlage übernommen und im Reich nur noch angezeigt. Der Änderungsbefehl und seine gemeinsame Regelimplementierung sind entfernt; direkt gesendete alte Befehle werden abgewiesen. Regierungsreformen und Speziesmodifikation bleiben reguläre Spielmechaniken.
+- Gespeicherte Sitzungen bleiben auch während des Ladens und Wiederverbindens im Spielmodus. Nach dem Löschen einer Galaxie werden Sitzungszustand und Dialogauswahl auf die Vorbereitung zurückgesetzt.
+- Prüfung am 09.09.2026: 123 Regeltests, sechs native Integrationstests, Frontend- und Backend-Build bestanden. Browserprüfung mit neuer 400-Systeme-Partie: Vorbereitung, Spielstart, Mitspieler-Dialog, Reichsübersicht, Neuladen und Rückkehr nach Galaxielöschung; keine Browserfehler. Nur die eigens angelegte Browser-Testgalaxie B492E5 wurde entfernt. Die drei bestehenden registrierten Galaxien wurden auf das neue Modul aktualisiert.
+
+## Umgesetzt: Hyperlane-Namen auf der Raumzeitfläche
+
+- Zielnamen liegen als gekrümmte Textflächen vor den Portalen. Sie folgen der tatsächlichen Höhe und Verformung der Raumzeit; Perspektive, Zoom und Verdeckung entstehen in der 3D-Szene. Die Leserichtung passt sich mit einer halben Drehung an die Kameraseite an.
+- Linksklick auf die Schrift öffnet das Nachbarsystem, Rechtsklick dessen Kontextmenü. Tastaturfokus zentriert den Textbogen; Enter und Umschalt+F10 bleiben verfügbar. Sichtbare Schrift und Mausauswahl verwenden dieselbe Geometrie.
+- Die alten schwebenden Namenskarten, Richtungspfeile, Randplatzierung und zugehörigen HUD-/CSS-Pfade sind entfernt. Himmelskörper behalten ihre bestehende Beschriftung.
+- Prüfung am 09.09.2026: Produktionsbuild und 123 Regeltests bestanden. Browserprüfung mit neuer 400-Systeme-Galaxie: Gesamtansicht, lange Namen, Kameradrehung, Nahansicht, Klick zum Nachbarsystem, Rechtsklick, Tab-Fokus, Umschalt+F10 und Rückkehr per Enter. Keine Browserfehler; native Spielregeln und Datenmodell unverändert.
+
+## Umgesetzt: Objektauswahl und Gruppenbefehle
+
+- Die Systemansicht verwendet eine gemeinsame Auswahl für Himmelskörper und Flotten. Kleine Objekte haben mindestens 14 Pixel Klickradius; bei Schiffsverbänden zählt jedes dargestellte Schiff zum selben Flottenziel. Linksziehen ersetzt die Auswahl, Umschalt-Ziehen ergänzt sie, Umschalt-Klick fügt ein Objekt hinzu oder entfernt es. Leerer Raum hebt die Auswahl auf.
+- Das Gruppenpanel zeigt die ausgewählten Objekte und erlaubt gezieltes Entfernen und gemeinsame Stopps. Rechtsklick setzt Flugziele für eigene steuerbare Flotten; über Körper- und Hyperlane-Kontextmenüs können Gruppen lokale Ziele beziehungsweise Nachbarsysteme anfliegen. Umschalt hängt Befehle an. Der Server verarbeitet bis zu 128 unterschiedliche Flotten in einer Transaktion und rollt bei ungültigen Befehlen oder fehlender Berechtigung die gesamte Gruppe zurück.
+- Rechtsziehen dreht die Kamera, die Mitteltaste verschiebt sie. Auswahlringe und Flottenmarkierungen folgen allen ausgewählten Objekten; der Kamerafokus umfasst die Gruppe. Auswahlrahmen belegen keinen React-Zustand pro Mausbewegung. Entfernte Objekte und abgereiste Flotten werden aus der Auswahl bereinigt.
+- Prüfung am 09.09.2026: Frontend- und Backend-Build, 127 Regeltests und der native Navigationstest bestanden. Geprüft sind Auswahlübergänge, kleine Klickziele, beide Rahmenrichtungen, Gruppenflug, gemeinsame Stopps, atomare Berechtigungsfehler, Pause und Wiederverbindung.
+- Zusätzlich den rechten Rand des Lagezentrums korrigiert: kein leerer Scrollleistenplatz, der Kopf bleibt über die volle Breite stehen; die Vorgänge scrollen darunter. Gefüllte und leere Übersicht im Browser geprüft.
 
 ## Erledigt
 

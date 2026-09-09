@@ -70,17 +70,23 @@ test('production galaxy: founding, private state and command ownership', { timeo
     assert(gameView(a)!.players.every((p) => p.shipSet === 'vektor'));
     assert(gameView(b)!.players.every((p) => p.shipSet === 'vektor'));
     assert.equal(gameView(a)!.me.empire!.design.shipSet, 'vektor');
-    const appearanceRevision = gameView(a)!.me.empire!.revision;
-    await issue(a, { type: 'empire_ship_set', shipSet: 'aureole', revision: appearanceRevision });
-    await until(
-      () => gameView(b)!.players.find((p) => p.id === 'player-a')?.shipSet === 'aureole',
-      'design change reaches other players',
-    );
-    assert.equal(gameView(b)!.me.empire!.design.shipSet, 'vektor', 'another player keeps their own design');
+    const foundingEmpire = structuredClone(gameView(a)!.me.empire);
     await assert.rejects(
-      issue(a, { type: 'empire_ship_set', shipSet: 'bastion', revision: appearanceRevision }),
-      /zwischenzeitlich/,
+      a.conn.reducers.gameCommand({
+        commandJson: JSON.stringify({
+          type: 'empire_ship_set',
+          shipSet: 'aureole',
+          revision: foundingEmpire!.revision,
+        }),
+      }),
+      /Unbekannter Befehl/,
     );
+    assert.deepEqual(
+      gameView(a)!.me.empire,
+      foundingEmpire,
+      'founding design cannot be changed in a running game',
+    );
+    assert(gameView(b)!.players.every((p) => p.shipSet === 'vektor'));
     assert.equal([...a.conn.db.myGamePlayer.iter()][0].externalId, 'player-a');
     assert.equal([...b.conn.db.myGamePlayer.iter()][0].externalId, 'player-b');
     assert.equal(a.conn.db.fleetShips.count(), 0n);

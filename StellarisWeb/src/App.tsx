@@ -115,6 +115,7 @@ function fleetStatus(f: Fleet, game: GameView) {
 export function App() {
   const net = useGame();
   const game = net.state;
+  const preparing = !net.hasSession;
   const [selected, setSelected] = useState('s0');
   const [selectedColony, setSelectedColony] = useState<string | null>(null);
   const [inventorySelection, setInventorySelection] = useState<InventorySelection | null>(null);
@@ -162,11 +163,13 @@ export function App() {
     if (net.error) setJoining(false);
   }, [net.error]);
   useEffect(() => {
-    if (net.invite) {
-      setRoomCode(net.invite);
-      setModal('multiplayer');
+    if (net.invite) setRoomCode(net.invite);
+    if (preparing) {
+      previousPlayer.current = '';
+      setJoining(false);
+      setModal(net.invite ? 'multiplayer' : 'library');
     }
-  }, [net.invite]);
+  }, [net.invite, preparing]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(''), 4000);
@@ -286,14 +289,16 @@ export function App() {
           >
             <Network size={20} />
           </button>
-          <button
-            className={modal === 'library' ? 'active' : ''}
-            title="Reiche und Spezies"
-            aria-label="Reiche und Spezies"
-            onClick={() => setModal('library')}
-          >
-            <Flag size={21} />
-          </button>
+          {preparing && (
+            <button
+              className={modal === 'library' ? 'active' : ''}
+              title="Reiche und Spezies"
+              aria-label="Reiche und Spezies"
+              onClick={() => setModal('library')}
+            >
+              <Flag size={21} />
+            </button>
+          )}
           <button
             className={!modal ? 'active' : ''}
             title="Galaxiekarte"
@@ -377,13 +382,15 @@ export function App() {
           <button title="Spielanleitung" aria-label="Spielanleitung" onClick={() => setModal('help')}>
             <CircleHelp size={20} />
           </button>
-          <button
-            title="Designhangar"
-            aria-label="Designhangar"
-            onClick={() => window.open('/models', '_blank', 'noopener')}
-          >
-            <Rocket size={20} />
-          </button>
+          {preparing && (
+            <button
+              title="Designhangar"
+              aria-label="Designhangar"
+              onClick={() => window.open('/models', '_blank', 'noopener')}
+            >
+              <Rocket size={20} />
+            </button>
+          )}
           <span className="version">α 0.2</span>
         </div>
       </aside>
@@ -697,24 +704,31 @@ export function App() {
                   <strong>{game.players.find((p) => p.id === game.winner)?.name} gewinnt den Sektor</strong>
                   <span>Acht Welten. Eine neue Zivilisation.</span>
                 </div>
-                <button className="primary-button" onClick={() => setModal('multiplayer')}>
-                  Neue Expedition <ArrowRight size={15} />
-                </button>
               </div>
             )}
           </>
         ) : (
           <div className="connecting-screen">
             <Orbit size={70} strokeWidth={0.7} />
-            <h1>{net.connected ? 'Ein neuer Horizont wartet.' : 'Verbindung zum Sternennetz'}</h1>
-            <p>
-              {net.invite
-                ? 'Tritt dem Sektor bei und gründe dein Imperium.'
+            <h1>
+              {!preparing
+                ? 'Deine Partie wird geladen'
                 : net.connected
-                  ? 'Entwirf dein Reich und beginne eine neue Expedition.'
-                  : 'Die Verbindung wird hergestellt …'}
+                  ? 'Ein neuer Horizont wartet.'
+                  : 'Verbindung zum Sternennetz'}
+            </h1>
+            <p>
+              {!preparing
+                ? 'Die Verbindung zu deinem Reich wird wiederhergestellt …'
+                : net.invite
+                  ? 'Tritt dem Sektor bei und gründe dein Imperium.'
+                  : net.connected
+                    ? 'Entwirf dein Reich und beginne eine neue Expedition.'
+                    : 'Die Verbindung wird hergestellt …'}
             </p>
-            {net.invite ? (
+            {!preparing ? (
+              <LoaderCircle className="spin" size={22} />
+            ) : net.invite ? (
               <button className="primary-button" onClick={() => setModal('multiplayer')}>
                 Sektor beitreten <ArrowRight size={16} />
               </button>
@@ -763,9 +777,9 @@ export function App() {
           }}
         />
       )}
-      {modal && (
+      {modal && (preparing || !!game) && (modal !== 'library' || preparing) && (
         <Dialog onClose={() => setModal(null)}>
-          {modal === 'library' && (
+          {modal === 'library' && preparing && (
             <EmpireLibrary
               library={net.library}
               connected={net.connected}
@@ -820,13 +834,16 @@ export function App() {
           {modal === 'multiplayer' && (
             <>
               <ModalTitle
-                eyebrow="GEMEINSAM INS UNBEKANNTE"
-                title="Dein Sektor. Eure Geschichte."
+                eyebrow={game ? `SEKTOR ${game.code}` : 'GEMEINSAM INS UNBEKANNTE'}
+                title={game ? 'Mitspieler & Einladung' : 'Dein Sektor. Eure Geschichte.'}
                 icon={<Users size={24} />}
               />
-              <p className="modal-intro">
-                Bis zu 25 Imperien. Wähle die Gestalt deiner Galaxie oder tritt einem bestehenden Sektor bei.
-              </p>
+              {preparing && (
+                <p className="modal-intro">
+                  Bis zu 25 Imperien. Wähle die Gestalt deiner Galaxie oder tritt einem bestehenden Sektor
+                  bei.
+                </p>
+              )}
               {game && (
                 <div className="room-display">
                   <div>
@@ -888,80 +905,80 @@ export function App() {
                   </p>
                 </div>
               )}
-              <div className="form-divider" />
-              <label className="archive-field" htmlFor="empire-template">
-                <span>REICHSVORLAGE FÜR DEINE EXPEDITION</span>
-                <select
-                  id="empire-template"
-                  value={selectedTemplate?.id || ''}
-                  onChange={(e) => setTemplateId(e.target.value)}
-                >
-                  {!net.library?.empires.length && (
-                    <option value="">Zuerst eine Reichsvorlage erstellen</option>
-                  )}
-                  {net.library?.empires.map((empire) => (
-                    <option key={empire.id} value={empire.id}>
-                      {empire.name} · Revision {empire.revision}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="button" className="secondary-button" onClick={() => setModal('library')}>
-                <Flag size={14} />
-                Reiche und Spezies bearbeiten
-              </button>
-              <p className="fine-print">
-                Deine Vorlage wird beim Beitritt kopiert. Regierung, Bevölkerung und Spezies entwickeln sich
-                anschließend in dieser Partie weiter.
-              </p>
-              <label className="field-label" htmlFor="room-code">
-                EINEM SEKTOR BEITRETEN
-              </label>
-              <form
-                className="join-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setJoining(true);
-                  if (selectedTemplate) net.join(selectedTemplate.id, roomCode);
-                }}
-              >
-                <input
-                  id="room-code"
-                  maxLength={6}
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  placeholder="6-stelliger Raumcode"
-                  pattern="[A-Fa-f0-9]{6}"
-                  required
-                />
-                <button
-                  className="primary-button"
-                  disabled={
-                    !net.connected ||
-                    joining ||
-                    roomCode.length !== 6 ||
-                    roomCode === game?.code ||
-                    !selectedTemplate
-                  }
-                >
-                  {joining ? <LoaderCircle className="spin" size={14} /> : <ArrowRight size={14} />}Beitreten
-                </button>
-              </form>
-              <GalaxySetup value={galaxySettings} onChange={setGalaxySettings} disabled={joining} />
-              <button
-                className="new-sector-button"
-                disabled={!net.connected || joining || !selectedTemplate}
-                onClick={() => {
-                  setJoining(true);
-                  if (selectedTemplate) net.create(selectedTemplate.id, galaxySettings);
-                }}
-              >
-                <Plus size={15} /> Neuen Sektor erstellen
-              </button>
-              <p className="fine-print">
-                Der Host steuert Pause und Tempo. Leere Sektoren pausieren automatisch. Über die Serveradresse
-                können weitere Geräte beitreten.
-              </p>
+              {preparing && (
+                <>
+                  <div className="form-divider" />
+                  <label className="archive-field" htmlFor="empire-template">
+                    <span>REICHSVORLAGE FÜR DEINE EXPEDITION</span>
+                    <select
+                      id="empire-template"
+                      value={selectedTemplate?.id || ''}
+                      onChange={(e) => setTemplateId(e.target.value)}
+                    >
+                      {!net.library?.empires.length && (
+                        <option value="">Zuerst eine Reichsvorlage erstellen</option>
+                      )}
+                      {net.library?.empires.map((empire) => (
+                        <option key={empire.id} value={empire.id}>
+                          {empire.name} · Revision {empire.revision}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button type="button" className="secondary-button" onClick={() => setModal('library')}>
+                    <Flag size={14} />
+                    Reiche und Spezies bearbeiten
+                  </button>
+                  <p className="fine-print">
+                    Deine Vorlage wird beim Beitritt kopiert. Regierung, Bevölkerung und Spezies entwickeln
+                    sich anschließend in dieser Partie weiter.
+                  </p>
+                  <label className="field-label" htmlFor="room-code">
+                    EINEM SEKTOR BEITRETEN
+                  </label>
+                  <form
+                    className="join-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!selectedTemplate || joining || !net.connected) return;
+                      setJoining(true);
+                      net.join(selectedTemplate.id, roomCode);
+                    }}
+                  >
+                    <input
+                      id="room-code"
+                      maxLength={6}
+                      value={roomCode}
+                      onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                      placeholder="6-stelliger Raumcode"
+                      pattern="[A-Fa-f0-9]{6}"
+                      required
+                    />
+                    <button
+                      className="primary-button"
+                      disabled={!net.connected || joining || roomCode.length !== 6 || !selectedTemplate}
+                    >
+                      {joining ? <LoaderCircle className="spin" size={14} /> : <ArrowRight size={14} />}
+                      Beitreten
+                    </button>
+                  </form>
+                  <GalaxySetup value={galaxySettings} onChange={setGalaxySettings} disabled={joining} />
+                  <button
+                    className="new-sector-button"
+                    disabled={!net.connected || joining || !selectedTemplate}
+                    onClick={() => {
+                      setJoining(true);
+                      if (selectedTemplate) net.create(selectedTemplate.id, galaxySettings);
+                    }}
+                  >
+                    <Plus size={15} /> Neuen Sektor erstellen
+                  </button>
+                  <p className="fine-print">
+                    Der Host steuert Pause und Tempo. Leere Sektoren pausieren automatisch. Über die
+                    Serveradresse können weitere Geräte beitreten.
+                  </p>
+                </>
+              )}
             </>
           )}
           {modal === 'research' && game && (
